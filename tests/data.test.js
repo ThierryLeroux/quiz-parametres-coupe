@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { TOOL_MATERIAL_KEYS, parseThread } from '../site/js/data.js';
+import { TOOL_MATERIAL_KEYS, parseThread, validateData } from '../site/js/data.js';
 
 const lire = async (nom) => JSON.parse(await readFile(new URL(`../site/data/${nom}`, import.meta.url), 'utf8'));
 
@@ -89,4 +89,112 @@ test('filetages impériaux à numéro : le libellé « #6-32 UNC » correspond �
 
 test('filetages : chaque libellé est couvert par un des trois tests de cohérence', async () => {
   for (const d of await dimensionsFiletage()) assert.match(d.libelle, /^(M|#|\d)/, `${d.outil} : ${d.libelle}`);
+});
+
+// ---------------------------------------------------------------------------
+// validateData
+// ---------------------------------------------------------------------------
+
+// Jeu de données minimal et valide : 2 groupes, 3 opérations (proportionnelle,
+// fixe, filetage) et 2 outils. Chaque appel retourne une copie neuve, à abîmer.
+const donneesValides = () => ({
+  materiaux: {
+    groupes_iso: ['P - Acier non allié', 'N - Aluminium de corroyage'],
+    materiaux: [
+      { iso: 'P', groupe: 1, materiau: 'Acier non allié', vc_pi_min: { acier_rapide: 100, carbure_solide: 200, insert_carbure: 400 } },
+      { iso: 'N', groupe: 2, materiau: 'Aluminium de corroyage', vc_pi_min: { acier_rapide: 300, carbure_solide: 600, insert_carbure: 1200 } },
+    ],
+  },
+  operations: {
+    operations: [
+      { operation: 'Perçage', avance_po_rev: 0.006, avance_max_po_rev: 0.01, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: true },
+      { operation: 'Chariotage', avance_po_rev: 0.01, avance_max_po_rev: 0.01, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false },
+      { operation: 'Taraudage', avance_po_rev: null, avance_max_po_rev: null, avance_egale_pas_filetage: true, avance_proportionnelle_diametre: false },
+    ],
+  },
+  outils: {
+    outils: [
+      {
+        id: 'foret', nom: 'Foret', reussites_requises: 1, format_identifiant: 'Foret [IdDia]', operation: 'Perçage',
+        fact_vc: 1, fact_av: 1, limite_rpm: 10000, limite_avance: 0.01, nb_dents_min: 2, nb_dents_max: 2,
+        materiaux_outil: ['Acier rapide'], groupes_materiaux_usinables: ['P - Acier non allié'],
+        dimensions: [{ libelle: 'Ø 1/4 po', valeur: 0.25 }],
+      },
+      {
+        id: 'taraud', nom: 'Taraud', reussites_requises: 0, format_identifiant: 'Taraud [IdDia]', operation: 'Taraudage',
+        fact_vc: 1, fact_av: 1, limite_rpm: 1000, limite_avance: null, nb_dents_min: 1, nb_dents_max: 1,
+        materiaux_outil: ['Acier rapide', 'Carbure de tungstène solide'], groupes_materiaux_usinables: ['N - Aluminium de corroyage'],
+        dimensions: [{ libelle: '1/4 - 20 UNC', valeur: '0.25-20' }, { libelle: 'M6 x 1', valeur: '6x1' }],
+      },
+    ],
+  },
+});
+
+test('validateData : les vraies données sont valides', async () => {
+  const erreurs = validateData({
+    materiaux: await lire('materiaux.json'),
+    operations: await lire('operations.json'),
+    outils: await lire('outils.json'),
+  });
+  assert.deepEqual(erreurs, []);
+});
+
+test('validateData : le jeu minimal est valide', () => {
+  assert.deepEqual(validateData(donneesValides()), []);
+});
+
+// Une anomalie à la fois → exactement une erreur, qui nomme l'élément fautif.
+const anomalies = [
+  ['Vc nulle', (d) => { d.materiaux.materiaux[0].vc_pi_min.carbure_solide = null; }, /materiaux\[0\] \(groupe 1\).*vc_pi_min\.carbure_solide/],
+  ['Vc négative', (d) => { d.materiaux.materiaux[1].vc_pi_min.acier_rapide = -5; }, /materiaux\[1\].*vc_pi_min\.acier_rapide/],
+  ['classe ISO inconnue', (d) => {
+    d.materiaux.materiaux[0].iso = 'Z';
+    d.materiaux.groupes_iso[0] = 'Z - Acier non allié';
+    d.outils.outils[0].groupes_materiaux_usinables = ['Z - Acier non allié'];
+  }, /classe « iso » inconnue : « Z »/],
+  ['matériau hors des groupes ISO', (d) => {
+    d.materiaux.materiaux.push({ iso: 'K', groupe: 3, materiau: 'Fonte grise', vc_pi_min: { acier_rapide: 1, carbure_solide: 1, insert_carbure: 1 } });
+  }, /« K - Fonte grise » est absent de « groupes_iso »/],
+  ['groupe ISO sans matériau', (d) => { d.materiaux.groupes_iso.push('H - Acier durci'); }, /le groupe « H - Acier durci » ne contient aucun matériau/],
+  ['numéro de groupe en double', (d) => { d.materiaux.materiaux[1].groupe = 1; }, /groupe en double : « 1 »/],
+  ['opération en double', (d) => { d.operations.operations.push({ ...d.operations.operations[1] }); }, /opération en double : « Chariotage »/],
+  ['filetage avec une avance', (d) => { d.operations.operations[2].avance_po_rev = 0.01; }, /« Taraudage ».*doit être null/],
+  ['filetage proportionnel au Ø', (d) => { d.operations.operations[2].avance_proportionnelle_diametre = true; }, /« Taraudage ».*à la fois filetage et proportionnelle/],
+  ['avance absente', (d) => { d.operations.operations[1].avance_po_rev = null; }, /« Chariotage ».*avance_po_rev/],
+  ['avance max plus petite que l’avance', (d) => { d.operations.operations[0].avance_max_po_rev = 0.001; }, /« Perçage ».*avance_max_po_rev/],
+  ['drapeau non booléen', (d) => { d.operations.operations[1].avance_proportionnelle_diametre = 'non'; }, /« Chariotage ».*true ou false/],
+  ['opération inconnue', (d) => { d.outils.outils[0].operation = 'Brochage'; }, /« Foret ».*opération inconnue : « Brochage »/],
+  ['id d’outil en double', (d) => { d.outils.outils[1].id = 'foret'; }, /id en double : « foret »/],
+  ['limite RPM nulle', (d) => { d.outils.outils[0].limite_rpm = 0; }, /« Foret ».*limite_rpm/],
+  ['limite d’avance négative', (d) => { d.outils.outils[0].limite_avance = -1; }, /« Foret ».*limite_avance/],
+  ['nombre de dents inversé', (d) => { d.outils.outils[0].nb_dents_max = 1; }, /« Foret ».*nb_dents_max/],
+  ['nombre de dents non entier', (d) => { d.outils.outils[0].nb_dents_min = 1.5; }, /« Foret ».*entiers ≥ 1/],
+  ['réussites requises négatives', (d) => { d.outils.outils[0].reussites_requises = -1; }, /« Foret ».*reussites_requises/],
+  ['matériau d’outil inconnu', (d) => { d.outils.outils[0].materiaux_outil = ['Céramique']; }, /« Foret ».*matériau d'outil inconnu : « Céramique »/],
+  ['aucun matériau d’outil', (d) => { d.outils.outils[0].materiaux_outil = []; }, /« Foret ».*materiaux_outil/],
+  ['groupe usinable inconnu', (d) => { d.outils.outils[0].groupes_materiaux_usinables = ['P - Acier inconnu']; }, /« Foret ».*groupe de matériaux inconnu/],
+  ['aucune dimension', (d) => { d.outils.outils[0].dimensions = []; }, /« Foret ».*dimensions/],
+  ['dimension sans libellé', (d) => { d.outils.outils[0].dimensions[0].libelle = ''; }, /« Foret ».*dimensions\[0\]/],
+  ['Ø en texte hors filetage', (d) => { d.outils.outils[0].dimensions[0].valeur = '0.25'; }, /« Foret ».*« Ø 1\/4 po ».*Ø en pouces/],
+  ['filetage illisible', (d) => { d.outils.outils[1].dimensions[1].valeur = '6 x 1'; }, /« Taraud ».*« M6 x 1 ».*filetage illisible : « 6 x 1 »/],
+  ['liste d’outils absente', (d) => { delete d.outils.outils; }, /outils\.json : la liste « outils » est absente ou vide/],
+];
+
+for (const [nom, abimer, attendu] of anomalies) {
+  test(`validateData : ${nom}`, () => {
+    const donnees = donneesValides();
+    abimer(donnees);
+    const erreurs = validateData(donnees);
+    assert.equal(erreurs.length, 1, `une seule erreur attendue, reçu :\n${erreurs.join('\n')}`);
+    assert.match(erreurs[0], attendu);
+  });
+}
+
+test('validateData : rapporte toutes les erreurs d’un coup, sans lever d’exception', () => {
+  const donnees = donneesValides();
+  donnees.materiaux.materiaux[0].vc_pi_min = null;
+  donnees.outils.outils[0].operation = 'Brochage';
+  donnees.outils.outils[1] = null;
+  assert.equal(validateData(donnees).length, 5); // 3 Vc + opération inconnue + outil qui n'est pas un objet
+  assert.ok(validateData({}).length >= 4); // fichiers vides : une erreur par liste manquante
 });
