@@ -50,7 +50,7 @@ Les images d'outils (29, EMF/PNG dans le classeur) restent à exporter — champ
 
 ## 4. Génération d'une question
 
-1. **Outil** : tirage uniforme parmi les outils *encore à évaluer* de l'exercice (voir §7 et §10). Les restrictions de dimensions et de groupes de l'exercice s'appliquent aux tirages 3 et 5.
+1. **Outil** : tirage uniforme parmi les outils *encore à évaluer* de l'exercice (voir §7 et §10). Les restrictions de l'exercice (dimensions, matériaux d'outil, groupes) s'appliquent aux tirages 3, 4 et 5.
 2. **Nombre de dents** : entier uniforme dans `[nb_dents_min, nb_dents_max]`.
 3. **Dimension** : tirage uniforme dans `dimensions[]` de l'outil.
    - Outil de filetage : libellé du type `Ø-filets/po` (impérial : `0.25-20` → Ø 0,25 po, pas = 1/20 po) ou `ØxPas` mm (métrique : `10x1.5` → Ø 10/25,4 po, pas = 1,5/25,4 po).
@@ -242,6 +242,7 @@ dans le catalogue ce qui est évalué. Un exercice = un fichier
     { "id": "mvlnr", "reussites_requises": 3 },
     { "id": "foret_fractionnaire", "reussites_requises": 2,
       "dimensions": ["Ø 1/4 po", "Ø 1/2 po"],
+      "materiaux_outil": ["Acier rapide"],
       "groupes": ["P - Acier non allié", "N - Aluminium de corroyage"] }
   ]
 }
@@ -258,6 +259,7 @@ dans le catalogue ce qui est évalué. Un exercice = un fichier
 | `outils[].id` | oui | `id` d'un outil du catalogue |
 | `outils[].reussites_requises` | oui | entier ≥ 1 (réussites consécutives, §7) |
 | `outils[].dimensions` | non | restreint le tirage à ces **libellés** de dimension ; chacun doit exister sur l'outil |
+| `outils[].materiaux_outil` | non | restreint le tirage du matériau d'outil (ex. « Acier rapide » seulement) ; chacun doit figurer dans les `materiaux_outil` de l'outil |
 | `outils[].groupes` | non | restreint le tirage du matériau brut à ces groupes ; chacun doit être usinable par l'outil |
 
 Précisions :
@@ -269,7 +271,9 @@ Précisions :
   `vc` → `vc`, `fz` → `feedPerTooth`, `n` → `rpm`, `f` → `feedPerRev`,
   `vf` → `feedRate`.
 - **Restrictions absentes = aucune restriction** : toutes les dimensions, tous
-  les groupes usinables de l'outil. Une liste de restriction vide est une erreur.
+  les matériaux d'outil, tous les groupes usinables de l'outil. Une liste de
+  restriction vide, ou avec un doublon, est une erreur. C'est par `dimensions`
+  qu'un exercice écarte les micro-forets (D14).
 - **Clé inconnue = erreur.** Une faute de frappe (« dimension » pour
   « dimensions ») lèverait sinon une restriction en silence. Seules les clés
   commençant par `_` (commentaires, comme `_source`) sont ignorées.

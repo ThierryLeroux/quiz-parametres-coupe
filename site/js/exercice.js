@@ -17,7 +17,7 @@ export const GRADED_FIELD_KEYS = {
 
 const EXERCISE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/; // minuscules, chiffres et tirets : c'est aussi le nom du fichier
 const EXERCISE_KEYS = ['id', 'titre', 'version', 'multiplicateur_moodle', 'champs_evalues', 'outils'];
-const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'groupes'];
+const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes'];
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
@@ -30,7 +30,7 @@ function checkKeys(object, allowed, where, errors) {
   }
 }
 
-// Vérifie une liste de restriction facultative (dimensions ou groupes) : si elle est
+// Vérifie une liste de restriction facultative (dimensions, materiaux_outil ou groupes) : si elle est
 // présente, elle doit être non vide, sans doublon, et ne nommer que des choix offerts par l'outil.
 function checkRestriction(list, key, available, where, errors) {
   if (list === undefined) return;
@@ -86,6 +86,7 @@ export function validateExercise(exercise, data) {
     const tool = data.outils.find((o) => o.id === entry.id);
     if (!tool) return errors.push(`${whereTool} : cet outil n'existe pas dans le catalogue (outils.json)`);
     checkRestriction(entry.dimensions, 'dimensions', tool.dimensions.map((d) => d.libelle), whereTool, errors);
+    checkRestriction(entry.materiaux_outil, 'materiaux_outil', tool.materiaux_outil, whereTool, errors);
     checkRestriction(entry.groupes, 'groupes', tool.groupes_materiaux_usinables, whereTool, errors);
   });
 

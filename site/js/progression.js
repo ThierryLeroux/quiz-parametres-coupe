@@ -30,9 +30,9 @@ export function recordResult(progress, toolId, success) {
 }
 
 // Outils encore à évaluer, prêts pour generateQuestion (question.js) : ceux de l'exercice
-// dont le compteur est sous reussites_requises. Si l'exercice restreint les dimensions ou
-// les groupes de matériaux d'un outil, l'outil retourné est une COPIE qui ne contient que
-// les choix permis ; le catalogue n'est pas modifié.
+// dont le compteur est sous reussites_requises. Si l'exercice restreint les dimensions, les
+// matériaux d'outil ou les groupes de matériaux d'un outil, l'outil retourné est une COPIE
+// qui ne contient que les choix permis ; le catalogue n'est pas modifié.
 export function eligibleTools(exercise, data, progress) {
   checkSameExercise(exercise, progress);
   return exercise.outils
@@ -40,12 +40,15 @@ export function eligibleTools(exercise, data, progress) {
     .map((entry) => {
       const tool = data.outils.find((o) => o.id === entry.id);
       if (!tool) throw new Error(`Exercice « ${exercise.id} » : l'outil « ${entry.id} » n'existe pas dans le catalogue`);
+      // Une restriction absente laisse tous les choix de l'outil.
+      const restrict = (choices, allowed, labelOf = (choice) => choice) => (
+        allowed ? choices.filter((choice) => allowed.includes(labelOf(choice))) : choices
+      );
       return {
         ...tool,
-        dimensions: entry.dimensions ? tool.dimensions.filter((d) => entry.dimensions.includes(d.libelle)) : tool.dimensions,
-        groupes_materiaux_usinables: entry.groupes
-          ? tool.groupes_materiaux_usinables.filter((group) => entry.groupes.includes(group))
-          : tool.groupes_materiaux_usinables,
+        dimensions: restrict(tool.dimensions, entry.dimensions, (d) => d.libelle),
+        materiaux_outil: restrict(tool.materiaux_outil, entry.materiaux_outil),
+        groupes_materiaux_usinables: restrict(tool.groupes_materiaux_usinables, entry.groupes),
       };
     });
 }

@@ -11,7 +11,7 @@ const lireFichier = async (url) => JSON.parse(await readFile(new URL(`../site/${
 const data = await loadData('data/', lireFichier);
 const m10 = await loadExercise('m10-tournage-vc', data, 'exercices/', lireFichier);
 
-// Petit exercice avec restrictions de dimensions et de groupes.
+// Petit exercice avec restrictions de dimensions, de matériaux d'outil et de groupes.
 const EXERCICE = {
   id: 'essai',
   titre: 'Essai',
@@ -21,7 +21,7 @@ const EXERCICE = {
   outils: [
     { id: 'mvlnr', reussites_requises: 3 },
     { id: 'mclnr', reussites_requises: 1 },
-    { id: 'foret_fractionnaire', reussites_requises: 2, dimensions: ['Ø 1/4 po', 'Ø 1/2 po'], groupes: ['P - Acier non allié', 'N - Aluminium de corroyage'] },
+    { id: 'foret_fractionnaire', reussites_requises: 2, dimensions: ['Ø 1/4 po', 'Ø 1/2 po'], materiaux_outil: ['Acier rapide'], groupes: ['P - Acier non allié', 'N - Aluminium de corroyage'] },
   ],
 };
 assert.deepEqual(validateExercise(EXERCICE, data), []);
@@ -104,13 +104,15 @@ test('eligibleTools : un outil qui a atteint ses réussites requises ne sort plu
   assert.deepEqual(ids(eligibleTools(EXERCICE, data, etat)), ['foret_fractionnaire']);
 });
 
-test('eligibleTools : applique les restrictions de dimensions et de groupes, sans toucher au catalogue', () => {
+test('eligibleTools : applique les restrictions de dimensions, de matériaux d’outil et de groupes, sans toucher au catalogue', () => {
   const catalogue = data.outils.find((o) => o.id === 'foret_fractionnaire');
   const nbDimensions = catalogue.dimensions.length;
   const nbGroupes = catalogue.groupes_materiaux_usinables.length;
+  assert.deepEqual(catalogue.materiaux_outil, ['Acier rapide', 'Carbure de tungstène solide']);
 
   const [mvlnr, , foret] = eligibleTools(EXERCICE, data, createProgress(EXERCICE));
   assert.deepEqual(foret.dimensions, [{ libelle: 'Ø 1/4 po', valeur: 0.25 }, { libelle: 'Ø 1/2 po', valeur: 0.5 }]);
+  assert.deepEqual(foret.materiaux_outil, ['Acier rapide']);
   assert.deepEqual(foret.groupes_materiaux_usinables, ['P - Acier non allié', 'N - Aluminium de corroyage']);
   assert.equal(foret.limite_rpm, catalogue.limite_rpm); // le reste de l'outil est intact
 
@@ -120,20 +122,24 @@ test('eligibleTools : applique les restrictions de dimensions et de groupes, san
   // Le catalogue n'a pas bougé.
   assert.equal(catalogue.dimensions.length, nbDimensions);
   assert.equal(catalogue.groupes_materiaux_usinables.length, nbGroupes);
+  assert.equal(catalogue.materiaux_outil.length, 2);
 });
 
-test('restrictions : les questions générées ne sortent que les dimensions et les groupes permis', () => {
+test('restrictions : les questions générées ne sortent que les dimensions, matériaux d’outil et groupes permis', () => {
   const random = aleaAGraine(5);
   const admissibles = eligibleTools(EXERCICE, data, createProgress(EXERCICE));
   const dimensions = new Set();
   const groupes = new Set();
+  const materiauxOutil = new Set();
   for (let i = 0; i < 3000; i += 1) {
     const q = generateQuestion(data, admissibles, random);
     if (q.tool.id !== 'foret_fractionnaire') continue;
     dimensions.add(q.dimension.label);
+    materiauxOutil.add(q.toolMaterial.label);
     groupes.add(`${q.material.iso} - ${q.material.materiau}`);
   }
   assert.deepEqual([...dimensions].sort(), ['Ø 1/2 po', 'Ø 1/4 po']);
+  assert.deepEqual([...materiauxOutil], ['Acier rapide']);
   assert.deepEqual([...groupes].sort(), ['N - Aluminium de corroyage', 'P - Acier non allié']);
 });
 
