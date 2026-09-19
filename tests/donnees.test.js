@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const lire = async (nom) => JSON.parse(await readFile(new URL(`../data/${nom}`, import.meta.url), 'utf8'));
+const lire = async (nom) => JSON.parse(await readFile(new URL(`../site/data/${nom}`, import.meta.url), 'utf8'));
 
 test('materiaux.json : 47 matériaux, groupes 1..47, Vc positives', async () => {
   const { materiaux } = await lire('materiaux.json');

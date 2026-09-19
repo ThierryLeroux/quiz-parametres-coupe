@@ -20,7 +20,7 @@ la lisibilité priment sur l'élégance technique.**
 - `docs/SPEC.md` — comportement attendu (formules, tolérances, rapport). **Source de vérité fonctionnelle.** Les ❓ sont des questions ouvertes : ne pas les trancher seul, les remonter.
 - `docs/DECISIONS.md` — décisions prises et ouvertes. Ne jamais contredire une décision fermée sans en ajouter une nouvelle.
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
-- `data/*.json` — données de référence (matériaux, opérations, outils). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
+- `site/data/*.json` — données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
 
 ## Pile et structure (décision D3)
@@ -34,8 +34,7 @@ la lisibilité priment sur l'élégance technique.**
 
 ```
 site/            page publiée (index.html, css/, js/, vendor/, exercices/)
-site/data/       → lien ou copie de data/ (à trancher au jalon 1)
-data/            JSON de référence
+site/data/       JSON de référence, unique exemplaire (décision D8)
 tests/           tests unitaires du moteur (node --test)
 docs/            SPEC, DECISIONS, PLAN
 legacy/          classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
@@ -56,7 +55,7 @@ legacy/          classeur .xlsm, VBA exporté, index.htm actuel — lecture seul
 2. **Moteur d'abord, interface ensuite.** Toute fonction de calcul ou de correction a un test avant d'être branchée à l'interface.
 3. **Aléa injectable** : les fonctions de tirage reçoivent une source aléatoire en paramètre pour être testables.
 4. **Petits commits** en français, un sujet par commit (`Ajoute le calcul de N avec plafond RPM`).
-5. **Ne pas modifier `data/*.json`** pour faire passer un test : si une donnée semble fausse, le signaler à Thierry (c'est lui qui connaît le métier).
+5. **Ne pas modifier `site/data/*.json`** pour faire passer un test : si une donnée semble fausse, le signaler à Thierry (c'est lui qui connaît le métier).
 6. Quand la SPEC est ambiguë : proposer une interprétation, l'écrire en commentaire `// ❓` et le signaler en fin de session — ne pas décider en silence.
 7. Vérifier que `node --test` passe et que `site/index.html` s'ouvre sans erreur console avant de conclure une tâche.
 

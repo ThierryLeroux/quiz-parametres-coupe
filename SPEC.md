@@ -22,7 +22,10 @@ révolution, vitesse d'avance). La configuration d'un exercice (quels outils,
 combien de réussites, quels champs pré-remplis) doit permettre de reproduire le
 M10 actuel (« Vc seulement, tournage ») comme simple cas particulier.
 
-## 3. Données de référence (`data/`)
+## 3. Données de référence (`site/data/`)
+
+Les JSON vivent dans `site/data/`, en un seul exemplaire publié avec le site
+(décision D8) ; les tests les lisent au même endroit.
 
 | Fichier | Contenu | Source Excel |
 |---|---|---|

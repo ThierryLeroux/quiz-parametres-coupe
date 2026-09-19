@@ -15,8 +15,8 @@ HTML/JS hébergé sur GitHub Pages. **État : squelette — jalon 0** (voir
 ```
 CLAUDE.md        contexte et conventions pour Claude Code (lu à chaque session)
 docs/            SPEC.md (comportement), DECISIONS.md (journal), PLAN.md (jalons), DEMARRAGE.md (installation)
-data/            données de référence en JSON : matériaux, opérations, outils
 site/            le site publié (à construire)
+site/data/       données de référence en JSON : matériaux, opérations, outils
 tests/           tests unitaires — `npm test`
 legacy/          classeur d'origine, VBA exporté, page de vérification actuelle
 ```
@@ -35,7 +35,7 @@ Publier = pousser sur la branche principale ; GitHub Pages sert `site/`.
 ## Données
 
 Les tables de vitesses de coupe (ISO 513 / VDI 3323), d'avances et d'outils
-sont dans `data/*.json`. Modifier une valeur pédagogique = éditer le JSON,
+sont dans `site/data/*.json`. Modifier une valeur pédagogique = éditer le JSON,
 lancer `npm test`, commettre. Unités impériales.
 
 ## Licence

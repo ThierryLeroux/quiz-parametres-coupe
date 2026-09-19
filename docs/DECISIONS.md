@@ -80,3 +80,18 @@ décider : nouveau code dans `tgm-fab` (sous-dossier, une seule URL Pages) ou
 dépôt dédié. Recommandation : dépôt dédié pour isoler l'historique et les tests,
 en gardant `tgm-fab` pour la page de vérification si l'URL du QR doit rester
 stable.
+
+## D8 — Les JSON vivent dans `site/data/`, en un seul exemplaire (2026-09-19, décidée)
+
+**Contexte.** `site/` est publié tel quel par GitHub Pages (D3) et le navigateur
+doit pouvoir lire les JSON de référence (D5) avec `fetch`. Ils étaient dans
+`data/`, hors du dossier publié. Un lien symbolique est fragile sous Windows et
+sur GitHub Pages ; une copie crée deux exemplaires à synchroniser, donc une
+étape de plus à ne pas oublier.
+
+**Décision.** Déplacer `data/` vers `site/data/`, unique exemplaire. Précise
+l'emplacement donné par D5, qui reste valide pour tout le reste.
+
+**Conséquences.** Les tests lisent `site/data/`. Une modification pédagogique =
+éditer `site/data/*.json` + `npm test` + commit, sans aucune synchronisation.
+Les JSON sont publics, comme tout ce que contient `site/`.
