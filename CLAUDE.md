@@ -20,7 +20,8 @@ la lisibilité priment sur l'élégance technique.**
 - `docs/SPEC.md` — comportement attendu (formules, tolérances, rapport). **Source de vérité fonctionnelle.** Les ❓ sont des questions ouvertes : ne pas les trancher seul, les remonter.
 - `docs/DECISIONS.md` — décisions prises et ouvertes. Ne jamais contredire une décision fermée sans en ajouter une nouvelle.
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
-- `site/data/*.json` — données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
+- `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
+- `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
 
 ## Pile et structure (décision D3)
@@ -33,11 +34,14 @@ la lisibilité priment sur l'élégance technique.**
   décision dans `DECISIONS.md`.
 
 ```
-site/            page publiée (index.html, css/, js/, vendor/, exercices/)
-site/data/       JSON de référence, unique exemplaire (décision D8)
-tests/           tests unitaires du moteur (node --test)
-docs/            SPEC, DECISIONS, PLAN
-legacy/          classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
+site/              page publiée (index.html, css/, js/, vendor/)
+site/data/         catalogue : JSON de référence, unique exemplaire (décisions D8, D11)
+site/exercices/    un JSON par exercice configurable (décision D11, SPEC §10)
+site/img/outils/   images des outils (jalon 5)
+site/editeur/      éditeur web statique du catalogue et des exercices (jalon 4)
+tests/             tests unitaires du moteur (node --test)
+docs/              SPEC, DECISIONS, PLAN
+legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
 ```
 
 ## Conventions (décision D4)

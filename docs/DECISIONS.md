@@ -120,3 +120,46 @@ les habitudes de l'atelier utilisent le point.
 libellés. La saisie accepte le point et la virgule.
 
 **Conséquences.** `format.js` écrit des points ; `correction.js` lit les deux.
+
+## D11 — Un catalogue et des exercices configurables, avec un éditeur web en v1 (2026-09-19, décidée)
+
+**Contexte.** Le classeur mélangeait deux choses : les données du métier
+(outils, matériaux, avances) et la configuration d'un exercice précis (le M10 :
+quels outils, combien de réussites, quels champs à saisir). `reussites_requises`
+vivait ainsi dans la liste d'outils alors que c'est un réglage du M10. D2
+demandait déjà que le M10 soit « un cas particulier ».
+
+**Décision.** Le produit est fait de deux couches :
+
+- un **catalogue** — `site/data/outils.json`, `materiaux.json`,
+  `operations.json` — qui décrit le métier et ne sait rien des exercices ;
+- des **exercices** configurables — `site/exercices/<id>.json` — qui
+  choisissent des outils du catalogue, fixent les réussites requises, les
+  champs évalués et, au besoin, restreignent dimensions et groupes de
+  matériaux (schéma : `SPEC.md` §10).
+
+Un **éditeur web statique** du catalogue et des exercices (`site/editeur/`)
+fait partie de la v1. Il ne publie rien lui-même : il produit des JSON à
+télécharger, que l'enseignant dépose dans le dépôt et commet (D1, D3 : pas de
+serveur). Les JSON restent éditables à la main.
+
+**Conséquences.** `reussites_requises` sort d'`outils.json` ; le M10 devient
+`site/exercices/m10-tournage-vc.json`. Le moteur reçoit la liste des outils
+admissibles (déjà le cas de `generateQuestion`). La validation des exercices
+(`exercice.js`) sert à la fois aux tests, au quiz et à l'éditeur. Complète D2
+et D5 sans les contredire.
+
+## D12 — Réussites consécutives : un échec remet l'outil à zéro (2026-09-19, décidée)
+
+**Contexte.** Le VBA parlait de réussites « consécutives » et comptait les
+questions réussies inscrites au rapport ; à chaque échec, `retraitQR` effaçait
+du rapport les réussites de l'outil, ce qui revenait à remettre son compteur à
+zéro. Le cumul affiché (cellule H9), lui, ne diminuait jamais. La SPEC §7
+laissait la question ouverte.
+
+**Décision.** Les réussites exigées sont **consécutives** : une question
+échouée remet à zéro le compteur de l'outil concerné, et seulement celui-là.
+Le total des questions réussies inscrit au rapport ne diminue jamais.
+
+**Conséquences.** L'état de progression (`progression.js`) tient un compteur
+par outil et un total cumulé. Ferme la question ouverte n° 2 de `SPEC.md` §11.

@@ -16,7 +16,8 @@ HTML/JS hébergé sur GitHub Pages. **État : squelette — jalon 0** (voir
 CLAUDE.md        contexte et conventions pour Claude Code (lu à chaque session)
 docs/            SPEC.md (comportement), DECISIONS.md (journal), PLAN.md (jalons), DEMARRAGE.md (installation)
 site/            le site publié (à construire)
-site/data/       données de référence en JSON : matériaux, opérations, outils
+site/data/       catalogue en JSON : matériaux, opérations, outils
+site/exercices/  un JSON par exercice configurable (outils évalués, réussites, champs)
 tests/           tests unitaires — `npm test`
 legacy/          classeur d'origine, VBA exporté, page de vérification actuelle
 ```

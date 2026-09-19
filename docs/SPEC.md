@@ -20,7 +20,11 @@ Tournage, fraisage et perçage complets : les 29 outils et 19 opérations du
 classeur, et les 5 paramètres demandés (Vc, avance par dent, N, avance par
 révolution, vitesse d'avance). La configuration d'un exercice (quels outils,
 combien de réussites, quels champs pré-remplis) doit permettre de reproduire le
-M10 actuel (« Vc seulement, tournage ») comme simple cas particulier.
+M10 actuel (« Vc seulement, tournage ») comme simple cas particulier (§10).
+
+Un **éditeur web statique** du catalogue et des exercices fait aussi partie de
+la v1 (décision D11) : il produit des JSON à télécharger, que l'enseignant
+dépose dans le dépôt et commet. Il n'écrit rien en ligne.
 
 ## 3. Données de référence (`site/data/`)
 
@@ -46,7 +50,7 @@ Les images d'outils (29, EMF/PNG dans le classeur) restent à exporter — champ
 
 ## 4. Génération d'une question
 
-1. **Outil** : tirage uniforme parmi les outils *encore à évaluer* (voir §7).
+1. **Outil** : tirage uniforme parmi les outils *encore à évaluer* de l'exercice (voir §7 et §10). Les restrictions de dimensions et de groupes de l'exercice s'appliquent aux tirages 3 et 5.
 2. **Nombre de dents** : entier uniforme dans `[nb_dents_min, nb_dents_max]`.
 3. **Dimension** : tirage uniforme dans `dimensions[]` de l'outil.
    - Outil de filetage : libellé du type `Ø-filets/po` (impérial : `0.25-20` → Ø 0,25 po, pas = 1/20 po) ou `ØxPas` mm (métrique : `10x1.5` → Ø 10/25,4 po, pas = 1,5/25,4 po).
@@ -127,11 +131,19 @@ comme corrects.
 
 ## 7. Progression et réussite de l'exercice
 
-- Chaque outil porte `reussites_requises` (0 = non évalué dans cet exercice).
-- L'exercice est réussi quand chaque outil évalué compte au moins
-  `reussites_requises` questions réussies.
-- ❓ « Consécutives » : le VBA parle de réussites consécutives mais compte des
-  occurrences ; à confirmer si un échec doit remettre le compteur de l'outil à zéro.
+- L'exercice (§10) liste les outils évalués ; chacun porte ses
+  `reussites_requises` (≥ 1). Un outil absent de l'exercice n'est jamais tiré.
+- Les réussites sont **consécutives** (décision D12) : une question réussie
+  ajoute 1 au compteur de son outil ; une question échouée remet ce compteur à
+  zéro, et seulement celui-là.
+- Un outil reste « à évaluer » — donc admissible au tirage du §4.1 — tant que
+  son compteur est sous `reussites_requises`. Ensuite il ne sort plus.
+- L'exercice est réussi quand chaque outil de l'exercice a atteint ses
+  `reussites_requises`.
+- Le **total des questions réussies**, inscrit au rapport (§8), ne diminue
+  jamais, même quand un compteur d'outil retombe à zéro.
+- État de progression, sérialisable (`localStorage`) :
+  `{ exerciceId, reussites: { [id d'outil]: n }, totalReussies }`.
 - Un graphique de progression par opération est affiché (VBA `modAffGraph`).
 
 ## 8. Identification de l'étudiant et rapport
@@ -185,16 +197,65 @@ hors ligne), sachant qu'un site statique ne peut pas cacher un secret.
 - Aucune donnée personnelle envoyée à un tiers ; l'état de la session peut être
   conservé localement (`localStorage`) pour survivre à un rechargement.
 
-## 10. Configuration d'un exercice (à concevoir)
+## 10. Configuration d'un exercice (décision D11)
 
-Un fichier `exercices/<id>.json` décrit : nom, version, `verMd`, outils
-retenus avec `reussites_requises`, champs à pré-remplir, seuils du graphique.
-Le M10 actuel devient `exercices/m10-tournage-vc.json`.
+Le **catalogue** (`site/data/`, §3) décrit le métier ; un **exercice** choisit
+dans le catalogue ce qui est évalué. Un exercice = un fichier
+`site/exercices/<id>.json`. Le M10 du classeur est
+`site/exercices/m10-tournage-vc.json`.
+
+```json
+{
+  "id": "m10-tournage-vc",
+  "titre": "M10 — Tournage : vitesse de coupe",
+  "version": "r0",
+  "multiplicateur_moodle": 54126,
+  "champs_evalues": ["vc"],
+  "outils": [
+    { "id": "mvlnr", "reussites_requises": 3 },
+    { "id": "foret_fractionnaire", "reussites_requises": 2,
+      "dimensions": ["Ø 1/4 po", "Ø 1/2 po"],
+      "groupes": ["P - Acier non allié", "N - Aluminium de corroyage"] }
+  ]
+}
+```
+
+| Clé | Obligatoire | Règle |
+|---|---|---|
+| `id` | oui | minuscules, chiffres et tirets ; **identique au nom du fichier** (sans `.json`) |
+| `titre` | oui | texte affiché à l'étudiant et au rapport |
+| `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
+| `multiplicateur_moodle` | oui | entier > 0 ; c'est le `verMd` du code de réussite (§8) |
+| `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
+| `outils` | oui | au moins un ; chaque `id` une seule fois |
+| `outils[].id` | oui | `id` d'un outil du catalogue |
+| `outils[].reussites_requises` | oui | entier ≥ 1 (réussites consécutives, §7) |
+| `outils[].dimensions` | non | restreint le tirage à ces **libellés** de dimension ; chacun doit exister sur l'outil |
+| `outils[].groupes` | non | restreint le tirage du matériau brut à ces groupes ; chacun doit être usinable par l'outil |
+
+Précisions :
+
+- **Champs évalués et pré-remplis.** Les cinq champs sont toujours affichés,
+  dans l'ordre Vc, fz, N, f, Vf. Ceux de `champs_evalues` sont saisis et
+  corrigés (§6) ; les autres sont **pré-remplis** avec la valeur théorique mise
+  en forme (§5) et comptent comme corrects. Correspondance avec le moteur :
+  `vc` → `vc`, `fz` → `feedPerTooth`, `n` → `rpm`, `f` → `feedPerRev`,
+  `vf` → `feedRate`.
+- **Restrictions absentes = aucune restriction** : toutes les dimensions, tous
+  les groupes usinables de l'outil. Une liste de restriction vide est une erreur.
+- **Clé inconnue = erreur.** Une faute de frappe (« dimension » pour
+  « dimensions ») lèverait sinon une restriction en silence. Seules les clés
+  commençant par `_` (commentaires, comme `_source`) sont ignorées.
+- La validation (`site/js/exercice.js`) est la même pour les tests, le quiz et
+  l'éditeur (jalon 4).
+- Un site statique ne peut pas lister un dossier : la liste des exercices
+  offerts à l'étudiant sera un fichier `site/exercices/index.json` (jalon 2).
+- Reporté : seuils du graphique de progression (jalon 5).
 
 ## 11. Questions ouvertes (résumé)
 
 1. ~~Arrondis des valeurs théoriques (§5).~~ Tranché : voir §5.
-2. Réussites consécutives ou cumulées (§7).
+2. ~~Réussites consécutives ou cumulées (§7).~~ Tranché : consécutives (D12).
 3. Vérification du code : Moodle seul ou aussi QR (§8).
 4. Sécurité du payload QR (§8 / D6).
 5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ?
