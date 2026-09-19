@@ -181,3 +181,47 @@ function validateTools(tools, ops, groups, errors) {
   });
   checkUnique(tools.filter(isObject).map((tool) => tool.id), 'outils.json : id', errors);
 }
+
+// ---------------------------------------------------------------------------
+// Chargement
+// ---------------------------------------------------------------------------
+
+// Lecteur par défaut (navigateur) : télécharge un JSON et le décode.
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Impossible de charger ${url} (HTTP ${response.status})`);
+  try {
+    return await response.json();
+  } catch (cause) {
+    throw new Error(`${url} n'est pas un JSON valide : ${cause.message}`, { cause });
+  }
+}
+
+// Charge les trois JSON, les valide, puis retourne les données prêtes à l'emploi :
+//   materiaux, operations, outils : les tableaux (sans les en-têtes « _source », etc.)
+//   operationByName  : Map nom d'opération → opération
+//   materialsByGroup : Map « P - Acier non allié » → matériaux de ce groupe (tirage SPEC §4.5)
+// Lève une erreur qui énumère tous les problèmes si les données sont invalides.
+// `readJson` est injectable : les tests Node y passent un lecteur de fichiers.
+export async function loadData(baseUrl = 'data/', readJson = fetchJson) {
+  const [materiaux, operations, outils] = await Promise.all([
+    readJson(`${baseUrl}materiaux.json`),
+    readJson(`${baseUrl}operations.json`),
+    readJson(`${baseUrl}outils.json`),
+  ]);
+
+  const errors = validateData({ materiaux, operations, outils });
+  if (errors.length > 0) throw new Error(`Données invalides :\n- ${errors.join('\n- ')}`);
+
+  const operationByName = new Map(operations.operations.map((op) => [op.operation, op]));
+  const materialsByGroup = new Map(materiaux.groupes_iso.map((group) => [group, []]));
+  for (const m of materiaux.materiaux) materialsByGroup.get(`${m.iso} - ${m.materiau}`).push(m);
+
+  return {
+    materiaux: materiaux.materiaux,
+    operations: operations.operations,
+    outils: outils.outils,
+    operationByName,
+    materialsByGroup,
+  };
+}

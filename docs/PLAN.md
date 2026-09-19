@@ -9,7 +9,7 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 - [ ] `npm test` (tests vides) passe
 
 ## Jalon 1 — Moteur de calcul et de correction (aucune interface)
-- [ ] `site/js/data.js` : chargement et validation des 3 JSON
+- [x] `site/js/data.js` : chargement et validation des 3 JSON
 - [ ] `site/js/question.js` : génération d'une question (SPEC §4), aléa injectable pour les tests
 - [ ] `site/js/calcul.js` : Vc, N, fz, f, Vf (SPEC §5)
 - [ ] `site/js/correction.js` : tolérances par champ (SPEC §6)

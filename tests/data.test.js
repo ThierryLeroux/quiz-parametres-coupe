@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { TOOL_MATERIAL_KEYS, parseThread, validateData } from '../site/js/data.js';
+import { TOOL_MATERIAL_KEYS, loadData, parseThread, validateData } from '../site/js/data.js';
 
 const lire = async (nom) => JSON.parse(await readFile(new URL(`../site/data/${nom}`, import.meta.url), 'utf8'));
 
@@ -197,4 +197,54 @@ test('validateData : rapporte toutes les erreurs d’un coup, sans lever d’exc
   donnees.outils.outils[1] = null;
   assert.equal(validateData(donnees).length, 5); // 3 Vc + opération inconnue + outil qui n'est pas un objet
   assert.ok(validateData({}).length >= 4); // fichiers vides : une erreur par liste manquante
+});
+
+// ---------------------------------------------------------------------------
+// loadData
+// ---------------------------------------------------------------------------
+
+// Sous Node, fetch ne lit pas les fichiers locaux : on injecte un lecteur.
+const lireFichier = (url) => lire(url.replace('data/', ''));
+
+test('loadData : charge les vraies données et construit les index', async () => {
+  const data = await loadData('data/', lireFichier);
+  assert.equal(data.materiaux.length, 47);
+  assert.equal(data.operations.length, 19);
+  assert.equal(data.outils.length, 29);
+
+  assert.equal(data.operationByName.get('Perçage').avance_po_rev, 0.006);
+  for (const outil of data.outils) assert.ok(data.operationByName.has(outil.operation), outil.nom);
+
+  assert.equal(data.materialsByGroup.size, 20);
+  const total = [...data.materialsByGroup.values()].reduce((n, liste) => n + liste.length, 0);
+  assert.equal(total, 47);
+  for (const m of data.materialsByGroup.get('P - Acier non allié')) assert.equal(m.iso, 'P');
+});
+
+test('loadData : demande les trois fichiers sous baseUrl', async () => {
+  const demandes = [];
+  const fichiers = donneesValides();
+  await loadData('ailleurs/', async (url) => {
+    demandes.push(url);
+    return fichiers[url.replace('ailleurs/', '').replace('.json', '')];
+  });
+  assert.deepEqual(demandes.sort(), ['ailleurs/materiaux.json', 'ailleurs/operations.json', 'ailleurs/outils.json']);
+});
+
+test('loadData : données invalides → erreur qui énumère tous les problèmes', async () => {
+  const fichiers = donneesValides();
+  fichiers.outils.outils[0].operation = 'Brochage';
+  fichiers.outils.outils[0].limite_rpm = 0;
+  const lecteur = async (url) => fichiers[url.replace('data/', '').replace('.json', '')];
+  await assert.rejects(loadData('data/', lecteur), (erreur) => {
+    assert.match(erreur.message, /^Données invalides :/);
+    assert.match(erreur.message, /opération inconnue : « Brochage »/);
+    assert.match(erreur.message, /limite_rpm/);
+    return true;
+  });
+});
+
+test('loadData : un fichier introuvable fait échouer le chargement', async () => {
+  const lecteur = async (url) => { throw new Error(`Impossible de charger ${url} (HTTP 404)`); };
+  await assert.rejects(loadData('data/', lecteur), /Impossible de charger data\/.*HTTP 404/);
 });
