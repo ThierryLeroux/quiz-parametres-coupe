@@ -15,9 +15,7 @@ const TOLERANCES = {
   thread: {
     vc: EXACT,
     feedPerTooth: within(0.001),
-    // ❓ La SPEC dit « de −90 % à +0,1 % » ; le VBA calculait Rt × (0,1 − 0,001), soit −90,1 %.
-    // On suit la SPEC. La vitesse peut être réduite pour fileter.
-    rpm: { below: 0.9, above: 0.001 },
+    rpm: { below: 0.9, above: 0.001 }, // la vitesse peut être réduite pour fileter
     feedPerRev: within(0.001),
     feedRate: { ...within(0.005), entered: true },
   },

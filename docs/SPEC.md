@@ -87,16 +87,22 @@ avance par révolution  f  = fz × nb_dents                                (po/r
 vitesse d'avance       Vf = N × f                                        (po/min)
 ```
 
-**Arrondis (tranché).** Aucun arrondi sur les valeurs théoriques, comme dans le
-VBA (arrondis commentés) : les tolérances du §6 absorbent les arrondis de
-l'étudiant. L'arrondi n'existe qu'à l'**affichage**, dans une fonction de
-formatage séparée du calcul (`site/js/format.js`) :
+**Arrondis (décisions D9, D14).** Aucun arrondi sur les valeurs théoriques,
+comme dans le VBA (arrondis commentés) : les tolérances du §6 absorbent les
+arrondis de l'étudiant. L'arrondi n'existe qu'à l'**affichage**, dans une
+fonction de formatage séparée du calcul (`site/js/format.js`) :
 
 | Valeur | Affichage |
 |---|---|
+| Vc | valeur de la table, telle quelle |
 | N | entier |
-| Avance par dent, avance par révolution | 4 décimales (5 en filetage) |
+| Avance par dent, avance par révolution | au moins 4 décimales (5 en filetage) **et** au moins 3 chiffres significatifs |
 | Vitesse d'avance Vf | 3 décimales |
+
+Exemples d'avances : 0,003 → « 0.0030 » ; 0,001875 → « 0.00188 » ;
+0,0000118 (foret métrique Ø 0,05 mm) → « 0.0000118 », et non « 0.0000 ». Les
+zéros de fin au-delà du minimum de décimales ne sont pas écrits : 0,0015 →
+« 0.0015 », pas « 0.00150 ». Arrondi au plus proche, demi vers le haut.
 
 Séparateur décimal : le **point** à l'affichage (« 0.0015 »), comme sur la
 commande CNC et dans les libellés ; la saisie accepte le point et la virgule
@@ -110,18 +116,36 @@ commande CNC et dans les libellés ; la saisie accepte le point et la virgule
 | Avance par dent | ±0,1 % | exact | ±25 %, borné à ±0,001 po |
 | N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 % | ±5 % |
 | Avance par révolution | ±0,1 % | ±0,1 % | ±20 % |
-| Vitesse d'avance | ±0,5 % de *N_saisi × f_saisi* (cohérence interne) | ±5,1 % | ±25 % |
+| Vitesse d'avance | ±0,5 % de *N_saisi × f_saisi* (cohérence interne, D15) | idem | idem |
 
 Précisions :
 
-- Sauf mention contraire, l'intervalle est centré sur la **valeur théorique**
-  (§5, non arrondie) et ses bornes sont incluses.
-- « ±25 %, borné à ±0,001 po » : l'intervalle accepté est **le plus étroit** de
-  ±25 % et de ±0,001 po. Ex. fz = 0,0015 → [0,001125 ; 0,001875] (±25 %) ;
-  fz = 0,006 → [0,005 ; 0,007] (±0,001 po).
-- Vitesse d'avance en filetage : vérifiée à ±0,5 % de *N_saisi × f_saisi*,
-  c.-à-d. la **cohérence interne** de la réponse de l'étudiant, pas la valeur
-  théorique. (N et f sont corrigés à part, chacun dans sa propre cellule.)
+- Sauf pour Vf, l'intervalle est centré sur la **valeur théorique** (§5, non
+  arrondie) ; ses bornes sont incluses.
+- **Tolérance effective (décision D13)** : la plus large entre celle du tableau
+  et **une demi-unité du dernier chiffre affiché** (§5) — ±0,5 rév/min pour N,
+  ±0,00005 po pour une avance affichée à 4 décimales, ±0,0005 po/min pour Vf.
+  « Exact » signifie donc exact à la précision affichée, et la valeur théorique
+  telle qu'affichée est toujours acceptée. Ex. : N théorique = 84,67 rév/min en
+  filetage → 84 et 85 sont acceptés ; lame à tronçonner à 4,375 rév/min → 4 est
+  accepté.
+- « ±25 %, borné à ±0,001 po » : l'intervalle du tableau est **le plus étroit**
+  de ±25 % et de ±0,001 po. Ex. fz = 0,0015 → [0,001125 ; 0,001875] (±25 %) ;
+  fz = 0,006 → [0,005 ; 0,007] (±0,001 po). La demi-unité de D13 s'y ajoute
+  ensuite (elle ne change rien à ces deux exemples).
+- N en filetage : borne basse à −90 % (la vitesse peut être réduite pour
+  fileter). Le VBA appliquait −90,1 % ; ce n'est pas repris.
+- **Vitesse d'avance (décision D15)**, toutes familles : vérifiée à ±0,5 % de
+  *N_saisi × f_saisi*, c.-à-d. la **cohérence interne** de la réponse, pas la
+  valeur théorique. N et f sont corrigés à part, chacun dans sa cellule : une Vf
+  cohérente avec un N faux est bonne, et l'erreur est comptée sur N.
+  - Un champ N ou f non saisi (pré-rempli, vide ou illisible) est remplacé par
+    sa valeur théorique.
+  - N et f ne sont connus qu'à la précision de leur affichage (D13) : le produit
+    de référence est pris sur toute la plage (N ± demi-unité) × (f ± demi-unité),
+    puis élargi de ±0,5 % ou de la demi-unité de Vf. Ex. lame à tronçonner :
+    N affiché « 4 » (théorique 4,375), f = 0,004 → la Vf théorique 0,0175,
+    affichée « 0.018 », est acceptée, tout comme 4 × 0,004 = 0,016.
 - Saisie : le point et la virgule sont acceptés comme séparateur décimal
   (D10) ; un champ vide ou illisible est une mauvaise réponse.
 
@@ -135,7 +159,10 @@ comme corrects.
   `reussites_requises` (≥ 1). Un outil absent de l'exercice n'est jamais tiré.
 - Les réussites sont **consécutives** (décision D12) : une question réussie
   ajoute 1 au compteur de son outil ; une question échouée remet ce compteur à
-  zéro, et seulement celui-là.
+  zéro, et seulement celui-là. Le compteur est tenu **par `id` d'outil**. (Le
+  VBA remettait à zéro par *nom* d'outil : un échec sur le SDTMR impérial
+  annulait aussi le SDTMR métrique, qui porte le même nom. Ce comportement
+  n'est pas repris.)
 - Un outil reste « à évaluer » — donc admissible au tirage du §4.1 — tant que
   son compteur est sous `reussites_requises`. Ensuite il ne sort plus.
 - L'exercice est réussi quand chaque outil de l'exercice a atteint ses

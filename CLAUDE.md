@@ -59,6 +59,8 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 2. **Moteur d'abord, interface ensuite.** Toute fonction de calcul ou de correction a un test avant d'être branchée à l'interface.
 3. **Aléa injectable** : les fonctions de tirage reçoivent une source aléatoire en paramètre pour être testables.
 4. **Petits commits** en français, un sujet par commit (`Ajoute le calcul de N avec plafond RPM`).
+   Un commit n'est créé que si `npm test` affiche `fail 0`. Un commit local non
+   poussé qui s'avère rouge est **amendé**, jamais suivi d'un commit de réparation.
 5. **Ne pas modifier `site/data/*.json`** pour faire passer un test : si une donnée semble fausse, le signaler à Thierry (c'est lui qui connaît le métier).
 6. Quand la SPEC est ambiguë : proposer une interprétation, l'écrire en commentaire `// ❓` et le signaler en fin de session — ne pas décider en silence.
 7. Vérifier que `node --test` passe et que `site/index.html` s'ouvre sans erreur console avant de conclure une tâche.

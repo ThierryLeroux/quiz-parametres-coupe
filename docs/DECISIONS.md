@@ -163,3 +163,59 @@ Le total des questions réussies inscrit au rapport ne diminue jamais.
 
 **Conséquences.** L'état de progression (`progression.js`) tient un compteur
 par outil et un total cumulé. Ferme la question ouverte n° 2 de `SPEC.md` §11.
+
+## D13 — Tolérance effective : jamais plus étroite que la précision affichée (2026-09-19, décidée)
+
+**Contexte.** D9 sépare le calcul (sans arrondi) de l'affichage (arrondi). Le
+test de bout en bout a montré que la valeur théorique *arrondie comme à
+l'écran* échouait parfois à la correction : N de filetage arrondi à l'entier
+supérieur (84,67 → 85, tolérance de +0,1 %), lame à tronçonner à 4,375 rév/min
+(4 est hors de ±5 %), avance « exacte » affichée à 4 décimales.
+
+**Décision.** La tolérance effective d'un champ est **la plus large** entre
+celle du tableau de `SPEC.md` §6 et **une demi-unité du dernier chiffre
+affiché** : ±0,5 rév/min pour N, ±0,00005 po pour une avance à 4 décimales,
+±0,0005 po/min pour Vf à 3 décimales. « Exact » signifie exact à la précision
+affichée.
+
+**Conséquences.** La réponse théorique telle qu'affichée (champ pré-rempli,
+corrigé montré à l'étudiant) est toujours acceptée. `correction.js` dépend de
+`format.js` pour connaître la précision affichée. Les valeurs de la table et les
+données ne changent pas : `fact_vc = 0,125` sur la lame à tronçonner est voulu,
+et la borne basse de N en filetage reste −90 % (et non les −90,1 % du VBA).
+
+## D14 — Avances : au moins 4 décimales et au moins 3 chiffres significatifs (2026-09-19, décidée)
+
+**Contexte.** À 4 décimales, l'avance d'un micro-foret s'affichait « 0.0000 »
+ou « 0.0001 » (foret métrique Ø 0,05 mm : fz = 0,0000118 po).
+
+**Décision.** fz et f s'affichent avec au moins 4 décimales (5 en filetage)
+**et** au moins 3 chiffres significatifs : « 0.0000118 », pas « 0.0000 ». Les
+micro-forets restent au catalogue ; c'est à un exercice de les exclure
+(restriction `dimensions`, D11).
+
+**Conséquences.** Précise D9. La demi-unité de D13 suit le nombre de décimales
+réellement affiché.
+
+## D15 — Vf jugée par cohérence interne, pour toutes les familles (2026-09-19, décidée)
+
+**Contexte.** Le VBA jugeait Vf sur *N_saisi × f_saisi* en filetage seulement ;
+ailleurs, sur la valeur théorique (±5,1 % ou ±25 %). Un étudiant dont N (+5 %)
+et f (+20 %) étaient acceptés voyait alors refuser une Vf pourtant bien
+calculée.
+
+**Décision.** Pour toutes les familles, Vf est acceptée à **±0,5 % de
+N_saisi × f_saisi**. Un champ N ou f non saisi (pré-rempli, vide ou illisible)
+est remplacé par sa valeur théorique. N et f sont corrigés à part, chacun dans
+sa cellule.
+
+*Articulation avec D13.* N et f ne sont connus qu'à la précision de leur
+affichage : un étudiant qui saisit « 4 » rév/min a peut-être 4,375 dans sa
+calculatrice, et sa Vf est juste. Le produit de référence est donc pris sur
+toute la plage N ± demi-unité, f ± demi-unité, puis élargi de ±0,5 % (ou de la
+demi-unité de Vf). Sans cela, la Vf théorique affichée à côté d'un N arrondi
+serait refusée.
+
+**Conséquences.** Remplace la ligne « Vitesse d'avance » du tableau de
+`SPEC.md` §6 (±5,1 % et ±25 % disparaissent). Une Vf cohérente mais loin de la
+théorie est bonne ; l'erreur est comptée sur N ou sur f, là où elle a été faite.
