@@ -179,6 +179,9 @@ const anomalies = [
     d.outils.outils[0].fact_av = 0.5;
   }, /« Foret ».*« fact_av » vaut 0\.5.*« Chariotage » n'est pas proportionnelle/],
   ['fact_av ≠ 1 sur un filetage', (d) => { d.outils.outils[1].fact_av = 2; }, /« Taraud ».*« fact_av » vaut 2.*« Taraudage » n'est pas proportionnelle/],
+  ['groupe de matériaux en double (l’erreur de copier-coller du classeur)', (d) => { d.outils.outils[1].groupes_materiaux_usinables = ['N - Aluminium de corroyage', 'N - Aluminium de corroyage']; }, /« Taraud » : groupe de matériaux en double : « N - Aluminium de corroyage »/],
+  ['matériau d’outil en double', (d) => { d.outils.outils[1].materiaux_outil.push('Acier rapide'); }, /« Taraud » : matériau d'outil en double : « Acier rapide »/],
+  ['libellé de dimension en double', (d) => { d.outils.outils[1].dimensions.push({ libelle: 'M6 x 1', valeur: '6x1' }); }, /« Taraud » : libellé de dimension en double : « M6 x 1 »/],
   ['matériau d’outil inconnu', (d) => { d.outils.outils[0].materiaux_outil = ['Céramique']; }, /« Foret ».*matériau d'outil inconnu : « Céramique »/],
   ['aucun matériau d’outil', (d) => { d.outils.outils[0].materiaux_outil = []; }, /« Foret ».*materiaux_outil/],
   ['groupe usinable inconnu', (d) => { d.outils.outils[0].groupes_materiaux_usinables = ['P - Acier inconnu']; }, /« Foret ».*groupe de matériaux inconnu/],

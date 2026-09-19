@@ -27,7 +27,7 @@ test('la réponse théorique exacte (non arrondie) réussit toujours la correcti
     const reponses = Object.fromEntries(['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate'].map((champ) => [champ, String(attendu[champ])]));
     // String() d'un très petit nombre donne « 1.18e-5 », que parseAnswer refuse à bon droit : on l'écrit en décimal.
     for (const champ of Object.keys(reponses)) if (reponses[champ].includes('e')) reponses[champ] = attendu[champ].toFixed(20);
-    assert.equal(gradeAnswers(question, attendu, reponses).success, true, question.displayId);
+    assert.equal(gradeAnswers(attendu, reponses).success, true, question.displayId);
   }
 });
 
@@ -45,7 +45,7 @@ test('la réponse théorique arrondie comme à l’affichage réussit la correct
   for (let i = 0; i < 100000; i += 1) {
     const question = generateQuestion(data, data.outils, random);
     const attendu = computeParameters(question, data);
-    const resultat = gradeAnswers(question, attendu, formatParameters(attendu));
+    const resultat = gradeAnswers(attendu, formatParameters(attendu));
     for (const [champ, r] of Object.entries(resultat.fields)) {
       if (!r.ok) echecs.add(`${question.tool.id} | ${question.dimension.label} | ${champ}`);
     }

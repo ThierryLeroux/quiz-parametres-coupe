@@ -158,12 +158,15 @@ function validateTools(tools, ops, groups, errors) {
     for (const name of toolMaterials) {
       if (!(name in TOOL_MATERIAL_KEYS)) errors.push(`${where} : matériau d'outil inconnu : « ${name} »`);
     }
+    // Un doublon fausserait le tirage uniforme (SPEC §4) sans que ça se voie.
+    checkUnique(toolMaterials, `${where} : matériau d'outil`, errors);
 
     const toolGroups = Array.isArray(tool.groupes_materiaux_usinables) ? tool.groupes_materiaux_usinables : [];
     if (toolGroups.length === 0) errors.push(`${where} : « groupes_materiaux_usinables » est absent ou vide`);
     for (const group of toolGroups) {
       if (!groups.includes(group)) errors.push(`${where} : groupe de matériaux inconnu : « ${group} »`);
     }
+    checkUnique(toolGroups, `${where} : groupe de matériaux`, errors);
 
     const op = opsByName.get(tool.operation);
     if (!op) errors.push(`${where} : opération inconnue : « ${tool.operation} »`);
@@ -185,6 +188,8 @@ function validateTools(tools, ops, groups, errors) {
         errors.push(`${where} : dimension « ${d.libelle} » : « valeur » doit être un Ø en pouces > 0`);
       }
     });
+    // Les exercices restreignent les dimensions par leur libellé (SPEC §10) : il doit être unique.
+    checkUnique(dimensions.filter(isObject).map((d) => d.libelle), `${where} : libellé de dimension`, errors);
   });
   checkUnique(tools.filter(isObject).map((tool) => tool.id), 'outils.json : id', errors);
 }
