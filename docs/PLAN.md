@@ -28,7 +28,7 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 Plomberie d'abord (aucun HTML ni CSS), écrans ensuite, après une maquette approuvée.
 
 - [x] `site/exercices/index.json` : exercices offerts, avec sa validation (`exercice.js`)
-- [ ] `site/js/session.js` : état d'une séance dans `localStorage` (une clé, stockage vide ou corrompu toléré)
+- [x] `site/js/session.js` : état d'une séance dans `localStorage` (une clé, stockage vide ou corrompu toléré)
 - [ ] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`) et cycle d'une séance, en fonctions pures
 - [ ] Maquette des écrans, approuvée par Thierry
 - [ ] Écran d'identification (prénom, nom, matricule, numéro Moodle)

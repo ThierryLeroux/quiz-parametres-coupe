@@ -175,6 +175,29 @@ comme corrects.
   `{ exerciceId, reussites: { [id d'outil]: n }, totalReussies }`.
 - Un graphique de progression par opération est affiché (VBA `modAffGraph`).
 
+### État d'une séance (`site/js/session.js`)
+
+Toute la séance tient dans **un seul objet JSON**, conservé dans `localStorage`
+sous **une seule clé** (`quiz-parametres-coupe:seance`), pour survivre à un
+rechargement de la page. Rien n'est envoyé ailleurs (§9).
+
+| Clé | Contenu |
+|---|---|
+| `version` | version du format de l'état ; un état d'une autre version est ignoré |
+| `etudiant` | `{ prenom, nom, matricule, numeroMoodle }` (§8) ; le numéro Moodle reste un texte de 5 chiffres |
+| `exerciceId`, `exerciceVersion` | l'exercice de la séance (§10) |
+| `debut`, `reussite` | dates ISO ; `reussite` vaut `null` tant que l'exercice n'est pas complété |
+| `progression` | compteurs de réussites consécutives (ci-dessus) |
+| `question`, `saisies` | la question en cours et ce que l'étudiant a tapé, en texte |
+| `correction` | résultat de la correction de la question en cours, `null` tant qu'elle n'est pas corrigée : une question ne peut être corrigée qu'une fois, même après un rechargement |
+| `questionsReussies` | `{ question, attendu, date }` de chaque question réussie, pour le tableau du rapport (§8) ; rien n'en est retiré |
+
+Le stockage n'est jamais fiable (navigation privée, quota, contenu abîmé) :
+chaque lecture et chaque écriture est protégée. Stockage vide, illisible,
+abîmé, d'une autre version, ou séance d'un autre exercice → l'application
+démarre une nouvelle séance, sans erreur ; stockage en panne → elle continue
+sans sauvegarde.
+
 ## 8. Identification de l'étudiant et rapport
 
 Saisie au démarrage : prénom, nom, matricule, **numéro Moodle** (5 chiffres,
