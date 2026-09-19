@@ -72,10 +72,8 @@ test('filetages impériaux fractionnaires : le libellé « 1/4 - 20 UNC » corre
   }
 });
 
-// ❓ Échec connu : « #6-32 UNC » a le Ø 0.136 dans outils.json alors que le Ø
-// nominal d'un #6 est 0,138 po (0,060 + 0,013 × 6). Donnée à confirmer par
-// Thierry ; retirer `todo` une fois la donnée corrigée (ou la règle infirmée).
-test('filetages impériaux à numéro : le libellé « #6-32 UNC » correspond à la valeur', { todo: 'Ø du #6 à confirmer : 0.136 ou 0.138 ?' }, async () => {
+// Ø nominal d'un filetage à numéro : 0,060 + 0,013 × n po (ex. #6 → 0,138 po).
+test('filetages impériaux à numéro : le libellé « #6-32 UNC » correspond à la valeur', async () => {
   const aNumero = (await dimensionsFiletage()).filter((d) => d.libelle.startsWith('#'));
   assert.ok(aNumero.length > 0);
   for (const d of aNumero) {
