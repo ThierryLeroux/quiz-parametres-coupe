@@ -1,0 +1,687 @@
+{
+  "_source": "Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm, feuille 'Vitesses de coupe', table tblVitesse",
+  "_unites": "vc en pieds/minute ; durete en HB sauf mention (HRC, Shore)",
+  "_norme": "Classification ISO 513 / VDI 3323",
+  "groupes_iso": [
+    "P - Acier non allié",
+    "P - Acier faiblement allié",
+    "P - Acier fortement allié et acier à outils",
+    "M - Acier inoxidable",
+    "K - Fonte grise",
+    "K - Fonte à graphite lamellaire",
+    "K - Fonte à graphite sphéroidal",
+    "N - Aluminium de corroyage",
+    "N - Aluminium de coulée",
+    "N - Cuivre et alliages de cuivre",
+    "S - Alliages résistant à la chaleur",
+    "S - Alliages de titane",
+    "H - Acier durci",
+    "H - Fonte durcie",
+    "O - Plastique thermoformable",
+    "O - Plastique thermodurcissable",
+    "O - Plastique renforci de fibre de verre",
+    "O - Plastique renforci de fibre de carbone",
+    "O - Plastique renforci d'aramid",
+    "O - Graphite"
+  ],
+  "materiaux": [
+    {
+      "iso": "P",
+      "groupe": 1,
+      "materiau": "Acier non allié",
+      "composition": "C ≤ 0.25%",
+      "etat": "Recuit",
+      "durete": 125,
+      "exemple": 1020,
+      "vc_pi_min": {
+        "acier_rapide": 100,
+        "carbure_solide": 200,
+        "insert_carbure": 400
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 2,
+      "materiau": "Acier non allié",
+      "composition": "C > 0.25 … ≤ 0.55%",
+      "etat": "Recuit",
+      "durete": 190,
+      "exemple": 1045,
+      "vc_pi_min": {
+        "acier_rapide": 95,
+        "carbure_solide": 195,
+        "insert_carbure": 390
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 3,
+      "materiau": "Acier non allié",
+      "composition": "C > 0.25 … ≤ 0.55%",
+      "etat": "Traité thermiquement",
+      "durete": 250,
+      "exemple": 1045,
+      "vc_pi_min": {
+        "acier_rapide": 90,
+        "carbure_solide": 190,
+        "insert_carbure": 380
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 4,
+      "materiau": "Acier non allié",
+      "composition": "C > 0.55%",
+      "etat": "Recuit",
+      "durete": 220,
+      "exemple": 1095,
+      "vc_pi_min": {
+        "acier_rapide": 85,
+        "carbure_solide": 185,
+        "insert_carbure": 370
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 5,
+      "materiau": "Acier non allié",
+      "composition": "C > 0.55%",
+      "etat": "Traité thermiquement",
+      "durete": 300,
+      "exemple": 1095,
+      "vc_pi_min": {
+        "acier_rapide": 80,
+        "carbure_solide": 180,
+        "insert_carbure": 360
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 6,
+      "materiau": "Acier faiblement allié",
+      "composition": null,
+      "etat": "Recuit",
+      "durete": 200,
+      "exemple": 52100,
+      "vc_pi_min": {
+        "acier_rapide": 75,
+        "carbure_solide": 175,
+        "insert_carbure": 350
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 7,
+      "materiau": "Acier faiblement allié",
+      "composition": null,
+      "etat": "Traité thermiquement",
+      "durete": 275,
+      "exemple": 52100,
+      "vc_pi_min": {
+        "acier_rapide": 70,
+        "carbure_solide": 170,
+        "insert_carbure": 340
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 8,
+      "materiau": "Acier faiblement allié",
+      "composition": null,
+      "etat": "Traité thermiquement",
+      "durete": 300,
+      "exemple": 52100,
+      "vc_pi_min": {
+        "acier_rapide": 65,
+        "carbure_solide": 165,
+        "insert_carbure": 330
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 9,
+      "materiau": "Acier faiblement allié",
+      "composition": null,
+      "etat": "Traité thermiquement",
+      "durete": 350,
+      "exemple": 52100,
+      "vc_pi_min": {
+        "acier_rapide": 60,
+        "carbure_solide": 160,
+        "insert_carbure": 320
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 10,
+      "materiau": "Acier fortement allié et acier à outils",
+      "composition": null,
+      "etat": "Recuit",
+      "durete": 220,
+      "exemple": 4340,
+      "vc_pi_min": {
+        "acier_rapide": 60,
+        "carbure_solide": 120,
+        "insert_carbure": 240
+      }
+    },
+    {
+      "iso": "P",
+      "groupe": 11,
+      "materiau": "Acier fortement allié et acier à outils",
+      "composition": null,
+      "etat": "Durci et revenu",
+      "durete": 325,
+      "exemple": 4340,
+      "vc_pi_min": {
+        "acier_rapide": 50,
+        "carbure_solide": 100,
+        "insert_carbure": 200
+      }
+    },
+    {
+      "iso": "M",
+      "groupe": 12,
+      "materiau": "Acier inoxidable",
+      "composition": "Ferritique/martensitique",
+      "etat": "Recuit",
+      "durete": 200,
+      "exemple": "405/420",
+      "vc_pi_min": {
+        "acier_rapide": 50,
+        "carbure_solide": 100,
+        "insert_carbure": 200
+      }
+    },
+    {
+      "iso": "M",
+      "groupe": 13,
+      "materiau": "Acier inoxidable",
+      "composition": "Martensitique",
+      "etat": "Trempé et revenu",
+      "durete": 240,
+      "exemple": 420,
+      "vc_pi_min": {
+        "acier_rapide": 45,
+        "carbure_solide": 90,
+        "insert_carbure": 180
+      }
+    },
+    {
+      "iso": "M",
+      "groupe": 14,
+      "materiau": "Acier inoxidable",
+      "composition": "Austénitique/ferritique/duplex",
+      "etat": null,
+      "durete": 230,
+      "exemple": "304/405/329",
+      "vc_pi_min": {
+        "acier_rapide": 55,
+        "carbure_solide": 110,
+        "insert_carbure": 210
+      }
+    },
+    {
+      "iso": "K",
+      "groupe": 15,
+      "materiau": "Fonte grise",
+      "composition": "Perlitique/ferritique",
+      "etat": null,
+      "durete": 180,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 80,
+        "carbure_solide": 100,
+        "insert_carbure": 240
+      }
+    },
+    {
+      "iso": "K",
+      "groupe": 16,
+      "materiau": "Fonte grise",
+      "composition": "Perlitique/martensitique",
+      "etat": null,
+      "durete": 260,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 70,
+        "carbure_solide": 90,
+        "insert_carbure": 220
+      }
+    },
+    {
+      "iso": "K",
+      "groupe": 17,
+      "materiau": "Fonte à graphite lamellaire",
+      "composition": "Ferritique",
+      "etat": null,
+      "durete": 160,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 90,
+        "carbure_solide": 110,
+        "insert_carbure": 260
+      }
+    },
+    {
+      "iso": "K",
+      "groupe": 18,
+      "materiau": "Fonte à graphite lamellaire",
+      "composition": "Perlitique",
+      "etat": null,
+      "durete": 250,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 85,
+        "carbure_solide": 105,
+        "insert_carbure": 250
+      }
+    },
+    {
+      "iso": "K",
+      "groupe": 19,
+      "materiau": "Fonte à graphite sphéroidal",
+      "composition": "Ferritique",
+      "etat": null,
+      "durete": 130,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 100,
+        "carbure_solide": 120,
+        "insert_carbure": 300
+      }
+    },
+    {
+      "iso": "K",
+      "groupe": 20,
+      "materiau": "Fonte à graphite sphéroidal",
+      "composition": "Perlitique",
+      "etat": null,
+      "durete": 230,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 90,
+        "carbure_solide": 110,
+        "insert_carbure": 280
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 21,
+      "materiau": "Aluminium de corroyage",
+      "composition": null,
+      "etat": "Non durcissable",
+      "durete": 30,
+      "exemple": "100% aluminium",
+      "vc_pi_min": {
+        "acier_rapide": 200,
+        "carbure_solide": 400,
+        "insert_carbure": 800
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 22,
+      "materiau": "Aluminium de corroyage",
+      "composition": null,
+      "etat": "Durcissable, durci",
+      "durete": 100,
+      "exemple": "6061, 7075",
+      "vc_pi_min": {
+        "acier_rapide": 180,
+        "carbure_solide": 380,
+        "insert_carbure": 700
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 23,
+      "materiau": "Aluminium de coulée",
+      "composition": "≤ 12% Si",
+      "etat": "Non durcissable",
+      "durete": 75,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 170,
+        "carbure_solide": 250,
+        "insert_carbure": 480
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 24,
+      "materiau": "Aluminium de coulée",
+      "composition": "≤ 12% Si",
+      "etat": "Durcissable, durci",
+      "durete": 90,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 165,
+        "carbure_solide": 220,
+        "insert_carbure": 460
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 25,
+      "materiau": "Aluminium de coulée",
+      "composition": "> 12% Si et Li",
+      "etat": null,
+      "durete": 130,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 160,
+        "carbure_solide": 210,
+        "insert_carbure": 440
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 26,
+      "materiau": "Cuivre et alliages de cuivre",
+      "composition": "Alliage à décolletage, > 1% Pb",
+      "etat": null,
+      "durete": 70,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 215,
+        "carbure_solide": 450,
+        "insert_carbure": 690
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 27,
+      "materiau": "Cuivre et alliages de cuivre",
+      "composition": "CuZn (Bronze), CuSnZn (Laiton)",
+      "etat": null,
+      "durete": 100,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 200,
+        "carbure_solide": 400,
+        "insert_carbure": 650
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 28,
+      "materiau": "Cuivre et alliages de cuivre",
+      "composition": "CuSn, Cuivre sans plomb et élecrolytique",
+      "etat": null,
+      "durete": 90,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 195,
+        "carbure_solide": 385,
+        "insert_carbure": 625
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 29,
+      "materiau": "Cuivre et alliages de cuivre",
+      "composition": null,
+      "etat": "Haute résistance en traction, Ampco",
+      "durete": 110,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 190,
+        "carbure_solide": 320,
+        "insert_carbure": 600
+      }
+    },
+    {
+      "iso": "N",
+      "groupe": 30,
+      "materiau": "Cuivre et alliages de cuivre",
+      "composition": null,
+      "etat": "Haute résistance en traction, Ampco",
+      "durete": 300,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 185,
+        "carbure_solide": 305,
+        "insert_carbure": 570
+      }
+    },
+    {
+      "iso": "S",
+      "groupe": 31,
+      "materiau": "Alliages résistant à la chaleur",
+      "composition": "À base de fer (Fe)",
+      "etat": "Recuit",
+      "durete": 200,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 30,
+        "carbure_solide": 45,
+        "insert_carbure": 80
+      }
+    },
+    {
+      "iso": "S",
+      "groupe": 32,
+      "materiau": "Alliages résistant à la chaleur",
+      "composition": "À base de fer (Fe)",
+      "etat": "Durci",
+      "durete": 280,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 28,
+        "carbure_solide": 42,
+        "insert_carbure": 74
+      }
+    },
+    {
+      "iso": "S",
+      "groupe": 33,
+      "materiau": "Alliages résistant à la chaleur",
+      "composition": "À base de nickel (Ni) ou cobalt (Co)",
+      "etat": "Recuit",
+      "durete": 250,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 26,
+        "carbure_solide": 40,
+        "insert_carbure": 70
+      }
+    },
+    {
+      "iso": "S",
+      "groupe": 34,
+      "materiau": "Alliages résistant à la chaleur",
+      "composition": "À base de nickel (Ni) ou cobalt (Co)",
+      "etat": "Durci",
+      "durete": 350,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 23,
+        "carbure_solide": 38,
+        "insert_carbure": 64
+      }
+    },
+    {
+      "iso": "S",
+      "groupe": 35,
+      "materiau": "Alliages résistant à la chaleur",
+      "composition": "À base de nickel (Ni) ou cobalt (Co)",
+      "etat": "Coulé",
+      "durete": 320,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 30,
+        "carbure_solide": 45,
+        "insert_carbure": 80
+      }
+    },
+    {
+      "iso": "S",
+      "groupe": 36,
+      "materiau": "Alliages de titane",
+      "composition": "Titane pure",
+      "etat": null,
+      "durete": 200,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 35,
+        "carbure_solide": 52,
+        "insert_carbure": 95
+      }
+    },
+    {
+      "iso": "S",
+      "groupe": 37,
+      "materiau": "Alliages de titane",
+      "composition": "Alliages alpha et beta, durci",
+      "etat": null,
+      "durete": 375,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 30,
+        "carbure_solide": 45,
+        "insert_carbure": 80
+      }
+    },
+    {
+      "iso": "H",
+      "groupe": 38,
+      "materiau": "Acier durci",
+      "composition": null,
+      "etat": "Durci et revenu",
+      "durete": "50 HRC",
+      "exemple": "acier outil",
+      "vc_pi_min": {
+        "acier_rapide": 25,
+        "carbure_solide": 35,
+        "insert_carbure": 50
+      }
+    },
+    {
+      "iso": "H",
+      "groupe": 39,
+      "materiau": "Acier durci",
+      "composition": null,
+      "etat": "Durci et revenu",
+      "durete": "55 HRC",
+      "exemple": "acier outil",
+      "vc_pi_min": {
+        "acier_rapide": 20,
+        "carbure_solide": 30,
+        "insert_carbure": 40
+      }
+    },
+    {
+      "iso": "H",
+      "groupe": 40,
+      "materiau": "Acier durci",
+      "composition": null,
+      "etat": "Durci et revenu",
+      "durete": "60 HRC",
+      "exemple": "440C",
+      "vc_pi_min": {
+        "acier_rapide": 15,
+        "carbure_solide": 20,
+        "insert_carbure": 35
+      }
+    },
+    {
+      "iso": "H",
+      "groupe": 41,
+      "materiau": "Fonte durcie",
+      "composition": null,
+      "etat": "Durcie et revenue",
+      "durete": "55 HRC",
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 20,
+        "carbure_solide": 30,
+        "insert_carbure": 40
+      }
+    },
+    {
+      "iso": "O",
+      "groupe": 42,
+      "materiau": "Plastique thermoformable",
+      "composition": "Sans composés abrasifs",
+      "etat": null,
+      "durete": null,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 80,
+        "carbure_solide": 130,
+        "insert_carbure": 400
+      }
+    },
+    {
+      "iso": "O",
+      "groupe": 43,
+      "materiau": "Plastique thermodurcissable",
+      "composition": "Sans composés abrasifs",
+      "etat": null,
+      "durete": null,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 70,
+        "carbure_solide": 115,
+        "insert_carbure": 390
+      }
+    },
+    {
+      "iso": "O",
+      "groupe": 44,
+      "materiau": "Plastique renforci de fibre de verre",
+      "composition": "GFRP",
+      "etat": null,
+      "durete": null,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 60,
+        "carbure_solide": 100,
+        "insert_carbure": 375
+      }
+    },
+    {
+      "iso": "O",
+      "groupe": 45,
+      "materiau": "Plastique renforci de fibre de carbone",
+      "composition": "CFRP",
+      "etat": null,
+      "durete": null,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 50,
+        "carbure_solide": 90,
+        "insert_carbure": 275
+      }
+    },
+    {
+      "iso": "O",
+      "groupe": 46,
+      "materiau": "Plastique renforci d'aramid",
+      "composition": "AFRP",
+      "etat": null,
+      "durete": null,
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 50,
+        "carbure_solide": 90,
+        "insert_carbure": 275
+      }
+    },
+    {
+      "iso": "O",
+      "groupe": 47,
+      "materiau": "Graphite",
+      "composition": null,
+      "etat": null,
+      "durete": "80 Shore",
+      "exemple": null,
+      "vc_pi_min": {
+        "acier_rapide": 100,
+        "carbure_solide": 180,
+        "insert_carbure": 450
+      }
+    }
+  ]
+}

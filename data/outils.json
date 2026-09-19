@@ -1,0 +1,3345 @@
+{
+  "_source": "feuille 'Liste d'outils' (masquée) — une colonne par outil ; lignes 1..12 attributs, 13..22 matériaux d'outil, 23..40 groupes ISO usinables, 43+ paires (libellé, valeur) de dimensions",
+  "_unites": "diametres en pouces (les métriques sont déjà convertis) ; filetages sous forme 'Ø-filets/po' (impérial) ou 'ØxPas' mm (métrique)",
+  "_reussites_requises": "0 = outil non évalué dans cette version du quiz ; n = nombre de réussites consécutives exigées",
+  "_image": "à compléter : 29 images d'outils existent dans le classeur (xl/media, EMF/PNG), à exporter en PNG/SVG",
+  "outils": [
+    {
+      "id": "foret_fractionnaire",
+      "colonne_excel": 1,
+      "nom": "Foret fractionnaire",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret [IdDia]",
+      "commentaire": "Le jobber lenght",
+      "operation": "Perçage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 2,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 1/64 po",
+          "valeur": 0.015625
+        },
+        {
+          "libelle": "Ø 1/32 po",
+          "valeur": 0.03125
+        },
+        {
+          "libelle": "Ø 3/64 po",
+          "valeur": 0.046875
+        },
+        {
+          "libelle": "Ø 1/16 po",
+          "valeur": 0.0625
+        },
+        {
+          "libelle": "Ø 5/64 po",
+          "valeur": 0.078125
+        },
+        {
+          "libelle": "Ø 3/32 po",
+          "valeur": 0.09375
+        },
+        {
+          "libelle": "Ø 7/64 po",
+          "valeur": 0.109375
+        },
+        {
+          "libelle": "Ø 1/8 po",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "Ø 9/64 po",
+          "valeur": 0.140625
+        },
+        {
+          "libelle": "Ø 5/32 po",
+          "valeur": 0.15625
+        },
+        {
+          "libelle": "Ø 11/64 po",
+          "valeur": 0.171875
+        },
+        {
+          "libelle": "Ø 3/16 po",
+          "valeur": 0.1875
+        },
+        {
+          "libelle": "Ø 13/64 po",
+          "valeur": 0.203125
+        },
+        {
+          "libelle": "Ø 7/32 po",
+          "valeur": 0.21875
+        },
+        {
+          "libelle": "Ø 15/64 po",
+          "valeur": 0.234375
+        },
+        {
+          "libelle": "Ø 1/4 po",
+          "valeur": 0.25
+        },
+        {
+          "libelle": "Ø 17/64 po",
+          "valeur": 0.265625
+        },
+        {
+          "libelle": "Ø 9/32 po",
+          "valeur": 0.28125
+        },
+        {
+          "libelle": "Ø 19/64 po",
+          "valeur": 0.296875
+        },
+        {
+          "libelle": "Ø 5/16 po",
+          "valeur": 0.3125
+        },
+        {
+          "libelle": "Ø 21/64 po",
+          "valeur": 0.328125
+        },
+        {
+          "libelle": "Ø 11/32 po",
+          "valeur": 0.34375
+        },
+        {
+          "libelle": "Ø 23/64 po",
+          "valeur": 0.359375
+        },
+        {
+          "libelle": "Ø 3/8 po",
+          "valeur": 0.375
+        },
+        {
+          "libelle": "Ø 25/64 po",
+          "valeur": 0.390625
+        },
+        {
+          "libelle": "Ø 13/32 po",
+          "valeur": 0.40625
+        },
+        {
+          "libelle": "Ø 27/64 po",
+          "valeur": 0.421875
+        },
+        {
+          "libelle": "Ø 7/16 po",
+          "valeur": 0.4375
+        },
+        {
+          "libelle": "Ø 29/64 po",
+          "valeur": 0.453125
+        },
+        {
+          "libelle": "Ø 15/32 po",
+          "valeur": 0.46875
+        },
+        {
+          "libelle": "Ø 31/64 po",
+          "valeur": 0.484375
+        },
+        {
+          "libelle": "Ø 1/2 po",
+          "valeur": 0.5
+        },
+        {
+          "libelle": "Ø 33/64 po",
+          "valeur": 0.515625
+        },
+        {
+          "libelle": "Ø 17/32 po",
+          "valeur": 0.53125
+        },
+        {
+          "libelle": "Ø 35/64 po",
+          "valeur": 0.546875
+        },
+        {
+          "libelle": "Ø 9/16 po",
+          "valeur": 0.5625
+        },
+        {
+          "libelle": "Ø 37/64 po",
+          "valeur": 0.578125
+        },
+        {
+          "libelle": "Ø 19/32 po",
+          "valeur": 0.59375
+        },
+        {
+          "libelle": "Ø 39/64 po",
+          "valeur": 0.609375
+        },
+        {
+          "libelle": "Ø 5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "Ø 41/64 po",
+          "valeur": 0.640625
+        },
+        {
+          "libelle": "Ø 21/32 po",
+          "valeur": 0.65625
+        },
+        {
+          "libelle": "Ø 43/64 po",
+          "valeur": 0.671875
+        },
+        {
+          "libelle": "Ø 11/16 po",
+          "valeur": 0.6875
+        },
+        {
+          "libelle": "Ø v45/64 po",
+          "valeur": 0.703125
+        },
+        {
+          "libelle": "Ø 23/32 po",
+          "valeur": 0.71875
+        },
+        {
+          "libelle": "Ø 47/64 po",
+          "valeur": 0.734375
+        },
+        {
+          "libelle": "Ø 3/4 po",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "Ø 49/64 po",
+          "valeur": 0.765625
+        },
+        {
+          "libelle": "Ø 25/32 po",
+          "valeur": 0.78125
+        },
+        {
+          "libelle": "Ø 51/64 po",
+          "valeur": 0.796875
+        },
+        {
+          "libelle": "Ø 13/16 po",
+          "valeur": 0.8125
+        },
+        {
+          "libelle": "Ø 53/64 po",
+          "valeur": 0.828125
+        },
+        {
+          "libelle": "Ø 27/32 po",
+          "valeur": 0.84375
+        },
+        {
+          "libelle": "Ø 55/64 po",
+          "valeur": 0.859375
+        },
+        {
+          "libelle": "Ø 7/8 po",
+          "valeur": 0.875
+        },
+        {
+          "libelle": "Ø 57/64 po",
+          "valeur": 0.890625
+        },
+        {
+          "libelle": "Ø 29/32 po",
+          "valeur": 0.90625
+        },
+        {
+          "libelle": "Ø 59/64 po",
+          "valeur": 0.921875
+        },
+        {
+          "libelle": "Ø 15/16 po",
+          "valeur": 0.9375
+        },
+        {
+          "libelle": "Ø 61/64 po",
+          "valeur": 0.953125
+        },
+        {
+          "libelle": "Ø 31/32 po",
+          "valeur": 0.96875
+        },
+        {
+          "libelle": "Ø 63/64 po",
+          "valeur": 0.984375
+        },
+        {
+          "libelle": "Ø 1 po",
+          "valeur": 1
+        }
+      ]
+    },
+    {
+      "id": "foret_fractionnaire_2",
+      "colonne_excel": 2,
+      "nom": "Foret fractionnaire",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret [IdDia]",
+      "commentaire": "Pour les Ø plus grand que > 1/2\", pré-percer pour dégager l'âme du foret",
+      "operation": "Perçage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 2,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide",
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de corroyage"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 1 po",
+          "valeur": 1
+        },
+        {
+          "libelle": "Ø 1 1/16 po",
+          "valeur": 1.0625
+        },
+        {
+          "libelle": "Ø 1 1/8 po",
+          "valeur": 1.125
+        },
+        {
+          "libelle": "Ø 1 3/16 po",
+          "valeur": 1.1875
+        },
+        {
+          "libelle": "Ø 1 1/4 po",
+          "valeur": 1.25
+        },
+        {
+          "libelle": "Ø 1 5/16 po",
+          "valeur": 1.3125
+        },
+        {
+          "libelle": "Ø 1 3/8 po",
+          "valeur": 1.375
+        },
+        {
+          "libelle": "Ø 1 7/16 po",
+          "valeur": 1.4375
+        },
+        {
+          "libelle": "Ø 1 1/2 po",
+          "valeur": 1.5
+        },
+        {
+          "libelle": "Ø 1 9/16 po",
+          "valeur": 1.5625
+        },
+        {
+          "libelle": "Ø 1 5/8 po",
+          "valeur": 1.625
+        },
+        {
+          "libelle": "Ø 1 11/16 po",
+          "valeur": 1.6875
+        },
+        {
+          "libelle": "Ø 1 3/4 po",
+          "valeur": 1.75
+        },
+        {
+          "libelle": "Ø 1 13/16 po",
+          "valeur": 1.8125
+        },
+        {
+          "libelle": "Ø 1 7/8 po",
+          "valeur": 1.875
+        },
+        {
+          "libelle": "Ø 1 15/16 po",
+          "valeur": 1.9375
+        },
+        {
+          "libelle": "Ø 2 po",
+          "valeur": 2
+        }
+      ]
+    },
+    {
+      "id": "foret_a_numero",
+      "colonne_excel": 3,
+      "nom": "Foret à numéro",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret [IdDia]",
+      "commentaire": "Série à numéro allant environ de 1/64 à 1/4",
+      "operation": "Perçage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 2,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie",
+        "O - Plastique thermoformable",
+        "O - Plastique thermodurcissable",
+        "O - Plastique renforci de fibre de verre",
+        "O - Plastique renforci de fibre de carbone"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "#80",
+          "valeur": 0.0135
+        },
+        {
+          "libelle": "#79",
+          "valeur": 0.0145
+        },
+        {
+          "libelle": "#78",
+          "valeur": 0.016
+        },
+        {
+          "libelle": "#77",
+          "valeur": 0.018
+        },
+        {
+          "libelle": "#76",
+          "valeur": 0.02
+        },
+        {
+          "libelle": "#75",
+          "valeur": 0.021
+        },
+        {
+          "libelle": "#74",
+          "valeur": 0.0225
+        },
+        {
+          "libelle": "#73",
+          "valeur": 0.024
+        },
+        {
+          "libelle": "#72",
+          "valeur": 0.025
+        },
+        {
+          "libelle": "#71",
+          "valeur": 0.026
+        },
+        {
+          "libelle": "#70",
+          "valeur": 0.028
+        },
+        {
+          "libelle": "#69",
+          "valeur": 0.0292
+        },
+        {
+          "libelle": "#68",
+          "valeur": 0.031
+        },
+        {
+          "libelle": "#67",
+          "valeur": 0.032
+        },
+        {
+          "libelle": "#66",
+          "valeur": 0.033
+        },
+        {
+          "libelle": "#65",
+          "valeur": 0.035
+        },
+        {
+          "libelle": "#64",
+          "valeur": 0.036
+        },
+        {
+          "libelle": "#63",
+          "valeur": 0.037
+        },
+        {
+          "libelle": "#62",
+          "valeur": 0.038
+        },
+        {
+          "libelle": "#61",
+          "valeur": 0.039
+        },
+        {
+          "libelle": "#60",
+          "valeur": 0.04
+        },
+        {
+          "libelle": "#59",
+          "valeur": 0.041
+        },
+        {
+          "libelle": "#58",
+          "valeur": 0.042
+        },
+        {
+          "libelle": "#57",
+          "valeur": 0.043
+        },
+        {
+          "libelle": "#56",
+          "valeur": 0.0465
+        },
+        {
+          "libelle": "#55",
+          "valeur": 0.052
+        },
+        {
+          "libelle": "#54",
+          "valeur": 0.055
+        },
+        {
+          "libelle": "#53",
+          "valeur": 0.0595
+        },
+        {
+          "libelle": "#52",
+          "valeur": 0.0635
+        },
+        {
+          "libelle": "#51",
+          "valeur": 0.067
+        },
+        {
+          "libelle": "#50",
+          "valeur": 0.07
+        },
+        {
+          "libelle": "#49",
+          "valeur": 0.073
+        },
+        {
+          "libelle": "#48",
+          "valeur": 0.076
+        },
+        {
+          "libelle": "#47",
+          "valeur": 0.0785
+        },
+        {
+          "libelle": "#46",
+          "valeur": 0.081
+        },
+        {
+          "libelle": "#45",
+          "valeur": 0.082
+        },
+        {
+          "libelle": "#44",
+          "valeur": 0.086
+        },
+        {
+          "libelle": "#43",
+          "valeur": 0.089
+        },
+        {
+          "libelle": "#42",
+          "valeur": 0.0935
+        },
+        {
+          "libelle": "#41",
+          "valeur": 0.096
+        },
+        {
+          "libelle": "#40",
+          "valeur": 0.098
+        },
+        {
+          "libelle": "#39",
+          "valeur": 0.0995
+        },
+        {
+          "libelle": "#38",
+          "valeur": 0.1015
+        },
+        {
+          "libelle": "#37",
+          "valeur": 0.104
+        },
+        {
+          "libelle": "#36",
+          "valeur": 0.1065
+        },
+        {
+          "libelle": "#35",
+          "valeur": 0.11
+        },
+        {
+          "libelle": "#34",
+          "valeur": 0.111
+        },
+        {
+          "libelle": "#33",
+          "valeur": 0.113
+        },
+        {
+          "libelle": "#32",
+          "valeur": 0.116
+        },
+        {
+          "libelle": "#31",
+          "valeur": 0.12
+        },
+        {
+          "libelle": "#30",
+          "valeur": 0.1285
+        },
+        {
+          "libelle": "#29",
+          "valeur": 0.136
+        },
+        {
+          "libelle": "#28",
+          "valeur": 0.1405
+        },
+        {
+          "libelle": "#27",
+          "valeur": 0.144
+        },
+        {
+          "libelle": "#26",
+          "valeur": 0.147
+        },
+        {
+          "libelle": "#25",
+          "valeur": 0.1495
+        },
+        {
+          "libelle": "#24",
+          "valeur": 0.152
+        },
+        {
+          "libelle": "#23",
+          "valeur": 0.154
+        },
+        {
+          "libelle": "#22",
+          "valeur": 0.157
+        },
+        {
+          "libelle": "#21",
+          "valeur": 0.159
+        },
+        {
+          "libelle": "#20",
+          "valeur": 0.161
+        },
+        {
+          "libelle": "#19",
+          "valeur": 0.166
+        },
+        {
+          "libelle": "#18",
+          "valeur": 0.1695
+        },
+        {
+          "libelle": "#17",
+          "valeur": 0.173
+        },
+        {
+          "libelle": "#16",
+          "valeur": 0.177
+        },
+        {
+          "libelle": "#15",
+          "valeur": 0.18
+        },
+        {
+          "libelle": "#14",
+          "valeur": 0.182
+        },
+        {
+          "libelle": "#13",
+          "valeur": 0.185
+        },
+        {
+          "libelle": "#12",
+          "valeur": 0.189
+        },
+        {
+          "libelle": "#11",
+          "valeur": 0.191
+        },
+        {
+          "libelle": "#10",
+          "valeur": 0.1935
+        },
+        {
+          "libelle": "#9",
+          "valeur": 0.196
+        },
+        {
+          "libelle": "#8",
+          "valeur": 0.199
+        },
+        {
+          "libelle": "#7",
+          "valeur": 0.201
+        },
+        {
+          "libelle": "#6",
+          "valeur": 0.204
+        },
+        {
+          "libelle": "#5",
+          "valeur": 0.2055
+        },
+        {
+          "libelle": "#4",
+          "valeur": 0.209
+        },
+        {
+          "libelle": "#3",
+          "valeur": 0.213
+        },
+        {
+          "libelle": "#2",
+          "valeur": 0.221
+        },
+        {
+          "libelle": "#1",
+          "valeur": 0.228
+        }
+      ]
+    },
+    {
+      "id": "foret_a_lettre",
+      "colonne_excel": 4,
+      "nom": "Foret à lettre",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret [IdDia]",
+      "commentaire": "Foret allant de 1/4 à 7/16",
+      "operation": "Perçage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 2,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "A",
+          "valeur": 0.234
+        },
+        {
+          "libelle": "B",
+          "valeur": 0.238
+        },
+        {
+          "libelle": "C",
+          "valeur": 0.242
+        },
+        {
+          "libelle": "D",
+          "valeur": 0.246
+        },
+        {
+          "libelle": "E",
+          "valeur": 0.25
+        },
+        {
+          "libelle": "F",
+          "valeur": 0.257
+        },
+        {
+          "libelle": "G",
+          "valeur": 0.261
+        },
+        {
+          "libelle": "H",
+          "valeur": 0.266
+        },
+        {
+          "libelle": "I",
+          "valeur": 0.272
+        },
+        {
+          "libelle": "J",
+          "valeur": 0.277
+        },
+        {
+          "libelle": "K",
+          "valeur": 0.281
+        },
+        {
+          "libelle": "L",
+          "valeur": 0.29
+        },
+        {
+          "libelle": "M",
+          "valeur": 0.295
+        },
+        {
+          "libelle": "N",
+          "valeur": 0.302
+        },
+        {
+          "libelle": "O",
+          "valeur": 0.316
+        },
+        {
+          "libelle": "P",
+          "valeur": 0.323
+        },
+        {
+          "libelle": "Q",
+          "valeur": 0.332
+        },
+        {
+          "libelle": "R",
+          "valeur": 0.339
+        },
+        {
+          "libelle": "S",
+          "valeur": 0.348
+        },
+        {
+          "libelle": "T",
+          "valeur": 0.358
+        },
+        {
+          "libelle": "U",
+          "valeur": 0.368
+        },
+        {
+          "libelle": "V",
+          "valeur": 0.377
+        },
+        {
+          "libelle": "W",
+          "valeur": 0.386
+        },
+        {
+          "libelle": "X",
+          "valeur": 0.397
+        },
+        {
+          "libelle": "Y",
+          "valeur": 0.404
+        },
+        {
+          "libelle": "Z",
+          "valeur": 0.413
+        }
+      ]
+    },
+    {
+      "id": "foret_metrique",
+      "colonne_excel": 5,
+      "nom": "Foret métrique",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret [IdDia]",
+      "commentaire": "Le jobber lenght",
+      "operation": "Perçage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 2,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 0.05 mm",
+          "valeur": 0.0019685039370078744
+        },
+        {
+          "libelle": "Ø 0.1 mm",
+          "valeur": 0.003937007874015749
+        },
+        {
+          "libelle": "Ø 0.2 mm",
+          "valeur": 0.007874015748031498
+        },
+        {
+          "libelle": "Ø 0.3 mm",
+          "valeur": 0.011811023622047244
+        },
+        {
+          "libelle": "Ø 0.4 mm",
+          "valeur": 0.015748031496062992
+        },
+        {
+          "libelle": "Ø 0.5 mm",
+          "valeur": 0.01968503937007874
+        },
+        {
+          "libelle": "Ø 0.6 mm",
+          "valeur": 0.023622047244094488
+        },
+        {
+          "libelle": "Ø 0.7 mm",
+          "valeur": 0.027559055118110232
+        },
+        {
+          "libelle": "Ø 0.8 mm",
+          "valeur": 0.031496062992125984
+        },
+        {
+          "libelle": "Ø 0.9 mm",
+          "valeur": 0.03543307086614173
+        },
+        {
+          "libelle": "Ø 1.0 mm",
+          "valeur": 0.03937007874015748
+        },
+        {
+          "libelle": "Ø 1.1 mm",
+          "valeur": 0.043307086614173235
+        },
+        {
+          "libelle": "Ø 1.2 mm",
+          "valeur": 0.047244094488188976
+        },
+        {
+          "libelle": "Ø 1.3 mm",
+          "valeur": 0.051181102362204724
+        },
+        {
+          "libelle": "Ø 1.4 mm",
+          "valeur": 0.055118110236220465
+        },
+        {
+          "libelle": "Ø 1.5 mm",
+          "valeur": 0.05905511811023622
+        },
+        {
+          "libelle": "Ø 1.6 mm",
+          "valeur": 0.06299212598425197
+        },
+        {
+          "libelle": "Ø 1.7 mm",
+          "valeur": 0.06692913385826771
+        },
+        {
+          "libelle": "Ø 1.8 mm",
+          "valeur": 0.07086614173228346
+        },
+        {
+          "libelle": "Ø 1.9 mm",
+          "valeur": 0.0748031496062992
+        },
+        {
+          "libelle": "Ø 2.0 mm",
+          "valeur": 0.07874015748031496
+        },
+        {
+          "libelle": "Ø 2.1 mm",
+          "valeur": 0.08267716535433071
+        },
+        {
+          "libelle": "Ø 2.2 mm",
+          "valeur": 0.08661417322834647
+        },
+        {
+          "libelle": "Ø 2.3 mm",
+          "valeur": 0.0905511811023622
+        },
+        {
+          "libelle": "Ø 2.4 mm",
+          "valeur": 0.09448818897637795
+        },
+        {
+          "libelle": "Ø 2.5 mm",
+          "valeur": 0.09842519685039369
+        },
+        {
+          "libelle": "Ø 2.6 mm",
+          "valeur": 0.10236220472440945
+        },
+        {
+          "libelle": "Ø 2.7 mm",
+          "valeur": 0.1062992125984252
+        },
+        {
+          "libelle": "Ø 2.8 mm",
+          "valeur": 0.11023622047244093
+        },
+        {
+          "libelle": "Ø 2.9 mm",
+          "valeur": 0.11417322834645668
+        },
+        {
+          "libelle": "Ø 3.0 mm",
+          "valeur": 0.11811023622047244
+        },
+        {
+          "libelle": "Ø 3.1 mm",
+          "valeur": 0.1220472440944882
+        },
+        {
+          "libelle": "Ø 3.2 mm",
+          "valeur": 0.12598425196850394
+        },
+        {
+          "libelle": "Ø 3.3 mm",
+          "valeur": 0.12992125984251968
+        },
+        {
+          "libelle": "Ø 3.4 mm",
+          "valeur": 0.13385826771653542
+        },
+        {
+          "libelle": "Ø 3.5 mm",
+          "valeur": 0.1377952755905512
+        },
+        {
+          "libelle": "Ø 3.6 mm",
+          "valeur": 0.14173228346456693
+        },
+        {
+          "libelle": "Ø 3.7 mm",
+          "valeur": 0.1456692913385827
+        },
+        {
+          "libelle": "Ø 3.8 mm",
+          "valeur": 0.1496062992125984
+        },
+        {
+          "libelle": "Ø 3.9 mm",
+          "valeur": 0.15354330708661418
+        },
+        {
+          "libelle": "Ø 4.0 mm",
+          "valeur": 0.15748031496062992
+        },
+        {
+          "libelle": "Ø 4.1 mm",
+          "valeur": 0.16141732283464566
+        },
+        {
+          "libelle": "Ø 4.2 mm",
+          "valeur": 0.16535433070866143
+        },
+        {
+          "libelle": "Ø 4.3 mm",
+          "valeur": 0.16929133858267714
+        },
+        {
+          "libelle": "Ø 4.4 mm",
+          "valeur": 0.17322834645669294
+        },
+        {
+          "libelle": "Ø 4.5 mm",
+          "valeur": 0.17716535433070865
+        },
+        {
+          "libelle": "Ø 4.6 mm",
+          "valeur": 0.1811023622047244
+        },
+        {
+          "libelle": "Ø 4.7 mm",
+          "valeur": 0.18503937007874016
+        },
+        {
+          "libelle": "Ø 4.8 mm",
+          "valeur": 0.1889763779527559
+        },
+        {
+          "libelle": "Ø 4.9 mm",
+          "valeur": 0.19291338582677167
+        },
+        {
+          "libelle": "Ø 5.0 mm",
+          "valeur": 0.19685039370078738
+        },
+        {
+          "libelle": "Ø 5.1 mm",
+          "valeur": 0.20078740157480313
+        },
+        {
+          "libelle": "Ø 5.2 mm",
+          "valeur": 0.2047244094488189
+        },
+        {
+          "libelle": "Ø 5.3 mm",
+          "valeur": 0.20866141732283464
+        },
+        {
+          "libelle": "Ø 5.4 mm",
+          "valeur": 0.2125984251968504
+        },
+        {
+          "libelle": "Ø 5.5 mm",
+          "valeur": 0.21653543307086615
+        },
+        {
+          "libelle": "Ø 5.6 mm",
+          "valeur": 0.22047244094488186
+        },
+        {
+          "libelle": "Ø 5.7 mm",
+          "valeur": 0.22440944881889766
+        },
+        {
+          "libelle": "Ø 5.8 mm",
+          "valeur": 0.22834645669291337
+        },
+        {
+          "libelle": "Ø 5.9 mm",
+          "valeur": 0.23228346456692914
+        },
+        {
+          "libelle": "Ø 6.0 mm",
+          "valeur": 0.23622047244094488
+        },
+        {
+          "libelle": "Ø 6.1 mm",
+          "valeur": 0.24015748031496062
+        },
+        {
+          "libelle": "Ø 6.2 mm",
+          "valeur": 0.2440944881889764
+        },
+        {
+          "libelle": "Ø 6.3 mm",
+          "valeur": 0.2480314960629921
+        },
+        {
+          "libelle": "Ø 6.4 mm",
+          "valeur": 0.25196850393700787
+        },
+        {
+          "libelle": "Ø 6.5 mm",
+          "valeur": 0.2559055118110236
+        },
+        {
+          "libelle": "Ø 6.6 mm",
+          "valeur": 0.25984251968503935
+        },
+        {
+          "libelle": "Ø 6.7 mm",
+          "valeur": 0.26377952755905515
+        },
+        {
+          "libelle": "Ø 6.8 mm",
+          "valeur": 0.26771653543307083
+        },
+        {
+          "libelle": "Ø 6.9 mm",
+          "valeur": 0.27165354330708663
+        },
+        {
+          "libelle": "Ø 7.0 mm",
+          "valeur": 0.2755905511811024
+        },
+        {
+          "libelle": "Ø 7.1 mm",
+          "valeur": 0.2795275590551181
+        },
+        {
+          "libelle": "Ø 7.2 mm",
+          "valeur": 0.28346456692913385
+        },
+        {
+          "libelle": "Ø 7.3 mm",
+          "valeur": 0.2874015748031496
+        },
+        {
+          "libelle": "Ø 7.4 mm",
+          "valeur": 0.2913385826771654
+        },
+        {
+          "libelle": "Ø 7.5 mm",
+          "valeur": 0.2952755905511811
+        },
+        {
+          "libelle": "Ø 7.6 mm",
+          "valeur": 0.2992125984251968
+        },
+        {
+          "libelle": "Ø 7.7 mm",
+          "valeur": 0.3031496062992126
+        },
+        {
+          "libelle": "Ø 7.8 mm",
+          "valeur": 0.30708661417322836
+        },
+        {
+          "libelle": "Ø 7.9 mm",
+          "valeur": 0.3110236220472441
+        },
+        {
+          "libelle": "Ø 8.0 mm",
+          "valeur": 0.31496062992125984
+        },
+        {
+          "libelle": "Ø 8.1 mm",
+          "valeur": 0.3188976377952756
+        },
+        {
+          "libelle": "Ø 8.2 mm",
+          "valeur": 0.3228346456692913
+        },
+        {
+          "libelle": "Ø 8.3 mm",
+          "valeur": 0.3267716535433071
+        },
+        {
+          "libelle": "Ø 8.4 mm",
+          "valeur": 0.33070866141732286
+        },
+        {
+          "libelle": "Ø 8.5 mm",
+          "valeur": 0.3346456692913386
+        },
+        {
+          "libelle": "Ø 8.6 mm",
+          "valeur": 0.3385826771653543
+        },
+        {
+          "libelle": "Ø 8.7 mm",
+          "valeur": 0.34251968503937
+        },
+        {
+          "libelle": "Ø 8.8 mm",
+          "valeur": 0.3464566929133859
+        },
+        {
+          "libelle": "Ø 8.9  mm",
+          "valeur": 0.35039370078740156
+        },
+        {
+          "libelle": "Ø 9.0 mm",
+          "valeur": 0.3543307086614173
+        },
+        {
+          "libelle": "Ø 9.1 mm",
+          "valeur": 0.35826771653543305
+        },
+        {
+          "libelle": "Ø 9.2 mm",
+          "valeur": 0.3622047244094488
+        },
+        {
+          "libelle": "Ø 9.3 mm",
+          "valeur": 0.3661417322834646
+        },
+        {
+          "libelle": "Ø 9.4 mm",
+          "valeur": 0.3700787401574803
+        },
+        {
+          "libelle": "Ø 9.5 mm",
+          "valeur": 0.37401574803149606
+        },
+        {
+          "libelle": "Ø 9.6 mm",
+          "valeur": 0.3779527559055118
+        },
+        {
+          "libelle": "Ø 9.7 mm",
+          "valeur": 0.38188976377952755
+        },
+        {
+          "libelle": "Ø 9.8 mm",
+          "valeur": 0.38582677165354334
+        },
+        {
+          "libelle": "Ø 9.9 mm",
+          "valeur": 0.3897637795275591
+        },
+        {
+          "libelle": "Ø 10.0 mm",
+          "valeur": 0.39370078740157477
+        },
+        {
+          "libelle": "Ø 10.5 mm",
+          "valeur": 0.41338582677165353
+        },
+        {
+          "libelle": "Ø 11.0 mm",
+          "valeur": 0.4330708661417323
+        },
+        {
+          "libelle": "Ø 11.5 mm",
+          "valeur": 0.452755905511811
+        },
+        {
+          "libelle": "Ø 12.0 mm",
+          "valeur": 0.47244094488188976
+        },
+        {
+          "libelle": "Ø 12.5 mm",
+          "valeur": 0.4921259842519685
+        },
+        {
+          "libelle": "Ø 13.0 mm",
+          "valeur": 0.5118110236220472
+        },
+        {
+          "libelle": "Ø 13.5 mm",
+          "valeur": 0.5314960629921259
+        },
+        {
+          "libelle": "Ø 14.0 mm",
+          "valeur": 0.5511811023622047
+        },
+        {
+          "libelle": "Ø 14.5 mm",
+          "valeur": 0.5708661417322834
+        },
+        {
+          "libelle": "Ø 15.0 mm",
+          "valeur": 0.5905511811023622
+        }
+      ]
+    },
+    {
+      "id": "foret_metrique_2",
+      "colonne_excel": 6,
+      "nom": "Foret métrique",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret [IdDia]",
+      "commentaire": "Pour les Ø plus grand que > 12mm, pré-percer pour dégager l'âme du foret",
+      "operation": "Perçage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 2,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 15.0 mm",
+          "valeur": 0.5905511811023622
+        },
+        {
+          "libelle": "Ø 15.5 mm",
+          "valeur": 0.610236220472441
+        },
+        {
+          "libelle": "Ø 16.0 mm",
+          "valeur": 0.6299212598425197
+        },
+        {
+          "libelle": "Ø 16.5 mm",
+          "valeur": 0.6496062992125984
+        },
+        {
+          "libelle": "Ø 17.0 mm",
+          "valeur": 0.6692913385826772
+        },
+        {
+          "libelle": "Ø 17.5 mm",
+          "valeur": 0.6889763779527559
+        },
+        {
+          "libelle": "Ø 18.0 mm",
+          "valeur": 0.7086614173228346
+        },
+        {
+          "libelle": "Ø 18.5 mm",
+          "valeur": 0.7283464566929134
+        },
+        {
+          "libelle": "Ø 19.0 mm",
+          "valeur": 0.7480314960629921
+        },
+        {
+          "libelle": "Ø 19.5 mm",
+          "valeur": 0.7677165354330708
+        },
+        {
+          "libelle": "Ø 20.0 mm",
+          "valeur": 0.7874015748031495
+        },
+        {
+          "libelle": "Ø 20.5 mm",
+          "valeur": 0.8070866141732284
+        },
+        {
+          "libelle": "Ø 21.0 mm",
+          "valeur": 0.8267716535433071
+        },
+        {
+          "libelle": "Ø 21.5 mm",
+          "valeur": 0.8464566929133858
+        },
+        {
+          "libelle": "Ø 22.0 mm",
+          "valeur": 0.8661417322834646
+        },
+        {
+          "libelle": "Ø 22.5 mm",
+          "valeur": 0.8858267716535433
+        },
+        {
+          "libelle": "Ø 23.0 mm",
+          "valeur": 0.905511811023622
+        },
+        {
+          "libelle": "Ø 23.5 mm",
+          "valeur": 0.9251968503937008
+        },
+        {
+          "libelle": "Ø 24.0 mm",
+          "valeur": 0.9448818897637795
+        },
+        {
+          "libelle": "Ø 24.5 mm",
+          "valeur": 0.9645669291338582
+        },
+        {
+          "libelle": "Ø 25.0 mm",
+          "valeur": 0.984251968503937
+        },
+        {
+          "libelle": "Ø 25.5 mm",
+          "valeur": 1.0039370078740157
+        },
+        {
+          "libelle": "Ø 26.0 mm",
+          "valeur": 1.0236220472440944
+        },
+        {
+          "libelle": "Ø 26.5 mm",
+          "valeur": 1.0433070866141732
+        },
+        {
+          "libelle": "Ø 27.0 mm",
+          "valeur": 1.0629921259842519
+        },
+        {
+          "libelle": "Ø 27.5 mm",
+          "valeur": 1.0826771653543308
+        },
+        {
+          "libelle": "Ø 28.0 mm",
+          "valeur": 1.1023622047244095
+        },
+        {
+          "libelle": "Ø 28.5 mm",
+          "valeur": 1.1220472440944882
+        },
+        {
+          "libelle": "Ø 29.0 mm",
+          "valeur": 1.141732283464567
+        },
+        {
+          "libelle": "Ø 29.5 mm",
+          "valeur": 1.1614173228346456
+        },
+        {
+          "libelle": "Ø 30.0 mm",
+          "valeur": 1.1811023622047243
+        },
+        {
+          "libelle": "Ø 30.5 mm",
+          "valeur": 1.2007874015748032
+        },
+        {
+          "libelle": "Ø 31.0 mm",
+          "valeur": 1.220472440944882
+        },
+        {
+          "libelle": "Ø 31.5 mm",
+          "valeur": 1.2401574803149606
+        },
+        {
+          "libelle": "Ø 32.0 mm",
+          "valeur": 1.2598425196850394
+        },
+        {
+          "libelle": "Ø 32.5 mm",
+          "valeur": 1.279527559055118
+        },
+        {
+          "libelle": "Ø 33.0 mm",
+          "valeur": 1.2992125984251968
+        },
+        {
+          "libelle": "Ø 33.5 mm",
+          "valeur": 1.3188976377952755
+        },
+        {
+          "libelle": "Ø 34.0 mm",
+          "valeur": 1.3385826771653544
+        },
+        {
+          "libelle": "Ø 34.5 mm",
+          "valeur": 1.358267716535433
+        },
+        {
+          "libelle": "Ø 35.0 mm",
+          "valeur": 1.3779527559055118
+        },
+        {
+          "libelle": "Ø 35.5 mm",
+          "valeur": 1.3976377952755905
+        },
+        {
+          "libelle": "Ø 36.0 mm",
+          "valeur": 1.4173228346456692
+        },
+        {
+          "libelle": "Ø 36.5 mm",
+          "valeur": 1.437007874015748
+        },
+        {
+          "libelle": "Ø 37.0 mm",
+          "valeur": 1.4566929133858268
+        },
+        {
+          "libelle": "Ø 37.5 mm",
+          "valeur": 1.4763779527559056
+        },
+        {
+          "libelle": "Ø 38.0 mm",
+          "valeur": 1.4960629921259843
+        }
+      ]
+    },
+    {
+      "id": "foret_udrill",
+      "colonne_excel": 7,
+      "nom": "Foret Udrill",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret Udrill [IdDia]",
+      "commentaire": "Attention, ce modèle a un seul insert en périphérie",
+      "operation": "Perçage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "Ø 3/4 po",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "Ø 7/8 po",
+          "valeur": 0.875
+        },
+        {
+          "libelle": "Ø 1 po",
+          "valeur": 1
+        },
+        {
+          "libelle": "Ø 1 1/4 po",
+          "valeur": 1.25
+        },
+        {
+          "libelle": "Ø 1 1/2 po",
+          "valeur": 1.5
+        }
+      ]
+    },
+    {
+      "id": "alesoir",
+      "colonne_excel": 8,
+      "nom": "Alésoir",
+      "reussites_requises": 0,
+      "format_identifiant": "Alésoir [IdDia] - [NbDent] lèvres",
+      "commentaire": "Tourner lentement",
+      "operation": "Alésage à l'alésoir",
+      "fact_vc": 0.25,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 6,
+      "nb_dents_max": 6,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "0.1250\"",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "0.1875\"",
+          "valeur": 0.1875
+        },
+        {
+          "libelle": "0.2500\"",
+          "valeur": 0.25
+        },
+        {
+          "libelle": "0.3750\"",
+          "valeur": 0.375
+        },
+        {
+          "libelle": "0.5000\"",
+          "valeur": 0.5
+        }
+      ]
+    },
+    {
+      "id": "alesoir_2",
+      "colonne_excel": 9,
+      "nom": "Alésoir",
+      "reussites_requises": 0,
+      "format_identifiant": "Alésoir [IdDia] - [NbDent] lèvres",
+      "commentaire": "Tourner lentement",
+      "operation": "Alésage à l'alésoir",
+      "fact_vc": 0.25,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 8,
+      "nb_dents_max": 8,
+      "materiaux_outil": [
+        "Acier rapide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "0.6250\"",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "0.7500\"",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "0.8750\"",
+          "valeur": 0.875
+        },
+        {
+          "libelle": "1.0000\"",
+          "valeur": 1
+        },
+        {
+          "libelle": "1.2500\"",
+          "valeur": 1.25
+        },
+        {
+          "libelle": "1.5000\"",
+          "valeur": 1.5
+        }
+      ]
+    },
+    {
+      "id": "fraise_en_bout_helicoidale",
+      "colonne_excel": 10,
+      "nom": "Fraise en bout hélicoïdale",
+      "reussites_requises": 0,
+      "format_identifiant": "Fraise en bout Ø [IdDia] - [NbDent] lèvres",
+      "commentaire": "Grande profondeur",
+      "operation": "Contournage ébauche",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 5,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1/8 po",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "5/32 po",
+          "valeur": 0.15625
+        },
+        {
+          "libelle": "3/16 po",
+          "valeur": 0.1875
+        },
+        {
+          "libelle": "1/4 po",
+          "valeur": 0.25
+        },
+        {
+          "libelle": "3/8 po",
+          "valeur": 0.375
+        },
+        {
+          "libelle": "1/2 po",
+          "valeur": 0.5
+        }
+      ]
+    },
+    {
+      "id": "fraise_en_bout_a_inserts",
+      "colonne_excel": 11,
+      "nom": "Fraise en bout à inserts",
+      "reussites_requises": 0,
+      "format_identifiant": "Fraise en bout Ø [IdDia] - [NbDent] inserts",
+      "commentaire": "Petite profondeur",
+      "operation": "Contournage finition",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 3,
+      "nb_dents_max": 3,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "3/4 po",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "7/8 po",
+          "valeur": 0.875
+        }
+      ]
+    },
+    {
+      "id": "fraise_a_surfacer",
+      "colonne_excel": 12,
+      "nom": "Fraise à surfacer",
+      "reussites_requises": 0,
+      "format_identifiant": "Fraise à surfacer Ø [IdDia] - [NbDent] inserts",
+      "commentaire": "Montage rigide",
+      "operation": "Surfaçage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 3,
+      "nb_dents_max": 5,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1 po",
+          "valeur": 1
+        },
+        {
+          "libelle": "1 1/4 po",
+          "valeur": 1.25
+        },
+        {
+          "libelle": "1 1/2 po",
+          "valeur": 1.5
+        }
+      ]
+    },
+    {
+      "id": "taraud_imperial",
+      "colonne_excel": 13,
+      "nom": "Taraud impérial",
+      "reussites_requises": 0,
+      "format_identifiant": "Taraud [IdDia]",
+      "commentaire": "Tarauder 1/4 et plus",
+      "operation": "Taraudage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 1000,
+      "limite_avance": null,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie",
+        "O - Plastique thermoformable",
+        "O - Plastique thermodurcissable",
+        "O - Plastique renforci de fibre de verre",
+        "O - Plastique renforci de fibre de carbone"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1/4- 20 UNC",
+          "valeur": "0.25-20"
+        },
+        {
+          "libelle": "5/16 - 18 UNC",
+          "valeur": ".3125-18"
+        },
+        {
+          "libelle": "3/8 - 16 UNC",
+          "valeur": ".375-16"
+        },
+        {
+          "libelle": "7/16 - 14 UNC",
+          "valeur": ".4375-14"
+        },
+        {
+          "libelle": "1/2 - 13 UNC",
+          "valeur": ".5-13"
+        },
+        {
+          "libelle": "9/16 - 12 UNC",
+          "valeur": ".5625-12"
+        },
+        {
+          "libelle": "5/8 - 11 UNC",
+          "valeur": ".625-11"
+        },
+        {
+          "libelle": "3/4 - 10 UNC",
+          "valeur": ".75-10"
+        },
+        {
+          "libelle": "7/8 - 9 UNC",
+          "valeur": ".875-9"
+        },
+        {
+          "libelle": "1 - 8 UNC",
+          "valeur": "1-8"
+        }
+      ]
+    },
+    {
+      "id": "taraud_imperial_2",
+      "colonne_excel": 14,
+      "nom": "Taraud impérial",
+      "reussites_requises": 0,
+      "format_identifiant": "Taraud [IdDia]",
+      "commentaire": "Tarauder 1/4 et moins",
+      "operation": "Taraudage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 1000,
+      "limite_avance": null,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie",
+        "O - Plastique thermoformable",
+        "O - Plastique thermodurcissable",
+        "O - Plastique renforci de fibre de verre",
+        "O - Plastique renforci de fibre de carbone"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "#1-64 UNC",
+          "valeur": "0.073-64"
+        },
+        {
+          "libelle": "#2-56 UNC",
+          "valeur": "0.086-56"
+        },
+        {
+          "libelle": "#3-48 UNC",
+          "valeur": "0.099-48"
+        },
+        {
+          "libelle": "#4-40 UNC",
+          "valeur": "0.112-40"
+        },
+        {
+          "libelle": "#5-40 UNC",
+          "valeur": "0.125-40"
+        },
+        {
+          "libelle": "#6-32 UNC",
+          "valeur": "0.136-32"
+        },
+        {
+          "libelle": "#8-32 UNC",
+          "valeur": "0.164-32"
+        },
+        {
+          "libelle": "#10-24 UNC",
+          "valeur": "0.190-24"
+        },
+        {
+          "libelle": "#12-24 UNC",
+          "valeur": "0.216-24"
+        }
+      ]
+    },
+    {
+      "id": "taraud_metrique",
+      "colonne_excel": 15,
+      "nom": "Taraud métrique",
+      "reussites_requises": 0,
+      "format_identifiant": "Taraud [IdDia]",
+      "commentaire": "Filetage métrique",
+      "operation": "Taraudage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 1000,
+      "limite_avance": null,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie",
+        "O - Plastique thermoformable",
+        "O - Plastique thermodurcissable",
+        "O - Plastique renforci de fibre de verre",
+        "O - Plastique renforci de fibre de carbone"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "M1.6 x 0.35",
+          "valeur": "1.6x0.35"
+        },
+        {
+          "libelle": "M2 x 0.4",
+          "valeur": "2x0.04"
+        },
+        {
+          "libelle": "M2.5 x 0.45",
+          "valeur": "2.5x0.45"
+        },
+        {
+          "libelle": "M3 x 0.5",
+          "valeur": "3x0.5"
+        },
+        {
+          "libelle": "M3.5 x 0.6",
+          "valeur": "3.5x0.6"
+        },
+        {
+          "libelle": "M4 x 0.7",
+          "valeur": "4x0.7"
+        },
+        {
+          "libelle": "M5 x 0.8",
+          "valeur": "5x0.8"
+        },
+        {
+          "libelle": "M6 x 1",
+          "valeur": "6x1"
+        },
+        {
+          "libelle": "M8 x 1.25",
+          "valeur": "8x1.25"
+        },
+        {
+          "libelle": "M10 x 1.50",
+          "valeur": "10x1.5"
+        },
+        {
+          "libelle": "M12 x 1.75",
+          "valeur": "12x1.75"
+        },
+        {
+          "libelle": "M14 x 2",
+          "valeur": "14x2"
+        },
+        {
+          "libelle": "M16 x 2",
+          "valeur": "16x2"
+        },
+        {
+          "libelle": "M20 X 2.5",
+          "valeur": "20x2.5"
+        },
+        {
+          "libelle": "M22 x 2.5",
+          "valeur": "22x2.5"
+        },
+        {
+          "libelle": "M24 x 3",
+          "valeur": "24x3"
+        },
+        {
+          "libelle": "M27 x 3",
+          "valeur": "27x3"
+        },
+        {
+          "libelle": "M30 x 3.5",
+          "valeur": "30x3.5"
+        },
+        {
+          "libelle": "M36 x 4",
+          "valeur": "36x4"
+        },
+        {
+          "libelle": "M42 x 4.5",
+          "valeur": "42x4.5"
+        },
+        {
+          "libelle": "M48 x 5",
+          "valeur": "48x5"
+        },
+        {
+          "libelle": "M56 x 5.5",
+          "valeur": "56x5.5"
+        },
+        {
+          "libelle": "M64 x 6",
+          "valeur": "64x6"
+        },
+        {
+          "libelle": "M68 x 6",
+          "valeur": "68x6"
+        }
+      ]
+    },
+    {
+      "id": "mclnr",
+      "colonne_excel": 16,
+      "nom": "MCLNR",
+      "reussites_requises": 1,
+      "format_identifiant": "MCLNR - Ø charioté: [IdDia]",
+      "commentaire": "Outil d'ébauche",
+      "operation": "Chariotage ébauche",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "10 mm",
+          "valeur": 0.3937007874015748
+        },
+        {
+          "libelle": "11 mm",
+          "valeur": 0.4330708661417323
+        },
+        {
+          "libelle": "12 mm",
+          "valeur": 0.4724409448818898
+        },
+        {
+          "libelle": "13 mm",
+          "valeur": 0.5118110236220472
+        },
+        {
+          "libelle": "14 mm",
+          "valeur": 0.5511811023622047
+        },
+        {
+          "libelle": "15 mm",
+          "valeur": 0.5905511811023623
+        },
+        {
+          "libelle": "16 mm",
+          "valeur": 0.6299212598425197
+        },
+        {
+          "libelle": "17 mm",
+          "valeur": 0.6692913385826772
+        },
+        {
+          "libelle": "18 mm",
+          "valeur": 0.7086614173228347
+        },
+        {
+          "libelle": "19 mm",
+          "valeur": 0.7480314960629921
+        },
+        {
+          "libelle": "20 mm",
+          "valeur": 0.7874015748031497
+        }
+      ]
+    },
+    {
+      "id": "mvlnr",
+      "colonne_excel": 17,
+      "nom": "MVLNR",
+      "reussites_requises": 3,
+      "format_identifiant": "MVLNR - Ø charioté: [IdDia]",
+      "commentaire": "Outil de finition",
+      "operation": "Chariotage finition",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1.000\"",
+          "valeur": 1
+        },
+        {
+          "libelle": "1.500\"",
+          "valeur": 1.5
+        },
+        {
+          "libelle": "1.750\"",
+          "valeur": 1.75
+        },
+        {
+          "libelle": "2.000\"",
+          "valeur": 2
+        },
+        {
+          "libelle": "2.500\"",
+          "valeur": 2.5
+        },
+        {
+          "libelle": "3.000\"",
+          "valeur": 3
+        },
+        {
+          "libelle": "4.000\"",
+          "valeur": 4
+        }
+      ]
+    },
+    {
+      "id": "lame_a_tronconner",
+      "colonne_excel": 18,
+      "nom": "Lame à tronçonner",
+      "reussites_requises": 3,
+      "format_identifiant": "Lame à tronçonner - Ø tronçonné: [IdDia]",
+      "commentaire": "Sert aussi à rainurer",
+      "operation": "Tronçonnage",
+      "fact_vc": 0.125,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1.000\"",
+          "valeur": 1
+        },
+        {
+          "libelle": "1.500\"",
+          "valeur": 1.5
+        },
+        {
+          "libelle": "1.750\"",
+          "valeur": 1.75
+        },
+        {
+          "libelle": "2.000\"",
+          "valeur": 2
+        },
+        {
+          "libelle": "2.500\"",
+          "valeur": 2.5
+        },
+        {
+          "libelle": "3.000\"",
+          "valeur": 3
+        },
+        {
+          "libelle": "4.000\"",
+          "valeur": 4
+        }
+      ]
+    },
+    {
+      "id": "barre_a_fileter",
+      "colonne_excel": 19,
+      "nom": "Barre à fileter",
+      "reussites_requises": 1,
+      "format_identifiant": "Barre à fileter - filetage: [IdDia]",
+      "commentaire": "Outil de filetage interne",
+      "operation": "Filetage interne",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1/4- 20 UNC",
+          "valeur": "0.25-20"
+        },
+        {
+          "libelle": "5/16 - 18 UNC",
+          "valeur": ".3125-18"
+        },
+        {
+          "libelle": "3/8 - 16 UNC",
+          "valeur": ".375-16"
+        },
+        {
+          "libelle": "7/16 - 14 UNC",
+          "valeur": ".4375-14"
+        },
+        {
+          "libelle": "1/2 - 13 UNC",
+          "valeur": ".5-13"
+        },
+        {
+          "libelle": "9/16 - 12 UNC",
+          "valeur": ".5625-12"
+        },
+        {
+          "libelle": "5/8 - 11 UNC",
+          "valeur": ".625-11"
+        },
+        {
+          "libelle": "3/4 - 10 UNC",
+          "valeur": ".75-10"
+        },
+        {
+          "libelle": "7/8 - 9 UNC",
+          "valeur": ".875-9"
+        },
+        {
+          "libelle": "1 - 8 UNC",
+          "valeur": "1-8"
+        }
+      ]
+    },
+    {
+      "id": "barre_a_fileter_2",
+      "colonne_excel": 20,
+      "nom": "Barre à fileter",
+      "reussites_requises": 1,
+      "format_identifiant": "Barre à fileter - filetage: [IdDia]",
+      "commentaire": "Outil de filetage interne - filet métrique",
+      "operation": "Filetage interne",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "M4 x 0.7",
+          "valeur": "4x0.7"
+        },
+        {
+          "libelle": "M5 x 0.8",
+          "valeur": "5x0.8"
+        },
+        {
+          "libelle": "M6 x 1",
+          "valeur": "6x1"
+        },
+        {
+          "libelle": "M8 x 1.25",
+          "valeur": "8x1.25"
+        },
+        {
+          "libelle": "M10 x 1.50",
+          "valeur": "10x1.5"
+        },
+        {
+          "libelle": "M12 x 1.75",
+          "valeur": "12x1.75"
+        },
+        {
+          "libelle": "M14 x 2",
+          "valeur": "14x2"
+        },
+        {
+          "libelle": "M16 x 2",
+          "valeur": "16x2"
+        },
+        {
+          "libelle": "M20 X 2.5",
+          "valeur": "20x2.5"
+        },
+        {
+          "libelle": "M22 x 2.5",
+          "valeur": "22x2.5"
+        },
+        {
+          "libelle": "M24 x 3",
+          "valeur": "24x3"
+        },
+        {
+          "libelle": "M27 x 3",
+          "valeur": "27x3"
+        },
+        {
+          "libelle": "M30 x 3.5",
+          "valeur": "30x3.5"
+        },
+        {
+          "libelle": "M36 x 4",
+          "valeur": "36x4"
+        },
+        {
+          "libelle": "M42 x 4.5",
+          "valeur": "42x4.5"
+        },
+        {
+          "libelle": "M48 x 5",
+          "valeur": "48x5"
+        },
+        {
+          "libelle": "M56 x 5.5",
+          "valeur": "56x5.5"
+        },
+        {
+          "libelle": "M64 x 6",
+          "valeur": "64x6"
+        },
+        {
+          "libelle": "M68 x 6",
+          "valeur": "68x6"
+        }
+      ]
+    },
+    {
+      "id": "barre_a_rainurer",
+      "colonne_excel": 21,
+      "nom": "Barre à rainurer",
+      "reussites_requises": 3,
+      "format_identifiant": "Barre à rainurer - Ø rainuré: [IdDia]",
+      "commentaire": null,
+      "operation": "Rainurage interne",
+      "fact_vc": 0.25,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1.000\"",
+          "valeur": 1
+        },
+        {
+          "libelle": "1.500\"",
+          "valeur": 1.5
+        },
+        {
+          "libelle": "1.750\"",
+          "valeur": 1.75
+        },
+        {
+          "libelle": "2.000\"",
+          "valeur": 2
+        },
+        {
+          "libelle": "2.500\"",
+          "valeur": 2.5
+        },
+        {
+          "libelle": "3.000\"",
+          "valeur": 3
+        },
+        {
+          "libelle": "4.000\"",
+          "valeur": 4
+        }
+      ]
+    },
+    {
+      "id": "barre_a_aleser",
+      "colonne_excel": 22,
+      "nom": "Barre à aléser",
+      "reussites_requises": 1,
+      "format_identifiant": "Barre à aléser - Ø alésé: [IdDia]",
+      "commentaire": null,
+      "operation": "Alésage à la barre",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1.000\"",
+          "valeur": 1
+        },
+        {
+          "libelle": "1.500\"",
+          "valeur": 1.5
+        },
+        {
+          "libelle": "1.750\"",
+          "valeur": 1.75
+        },
+        {
+          "libelle": "2.000\"",
+          "valeur": 2
+        },
+        {
+          "libelle": "2.500\"",
+          "valeur": 2.5
+        },
+        {
+          "libelle": "3.000\"",
+          "valeur": 3
+        },
+        {
+          "libelle": "4.000\"",
+          "valeur": 4
+        }
+      ]
+    },
+    {
+      "id": "foret_a_centrer",
+      "colonne_excel": 23,
+      "nom": "Foret à centrer",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret à centrer numéro [IdDia]",
+      "commentaire": "Pour montage avec contre-pointe",
+      "operation": "Centrage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "00",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "0",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "1",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "2",
+          "valeur": 0.1875
+        },
+        {
+          "libelle": "3",
+          "valeur": 0.25
+        },
+        {
+          "libelle": "4",
+          "valeur": 0.3125
+        },
+        {
+          "libelle": "5",
+          "valeur": 0.4375
+        },
+        {
+          "libelle": "6",
+          "valeur": 0.5
+        },
+        {
+          "libelle": "7",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "8",
+          "valeur": 0.75
+        }
+      ]
+    },
+    {
+      "id": "nine9_90_degres",
+      "colonne_excel": 24,
+      "nom": "Nine9 90 degrés",
+      "reussites_requises": 0,
+      "format_identifiant": "Outil à chanfreiner Nine9 : [IdDia]",
+      "commentaire": "Attention, ce modèle a un seul insert en périphérie",
+      "operation": "Chanfreinage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 3/8 po",
+          "valeur": 0.375
+        },
+        {
+          "libelle": "Ø 1/2 po",
+          "valeur": 0.5
+        },
+        {
+          "libelle": "Ø 5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "Ø 3/4 po",
+          "valeur": 0.75
+        }
+      ]
+    },
+    {
+      "id": "sdtmr",
+      "colonne_excel": 25,
+      "nom": "SDTMR",
+      "reussites_requises": 1,
+      "format_identifiant": "SDTMR - filetage: [IdDia]",
+      "commentaire": "Outil à fileter 60 degrés",
+      "operation": "Filetage externe",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "1/4- 20 UNC",
+          "valeur": "0.25-20"
+        },
+        {
+          "libelle": "5/16 - 18 UNC",
+          "valeur": ".3125-18"
+        },
+        {
+          "libelle": "3/8 - 16 UNC",
+          "valeur": ".375-16"
+        },
+        {
+          "libelle": "7/16 - 14 UNC",
+          "valeur": ".4375-14"
+        },
+        {
+          "libelle": "1/2 - 13 UNC",
+          "valeur": ".5-13"
+        },
+        {
+          "libelle": "9/16 - 12 UNC",
+          "valeur": ".5625-12"
+        },
+        {
+          "libelle": "5/8 - 11 UNC",
+          "valeur": ".625-11"
+        },
+        {
+          "libelle": "3/4 - 10 UNC",
+          "valeur": ".75-10"
+        },
+        {
+          "libelle": "7/8 - 9 UNC",
+          "valeur": ".875-9"
+        },
+        {
+          "libelle": "1 - 8 UNC",
+          "valeur": "1-8"
+        }
+      ]
+    },
+    {
+      "id": "sdtmr_2",
+      "colonne_excel": 26,
+      "nom": "SDTMR",
+      "reussites_requises": 1,
+      "format_identifiant": "SDTMR - filetage: [IdDia]",
+      "commentaire": "Outil à fileter 60 degrés - filet métrique",
+      "operation": "Filetage externe",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 3000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 1,
+      "nb_dents_max": 1,
+      "materiaux_outil": [
+        "Insert de carbure de tungstène"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "M4 x 0.7",
+          "valeur": "4x0.7"
+        },
+        {
+          "libelle": "M5 x 0.8",
+          "valeur": "5x0.8"
+        },
+        {
+          "libelle": "M6 x 1",
+          "valeur": "6x1"
+        },
+        {
+          "libelle": "M8 x 1.25",
+          "valeur": "8x1.25"
+        },
+        {
+          "libelle": "M10 x 1.50",
+          "valeur": "10x1.5"
+        },
+        {
+          "libelle": "M12 x 1.75",
+          "valeur": "12x1.75"
+        },
+        {
+          "libelle": "M14 x 2",
+          "valeur": "14x2"
+        },
+        {
+          "libelle": "M16 x 2",
+          "valeur": "16x2"
+        },
+        {
+          "libelle": "M20 X 2.5",
+          "valeur": "20x2.5"
+        },
+        {
+          "libelle": "M22 x 2.5",
+          "valeur": "22x2.5"
+        },
+        {
+          "libelle": "M24 x 3",
+          "valeur": "24x3"
+        },
+        {
+          "libelle": "M27 x 3",
+          "valeur": "27x3"
+        },
+        {
+          "libelle": "M30 x 3.5",
+          "valeur": "30x3.5"
+        },
+        {
+          "libelle": "M36 x 4",
+          "valeur": "36x4"
+        },
+        {
+          "libelle": "M42 x 4.5",
+          "valeur": "42x4.5"
+        },
+        {
+          "libelle": "M48 x 5",
+          "valeur": "48x5"
+        },
+        {
+          "libelle": "M56 x 5.5",
+          "valeur": "56x5.5"
+        },
+        {
+          "libelle": "M64 x 6",
+          "valeur": "64x6"
+        },
+        {
+          "libelle": "M68 x 6",
+          "valeur": "68x6"
+        }
+      ]
+    },
+    {
+      "id": "foret_a_pointer",
+      "colonne_excel": 27,
+      "nom": "Foret à pointer",
+      "reussites_requises": 0,
+      "format_identifiant": "Foret à pointer [IdDia] - [NbDent] lèvres",
+      "commentaire": "Pour positionner un trou avant perçage",
+      "operation": "Pointage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 2,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie",
+        "O - Plastique thermoformable"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 1/8 po",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "Ø 3/16 po",
+          "valeur": 0.1875
+        },
+        {
+          "libelle": "Ø 1/4 po",
+          "valeur": 0.25
+        },
+        {
+          "libelle": "Ø 5/16 po",
+          "valeur": 0.3125
+        },
+        {
+          "libelle": "Ø 3/8 po",
+          "valeur": 0.375
+        },
+        {
+          "libelle": "Ø 1/2 po",
+          "valeur": 0.5
+        },
+        {
+          "libelle": "Ø 5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "Ø 3/4 po",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "Ø 7/8 po",
+          "valeur": 0.875
+        },
+        {
+          "libelle": "Ø 1 po",
+          "valeur": 1
+        }
+      ]
+    },
+    {
+      "id": "fraise_82_degres",
+      "colonne_excel": 28,
+      "nom": "Fraise 82 degrés",
+      "reussites_requises": 0,
+      "format_identifiant": "Fraise à chanfreiner 82 degrés - [IdDia] - [NbDent] lèvre(s)",
+      "commentaire": "Pour chanfreiner un trou",
+      "operation": "Chanfreinage",
+      "fact_vc": 0.25,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 3,
+      "nb_dents_max": 3,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie",
+        "O - Plastique thermoformable"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 1/8 po",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "Ø 3/16 po",
+          "valeur": 0.1875
+        },
+        {
+          "libelle": "Ø 1/4 po",
+          "valeur": 0.25
+        },
+        {
+          "libelle": "Ø 5/16 po",
+          "valeur": 0.3125
+        },
+        {
+          "libelle": "Ø 3/8 po",
+          "valeur": 0.375
+        },
+        {
+          "libelle": "Ø 1/2 po",
+          "valeur": 0.5
+        },
+        {
+          "libelle": "Ø 5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "Ø 3/4 po",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "Ø 7/8 po",
+          "valeur": 0.875
+        },
+        {
+          "libelle": "Ø 1 po",
+          "valeur": 1
+        }
+      ]
+    },
+    {
+      "id": "outil_a_chambrer",
+      "colonne_excel": 29,
+      "nom": "Outil à chambrer",
+      "reussites_requises": 0,
+      "format_identifiant": "Outil à chambrer [IdDia] - [NbDent] lèvres",
+      "commentaire": "Pour chambrer la tête d'une vis",
+      "operation": "Chanfreinage",
+      "fact_vc": 1,
+      "fact_av": 1,
+      "limite_rpm": 10000,
+      "limite_avance": 0.01,
+      "nb_dents_min": 2,
+      "nb_dents_max": 2,
+      "materiaux_outil": [
+        "Acier rapide",
+        "Carbure de tungstène solide"
+      ],
+      "groupes_materiaux_usinables": [
+        "P - Acier non allié",
+        "P - Acier faiblement allié",
+        "P - Acier fortement allié et acier à outils",
+        "M - Acier inoxidable",
+        "K - Fonte grise",
+        "K - Fonte à graphite lamellaire",
+        "K - Fonte à graphite sphéroidal",
+        "N - Aluminium de corroyage",
+        "N - Aluminium de coulée",
+        "N - Cuivre et alliages de cuivre",
+        "S - Alliages résistant à la chaleur",
+        "S - Alliages de titane",
+        "H - Acier durci",
+        "H - Fonte durcie",
+        "O - Plastique thermoformable"
+      ],
+      "image": null,
+      "dimensions": [
+        {
+          "libelle": "Ø 1/8 po",
+          "valeur": 0.125
+        },
+        {
+          "libelle": "Ø 3/16 po",
+          "valeur": 0.1875
+        },
+        {
+          "libelle": "Ø 1/4 po",
+          "valeur": 0.25
+        },
+        {
+          "libelle": "Ø 5/16 po",
+          "valeur": 0.3125
+        },
+        {
+          "libelle": "Ø 3/8 po",
+          "valeur": 0.375
+        },
+        {
+          "libelle": "Ø 1/2 po",
+          "valeur": 0.5
+        },
+        {
+          "libelle": "Ø 5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "Ø 3/4 po",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "Ø 7/8 po",
+          "valeur": 0.875
+        },
+        {
+          "libelle": "Ø 1 po",
+          "valeur": 1
+        }
+      ]
+    }
+  ]
+}

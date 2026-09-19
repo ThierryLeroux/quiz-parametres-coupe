@@ -1,0 +1,197 @@
+{
+  "_source": "feuille 'Avances d'usinage', table tblAvance (+ colonnes Machine-outil, direction, notes)",
+  "_unites": "avance en pouces par révolution (par dent pour les outils multi-dents ; ×Ø outil si proportionnelle) ; filetage : avance = pas",
+  "_regle_proportionnelle": "avance_dent = avance_po_rev × diametre_po × fact_av, plafonnée à avance_max_po_rev",
+  "operations": [
+    {
+      "operation": "Contournage ébauche",
+      "machine": "Fraiseuse",
+      "direction_avance": "Avance latérale",
+      "avance_po_rev": 0.006,
+      "avance_max_po_rev": 0.01,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": true,
+      "note": "Avances pour un outil Ø1''\n\nAjuster l'avance ↔ Ø outil\n\nExemple:\nForet de Ø1/4''\n.008''/dent * Ø1/4'' = .002''/dent\n\n\nNe pas dépasser .010\" / dent"
+    },
+    {
+      "operation": "Contournage finition",
+      "machine": "Fraiseuse",
+      "direction_avance": "Avance latérale",
+      "avance_po_rev": 0.004,
+      "avance_max_po_rev": 0.01,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": true,
+      "note": null
+    },
+    {
+      "operation": "Surfaçage",
+      "machine": "Fraiseuse",
+      "direction_avance": "Avance latérale",
+      "avance_po_rev": 0.004,
+      "avance_max_po_rev": 0.01,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": true,
+      "note": null
+    },
+    {
+      "operation": "Chanfreinage / ébavurage",
+      "machine": "Fraiseuse",
+      "direction_avance": "Avance latérale",
+      "avance_po_rev": 0.002,
+      "avance_max_po_rev": 0.01,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": true,
+      "note": null
+    },
+    {
+      "operation": "Perçage",
+      "machine": "Perceuse / Fraiseuse",
+      "direction_avance": "Avance axiale",
+      "avance_po_rev": 0.006,
+      "avance_max_po_rev": 0.01,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": true,
+      "note": null
+    },
+    {
+      "operation": "Chanfreinage",
+      "machine": "Perceuse / Fraiseuse",
+      "direction_avance": "Avance axiale",
+      "avance_po_rev": 0.004,
+      "avance_max_po_rev": 0.01,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": true,
+      "note": null
+    },
+    {
+      "operation": "Alésage à l'alésoir",
+      "machine": "Perceuse / Fraiseuse",
+      "direction_avance": "Avance axiale",
+      "avance_po_rev": 0.002,
+      "avance_max_po_rev": 0.01,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": true,
+      "note": null
+    },
+    {
+      "operation": "Pointage",
+      "machine": "Perceuse / Fraiseuse",
+      "direction_avance": "Avance axiale",
+      "avance_po_rev": 0.001,
+      "avance_max_po_rev": 0.001,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Taraudage",
+      "machine": "Perceuse / Fraiseuse",
+      "direction_avance": "Avance axiale",
+      "avance_po_rev": null,
+      "avance_max_po_rev": null,
+      "avance_egale_pas_filetage": true,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Filetage externe",
+      "machine": "Tour",
+      "direction_avance": "Avance longitudinale",
+      "avance_po_rev": null,
+      "avance_max_po_rev": null,
+      "avance_egale_pas_filetage": true,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Filetage interne",
+      "machine": "Tour",
+      "direction_avance": "Avance longitudinale",
+      "avance_po_rev": null,
+      "avance_max_po_rev": null,
+      "avance_egale_pas_filetage": true,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Chariotage ébauche",
+      "machine": "Tour",
+      "direction_avance": "Avance longitudinale",
+      "avance_po_rev": 0.01,
+      "avance_max_po_rev": 0.01,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Chariotage finition",
+      "machine": "Tour",
+      "direction_avance": "Avance longitudinale",
+      "avance_po_rev": 0.005,
+      "avance_max_po_rev": 0.005,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Centrage",
+      "machine": "Tour",
+      "direction_avance": "Avance longitudinale",
+      "avance_po_rev": 0.002,
+      "avance_max_po_rev": 0.002,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Alésage à la barre",
+      "machine": "Tour",
+      "direction_avance": "Avance longitudinale",
+      "avance_po_rev": 0.006,
+      "avance_max_po_rev": 0.006,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": true,
+      "note": "Ajuster l'avance ↔ Ø outil\nAv. MAX.: .006\" / tour"
+    },
+    {
+      "operation": "Dressage",
+      "machine": "Tour",
+      "direction_avance": "Avance transversale",
+      "avance_po_rev": 0.005,
+      "avance_max_po_rev": 0.005,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Tronçonnage",
+      "machine": "Tour",
+      "direction_avance": "Avance transversale",
+      "avance_po_rev": 0.004,
+      "avance_max_po_rev": 0.004,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Rainurage externe",
+      "machine": "Tour",
+      "direction_avance": "Avance transversale",
+      "avance_po_rev": 0.003,
+      "avance_max_po_rev": 0.003,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    },
+    {
+      "operation": "Rainurage interne",
+      "machine": "Tour",
+      "direction_avance": "Avance transversale",
+      "avance_po_rev": 0.003,
+      "avance_max_po_rev": 0.003,
+      "avance_egale_pas_filetage": false,
+      "avance_proportionnelle_diametre": false,
+      "note": null
+    }
+  ]
+}
