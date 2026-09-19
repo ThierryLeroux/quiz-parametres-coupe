@@ -13,7 +13,7 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 - [x] `site/js/data.js` : chargement et validation des 3 JSON
 - [x] `site/js/question.js` : génération d'une question (SPEC §4), aléa injectable pour les tests
 - [x] `site/js/calcul.js` : Vc, N, fz, f, Vf (SPEC §5)
-- [ ] `site/js/correction.js` : tolérances par champ (SPEC §6)
+- [x] `site/js/correction.js` : tolérances par champ (SPEC §6)
 - [ ] Tests unitaires : cas de référence recalculés à la main depuis le classeur
       (au moins un par famille : fixe, proportionnelle, filetage impérial, filetage métrique, limite RPM)
 
