@@ -29,11 +29,11 @@ Plomberie d'abord (aucun HTML ni CSS), écrans ensuite, après une maquette appr
 
 - [x] `site/exercices/index.json` : exercices offerts, avec sa validation (`exercice.js`)
 - [x] `site/js/session.js` : état d'une séance dans `localStorage` (une clé, stockage vide ou corrompu toléré)
-- [ ] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`) et cycle d'une séance, en fonctions pures
+- [x] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`) et cycle d'une séance, en fonctions pures
 - [ ] Maquette des écrans, approuvée par Thierry
-- [ ] Écran d'identification (prénom, nom, matricule, numéro Moodle)
+- [ ] `site/index.html` : écran d'identification (prénom, nom, matricule, numéro Moodle) ; reprise d'une séance sauvegardée
 - [ ] Écran question : outil, dimension, matériau, 5 champs (évalués ou pré-remplis), correction visuelle
-- [ ] Progression par outil / opération, sauvegarde de session en `localStorage`
+- [ ] Progression par outil / opération à l'écran
 
 ## Jalon 3 — Rapport, code Moodle, QR
 - [ ] Calcul du code de réussite (SPEC §8) et test contre des valeurs connues
