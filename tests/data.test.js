@@ -141,6 +141,12 @@ test('validateData : le jeu minimal est valide', () => {
   assert.deepEqual(validateData(donneesValides()), []);
 });
 
+test('validateData : fact_av ≠ 1 est permis sur une avance proportionnelle au Ø', () => {
+  const donnees = donneesValides();
+  donnees.outils.outils[0].fact_av = 0.5; // le foret fait du « Perçage », proportionnel
+  assert.deepEqual(validateData(donnees), []);
+});
+
 // Une anomalie à la fois → exactement une erreur, qui nomme l'élément fautif.
 const anomalies = [
   ['Vc nulle', (d) => { d.materiaux.materiaux[0].vc_pi_min.carbure_solide = null; }, /materiaux\[0\] \(groupe 1\).*vc_pi_min\.carbure_solide/],
@@ -168,6 +174,11 @@ const anomalies = [
   ['nombre de dents inversé', (d) => { d.outils.outils[0].nb_dents_max = 1; }, /« Foret ».*nb_dents_max/],
   ['nombre de dents non entier', (d) => { d.outils.outils[0].nb_dents_min = 1.5; }, /« Foret ».*entiers ≥ 1/],
   ['réussites requises négatives', (d) => { d.outils.outils[0].reussites_requises = -1; }, /« Foret ».*reussites_requises/],
+  ['fact_av ≠ 1 sur une avance fixe', (d) => {
+    d.outils.outils[0].operation = 'Chariotage';
+    d.outils.outils[0].fact_av = 0.5;
+  }, /« Foret ».*« fact_av » vaut 0\.5.*« Chariotage » n'est pas proportionnelle/],
+  ['fact_av ≠ 1 sur un filetage', (d) => { d.outils.outils[1].fact_av = 2; }, /« Taraud ».*« fact_av » vaut 2.*« Taraudage » n'est pas proportionnelle/],
   ['matériau d’outil inconnu', (d) => { d.outils.outils[0].materiaux_outil = ['Céramique']; }, /« Foret ».*matériau d'outil inconnu : « Céramique »/],
   ['aucun matériau d’outil', (d) => { d.outils.outils[0].materiaux_outil = []; }, /« Foret ».*materiaux_outil/],
   ['groupe usinable inconnu', (d) => { d.outils.outils[0].groupes_materiaux_usinables = ['P - Acier inconnu']; }, /« Foret ».*groupe de matériaux inconnu/],

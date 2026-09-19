@@ -167,6 +167,12 @@ function validateTools(tools, ops, groups, errors) {
     const op = opsByName.get(tool.operation);
     if (!op) errors.push(`${where} : opération inconnue : « ${tool.operation} »`);
 
+    // fact_av ne sert qu'aux avances proportionnelles au Ø (SPEC §5). Ailleurs, le moteur
+    // l'ignorerait en silence : on refuse, plutôt que de laisser croire qu'il a un effet.
+    if (op && !op.avance_proportionnelle_diametre && isPositive(tool.fact_av) && tool.fact_av !== 1) {
+      errors.push(`${where} : « fact_av » vaut ${tool.fact_av}, mais l'opération « ${op.operation} » n'est pas proportionnelle au Ø : le facteur serait ignoré (mettre 1)`);
+    }
+
     const dimensions = Array.isArray(tool.dimensions) ? tool.dimensions : [];
     if (dimensions.length === 0) errors.push(`${where} : « dimensions » est absent ou vide`);
     dimensions.forEach((d, j) => {
