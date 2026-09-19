@@ -16,10 +16,9 @@ export function formatNumber(value, decimals) {
 }
 
 // Met en forme les paramètres calculés par computeParameters (calcul.js).
-//   isThread : true pour une question de filetage
 // Retourne des textes, sans unités : vc, rpm, feedPerTooth, feedPerRev, feedRate.
-export function formatParameters(parameters, isThread) {
-  const feedDecimals = isThread ? THREAD_FEED_DECIMALS : FEED_DECIMALS;
+export function formatParameters(parameters) {
+  const feedDecimals = parameters.feedType === 'thread' ? THREAD_FEED_DECIMALS : FEED_DECIMALS;
   return {
     vc: String(parameters.vc), // valeur de la table, telle quelle
     rpm: formatNumber(parameters.rpm, 0),

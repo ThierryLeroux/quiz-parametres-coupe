@@ -29,17 +29,17 @@ test('formatNumber : le bruit de la virgule flottante ne fausse pas l’arrondi'
 
 test('formatParameters : hors filetage → N entier, avances à 4 décimales, Vf à 3 décimales', () => {
   // Foret fractionnaire Ø 1/4 po, acier rapide, acier 1020 (voir calcul.test.js)
-  const parametres = { vc: 100, rpmRaw: 1600, rpm: 1600, rpmCapped: false, feedPerTooth: 0.0015, feedPerToothCapped: false, feedPerRev: 0.003, feedRate: 4.800000000000001 };
-  assert.deepEqual(formatParameters(parametres, false), { vc: '100', rpm: '1600', feedPerTooth: '0.0015', feedPerRev: '0.0030', feedRate: '4.800' });
+  const parametres = { vc: 100, rpmRaw: 1600, rpm: 1600, rpmCapped: false, feedPerTooth: 0.0015, feedPerToothCapped: false, feedPerRev: 0.003, feedRate: 4.800000000000001, feedType: 'proportional' };
+  assert.deepEqual(formatParameters(parametres), { vc: '100', rpm: '1600', feedPerTooth: '0.0015', feedPerRev: '0.0030', feedRate: '4.800' });
 });
 
 test('formatParameters : filetage → avances à 5 décimales', () => {
   // Taraud M24 x 3, acier rapide, acier 1020 (voir calcul.test.js)
-  const parametres = { vc: 100, rpmRaw: 423.3333333333333, rpm: 423.3333333333333, rpmCapped: false, feedPerTooth: 0.11811023622047244, feedPerToothCapped: false, feedPerRev: 0.11811023622047244, feedRate: 50 };
-  assert.deepEqual(formatParameters(parametres, true), { vc: '100', rpm: '423', feedPerTooth: '0.11811', feedPerRev: '0.11811', feedRate: '50.000' });
+  const parametres = { vc: 100, rpmRaw: 423.3333333333333, rpm: 423.3333333333333, rpmCapped: false, feedPerTooth: 0.11811023622047244, feedPerToothCapped: false, feedPerRev: 0.11811023622047244, feedRate: 50, feedType: 'thread' };
+  assert.deepEqual(formatParameters(parametres), { vc: '100', rpm: '423', feedPerTooth: '0.11811', feedPerRev: '0.11811', feedRate: '50.000' });
 });
 
 test('formatParameters : c’est le N plafonné qui est affiché, et une Vc décimale reste telle quelle', () => {
-  const parametres = { vc: 97.5, rpmRaw: 102400, rpm: 10000, rpmCapped: true, feedPerTooth: 0.00009375, feedPerToothCapped: false, feedPerRev: 0.0001875, feedRate: 1.875 };
-  assert.deepEqual(formatParameters(parametres, false), { vc: '97.5', rpm: '10000', feedPerTooth: '0.0001', feedPerRev: '0.0002', feedRate: '1.875' });
+  const parametres = { vc: 97.5, rpmRaw: 102400, rpm: 10000, rpmCapped: true, feedPerTooth: 0.00009375, feedPerToothCapped: false, feedPerRev: 0.0001875, feedRate: 1.875, feedType: 'proportional' };
+  assert.deepEqual(formatParameters(parametres), { vc: '97.5', rpm: '10000', feedPerTooth: '0.0001', feedPerRev: '0.0002', feedRate: '1.875' });
 });
