@@ -45,6 +45,8 @@ Champ `limite_avance` de `outils.json` : présent dans le classeur, **non utilis
 par le moteur** (ni par le VBA). Le seul plafond d'avance est
 `avance_max_po_rev` de l'opération (§5).
 
+Groupes « O - Plastique renforci d'aramid » et « O - Graphite » : **volontairement** attachés à aucun outil (jugés trop rares pour les étudiants) ; ils restent au catalogue pour pouvoir l'être plus tard.
+
 Les images d'outils (29, EMF/PNG dans le classeur) restent à exporter — champ
 `image` vide pour l'instant.
 
