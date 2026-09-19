@@ -55,7 +55,8 @@ export function validateExercise(exercise, data) {
   const where = `exercice « ${exercise.id} »`;
   checkKeys(exercise, EXERCISE_KEYS, where, errors);
 
-  if (!isText(exercise.id) || !EXERCISE_ID.test(exercise.id)) errors.push(`${where} : « id » doit être fait de minuscules, de chiffres et de tirets (ex. « m10-tournage-vc »)`);
+  // « index » est réservé : index.json est la liste des exercices, pas un exercice.
+  if (!isText(exercise.id) || !EXERCISE_ID.test(exercise.id) || exercise.id === 'index') errors.push(`${where} : « id » doit être fait de minuscules, de chiffres et de tirets (ex. « m10-tournage-vc »)`);
   if (!isText(exercise.titre)) errors.push(`${where} : « titre » est vide`);
   if (!isText(exercise.version)) errors.push(`${where} : « version » doit être un texte non vide (ex. « r0 »)`);
   if (!Number.isInteger(exercise.multiplicateur_moodle) || exercise.multiplicateur_moodle < 1) {
@@ -98,13 +99,53 @@ export function validateExercise(exercise, data) {
 //   readJson : lecteur injectable, comme dans loadData
 export async function loadExercise(id, data, baseUrl = 'exercices/', readJson = fetchJson) {
   // L'id devient un nom de fichier : on refuse tout ce qui n'en a pas la forme (« ../autre »).
-  if (!isText(id) || !EXERCISE_ID.test(id)) throw new Error(`Identifiant d'exercice invalide : « ${id} »`);
+  if (!isText(id) || !EXERCISE_ID.test(id) || id === 'index') throw new Error(`Identifiant d'exercice invalide : « ${id} »`);
 
   const exercise = await readJson(`${baseUrl}${id}.json`);
   const errors = validateExercise(exercise, data);
   if (isObject(exercise) && exercise.id !== id) errors.push(`exercice « ${exercise.id} » : « id » doit être identique au nom du fichier (« ${id} »)`);
   if (errors.length > 0) throw new Error(`Exercice invalide (${id}.json) :\n- ${errors.join('\n- ')}`);
   return exercise;
+}
+
+// ---------------------------------------------------------------------------
+// Index des exercices offerts : site/exercices/index.json
+// ---------------------------------------------------------------------------
+// Un site statique ne peut pas lister un dossier : l'index dit quels exercices proposer à
+// l'étudiant, dans quel ordre. Le premier est l'exercice par défaut (app.js).
+//   { "exercices": [ { "id": "m10-tournage-vc", "titre": "M10 — …" }, … ] }
+
+const INDEX_KEYS = ['exercices'];
+const INDEX_ENTRY_KEYS = ['id', 'titre'];
+
+// Vérifie la forme de l'index. Retourne la liste de toutes les erreurs (vide = index valide).
+// La concordance avec les fichiers d'exercice (existence, même titre) est vérifiée par les tests.
+export function validateExerciseIndex(index) {
+  const errors = [];
+  if (!isObject(index)) return ["index des exercices : n'est pas un objet"];
+  checkKeys(index, INDEX_KEYS, 'index des exercices', errors);
+
+  const entries = Array.isArray(index.exercices) ? index.exercices : [];
+  if (entries.length === 0) errors.push('index des exercices : « exercices » doit être une liste non vide');
+  const seen = new Set();
+  entries.forEach((entry, i) => {
+    if (!isObject(entry)) return errors.push(`index des exercices : exercices[${i}] n'est pas un objet`);
+    const where = `index des exercices, exercices[${i}] « ${entry.id} »`;
+    checkKeys(entry, INDEX_ENTRY_KEYS, where, errors);
+    if (!isText(entry.id) || !EXERCISE_ID.test(entry.id) || entry.id === 'index') errors.push(`${where} : « id » n'a pas la forme d'un identifiant d'exercice (ex. « m10-tournage-vc »)`);
+    else if (seen.has(entry.id)) errors.push(`${where} : exercice en double`);
+    seen.add(entry.id);
+    if (!isText(entry.titre)) errors.push(`${where} : « titre » est vide`);
+  });
+  return errors;
+}
+
+// Charge et valide l'index. Retourne la liste [{ id, titre }, …], dans l'ordre du fichier.
+export async function loadExerciseIndex(baseUrl = 'exercices/', readJson = fetchJson) {
+  const index = await readJson(`${baseUrl}index.json`);
+  const errors = validateExerciseIndex(index);
+  if (errors.length > 0) throw new Error(`Index des exercices invalide (index.json) :\n- ${errors.join('\n- ')}`);
+  return index.exercices.map(({ id, titre }) => ({ id, titre }));
 }
 
 // Champs à corriger, avec les noms du moteur : à passer tel quel à gradeAnswers (correction.js).

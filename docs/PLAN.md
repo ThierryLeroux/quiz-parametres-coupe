@@ -25,7 +25,12 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 - [x] `site/js/progression.js` : réussites consécutives, outils admissibles, exercice complété (SPEC §7)
 
 ## Jalon 2 — Interface du quiz
-- [ ] `site/exercices/index.json` et sélection de l'exercice
+Plomberie d'abord (aucun HTML ni CSS), écrans ensuite, après une maquette approuvée.
+
+- [x] `site/exercices/index.json` : exercices offerts, avec sa validation (`exercice.js`)
+- [ ] `site/js/session.js` : état d'une séance dans `localStorage` (une clé, stockage vide ou corrompu toléré)
+- [ ] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`) et cycle d'une séance, en fonctions pures
+- [ ] Maquette des écrans, approuvée par Thierry
 - [ ] Écran d'identification (prénom, nom, matricule, numéro Moodle)
 - [ ] Écran question : outil, dimension, matériau, 5 champs (évalués ou pré-remplis), correction visuelle
 - [ ] Progression par outil / opération, sauvegarde de session en `localStorage`

@@ -281,8 +281,14 @@ Précisions :
   commençant par `_` (commentaires, comme `_source`) sont ignorées.
 - La validation (`site/js/exercice.js`) est la même pour les tests, le quiz et
   l'éditeur (jalon 4).
-- Un site statique ne peut pas lister un dossier : la liste des exercices
-  offerts à l'étudiant sera un fichier `site/exercices/index.json` (jalon 2).
+- **Index des exercices offerts** : un site statique ne peut pas lister un
+  dossier ; `site/exercices/index.json` dit quels exercices proposer, dans
+  l'ordre d'affichage : `{ "exercices": [ { "id", "titre" }, … ] }`. Le premier
+  est l'exercice par défaut ; `?exercice=<id>` dans l'adresse en choisit un
+  autre **parmi ceux de l'index** (id inconnu ou absent → le premier). Chaque
+  `id` a son fichier `<id>.json` et le même `titre` (vérifié par les tests) ;
+  « index » est un identifiant réservé. Un fichier d'exercice absent de
+  l'index n'est pas offert.
 - Reporté : seuils du graphique de progression (jalon 5).
 
 ## 11. Questions ouvertes (résumé)

@@ -1,0 +1,6 @@
+{
+  "_description": "Exercices offerts aux étudiants, dans l'ordre d'affichage. Le premier est l'exercice par défaut. Chaque id doit avoir son fichier <id>.json dans ce dossier, avec le même titre.",
+  "exercices": [
+    { "id": "m10-tournage-vc", "titre": "M10 — Tournage : vitesse de coupe" }
+  ]
+}
