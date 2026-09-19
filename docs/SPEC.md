@@ -37,6 +37,10 @@ Unités : **impériales** (pouces, pi/min, rév/min, po/min). Les dimensions
 métriques sont déjà converties en pouces dans `outils.json` ; le libellé affiché
 reste métrique (ex. « 10 mm »).
 
+Champ `limite_avance` de `outils.json` : présent dans le classeur, **non utilisé
+par le moteur** (ni par le VBA). Le seul plafond d'avance est
+`avance_max_po_rev` de l'opération (§5).
+
 Les images d'outils (29, EMF/PNG dans le classeur) restent à exporter — champ
 `image` vide pour l'instant.
 
@@ -90,6 +94,10 @@ formatage séparée du calcul (`site/js/format.js`) :
 | Avance par dent, avance par révolution | 4 décimales (5 en filetage) |
 | Vitesse d'avance Vf | 3 décimales |
 
+Séparateur décimal : le **point** à l'affichage (« 0.0015 »), comme sur la
+commande CNC et dans les libellés ; la saisie accepte le point et la virgule
+(décision D10).
+
 ## 6. Correction — tolérances (reprises du VBA `modCorrection`)
 
 | Champ | Filetage | Avance fixe | Avance proportionnelle au Ø |
@@ -99,6 +107,19 @@ formatage séparée du calcul (`site/js/format.js`) :
 | N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 % | ±5 % |
 | Avance par révolution | ±0,1 % | ±0,1 % | ±20 % |
 | Vitesse d'avance | ±0,5 % de *N_saisi × f_saisi* (cohérence interne) | ±5,1 % | ±25 % |
+
+Précisions :
+
+- Sauf mention contraire, l'intervalle est centré sur la **valeur théorique**
+  (§5, non arrondie) et ses bornes sont incluses.
+- « ±25 %, borné à ±0,001 po » : l'intervalle accepté est **le plus étroit** de
+  ±25 % et de ±0,001 po. Ex. fz = 0,0015 → [0,001125 ; 0,001875] (±25 %) ;
+  fz = 0,006 → [0,005 ; 0,007] (±0,001 po).
+- Vitesse d'avance en filetage : vérifiée à ±0,5 % de *N_saisi × f_saisi*,
+  c.-à-d. la **cohérence interne** de la réponse de l'étudiant, pas la valeur
+  théorique. (N et f sont corrigés à part, chacun dans sa propre cellule.)
+- Saisie : le point et la virgule sont acceptés comme séparateur décimal
+  (D10) ; un champ vide ou illisible est une mauvaise réponse.
 
 Une question est **réussie** quand les 5 champs sont corrects. Les champs
 pré-remplis par la configuration de l'exercice (ex. M10 : tout sauf Vc) comptent

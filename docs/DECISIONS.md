@@ -95,3 +95,28 @@ l'emplacement donné par D5, qui reste valide pour tout le reste.
 **Conséquences.** Les tests lisent `site/data/`. Une modification pédagogique =
 éditer `site/data/*.json` + `npm test` + commit, sans aucune synchronisation.
 Les JSON sont publics, comme tout ce que contient `site/`.
+
+## D9 — Aucun arrondi dans le moteur, arrondi seulement à l'affichage (2026-09-19, décidée)
+
+**Contexte.** Le VBA avait des arrondis partout, tous désactivés (commentés).
+Arrondir la valeur théorique déplace les bornes de tolérance et complique les
+tests.
+
+**Décision.** Les valeurs théoriques ne sont jamais arrondies (`calcul.js`) ; les
+tolérances de la SPEC §6 absorbent les arrondis de l'étudiant. L'arrondi
+n'existe qu'à l'affichage, dans `format.js` : N entier, avances à 4 décimales
+(5 en filetage), Vf à 3 décimales.
+
+**Conséquences.** Calcul, correction et affichage sont trois modules distincts.
+Détail dans `SPEC.md` §5.
+
+## D10 — Séparateur décimal : point à l'affichage, point ou virgule à la saisie (2026-09-19, décidée)
+
+**Contexte.** L'interface est en français (D4), ce qui appellerait la virgule ;
+mais la commande CNC, les libellés des données (« 0.2500" », « M10 x 1.50 ») et
+les habitudes de l'atelier utilisent le point.
+
+**Décision.** Le point à l'affichage, cohérent avec la commande CNC et les
+libellés. La saisie accepte le point et la virgule.
+
+**Conséquences.** `format.js` écrit des points ; `correction.js` lit les deux.
