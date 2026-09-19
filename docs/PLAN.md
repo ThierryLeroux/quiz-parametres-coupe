@@ -22,7 +22,7 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 ## Jalon 1b — Modèle d'exercice et progression (décisions D11, D12)
 - [x] `reussites_requises` sort d'`outils.json` ; `site/exercices/m10-tournage-vc.json` (SPEC §10)
 - [x] `site/js/exercice.js` : validation et chargement d'un exercice
-- [ ] `site/js/progression.js` : réussites consécutives, outils admissibles, exercice complété (SPEC §7)
+- [x] `site/js/progression.js` : réussites consécutives, outils admissibles, exercice complété (SPEC §7)
 
 ## Jalon 2 — Interface du quiz
 - [ ] `site/exercices/index.json` et sélection de l'exercice
