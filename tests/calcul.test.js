@@ -40,7 +40,7 @@ function questionPour({ outil, dimension, dents, materiauOutil, groupeMateriau }
 function verifier(obtenu, attendu) {
   assert.deepEqual(Object.keys(obtenu).sort(), Object.keys(attendu).sort());
   for (const [cle, valeur] of Object.entries(attendu)) {
-    if (typeof valeur === 'boolean') assert.equal(obtenu[cle], valeur, cle);
+    if (typeof valeur !== 'number') assert.equal(obtenu[cle], valeur, cle); // booléens et feedType
     else assert.ok(Math.abs(obtenu[cle] - valeur) <= 1e-12 * Math.abs(valeur), `${cle} : ${obtenu[cle]} ≠ ${valeur}`);
   }
 }
@@ -60,6 +60,7 @@ test('avance proportionnelle au Ø : foret fractionnaire Ø 1/4 po, acier rapide
     feedPerToothCapped: false,
     feedPerRev: 0.003, // 0,0015 × 2 dents
     feedRate: 4.8, // 1600 × 0,003
+    feedType: 'proportional',
   });
 });
 
@@ -74,6 +75,7 @@ test('avance proportionnelle, plusieurs dents : fraise en bout 1/2 po, 4 dents, 
     feedPerToothCapped: false,
     feedPerRev: 0.012, // 0,003 × 4 dents
     feedRate: 36.48, // 3040 × 0,012
+    feedType: 'proportional',
   });
 });
 
@@ -88,6 +90,7 @@ test('avance fixe : MVLNR, Ø charioté 2.000", insert de carbure, acier 1020', 
     feedPerToothCapped: false,
     feedPerRev: 0.005, // 1 dent
     feedRate: 4, // 800 × 0,005
+    feedType: 'fixed',
   });
 });
 
@@ -102,6 +105,7 @@ test('plafond avance_max : foret fractionnaire Ø 2 po, acier rapide, acier 1020
     feedPerToothCapped: true,
     feedPerRev: 0.02, // 0,010 × 2 dents
     feedRate: 4, // 200 × 0,02
+    feedType: 'proportional',
   });
 });
 
@@ -123,6 +127,7 @@ test('plafond limite_rpm : foret fractionnaire Ø 1/64 po, carbure, aluminium', 
     feedPerToothCapped: false,
     feedPerRev: 0.0001875, // × 2 dents
     feedRate: 1.875, // 10 000 × 0,0001875 : Vf part du N plafonné
+    feedType: 'proportional',
   });
 });
 
@@ -137,6 +142,7 @@ test('fact_vc ≠ 1 : alésoir 0.2500", 6 lèvres, acier rapide, acier 1020 (fac
     feedPerToothCapped: false,
     feedPerRev: 0.003, // 0,0005 × 6 lèvres
     feedRate: 1.2, // 400 × 0,003
+    feedType: 'proportional',
   });
 });
 
@@ -151,6 +157,7 @@ test('fact_vc ≠ 1 et avance fixe : lame à tronçonner, Ø 2.000", acier 1020 
     feedPerToothCapped: false,
     feedPerRev: 0.004,
     feedRate: 0.4, // 100 × 0,004
+    feedType: 'fixed',
   });
 });
 
@@ -165,6 +172,7 @@ test('filetage impérial : taraud 1 - 8 UNC, acier rapide, acier 1020', () => {
     feedPerToothCapped: false,
     feedPerRev: 0.125,
     feedRate: 50, // 400 × 0,125
+    feedType: 'thread',
   });
 });
 
@@ -179,6 +187,7 @@ test('filetage impérial avec plafond limite_rpm : taraud 1/4 - 20 UNC, acier ra
     feedPerToothCapped: false,
     feedPerRev: 0.05,
     feedRate: 50, // 1000 × 0,05
+    feedType: 'thread',
   });
 });
 
@@ -193,6 +202,7 @@ test('filetage métrique : taraud M24 x 3, acier rapide, acier 1020', () => {
     feedPerToothCapped: false,
     feedPerRev: 0.11811023622047244,
     feedRate: 50, // (400 × 25,4 / 24) × (3 / 25,4) = 400 × 3 / 24
+    feedType: 'thread',
   });
 });
 

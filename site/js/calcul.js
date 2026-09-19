@@ -16,6 +16,9 @@
 //   feedPerToothCapped true si le plafond avance_max_po_rev de l'opération a été appliqué
 //   feedPerRev         avance par révolution f = fz × nombre de dents (po/rév)
 //   feedRate           vitesse d'avance Vf = N × f (po/min)
+//   feedType           famille d'avance de l'opération : 'thread' (filetage), 'proportional'
+//                      (proportionnelle au Ø) ou 'fixed' — la correction choisit ses tolérances
+//                      d'après elle (SPEC §6), sans avoir à relire les données
 export function computeParameters(question, data) {
   const tool = data.outils.find((o) => o.id === question.tool.id);
   if (!tool) throw new Error(`Outil inconnu : « ${question.tool.id} »`);
@@ -29,20 +32,24 @@ export function computeParameters(question, data) {
   const rpm = rpmCapped ? tool.limite_rpm : rpmRaw;
 
   // Avance par dent : trois familles d'opérations.
+  let feedType;
   let feedPerTooth;
   let feedPerToothCapped = false;
   if (operation.avance_egale_pas_filetage) {
+    feedType = 'thread';
     feedPerTooth = question.dimension.pitch; // filetage : l'avance est le pas
   } else if (operation.avance_proportionnelle_diametre) {
+    feedType = 'proportional';
     const proportional = operation.avance_po_rev * diameter * tool.fact_av;
     feedPerToothCapped = proportional > operation.avance_max_po_rev;
     feedPerTooth = feedPerToothCapped ? operation.avance_max_po_rev : proportional;
   } else {
+    feedType = 'fixed';
     feedPerTooth = operation.avance_po_rev; // avance fixe
   }
 
   const feedPerRev = feedPerTooth * question.teeth;
   const feedRate = rpm * feedPerRev;
 
-  return { vc, rpmRaw, rpm, rpmCapped, feedPerTooth, feedPerToothCapped, feedPerRev, feedRate };
+  return { vc, rpmRaw, rpm, rpmCapped, feedPerTooth, feedPerToothCapped, feedPerRev, feedRate, feedType };
 }
