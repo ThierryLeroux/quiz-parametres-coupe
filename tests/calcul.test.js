@@ -2,38 +2,8 @@
 // Les valeurs attendues sont écrites en dur ; le calcul est donné en commentaire.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { loadData } from '../site/js/data.js';
-import { generateQuestion } from '../site/js/question.js';
 import { computeParameters } from '../site/js/calcul.js';
-
-const lireFichier = async (url) => JSON.parse(await readFile(new URL(`../site/${url}`, import.meta.url), 'utf8'));
-const data = await loadData('data/', lireFichier);
-
-// Fabrique une question précise en passant par le vrai générateur : chaque tirage
-// est choisi pour tomber sur l'élément voulu (milieu de sa tranche de [0, 1[).
-function questionPour({ outil, dimension, dents, materiauOutil, groupeMateriau }) {
-  const o = data.outils.find((t) => t.id === outil);
-  const m = data.materiaux.find((x) => x.groupe === groupeMateriau);
-  const etiquette = `${m.iso} - ${m.materiau}`;
-  const viser = (index, longueur) => {
-    assert.ok(index >= 0, `introuvable pour ${outil} : ${dimension} / ${materiauOutil} / ${etiquette}`);
-    return (index + 0.5) / longueur;
-  };
-  const tirages = [
-    0,
-    viser(dents - o.nb_dents_min, o.nb_dents_max - o.nb_dents_min + 1),
-    viser(o.dimensions.findIndex((d) => d.libelle === dimension), o.dimensions.length),
-    viser(o.materiaux_outil.indexOf(materiauOutil), o.materiaux_outil.length),
-    viser(o.groupes_materiaux_usinables.indexOf(etiquette), o.groupes_materiaux_usinables.length),
-    viser(data.materialsByGroup.get(etiquette).indexOf(m), data.materialsByGroup.get(etiquette).length),
-  ];
-  const question = generateQuestion(data, [o], () => tirages.shift());
-  assert.equal(question.dimension.label, dimension);
-  assert.equal(question.teeth, dents);
-  assert.equal(question.material.groupe, groupeMateriau);
-  return question;
-}
+import { data, questionPour, toutesLesQuestions } from './aide.js';
 
 // Compare aux valeurs écrites à la main, à 1e-12 près en relatif : le moteur n'arrondit
 // rien, mais 1600 × 0,003 donne 4,800000000000001 en virgule flottante.
@@ -226,15 +196,7 @@ test('outil inconnu → erreur explicite', () => {
 });
 
 test('toutes les questions possibles donnent des valeurs finies, positives et cohérentes', () => {
-  let graine = 7;
-  const random = () => { // mulberry32, reproductible
-    graine = (graine + 0x6d2b79f5) | 0;
-    let t = Math.imul(graine ^ (graine >>> 15), 1 | graine);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-  for (let i = 0; i < 20000; i += 1) {
-    const question = generateQuestion(data, data.outils, random);
+  for (const question of toutesLesQuestions()) {
     const p = computeParameters(question, data);
     for (const cle of ['vc', 'rpmRaw', 'rpm', 'feedPerTooth', 'feedPerRev', 'feedRate']) {
       assert.ok(Number.isFinite(p[cle]) && p[cle] > 0, `${question.displayId} : ${cle} = ${p[cle]}`);

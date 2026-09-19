@@ -14,10 +14,10 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 - [x] `site/js/question.js` : génération d'une question (SPEC §4), aléa injectable pour les tests
 - [x] `site/js/calcul.js` : Vc, N, fz, f, Vf (SPEC §5) ; `site/js/format.js` : arrondis d'affichage
 - [x] `site/js/correction.js` : tolérances par champ (SPEC §6)
-- [ ] Tests unitaires : cas de référence recalculés à la main depuis le classeur
+- [x] Tests unitaires : cas de référence calculés à la main depuis les JSON
       (au moins un par famille : fixe, proportionnelle, filetage impérial, filetage métrique, limite RPM)
-- [ ] Concilier les arrondis d'affichage (SPEC §5) et les tolérances (SPEC §6) :
-      test `todo` de `tests/chaine.test.js` (micro-forets, N de filetage, lame à tronçonner)
+- [x] Concilier les arrondis d'affichage (SPEC §5) et les tolérances (SPEC §6), décisions D13 à D15 :
+      `tests/chaine.test.js` passe pour toutes les combinaisons du catalogue
 
 ## Jalon 1b — Modèle d'exercice et progression (décisions D11, D12)
 - [x] `reussites_requises` sort d'`outils.json` ; `site/exercices/m10-tournage-vc.json` (SPEC §10)
