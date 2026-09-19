@@ -20,8 +20,8 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
       test `todo` de `tests/chaine.test.js` (micro-forets, N de filetage, lame à tronçonner)
 
 ## Jalon 1b — Modèle d'exercice et progression (décisions D11, D12)
-- [ ] `reussites_requises` sort d'`outils.json` ; `site/exercices/m10-tournage-vc.json` (SPEC §10)
-- [ ] `site/js/exercice.js` : validation et chargement d'un exercice
+- [x] `reussites_requises` sort d'`outils.json` ; `site/exercices/m10-tournage-vc.json` (SPEC §10)
+- [x] `site/js/exercice.js` : validation et chargement d'un exercice
 - [ ] `site/js/progression.js` : réussites consécutives, outils admissibles, exercice complété (SPEC §7)
 
 ## Jalon 2 — Interface du quiz

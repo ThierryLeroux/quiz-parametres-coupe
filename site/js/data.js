@@ -193,8 +193,8 @@ function validateTools(tools, ops, groups, errors) {
 // Chargement
 // ---------------------------------------------------------------------------
 
-// Lecteur par défaut (navigateur) : télécharge un JSON et le décode.
-async function fetchJson(url) {
+// Lecteur par défaut (navigateur) : télécharge un JSON et le décode. Sert aussi à exercice.js.
+export async function fetchJson(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Impossible de charger ${url} (HTTP ${response.status})`);
   try {
