@@ -6,7 +6,7 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 ## Jalon 0 — Dépôt en place
 - [x] Dépôt GitHub créé, squelette commité
 - [ ] GitHub Pages activé sur `site/` (quand `site/index.html` existera)
-- [ ] VS Code + extension Claude Code opérationnels ; `CLAUDE.md` lu par Claude Code
+- [x] VS Code + extension Claude Code opérationnels ; `CLAUDE.md` lu par Claude Code
 - [x] `npm test` (tests vides) passe
 
 ## Jalon 1 — Moteur de calcul et de correction (aucune interface)

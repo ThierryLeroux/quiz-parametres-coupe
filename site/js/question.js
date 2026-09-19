@@ -49,9 +49,7 @@ export function generateQuestion(data, eligibleTools, random = Math.random) {
   const isThread = data.operationByName.get(tool.operation).avance_egale_pas_filetage;
   const { diameter, pitch } = isThread ? parseThread(rawDimension.valeur) : { diameter: rawDimension.valeur, pitch: null };
 
-  // ❓ La SPEC §4.6 dit « [IdDia], [NbDent], etc. ». Le VBA connaît 15 jetons, les données
-  // n'en utilisent que 2. Interprétation : on reconnaît ces 2-là et 3 autres sans ambiguïté.
-  // [Pas] et [Dia] sont écartés (dans le VBA, [Pas] vaut des filets/po, pas un pas en pouces).
+  // Liste officielle des jetons : SPEC §4.6.
   const displayId = resolveDisplayId(tool.format_identifiant, {
     IdDia: rawDimension.libelle,
     NbDent: teeth,

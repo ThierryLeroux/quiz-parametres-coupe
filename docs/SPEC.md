@@ -49,7 +49,17 @@ Les images d'outils (29, EMF/PNG dans le classeur) restent à exporter — champ
    - Sinon : Ø en pouces.
 4. **Matériau d'outil** : tirage uniforme dans `materiaux_outil[]`.
 5. **Matériau brut** : tirage d'un *groupe* dans `groupes_materiaux_usinables[]`, puis tirage uniforme d'un matériau de ce groupe dans `materiaux.json`.
-6. **Identifiant affiché** : gabarit `format_identifiant` avec substitution des jetons `[IdDia]`, `[NbDent]`, etc.
+6. **Identifiant affiché** : gabarit `format_identifiant` avec substitution des jetons. Liste officielle (tout autre jeton est une erreur) :
+
+   | Jeton | Remplacé par |
+   |---|---|
+   | `[IdDia]` | libellé de la dimension tirée (ex. « 1/4 po », « M10 x 1.50 ») |
+   | `[NbDent]` | nombre de dents tiré |
+   | `[NomOutil]` | `nom` de l'outil |
+   | `[Operation]` | `operation` de l'outil |
+   | `[Matoutil]` | matériau d'outil tiré (ex. « Acier rapide ») |
+
+   Les autres jetons du VBA (`[Pas]`, `[Dia]`, `[Couleur]`, etc.) ne sont pas repris.
 
 ## 5. Calcul des réponses attendues
 
@@ -69,9 +79,16 @@ avance par révolution  f  = fz × nb_dents                                (po/r
 vitesse d'avance       Vf = N × f                                        (po/min)
 ```
 
-❓ Arrondis : le VBA a désactivé tous les arrondis (commentés). À décider pour la
-version web (proposition : ne pas arrondir la valeur théorique, tolérer par les
-marges du §6 ; afficher au besoin 4 décimales pour les avances).
+**Arrondis (tranché).** Aucun arrondi sur les valeurs théoriques, comme dans le
+VBA (arrondis commentés) : les tolérances du §6 absorbent les arrondis de
+l'étudiant. L'arrondi n'existe qu'à l'**affichage**, dans une fonction de
+formatage séparée du calcul (`site/js/format.js`) :
+
+| Valeur | Affichage |
+|---|---|
+| N | entier |
+| Avance par dent, avance par révolution | 4 décimales (5 en filetage) |
+| Vitesse d'avance Vf | 3 décimales |
 
 ## 6. Correction — tolérances (reprises du VBA `modCorrection`)
 
@@ -155,7 +172,7 @@ Le M10 actuel devient `exercices/m10-tournage-vc.json`.
 
 ## 11. Questions ouvertes (résumé)
 
-1. Arrondis des valeurs théoriques (§5).
+1. ~~Arrondis des valeurs théoriques (§5).~~ Tranché : voir §5.
 2. Réussites consécutives ou cumulées (§7).
 3. Vérification du code : Moodle seul ou aussi QR (§8).
 4. Sécurité du payload QR (§8 / D6).

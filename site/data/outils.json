@@ -1,5 +1,5 @@
 {
-  "_source": "feuille 'Liste d'outils' (masquée) — une colonne par outil ; lignes 1..12 attributs, 13..22 matériaux d'outil, 23..40 groupes ISO usinables, 43+ paires (libellé, valeur) de dimensions",
+  "_source": "feuille 'Liste d'outils' (masquée) — une colonne par outil ; lignes 1..12 attributs, 13..22 matériaux d'outil (13..15 occupées), 23..40 groupes ISO usinables, 43+ paires (libellé, valeur) de dimensions. Le VBA (clsMateriau) lit les groupes aux lignes 21..40 (21..22 vides) ; dans la feuille, 4 outils ont aussi des groupes aux lignes 41..42 ('O - Plastique renforci d'aramid', 'O - Graphite'), jamais lus par le VBA et absents de ce fichier",
   "_unites": "diametres en pouces (les métriques sont déjà convertis) ; filetages sous forme 'Ø-filets/po' (impérial) ou 'ØxPas' mm (métrique)",
   "_reussites_requises": "0 = outil non évalué dans cette version du quiz ; n = nombre de réussites consécutives exigées",
   "_image": "à compléter : 29 images d'outils existent dans le classeur (xl/media, EMF/PNG), à exporter en PNG/SVG",
