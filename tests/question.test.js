@@ -119,7 +119,7 @@ test('la question est sérialisable en JSON et indépendante des données charg�
 });
 
 test('seuls les outils admissibles sortent', () => {
-  const admissibles = data.outils.filter((o) => o.reussites_requises > 0);
+  const admissibles = data.outils.filter((o) => o.operation === 'Perçage' || o.id === 'mvlnr');
   const ids = new Set(admissibles.map((o) => o.id));
   const random = aleaAGraine(2);
   const sortis = new Set();

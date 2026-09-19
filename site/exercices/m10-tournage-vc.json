@@ -1,0 +1,19 @@
+{
+  "_source": "classeur 'Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm' : réussites requises = ligne 3 de la feuille 'Liste d'outils' (outils à 0 omis) ; multiplicateur_moodle = verMd du VBA (calcCodeM) ; champs_evalues = « Vc seulement », les quatre autres champs sont pré-remplis",
+  "id": "m10-tournage-vc",
+  "titre": "M10 — Tournage : vitesse de coupe",
+  "version": "r0",
+  "multiplicateur_moodle": 54126,
+  "champs_evalues": ["vc"],
+  "outils": [
+    { "id": "mclnr", "reussites_requises": 1 },
+    { "id": "mvlnr", "reussites_requises": 3 },
+    { "id": "lame_a_tronconner", "reussites_requises": 3 },
+    { "id": "barre_a_fileter", "reussites_requises": 1 },
+    { "id": "barre_a_fileter_2", "reussites_requises": 1 },
+    { "id": "barre_a_rainurer", "reussites_requises": 3 },
+    { "id": "barre_a_aleser", "reussites_requises": 1 },
+    { "id": "sdtmr", "reussites_requises": 1 },
+    { "id": "sdtmr_2", "reussites_requises": 1 }
+  ]
+}

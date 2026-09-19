@@ -148,7 +148,8 @@ function validateTools(tools, ops, groups, errors) {
     }
     // Les tarauds n'ont pas de limite d'avance : l'avance est imposée par le pas.
     if (tool.limite_avance !== null && !isPositive(tool.limite_avance)) errors.push(`${where} : « limite_avance » doit être un nombre > 0 ou null`);
-    if (!isInteger(tool.reussites_requises, 0)) errors.push(`${where} : « reussites_requises » doit être un entier ≥ 0`);
+    // Le catalogue ne sait rien des exercices (décision D11).
+    if ('reussites_requises' in tool) errors.push(`${where} : « reussites_requises » n'est plus une propriété d'outil ; elle se règle dans site/exercices/<id>.json`);
     if (!isInteger(tool.nb_dents_min, 1) || !isInteger(tool.nb_dents_max, 1)) errors.push(`${where} : « nb_dents_min » et « nb_dents_max » doivent être des entiers ≥ 1`);
     else if (tool.nb_dents_max < tool.nb_dents_min) errors.push(`${where} : « nb_dents_max » est plus petit que « nb_dents_min »`);
 

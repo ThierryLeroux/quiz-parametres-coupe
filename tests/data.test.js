@@ -113,13 +113,13 @@ const donneesValides = () => ({
   outils: {
     outils: [
       {
-        id: 'foret', nom: 'Foret', reussites_requises: 1, format_identifiant: 'Foret [IdDia]', operation: 'Perçage',
+        id: 'foret', nom: 'Foret', format_identifiant: 'Foret [IdDia]', operation: 'Perçage',
         fact_vc: 1, fact_av: 1, limite_rpm: 10000, limite_avance: 0.01, nb_dents_min: 2, nb_dents_max: 2,
         materiaux_outil: ['Acier rapide'], groupes_materiaux_usinables: ['P - Acier non allié'],
         dimensions: [{ libelle: 'Ø 1/4 po', valeur: 0.25 }],
       },
       {
-        id: 'taraud', nom: 'Taraud', reussites_requises: 0, format_identifiant: 'Taraud [IdDia]', operation: 'Taraudage',
+        id: 'taraud', nom: 'Taraud', format_identifiant: 'Taraud [IdDia]', operation: 'Taraudage',
         fact_vc: 1, fact_av: 1, limite_rpm: 1000, limite_avance: null, nb_dents_min: 1, nb_dents_max: 1,
         materiaux_outil: ['Acier rapide', 'Carbure de tungstène solide'], groupes_materiaux_usinables: ['N - Aluminium de corroyage'],
         dimensions: [{ libelle: '1/4 - 20 UNC', valeur: '0.25-20' }, { libelle: 'M6 x 1', valeur: '6x1' }],
@@ -173,7 +173,7 @@ const anomalies = [
   ['limite d’avance négative', (d) => { d.outils.outils[0].limite_avance = -1; }, /« Foret ».*limite_avance/],
   ['nombre de dents inversé', (d) => { d.outils.outils[0].nb_dents_max = 1; }, /« Foret ».*nb_dents_max/],
   ['nombre de dents non entier', (d) => { d.outils.outils[0].nb_dents_min = 1.5; }, /« Foret ».*entiers ≥ 1/],
-  ['réussites requises négatives', (d) => { d.outils.outils[0].reussites_requises = -1; }, /« Foret ».*reussites_requises/],
+  ['réussites requises laissées sur un outil (D11)', (d) => { d.outils.outils[0].reussites_requises = 3; }, /« Foret ».*reussites_requises.*site\/exercices/],
   ['fact_av ≠ 1 sur une avance fixe', (d) => {
     d.outils.outils[0].operation = 'Chariotage';
     d.outils.outils[0].fact_av = 0.5;
