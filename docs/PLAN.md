@@ -4,9 +4,10 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 (une tâche = une branche ou un commit cohérent, testé). Cocher au fur et à mesure.
 
 ## Jalon 0 — Dépôt en place
-- [ ] Dépôt GitHub créé, squelette commité, GitHub Pages activé sur `site/`
+- [x] Dépôt GitHub créé, squelette commité
+- [ ] GitHub Pages activé sur `site/` (quand `site/index.html` existera)
 - [ ] VS Code + extension Claude Code opérationnels ; `CLAUDE.md` lu par Claude Code
-- [ ] `npm test` (tests vides) passe
+- [x] `npm test` (tests vides) passe
 
 ## Jalon 1 — Moteur de calcul et de correction (aucune interface)
 - [x] `site/js/data.js` : chargement et validation des 3 JSON

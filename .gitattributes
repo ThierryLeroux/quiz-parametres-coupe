@@ -1,0 +1,2 @@
+# Fins de ligne LF partout, sur toutes les plateformes ; les binaires sont détectés automatiquement.
+* text=auto eol=lf
