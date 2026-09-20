@@ -1,0 +1,177 @@
+/* Mise en page de l'application et des écrans (docs/UI.md §3). Les composants (panneau, bouton,
+   champ) sont dans base.css ; ici on ne fait que les disposer. Pensé d'abord pour le téléphone
+   (390 px) ; les règles « @media (min-width: …) » ajoutent la disposition d'ordinateur. */
+
+/* --- Charpente : barre du haut, contenu centré, pied -------------------------------------------- */
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh; /* téléphone : hauteur réellement visible */
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  min-height: 64px;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-bg-header);
+  border-bottom: var(--border) solid var(--color-accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 33%, transparent);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.app-logo {
+  flex: none;
+  width: auto;
+  height: 30px;
+  filter: brightness(0) invert(1); /* logo foncé → blanc sur la barre nuit */
+}
+
+.app-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.app-aside {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.app-main {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5) var(--space-4);
+}
+
+.app-footer {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.app-noscript {
+  padding: var(--space-4);
+  text-align: center;
+}
+
+/* Sur téléphone, le panneau garde ses biseaux mais perd un peu de marge intérieure. */
+.app-main .panel { padding: var(--space-5) 20px; }
+
+/* --- Écran : une colonne centrée ------------------------------------------------------------------ */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 680px;
+}
+
+.screen--narrow { max-width: 600px; }
+
+.screen h1 {
+  margin: 10px 0 6px;
+  font-size: var(--text-xl);
+}
+
+/* Le titre reçoit le focus à chaque changement d'écran (lecteurs d'écran) : pas de contour pour ça. */
+.screen h1:focus { outline: none; }
+
+.screen p + p { margin-top: var(--space-3); }
+
+/* --- Accueil (UI §3.1) ------------------------------------------------------------------------------ */
+
+.screen .home-title { font-size: clamp(1.625rem, 7vw, var(--text-2xl)); }
+
+.home-summary {
+  margin-top: var(--space-4);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+/* Panneau « Séance en cours » : texte à gauche, Reprendre à droite ; empilés sur téléphone. */
+.resume {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.resume-title { font-weight: 600; }
+
+.new-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+.exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Détail d'une erreur de chargement : garde les sauts de ligne du message. */
+.error-detail {
+  margin: var(--space-3) 0 0;
+  white-space: pre-wrap;
+  font-family: var(--font-number);
+}
+
+.exercise-list a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+/* --- Identification (UI §3.2) ------------------------------------------------------------------------ */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-4);
+}
+
+/* --- Ordinateur --------------------------------------------------------------------------------------- */
+
+@media (min-width: 640px) {
+  .app-header { padding: var(--space-2) var(--space-6); }
+  .app-main { padding: var(--space-7); }
+  .app-footer { padding: var(--space-3) var(--space-6); }
+  .app-main .panel { padding: 26px 30px; }
+  .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

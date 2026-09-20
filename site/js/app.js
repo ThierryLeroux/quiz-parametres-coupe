@@ -27,6 +27,13 @@ export function resolveExerciseId(search, index) {
   return (found ?? index[0]).id;
 }
 
+// L'exercice nommé par l'adresse, { id, titre }, ou null si l'adresse n'en nomme aucun ou en nomme
+// un qui n'est pas dans l'index. L'accueil montre alors la liste des exercices (UI §3.1).
+export function requestedExercise(search, index) {
+  const requested = new URLSearchParams(search).get('exercice');
+  return index.find((entry) => entry.id === requested) ?? null;
+}
+
 // Charge tout ce qu'il faut pour une séance : catalogue, index, exercice choisi par l'adresse.
 //   readJson : lecteur injectable (fetch par défaut), comme dans loadData
 export async function loadApp(search, readJson = fetchJson) {

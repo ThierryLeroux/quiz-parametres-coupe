@@ -31,7 +31,8 @@ Plomberie d'abord (aucun HTML ni CSS), écrans ensuite, après une maquette appr
 - [x] `site/js/session.js` : état d'une séance dans `localStorage` (une clé, stockage vide ou corrompu toléré)
 - [x] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`) et cycle d'une séance, en fonctions pures
 - [x] Maquette des écrans, approuvée par Thierry (`docs/UI.md`, `docs/maquettes/`, décision D17)
-- [ ] `site/index.html` : écran d'identification (prénom, nom, matricule) ; reprise d'une séance sauvegardée
+- [x] `site/css/tokens.css`, `base.css` : langage visuel et composants de base (UI §1, §4, §6)
+- [x] `site/index.html` + `site/js/ui/` : écrans Accueil et Identification (UI §3.1, §3.2) — prénom, nom, matricule ; reprise d'une séance sauvegardée ; écran Question en gabarit vide
 - [ ] Écran question : outil, dimension, matériau, 5 champs (évalués ou pré-remplis), correction visuelle
 - [ ] Progression par outil / opération à l'écran
 

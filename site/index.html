@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiz — paramètres de coupe</title>
+  <!-- Pas d'icône de site pour l'instant : sans cette ligne, le navigateur demande favicon.ico et note une erreur 404. -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <!-- Une seule page : js/ui/main.js remplace le contenu de <main> selon l'écran (UI §2). -->
+  <header class="app-header no-print">
+    <div class="app-brand">
+      <img class="app-logo" src="img/logo-cvm.png" alt="Cégep du Vieux Montréal">
+      <div class="app-title" id="header-title">Quiz — paramètres de coupe</div>
+    </div>
+    <div class="app-aside" id="header-aside">Techniques de génie mécanique</div>
+  </header>
+
+  <main class="app-main" id="app">
+    <p class="muted">Chargement du quiz… Si ce message reste affiché, la page doit être ouverte par un serveur web (<code>npm run serve</code>), pas directement depuis un fichier.</p>
+  </main>
+
+  <footer class="app-footer no-print">
+    TGM — profil fabrication · Aucune donnée n'est envoyée : la séance est conservée dans ce navigateur seulement.
+  </footer>
+
+  <noscript><p class="app-noscript">Ce quiz a besoin de JavaScript pour fonctionner.</p></noscript>
+  <script type="module" src="js/ui/main.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 // Tests de site/js/app.js : choix de l'exercice et cycle complet d'une séance, sans DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { answerFields, loadApp, nextQuestion, resolveExerciseId, restoreSession, sessionStep, startSession, submitAnswers, updateAnswers } from '../site/js/app.js';
+import { answerFields, loadApp, nextQuestion, requestedExercise, resolveExerciseId, restoreSession, sessionStep, startSession, submitAnswers, updateAnswers } from '../site/js/app.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
 import { validateExercise } from '../site/js/exercice.js';
@@ -53,6 +53,13 @@ test('resolveExerciseId : repli sur le premier de l’index', () => {
   assert.equal(resolveExerciseId('?exercice=inconnu', INDEX), 'm10-tournage-vc');
   assert.equal(resolveExerciseId('?exercice=../data/outils', INDEX), 'm10-tournage-vc'); // jamais un chemin
   assert.equal(resolveExerciseId('?Exercice=essai-percage', INDEX), 'm10-tournage-vc'); // le nom du paramètre est en minuscules
+});
+
+test('requestedExercise : l’exercice nommé par l’adresse, ou null (l’accueil montre alors la liste)', () => {
+  assert.deepEqual(requestedExercise('?exercice=essai-percage', INDEX), { id: 'essai-percage', titre: 'Essai' });
+  assert.equal(requestedExercise('', INDEX), null);
+  assert.equal(requestedExercise('?exercice=', INDEX), null);
+  assert.equal(requestedExercise('?exercice=inconnu', INDEX), null);
 });
 
 test('loadApp : charge le catalogue, l’index et l’exercice demandé par l’adresse', async () => {
