@@ -115,7 +115,7 @@ body {
   gap: var(--space-2) var(--space-5);
 }
 
-/* Réponse du serveur de correction, sous le bouton : « Serveur de correction à venir », « NIP incorrect… ».
+/* Réponse du serveur de correction, sous le bouton : « NIP incorrect… », « Attends encore 6 s… ».
    La ligne est réservée : la page ne saute pas quand le message apparaît. */
 .server-message {
   min-height: 1.5em;
@@ -167,6 +167,44 @@ body {
 
 .form-actions .server-message { flex: 1 1 240px; }
 
+/* --- Question (UI §3.3, §3.4) — disposition fonctionnelle ; la présentation de UI §3.3 vient au jalon 4 --- */
+
+/* Fiche de l'outil ou du matériau : libellé à gauche, valeur à droite. */
+.facts {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+
+.facts dt { color: var(--color-text-muted); }
+.facts dd { margin: 0; }
+
+/* Bandeau après « Vérifier » : la couleur est doublée par le texte (« Bonne réponse », « Question ratée »). */
+.banner {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-left: 4px solid;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.banner--correct { border-color: var(--color-correct); background: var(--color-correct-bg); }
+.banner--wrong { border-color: var(--color-wrong); background: var(--color-wrong-bg); }
+
+.progress-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1) var(--space-5);
+  margin: var(--space-3) 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.progress-done { color: var(--color-correct); }
+
 /* --- Ordinateur --------------------------------------------------------------------------------------- */
 
 @media (min-width: 640px) {
@@ -175,4 +213,5 @@ body {
   .app-footer { padding: var(--space-3) var(--space-6); }
   .app-main .panel { padding: 26px 30px; }
   .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .progress-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

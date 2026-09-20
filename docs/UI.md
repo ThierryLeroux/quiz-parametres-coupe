@@ -59,7 +59,8 @@ Les maquettes `01-accueil.html` et `02-identification.html` sont **périmées de
 - **Plus de panneau « Séance en cours »** (D19 : la séance vit sur le serveur). Un seul bouton, selon ce que le navigateur a gardé (`{ matricule, prenom, jeton }`, SPEC §7) :
   - un jeton local existe → bouton **Reprendre, <prénom>** et lien « Ce n'est pas toi ? Changer d'étudiant », qui efface le jeton local ; si le serveur refuse le jeton (expiré après 2 h sans activité), l'écran Identification s'ouvre ;
   - sinon → bouton **Commencer ou reprendre**, qui ouvre l'écran Identification.
-- Tant que le serveur de correction répond 501 (pas encore en service), une ligne sous le bouton affiche « Serveur de correction à venir ».
+- Si le serveur de correction ne répond pas, une ligne sous le bouton le dit : « Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie. »
+- « Changer d'étudiant » prévient aussi le serveur, qui oublie le jeton (SPEC §7).
 - Pied : « Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session. »
 
 ### 3.2 Identification (`02-identification.html`)
@@ -74,7 +75,6 @@ Les maquettes `01-accueil.html` et `02-identification.html` sont **périmées de
   - matricule invalide : « Le matricule doit avoir exactement 7 chiffres. » ; NIP mal formé : « Le NIP doit avoir de 4 à 6 chiffres. » ;
   - NIP incorrect : « NIP incorrect. Si tu l'as oublié, demande à ton enseignant de le remettre à zéro. » ;
   - trop d'essais : « Trop d'essais. Attends 10 minutes avant de réessayer. » ;
-  - serveur pas encore en service (501) : « Serveur de correction à venir » ;
   - serveur injoignable : « Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie. »
 - Quand l'écran s'ouvre parce que le serveur a refusé le jeton local (UI §3.1), il affiche d'entrée : « Ta séance a expiré : identifie-toi de nouveau. »
 
