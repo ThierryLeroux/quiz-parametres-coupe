@@ -309,6 +309,12 @@ compteurs, question en cours et horodatages ; purgés en fin de session par
 l'enseignant. Nouveau pied de page : « Tes réponses sont corrigées par un
 serveur ; tes données sont effacées à la fin de la session. »
 
+*Complément du 2026-09-20.* Le serveur garde aussi le **journal complet des
+corrections** : outil, question tirée, réponses données, résultat, horodatage.
+Le rapport en tire les questions réussies ; la page de vérification, la durée
+totale et le temps médian par question. Il est purgé avec le reste. Détails :
+D21.
+
 **Conséquences.** Remplace « site statique, aucun serveur » de D1 et de D3 : le
 site reste du HTML/CSS/JS sans étape de construction, mais il ne fonctionne plus
 sans son serveur (hébergement : D20). **Ferme D6** : le QR porte une
@@ -334,3 +340,85 @@ toujours aucune étape de construction pour le site, et aucune dépendance
 d'exécution de plus. `wrangler.jsonc` à la racine, code du serveur dans
 `worker/`. `npm run dev` (= `wrangler dev`) remplace `npm run serve`. Deux
 secrets GitHub : `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`.
+
+## D21 — Serveur de correction : précisions de D19 (2026-09-20, décidée)
+
+**Contexte.** `SPEC.md` §7 laissait cinq points ❓ à confirmer avant de coder le
+serveur (jalon 3), et le rapport du jalon 2 en soulevait trois autres.
+
+**Décision.**
+
+1. **Jeton et exercice.** Chaque appel nomme l'exercice. Un jeton d'un autre
+   exercice, inconnu ou expiré → 401 → l'étudiant s'identifie.
+2. **Journal des corrections.** Le serveur garde chaque correction : outil,
+   question tirée, réponses données, résultat, horodatage (complément de D19).
+3. **Prénom et nom.** Matricule + NIP identifient. Le prénom et le nom sont ceux
+   de la **première visite** : le serveur les renvoie et l'écran les affiche ;
+   ceux tapés à la reprise sont ignorés.
+4. **Exercice modifié en cours de session.** La séance **continue**. Les
+   compteurs sont indexés par `id` d'outil : un outil retiré disparaît, un outil
+   ajouté part à zéro. La séance note la version de l'exercice au début et à la
+   réussite.
+5. **Correction demandée trop tôt** (moins de 10 s après la précédente) : 429,
+   sans effet sur les compteurs ni sur la question en cours.
+6. **NIP remis à zéro** par l'enseignant = l'étudiant en choisit un nouveau à
+   sa prochaine identification.
+7. **Case du NIP** : champ texte à chiffres (`inputmode="numeric"`,
+   `autocomplete="off"`), masqué par CSS (`-webkit-text-security: disc`) là où
+   c'est possible ; **jamais `type="password"`**, pour que le navigateur ne
+   propose pas d'enregistrer le NIP sur les postes partagés. `autocomplete="off"`
+   aussi sur le matricule.
+8. **Éditeur (jalon 6)** : protégé par la clé d'administration du serveur, et
+   non par une empreinte dans le code ; son mode de sauvegarde se décide au
+   jalon 6.
+
+**Conséquences.** `SPEC.md` §7 à §9 n'ont plus de ❓. `restoreSession` (une
+séance repartait de zéro quand l'exercice changeait) disparaît. Les maquettes
+`01-accueil.html` et `02-identification.html` sont périmées depuis D19 ; elles
+ne sont pas refaites : le texte de `UI.md` fait foi.
+
+## D22 — Serveur : base D1, secrets, cryptographie, source des données (2026-09-20, décidée)
+
+**Décision.**
+
+- **Base D1** `quiz-parametres-coupe`, liaison `DB`. Schéma dans `migrations/`
+  (fichiers SQL numérotés, jamais modifiés une fois appliqués) : table
+  `seances` — une ligne par couple (exercice, matricule) — et table
+  `corrections` — le journal. Les migrations sont appliquées en local par
+  `npm run dev`, et en production par `deploy.yml`, **avant** le déploiement.
+- **Deux secrets** posés sur le Worker (`wrangler secret put`), jamais dans le
+  dépôt : `CLE_SECRETE` pour toute la cryptographie du serveur, `CLE_ADMIN`
+  pour l'administration (jalon 5). En local : `.dev.vars`, ignoré par git.
+- **Sous-clés dérivées de `CLE_SECRETE` par HKDF-SHA-256**, une par usage :
+  hachage des NIP, signature des attestations (jalon 5).
+- **NIP** stocké comme HMAC-SHA-256 (sous-clé, matricule + NIP). Pas de
+  PBKDF2 : un NIP de 4 à 6 chiffres est trop court pour qu'un hachage lent le
+  protège ; la protection vient du secret, que la base ne contient pas.
+  5 échecs en 10 minutes → identification verrouillée 10 minutes (429).
+- **Jeton de séance** : 32 octets aléatoires en base64url, envoyé une seule
+  fois, stocké haché (SHA-256). Expire 2 h après la dernière activité ; chaque
+  appel le prolonge. Un seul jeton par séance : s'identifier sur un second
+  appareil invalide le jeton du premier.
+- **Une seule source de données** : le Worker lit `site/data/` et
+  `site/exercices/` **par la liaison `ASSETS`**, avec `loadData` et
+  `loadExercise` du site (mêmes validations), et garde le résultat en mémoire.
+  Pas d'importation au bundle : ajouter un exercice reste « déposer un JSON et
+  l'inscrire dans `index.json` », sans toucher au code du serveur. Le Worker
+  importe aussi le moteur de `site/js/` (question, calcul, correction,
+  progression) : il n'existe qu'en un exemplaire.
+- **Tests de l'API sans dépendance de plus** : sous `node --test`, le vrai
+  Worker tourne sur une base SQLite en mémoire (`node:sqlite`, même moteur SQL
+  que D1) où la vraie migration est appliquée, avec une horloge injectée — seul
+  moyen de tester une expiration de 2 h ou un verrou de 10 minutes.
+  `npm run test:api` rejoue un scénario par HTTP sur `wrangler dev` et une vraie
+  D1 locale. `@cloudflare/vitest-pool-workers` n'est pas retenu : il amènerait
+  vitest, un second lanceur de tests et des dizaines de paquets, pour un projet
+  qui n'a qu'une `devDependency`.
+
+**Conséquences.** Node ≥ 22.13 pour les tests (`node:sqlite`). Deux colonnes
+s'ajoutent à la table `seances` demandée : `essais_nip_debut` (sans elle,
+« 5 échecs **en 10 minutes** » ne se calcule pas) et
+`version_exercice_reussite` (D21, point 4). Le NIP est propre à chaque séance,
+donc à chaque exercice : l'étudiant en choisit un par exercice (il peut
+reprendre le même). Le jeton d'API Cloudflare de GitHub doit aussi avoir le
+droit **D1 : Edit** pour appliquer les migrations.
