@@ -1,0 +1,178 @@
+// Règles d'une séance sur le serveur de correction (SPEC §7, décisions D19, D21) : tirage,
+// correction, compteurs, cadence, essais de NIP — et ce qu'on en montre au navigateur.
+//
+// Fonctions PURES : ni base de données, ni réseau, ni horloge cachée. Elles reçoivent une séance
+// (une ligne de la table seances, colonnes JSON déjà lues — voir base.js), l'exercice, le
+// catalogue, l'heure et l'aléa, et retournent des valeurs. Le moteur est celui du site (site/js/) :
+// il n'existe qu'en un exemplaire.
+
+import { computeParameters } from '../site/js/calcul.js';
+import { ANSWER_FIELDS, gradeAnswers } from '../site/js/correction.js';
+import { fieldsToGrade } from '../site/js/exercice.js';
+import { formatParameters } from '../site/js/format.js';
+import { eligibleTools, isComplete, recordResult } from '../site/js/progression.js';
+import { generateQuestion } from '../site/js/question.js';
+
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
+
+export const TOKEN_LIFETIME_MS = 120 * MINUTE; // le jeton expire 2 h après la dernière activité
+export const CADENCE_MS = 10 * SECOND; // au moins 10 s entre deux corrections d'une même séance
+export const NIP_MAX_ATTEMPTS = 5; // 5 échecs…
+export const NIP_WINDOW_MS = 10 * MINUTE; // … en 10 minutes…
+export const NIP_LOCK_MS = 10 * MINUTE; // … verrouillent l'identification 10 minutes
+
+// Date ISO décalée de `ms` millisecondes : later(now, TOKEN_LIFETIME_MS).
+export const later = (now, ms) => new Date(now.getTime() + ms).toISOString();
+
+// --- Compteurs ---------------------------------------------------------------------------------------
+// Colonne « compteurs » : { reussites: { [id d'outil]: n }, totalReussies }. Indexés par id d'outil,
+// les compteurs survivent à une modification de l'exercice (D21) : un outil retiré est ignoré, un
+// outil ajouté vaut 0. progression.js veut en plus l'id de l'exercice : on le lui ajoute au passage.
+
+export const emptyCounters = () => ({ reussites: {}, totalReussies: 0 });
+
+const progressOf = (counters, exercise) => ({ exerciceId: exercise.id, ...counters });
+
+export function isExerciseComplete(counters, exercise) {
+  return isComplete(exercise, progressOf(counters, exercise));
+}
+
+// --- Question ------------------------------------------------------------------------------------------
+
+// La question mémorisée peut-elle encore être posée ? Non si son outil a quitté l'exercice ou le
+// catalogue depuis le tirage (exercice modifié en cours de session, D21).
+export function isQuestionValid(question, exercise, data) {
+  if (question === null) return false;
+  return exercise.outils.some((entry) => entry.id === question.tool.id) && data.outils.some((tool) => tool.id === question.tool.id);
+}
+
+// Tire une question parmi les outils encore à évaluer ; null s'il n'en reste aucun (exercice complété).
+export function drawQuestion(counters, exercise, data, random) {
+  const tools = eligibleTools(exercise, data, progressOf(counters, exercise));
+  return tools.length > 0 ? generateQuestion(data, tools, random) : null;
+}
+
+// --- Correction ----------------------------------------------------------------------------------------
+
+// Ne garde des saisies reçues que les cinq champs, en texte court : le reste n'entre ni dans la
+// correction ni dans le journal.
+export function cleanAnswers(answers) {
+  const source = answers !== null && typeof answers === 'object' ? answers : {};
+  return Object.fromEntries(ANSWER_FIELDS.map((field) => [field, typeof source[field] === 'string' ? source[field].trim().slice(0, 32) : '']));
+}
+
+// Corrige la question mémorisée avec les saisies de l'étudiant.
+// Retourne { success, result, counters } :
+//   result   : pour le journal — la correction de gradeAnswers et les valeurs attendues, non arrondies
+//   counters : les nouveaux compteurs (réussites consécutives, D12)
+export function gradeQuestion(question, answers, counters, exercise, data) {
+  const expected = computeParameters(question, data);
+  const correction = gradeAnswers(expected, answers, fieldsToGrade(exercise));
+  const progress = recordResult(progressOf(counters, exercise), question.tool.id, correction.success);
+  return {
+    success: correction.success,
+    result: { ...correction, attendu: expected },
+    counters: { reussites: progress.reussites, totalReussies: progress.totalReussies },
+  };
+}
+
+// Secondes à attendre avant la prochaine correction (0 = on peut corriger).
+export function cadenceWait(session, now) {
+  if (session.derniere_correction === null) return 0;
+  const elapsed = now.getTime() - new Date(session.derniere_correction).getTime();
+  return elapsed >= CADENCE_MS ? 0 : Math.ceil((CADENCE_MS - elapsed) / SECOND);
+}
+
+// --- Essais de NIP ---------------------------------------------------------------------------------------
+
+// L'identification de cette séance est-elle verrouillée en ce moment ?
+export function isNipLocked(session, now) {
+  return session.verrou_nip_jusqua !== null && session.verrou_nip_jusqua > now.toISOString();
+}
+
+// Compte un essai de NIP de plus ; retourne les nouvelles valeurs des trois colonnes.
+// L'essai est compté AVANT de regarder le NIP (index.js) : des essais lancés en parallèle ne
+// peuvent pas tous passer. Le 5e essai d'une fenêtre de 10 minutes pose d'avance le verrou de
+// 10 minutes : s'il réussit, l'identification efface tout (NIP_CLEARED) ; s'il échoue, le verrou reste.
+export function countNipAttempt(session, now) {
+  const windowOpen = session.essais_nip_debut !== null && later(new Date(session.essais_nip_debut), NIP_WINDOW_MS) > now.toISOString();
+  const attempts = windowOpen ? session.essais_nip + 1 : 1;
+  if (attempts >= NIP_MAX_ATTEMPTS) return { essais_nip: 0, essais_nip_debut: null, verrou_nip_jusqua: later(now, NIP_LOCK_MS) };
+  return { essais_nip: attempts, essais_nip_debut: windowOpen ? session.essais_nip_debut : now.toISOString(), verrou_nip_jusqua: null };
+}
+
+// Après une identification réussie : plus aucun essai au compteur, plus de verrou.
+export const NIP_CLEARED = { essais_nip: 0, essais_nip_debut: null, verrou_nip_jusqua: null };
+
+// --- Ce qu'on montre au navigateur ---------------------------------------------------------------------
+
+// La question, prête à afficher. Les champs évalués sont à saisir ; les autres sont fournis, avec
+// leur valeur théorique mise en forme (SPEC §10). Les Vc du matériau n'y sont pas : les trouver
+// dans la table, c'est l'exercice.
+export function questionView(question, exercise, data) {
+  const tool = data.outils.find((entry) => entry.id === question.tool.id);
+  const graded = fieldsToGrade(exercise);
+  const displayed = formatParameters(computeParameters(question, data));
+  const { vc_pi_min: _vc, ...material } = question.material;
+  return {
+    identifiant: question.displayId,
+    outil: {
+      id: tool.id,
+      nom: tool.nom,
+      operation: tool.operation,
+      commentaire: tool.commentaire,
+      dents: question.teeth,
+      materiau: question.toolMaterial.label,
+      limite_rpm: tool.limite_rpm,
+      fact_vc: tool.fact_vc,
+      fact_av: tool.fact_av,
+    },
+    dimension: question.dimension.label,
+    materiau: material,
+    champs: ANSWER_FIELDS.map((field) => (graded.includes(field)
+      ? { champ: field, evalue: true, texte: '' }
+      : { champ: field, evalue: false, texte: displayed[field] })),
+  };
+}
+
+// La correction, prête à afficher : pour chaque champ, juste ou faux, la saisie et la valeur attendue.
+//   before : compteur de l'outil avant cette correction (« le compteur retombe à zéro (2 → 0) »)
+export function correctionView(question, answers, result, before, counters) {
+  const displayed = formatParameters(result.attendu);
+  return {
+    reussie: result.success,
+    outil: { id: question.tool.id, nom: question.tool.name, avant: before, apres: counters.reussites[question.tool.id] ?? 0 },
+    champs: ANSWER_FIELDS.map((field) => ({
+      champ: field,
+      evalue: result.fields[field].min !== null,
+      ok: result.fields[field].ok,
+      saisie: answers[field],
+      attendu: displayed[field],
+    })),
+  };
+}
+
+// L'état de la séance : qui, quel exercice, où il en est, la question en attente.
+// Le prénom et le nom sont ceux de la première visite (D21).
+export function sessionView(session, exercise, data) {
+  const question = isQuestionValid(session.question_courante, exercise, data) ? session.question_courante : null;
+  const tools = exercise.outils.map((entry) => ({
+    id: entry.id,
+    nom: data.outils.find((tool) => tool.id === entry.id).nom,
+    reussites: Math.min(session.compteurs.reussites[entry.id] ?? 0, entry.reussites_requises),
+    requises: entry.reussites_requises,
+  }));
+  return {
+    etudiant: { prenom: session.prenom, nom: session.nom, matricule: session.matricule },
+    exercice: { id: exercise.id, titre: exercise.titre, version: exercise.version },
+    debut: session.debut,
+    reussite_le: session.reussite_le,
+    progression: {
+      outils: tools,
+      outils_termines: tools.filter((tool) => tool.reussites >= tool.requises).length,
+      total_reussies: session.compteurs.totalReussies,
+    },
+    question: question === null ? null : questionView(question, exercise, data),
+  };
+}
