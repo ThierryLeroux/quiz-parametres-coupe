@@ -9,7 +9,8 @@ dans `docs/`.
 Exerciseur web auto-corrigé pour étudiants en génie mécanique (Cégep) : calcul
 des paramètres de coupe (Vc, N, avances) pour une opération d'usinage tirée au
 hasard. Il remplace un classeur Excel/VBA (`legacy/`) qu'on ne maintient plus.
-À la réussite : rapport PDF à remettre sur Léa, avec QR code de vérification.
+À la réussite : rapport PDF à remettre sur Léa, avec un QR code de vérification
+signé par le serveur de correction (décision D19).
 
 Propriétaire : Thierry, enseignant, expert en usinage CNC, développeur
 occasionnel. Il maintiendra seul ce code pendant des années : **la simplicité et
@@ -23,24 +24,34 @@ la lisibilité priment sur l'élégance technique.**
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
 - `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
 - `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions.
+- `worker/index.js` — le **serveur** : API `/api/…` du serveur de correction (décisions D19, D20). `site/js/api.js` est son pendant côté navigateur.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
 
-## Pile et structure (décision D3)
+## Pile et structure (décisions D3, D19, D20)
 
 - HTML/CSS/JS natif (modules ES), **aucun framework, aucune étape de build**.
-  `site/` est publié tel quel par GitHub Pages.
-- Node.js sert uniquement aux tests : `node --test` (voir `package.json`).
+  `site/` est publié tel quel.
+- **Un seul Worker Cloudflare** (`worker/`, `wrangler.jsonc`) sert `site/` comme
+  ressources statiques et expose l'API du **serveur de correction** sous `/api/`
+  (D19 : l'état de séance, la correction et la signature de la réussite vivent
+  sur le serveur ; le navigateur affiche). Déployé par GitHub Actions à chaque
+  push sur `main`, après `npm test`.
+- Node.js sert aux tests (`node --test`) et à `wrangler`, **seule
+  `devDependency`**, version épinglée.
 - Une seule dépendance d'exécution autorisée : une bibliothèque QR code,
   version épinglée, copiée dans `site/vendor/`. Ne pas en ajouter d'autre sans
-  décision dans `DECISIONS.md`.
+  décision dans `DECISIONS.md`. Les polices sont des fichiers copiés dans
+  `site/fonts/` : aucune requête vers un domaine externe.
 
 ```
-site/              page publiée (index.html, css/, js/, vendor/)
+site/              page publiée (index.html, css/, js/, fonts/, vendor/)
 site/data/         catalogue : JSON de référence, unique exemplaire (décisions D8, D11)
 site/exercices/    un JSON par exercice configurable (décision D11, SPEC §10)
-site/img/outils/   images des outils (jalon 5)
-site/editeur/      éditeur web statique du catalogue et des exercices (jalon 4)
-tests/             tests unitaires du moteur (node --test)
+site/img/outils/   images des outils
+site/editeur/      éditeur web statique du catalogue et des exercices (après le jalon 5)
+worker/            le Worker : API /api/… du serveur de correction (décisions D19, D20)
+wrangler.jsonc     configuration du Worker (nom, ressources statiques ; base D1 au jalon 3)
+tests/             tests unitaires du moteur et du Worker (node --test)
 docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN
 legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
 ```
@@ -64,18 +75,19 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
    poussé qui s'avère rouge est **amendé**, jamais suivi d'un commit de réparation.
 5. **Ne pas modifier `site/data/*.json`** pour faire passer un test : si une donnée semble fausse, le signaler à Thierry (c'est lui qui connaît le métier).
 6. Quand la SPEC est ambiguë : proposer une interprétation, l'écrire en commentaire `// ❓` et le signaler en fin de session — ne pas décider en silence.
-7. Vérifier que `node --test` passe et que `site/index.html` s'ouvre sans erreur console avant de conclure une tâche.
+7. Vérifier que `node --test` passe et que `site/index.html`, servi par `npm run dev`, s'ouvre sans erreur console avant de conclure une tâche.
 
 ## Commandes
 
 ```
 npm test                 # tests unitaires
-npx serve site           # servir le site en local (ou tout serveur statique)
+npm run dev              # wrangler dev : le site et l'API /api/ en local (http://localhost:8787)
+npm run deploy           # wrangler deploy — normalement fait par GitHub Actions, pas à la main
 ```
 
 ## Ce qu'il ne faut pas faire
 
 - Ajouter un framework, un bundler, TypeScript, ou une dépendance CDN au moment de l'exécution.
-- Envoyer des données d'étudiants à un service externe.
+- Envoyer des données d'étudiants ailleurs qu'au serveur de correction du projet (D19), ou charger quoi que ce soit d'un domaine externe.
 - Réécrire `legacy/`.
 - Changer le format des JSON de données sans mettre à jour `SPEC.md` §3 et les tests de validation.

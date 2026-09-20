@@ -1,0 +1,14 @@
+// Configuration du Worker Cloudflare (décision D20) : un seul Worker sert site/ comme ressources
+// statiques et expose l'API sous /api/. Aucune étape de construction : site/ est publié tel quel.
+// Une requête qui correspond à un fichier de site/ est servie directement ; toutes les autres
+// (dont /api/…) arrivent à worker/index.js.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "quiz-parametres-coupe",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-20",
+  "assets": { "directory": "./site", "binding": "ASSETS" },
+  // wrangler n'envoie pas de statistiques d'utilisation à Cloudflare depuis le poste de développement.
+  "send_metrics": false
+  // La base D1 des séances s'ajoutera ici au jalon 3.
+}
