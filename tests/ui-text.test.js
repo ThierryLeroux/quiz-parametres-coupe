@@ -24,19 +24,21 @@ test('exerciseMeta : version, nombre d’outils, champs évalués', () => {
   assert.equal(exerciseMeta(CINQ_CHAMPS), "version r1 · 1 outil · champs évalués : vitesse de coupe, avance par dent, RPM, avance totale par révolution, vitesse d'avance");
 });
 
-test('exerciseSummary : trois phrases, selon les champs et les réussites requises', () => {
+test('exerciseSummary : trois phrases ; N vient de reussites_requises', () => {
+  // M10 : de 1 à 3 réussites selon l'outil → « plusieurs fois de suite »
   assert.deepEqual(exerciseSummary(m10), [
-    "Pour chaque outil, trouve la vitesse de coupe à l'aide des tables de référence.",
-    "Chaque outil doit être réussi de 1 à 3 fois de suite, selon l'outil ; un échec remet son compteur à zéro.",
-    'À la fin : rapport de réussite à enregistrer en PDF et à remettre sur Léa.',
+    'Chaque outil doit être réussi plusieurs fois de suite.',
+    'Une mauvaise réponse remet le compteur de cet outil à zéro.',
+    'À la fin, tu enregistres ton rapport de réussite en PDF et tu le remets sur Léa.',
   ]);
-  const [quoi, combien] = exerciseSummary(CINQ_CHAMPS);
-  assert.equal(quoi, "Pour chaque outil, trouve la vitesse de coupe, l'avance par dent, le RPM, l'avance totale par révolution et la vitesse d'avance à l'aide des tables de référence.");
-  assert.equal(combien, 'Chaque outil doit être réussi 2 fois de suite ; un échec remet son compteur à zéro.');
+  assert.equal(exerciseSummary(CINQ_CHAMPS)[0], 'Chaque outil doit être réussi 2 fois de suite.');
 
-  const uneFois = { ...CINQ_CHAMPS, champs_evalues: ['vc', 'n'], outils: [{ id: 'mvlnr', reussites_requises: 1 }] };
-  assert.equal(exerciseSummary(uneFois)[0], "Pour chaque outil, trouve la vitesse de coupe et le RPM à l'aide des tables de référence.");
-  assert.equal(exerciseSummary(uneFois)[1], 'Chaque outil doit être réussi une fois ; un échec remet son compteur à zéro.');
+  const troisPartout = { ...CINQ_CHAMPS, outils: [{ id: 'mvlnr', reussites_requises: 3 }, { id: 'mclnr', reussites_requises: 3 }] };
+  assert.equal(exerciseSummary(troisPartout)[0], 'Chaque outil doit être réussi 3 fois de suite.');
+  const varie = { ...CINQ_CHAMPS, outils: [{ id: 'mvlnr', reussites_requises: 3 }, { id: 'mclnr', reussites_requises: 2 }] };
+  assert.equal(exerciseSummary(varie)[0], 'Chaque outil doit être réussi plusieurs fois de suite.');
+  const uneFois = { ...CINQ_CHAMPS, outils: [{ id: 'mvlnr', reussites_requises: 1 }] };
+  assert.equal(exerciseSummary(uneFois)[0], 'Chaque outil doit être réussi une fois.');
 });
 
 test('formatDateTime : date et heure du poste, en français', () => {
