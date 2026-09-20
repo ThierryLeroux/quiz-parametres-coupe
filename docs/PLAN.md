@@ -24,29 +24,51 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 - [x] `site/js/exercice.js` : validation et chargement d'un exercice
 - [x] `site/js/progression.js` : réussites consécutives, outils admissibles, exercice complété (SPEC §7)
 
-## Jalon 2 — Interface du quiz
+## Jalon 2 — Interface du quiz : socle, accueil, identification
 Plomberie d'abord (aucun HTML ni CSS), écrans ensuite, après une maquette approuvée.
+Depuis D19, l'état de séance vit sur le serveur : le navigateur affiche.
 
 - [x] `site/exercices/index.json` : exercices offerts, avec sa validation (`exercice.js`)
-- [x] `site/js/session.js` : état d'une séance dans `localStorage` (une clé, stockage vide ou corrompu toléré)
-- [x] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`) et cycle d'une séance, en fonctions pures
+- [x] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`, sans repli : D18) et cycle d'une séance, en fonctions pures — le cycle servira au serveur (jalon 3)
 - [x] Maquette des écrans, approuvée par Thierry (`docs/UI.md`, `docs/maquettes/`, décision D17)
-- [x] `site/css/tokens.css`, `base.css` : langage visuel et composants de base (UI §1, §4, §6)
-- [x] `site/index.html` + `site/js/ui/` : écrans Accueil et Identification (UI §3.1, §3.2) — prénom, nom, matricule ; reprise d'une séance sauvegardée ; écran Question en gabarit vide
-- [ ] Écran question : outil, dimension, matériau, 5 champs (évalués ou pré-remplis), correction visuelle
-- [ ] Progression par outil / opération à l'écran
+- [x] `site/css/tokens.css`, `base.css` : langage visuel et composants de base (UI §1, §4, §6) ; polices auto-hébergées dans `site/fonts/`
+- [x] Hébergement (D20) : `wrangler.jsonc`, `worker/index.js` minimal (`GET /api/version` ; 501 ailleurs sous `/api/`), `npm run dev`, `deploy.yml`
+- [ ] `site/js/session.js` : le navigateur ne garde que `{ matricule, prenom, jeton }` (D19) ; `site/js/identification.js` : prénom, nom, matricule, NIP
+- [ ] `site/js/api.js` : appels prévus au serveur (identification, question, correction, rapport)
+- [ ] `site/index.html` + `site/js/ui/` : écrans Accueil et Identification (UI §3.1, §3.2) selon D19 — « Serveur de correction à venir » tant que l'API répond 501 ; écran Question en gabarit vide
 
-## Jalon 3 — Rapport et QR (décision D16 : plus de code Moodle)
-- [ ] Page rapport imprimable + QR code (bibliothèque vendorisée)
-- [ ] Compatibilité avec la page de vérification actuelle (`legacy/index.htm`) ou nouvelle page
+## Jalon 3 — Serveur de correction (décisions D19, D20)
+Le moteur (jalons 1 et 1b) et le cycle d'`app.js` passent derrière l'API ; chaque route a ses tests.
+Avant de coder : trancher les cinq points ❓ de la fin de `SPEC.md` §7.
 
-## Jalon 4 — Éditeur web du catalogue et des exercices (décision D11)
+- [ ] Base **D1** : liaison dans `wrangler.jsonc`, **schéma et migrations** (séances, identifications, corrections), base locale pour `npm run dev` et les tests
+- [ ] `POST /api/identification` : matricule à 7 chiffres, NIP de 4 à 6 chiffres haché, 5 essais par 10 minutes par matricule, une séance par (matricule, exercice), jeton de séance qui expire après 2 h sans activité
+- [ ] `GET /api/question` : tirage côté serveur parmi les outils encore à évaluer ; la question en cours est rendue telle quelle à la reprise
+- [ ] `POST /api/correction` : correction, compteurs, une seule correction par question
+- [ ] **Cadence** : 10 s au moins entre deux corrections d'une même séance
+- [ ] **Horodatage** de chaque correction
+- [ ] Secrets du serveur (clé HMAC, clé d'administration) : `wrangler secret`, `.dev.vars` en local, mode d'emploi dans `DEMARRAGE.md`
+
+## Jalon 4 — Écran Question et tables de référence, branchés sur le serveur
+- [ ] Écran Question (UI §3.3) : outil, dimension, matériau, 5 champs (évalués ou pré-remplis), aide contextuelle
+- [ ] Question corrigée (UI §3.4) : correction visuelle, bandeau, Question suivante ; attente imposée par la cadence
+- [ ] Progression par outil à l'écran
+- [ ] Tables de référence (UI §3.5) : vitesses de coupe, avances, formules ; impression
+- [ ] Images d'outils (`site/img/outils/`) et pictogrammes (UI §5) affichés
+- [ ] Jeton expiré ou refusé en cours de séance : retour à l'identification, sans perte (l'état est sur le serveur)
+
+## Jalon 5 — Rapport signé, page de vérification, administration (décisions D16, D19)
+- [ ] `GET /api/rapport` : rapport de réussite et **attestation signée** (HMAC)
+- [ ] Page rapport imprimable (UI §3.6) + QR code de l'attestation (bibliothèque vendorisée)
+- [ ] **Page de vérification** publique : lit l'attestation du QR, interroge le serveur
+- [ ] **Page d'administration** à clé : liste des réussites, remise à zéro d'un NIP, purge de fin de session
+- [ ] Essai avec un groupe d'étudiants ; correctifs
+
+## Jalon 6 — Éditeur web du catalogue et des exercices (décision D11)
 - [ ] `site/editeur/` : éditer un exercice (outils, réussites, champs évalués, restrictions), validé par `exercice.js`
 - [ ] Éditer le catalogue (outils, matériaux, opérations), validé par `data.js`
 - [ ] Télécharger les JSON produits ; mode d'emploi « déposer dans le dépôt et commettre »
 
-## Jalon 5 — Finition
-- [ ] Images d'outils exportées du classeur (PNG/SVG) dans `site/img/outils/` et affichées
+## Finition
 - [ ] Graphique de progression par opération
-- [ ] Essai avec un groupe d'étudiants ; correctifs
-- [ ] Décision D6 (sécurité) et D7 (dépôt) closes
+- [ ] Décision D7 (dépôt) close — D6 (sécurité) est fermée par D19

@@ -43,24 +43,38 @@ avant style**.
 
 `?exercice=<id>` (lien diffusé sur Léa) → **Accueil** → **Identification** →
 **Question** ⇄ **Tables de référence** → (Vérifier) → **Question corrigée** →
-Question suivante… → **Réussite** (rapport). Une séance interrompue se reprend
-depuis l'accueil (état dans `localStorage`, SPEC §7).
+Question suivante… → **Réussite** (rapport). L'état de la séance vit sur le
+serveur de correction (D19, SPEC §7) : une séance interrompue se reprend de
+n'importe quel appareil, en s'identifiant ; sur le même appareil, l'accueil
+offre « Reprendre, <prénom> » tant que le jeton local est valide.
 
 ## 3. Écrans
 
 ### 3.1 Accueil (`01-accueil.html`)
 
 - Titre de l'exercice en grand, avec version, nombre d'outils, champs évalués, et la consigne « vérifie que c'est l'exercice indiqué sur Léa ». **Aucun moyen d'en changer** depuis la page (D11, point 10) ; la liste des exercices n'apparaît que si l'URL n'a pas de `?exercice=`, ou en nomme un qui n'existe pas — elle est alors précédée de « L'exercice « <id> » n'existe pas — vérifie le lien sur Léa » (D18).
-- Résumé de l'exercice en trois phrases (réussites consécutives, échec = compteur à zéro, rapport PDF à remettre sur Léa).
-- Panneau doré « Séance en cours sur cet appareil » (prénom, nom, matricule, début, nombre de réussites) avec **Reprendre**, seulement si une séance valide existe.
-- Bouton **Nouvelle séance** + avertissement « efface la séance en cours ».
-- Pied : « aucune donnée n'est envoyée ; la séance est conservée dans ce navigateur seulement ».
+- Résumé de l'exercice en trois phrases : « Chaque outil doit être réussi N fois de suite. Une mauvaise réponse remet le compteur de cet outil à zéro. À la fin, tu enregistres ton rapport de réussite en PDF et tu le remets sur Léa. » N est lu dans `reussites_requises` de l'exercice ; s'il varie selon l'outil : « plusieurs fois de suite » ; s'il vaut 1 : « une fois ».
+- **Plus de panneau « Séance en cours »** (D19 : la séance vit sur le serveur). Un seul bouton, selon ce que le navigateur a gardé (`{ matricule, prenom, jeton }`, SPEC §7) :
+  - un jeton local existe → bouton **Reprendre, <prénom>** et lien « Ce n'est pas toi ? Changer d'étudiant », qui efface le jeton local ; si le serveur refuse le jeton (expiré après 2 h sans activité), l'écran Identification s'ouvre ;
+  - sinon → bouton **Commencer ou reprendre**, qui ouvre l'écran Identification.
+- Tant que le serveur de correction répond 501 (pas encore en service), une ligne sous le bouton affiche « Serveur de correction à venir ».
+- Pied : « Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session. »
+
+La maquette `01-accueil.html` montre encore l'ancien panneau doré et le bouton « Nouvelle séance » : ce texte-ci fait foi.
 
 ### 3.2 Identification (`02-identification.html`)
 
-- Prénom, nom, **matricule à 7 chiffres** (validation à la saisie, message en français). Rien d'autre (D16 : plus de numéro Moodle).
-- Texte : « Ces informations apparaîtront sur ton rapport de réussite, que tu remettras sur Léa. »
-- Boutons : ← Retour, **Commencer l'exercice**.
+- Prénom, nom, **matricule à 7 chiffres**, **NIP de 4 à 6 chiffres** (case masquée, clavier numérique) ; validation à la saisie, messages en français. Rien d'autre (D16 : plus de numéro Moodle).
+- Texte : « Choisis un NIP à ta première visite : il te servira à reprendre l'exercice sur un autre appareil. »
+- **Un seul bouton : Continuer** — la première visite et la reprise passent par le même formulaire ; c'est le serveur qui sait si le matricule a déjà une séance.
+- Erreurs — celle d'un champ sous sa case, avant l'envoi ; celles du serveur sous le formulaire :
+  - matricule invalide : « Le matricule doit avoir exactement 7 chiffres. » ; NIP mal formé : « Le NIP doit avoir de 4 à 6 chiffres. » ;
+  - NIP incorrect : « NIP incorrect. Si tu l'as oublié, demande à ton enseignant de le remettre à zéro. » ;
+  - trop d'essais : « Trop d'essais. Attends 10 minutes avant de réessayer. » ;
+  - serveur pas encore en service (501) : « Serveur de correction à venir » ;
+  - serveur injoignable : « Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie. »
+
+La maquette `02-identification.html` montre encore trois champs et deux boutons : ce texte-ci fait foi.
 
 ### 3.3 Question (`03-question.html`, téléphone `03b-question-telephone.html`)
 
@@ -88,7 +102,7 @@ Téléphone : tout s'empile dans l'ordre outil → matériau → questionnaire �
 - N : « N = Vc × 4 / Ø, plafonnée au RPM max de la machine » (+ facteur s'il y en a un) ;
 - f : « f = fz × nombre de dents » ; Vf : « Vf = N × f ».
 
-Bouton **Vérifier** (un seul clic possible ; SPEC §7, `correction` dans l'état).
+Bouton **Vérifier** (un seul clic possible : le serveur ne corrige une question qu'une fois, SPEC §7).
 
 **Progression** (panneau bleu, toujours visible) : barre « n / m outils », puis un rang par outil de l'exercice avec **un point par réussite consécutive** (`reussites_requises` points, pleins et lumineux quand acquis), l'outil en cours surligné ; légende « un échec sur un outil remet ses points à zéro ». Sur téléphone, sous le formulaire, les outils terminés peuvent être repliés.
 
@@ -151,5 +165,5 @@ Tous en SVG trait/aplat, dans `site/img/pictos/`, référencés par les données
 ## 8. Ce que la maquette ne tranche pas (à traiter au fil des jalons)
 
 - Le rendu final des 6 + 19 pictogrammes (proposition de Claude Code, validation de Thierry).
-- Le contenu exact du QR et sa page de vérification (D6, jalon 3).
-- L'éditeur (jalon 4) : accès par mot de passe pour les professeurs — empreinte seulement dans le code, jamais le mot de passe en clair, jamais dans les docs.
+- Le contenu exact du QR signé, la page de vérification et la page d'administration (D19, jalon 5).
+- L'éditeur (jalon 6) : accès par mot de passe pour les professeurs — empreinte seulement dans le code, jamais le mot de passe en clair, jamais dans les docs.

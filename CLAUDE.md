@@ -48,7 +48,7 @@ site/              page publiée (index.html, css/, js/, fonts/, vendor/)
 site/data/         catalogue : JSON de référence, unique exemplaire (décisions D8, D11)
 site/exercices/    un JSON par exercice configurable (décision D11, SPEC §10)
 site/img/outils/   images des outils
-site/editeur/      éditeur web statique du catalogue et des exercices (après le jalon 5)
+site/editeur/      éditeur web statique du catalogue et des exercices (jalon 6)
 worker/            le Worker : API /api/… du serveur de correction (décisions D19, D20)
 wrangler.jsonc     configuration du Worker (nom, ressources statiques ; base D1 au jalon 3)
 tests/             tests unitaires du moteur et du Worker (node --test)

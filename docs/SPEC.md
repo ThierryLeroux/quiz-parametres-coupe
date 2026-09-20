@@ -10,7 +10,9 @@ Exerciseur auto-corrigé où l'étudiant calcule les paramètres de coupe d'une
 opération d'usinage tirée au hasard (outil × dimension × matériau brut), jusqu'à
 démontrer la maîtrise de chaque type d'outil. À la réussite, un **rapport** est
 produit, que l'étudiant enregistre en PDF et remet sur Léa ; il porte un
-**QR code** de vérification pour l'enseignant (décision D16).
+**QR code** de vérification pour l'enseignant (décision D16). Les questions
+sont tirées et corrigées par un **serveur de correction**, qui signe la
+réussite (décision D19, §7).
 
 Public : étudiants du Cégep du Vieux Montréal, Techniques de génie mécanique
 (profil fabrication) et Techniques de génie de la maintenance industrielle.
@@ -156,7 +158,9 @@ Une question est **réussie** quand les 5 champs sont corrects. Les champs
 pré-remplis par la configuration de l'exercice (ex. M10 : tout sauf Vc) comptent
 comme corrects.
 
-## 7. Progression et réussite de l'exercice
+## 7. Progression, séance et serveur de correction
+
+### Progression et réussite de l'exercice
 
 - L'exercice (§10) liste les outils évalués ; chacun porte ses
   `reussites_requises` (≥ 1). Un outil absent de l'exercice n'est jamais tiré.
@@ -172,37 +176,96 @@ comme corrects.
   `reussites_requises`.
 - Le **total des questions réussies**, inscrit au rapport (§8), ne diminue
   jamais, même quand un compteur d'outil retombe à zéro.
-- État de progression, sérialisable (`localStorage`) :
+- État de progression, sérialisable, tenu **par le serveur** (ci-dessous) :
   `{ exerciceId, reussites: { [id d'outil]: n }, totalReussies }`.
 - Un graphique de progression par opération est affiché (VBA `modAffGraph`).
 
-### État d'une séance (`site/js/session.js`)
+### Serveur de correction (décision D19)
 
-Toute la séance tient dans **un seul objet JSON**, conservé dans `localStorage`
-sous **une seule clé** (`quiz-parametres-coupe:seance`), pour survivre à un
-rechargement de la page. Rien n'est envoyé ailleurs (§9).
+La preuve de réussite doit résister à un étudiant aidé d'une IA. Dans un
+navigateur, tout est falsifiable : **l'état de séance vit donc sur un serveur**,
+qui détient la clé secrète. Le navigateur **affiche** ; le serveur :
 
-| Clé | Contenu |
+- **tire** les questions (§4), calcule les réponses attendues (§5), **corrige**
+  (§6) et **tient les compteurs** (ci-dessus) ;
+- **horodate** chaque correction ;
+- impose une **cadence minimale** : 10 s entre deux corrections d'une même
+  séance ;
+- ne corrige une question **qu'une seule fois** ;
+- **signe l'attestation de réussite** (HMAC) que le rapport porte en QR (§8).
+
+Une **séance** = un couple (matricule, exercice) : il n'y en a qu'une. Une
+séance interrompue se reprend **de n'importe quel appareil**, en s'identifiant
+(§8) ; il n'y a ni lien de reprise ni QR de séance.
+
+**Le serveur conserve** : prénom, nom, matricule, NIP haché, compteurs, question
+en cours et horodatages. L'enseignant les **purge en fin de session** (page
+d'administration, §8).
+
+**Le navigateur ne conserve que** `{ matricule, prenom, jeton }`
+(`site/js/session.js`), dans `localStorage` sous une seule clé
+(`quiz-parametres-coupe:seance`) : de quoi offrir « Reprendre, <prénom> » à
+l'accueil sans redemander le NIP. Le **jeton de séance**, remis par le serveur à
+l'identification, expire après **2 h sans activité**. Le stockage n'est jamais
+fiable (navigation privée, quota, contenu abîmé) : chaque lecture et chaque
+écriture est protégée ; stockage vide, illisible ou en panne → l'étudiant
+s'identifie, sans erreur.
+
+### API du serveur (`/api/…`, appelée par `site/js/api.js`)
+
+Requêtes et réponses en JSON. Après l'identification, chaque appel porte le
+jeton dans l'en-tête `Authorization: Bearer <jeton>`. Une erreur est de la
+forme `{ "erreur": "<message en français>" }`, avec un code HTTP.
+
+| Appel | Requête | Réponse |
+|---|---|---|
+| `GET /api/version` | — | `{ version }` (celle de `package.json`) |
+| `POST /api/identification` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, prenom }` |
+| `GET /api/question?exercice=<id>` | jeton | la question en cours de la séance (tirée au besoin), la progression |
+| `POST /api/correction` | jeton, `{ exercice, saisies }` | la correction de la question en cours, la progression |
+| `GET /api/rapport?exercice=<id>` | jeton | le rapport de réussite et son attestation signée (§8) |
+
+| Code | Sens |
 |---|---|
-| `version` | version du format de l'état ; un état d'une autre version est ignoré |
-| `etudiant` | `{ prenom, nom, matricule }` (§8), en texte |
-| `exerciceId`, `exerciceVersion` | l'exercice de la séance (§10) |
-| `debut`, `reussite` | dates ISO ; `reussite` vaut `null` tant que l'exercice n'est pas complété |
-| `progression` | compteurs de réussites consécutives (ci-dessus) |
-| `question`, `saisies` | la question en cours et ce que l'étudiant a tapé, en texte |
-| `correction` | résultat de la correction de la question en cours, `null` tant qu'elle n'est pas corrigée : une question ne peut être corrigée qu'une fois, même après un rechargement |
-| `questionsReussies` | `{ question, attendu, date }` de chaque question réussie, pour le tableau du rapport (§8) ; rien n'en est retiré |
+| 400 | requête invalide (ex. matricule qui n'a pas 7 chiffres, exercice inconnu) |
+| 401 | NIP incorrect (identification) ; jeton absent, inconnu ou expiré (autres appels) → l'étudiant s'identifie de nouveau |
+| 429 | trop d'essais de NIP (5 par 10 minutes par matricule), ou correction demandée moins de 10 s après la précédente |
+| 501 | pas encore en service : le site affiche « Serveur de correction à venir » |
 
-Le stockage n'est jamais fiable (navigation privée, quota, contenu abîmé) :
-chaque lecture et chaque écriture est protégée. Stockage vide, illisible,
-abîmé, d'une autre version, ou séance d'un autre exercice → l'application
-démarre une nouvelle séance, sans erreur ; stockage en panne → elle continue
-sans sauvegarde.
+Seul `GET /api/version` existe aujourd'hui ; tout autre chemin `/api/` répond
+501. Le contenu exact des réponses se précise au jalon 3 (`PLAN.md`).
+
+❓ À confirmer au jalon 3 (interprétations proposées, non tranchées) :
+
+1. **Jeton et exercice.** Le jeton appartient à une séance, donc à un exercice,
+   mais le navigateur n'en garde qu'un. Proposé : chaque appel nomme
+   l'`exercice` ; si le jeton est celui d'un autre exercice, le serveur répond
+   401, l'étudiant s'identifie, et le nouveau jeton remplace l'ancien.
+2. **Questions réussies.** Le tableau du rapport (§8) exige que le serveur
+   garde aussi chaque question réussie (question, valeurs, horodatage), ce que
+   la liste de D19 ne nomme pas.
+3. **Prénom et nom à la reprise.** Proposé : matricule et NIP identifient ; le
+   prénom et le nom restent ceux de la première identification.
+4. **Exercice modifié en cours de session** (nouvelle `version`, outil retiré) :
+   la séance continue-t-elle, ou repart-elle de zéro ?
+5. **Correction demandée trop tôt** (cadence) : proposé — refus (429), sans
+   effet sur les compteurs ; l'étudiant réessaie quelques secondes plus tard.
 
 ## 8. Identification de l'étudiant et rapport
 
-Saisie au démarrage : prénom, nom, **matricule à 7 chiffres** (espaces autour
-tolérés, conservé en texte). Rien d'autre.
+Identification (décision D19) : prénom, nom, **matricule à 7 chiffres** (espaces
+autour tolérés, conservé en texte) et un **NIP de 4 à 6 chiffres**. Rien
+d'autre.
+
+- Le NIP est **choisi à la première identification** d'un matricule ; il sert
+  ensuite à reprendre l'exercice, y compris sur un autre appareil. Le serveur
+  n'en garde qu'un **haché**.
+- **5 essais par 10 minutes par matricule** ; au-delà, l'identification est
+  refusée (429) jusqu'à la fin du délai.
+- Un NIP oublié est **remis à zéro par l'enseignant** (page d'administration) :
+  l'étudiant en choisit alors un nouveau.
+- Le navigateur vérifie la forme des champs avant l'envoi
+  (`site/js/identification.js`) ; le serveur revérifie tout.
 
 **La preuve de réussite est le rapport**, que l'étudiant enregistre en PDF et
 remet sur Léa (décision D16). Le QR code sert à l'enseignant pour vérifier un
@@ -218,29 +281,43 @@ Rapport de réussite (présentation : `UI.md` §3.6) :
 Moodle est abandonné (D16) : ni numéro Moodle, ni code de réussite. La formule
 du classeur (`calcCodeM`) reste dans `legacy/vba/` pour mémoire.
 
-### QR code et page de vérification
+### QR code, page de vérification et page d'administration (décision D19)
 
-Aujourd'hui : `https://thierryleroux.github.io/tgm-fab/?data=<payload>` où
-`payload` = champs `;`-séparés, URL-encodés, décalage César +4 sur chaque octet,
-puis base64. `index.htm` (dans `legacy/`) décode et affiche.
+- Le QR du rapport porte une **attestation de réussite signée par le serveur**
+  (HMAC, clé secrète détenue par le serveur seulement). Un rapport fabriqué ou
+  retouché ne passe pas la vérification.
+- Une **page de vérification publique** lit l'attestation du QR et demande au
+  serveur si elle est authentique.
+- Une **page d'administration, à clé**, interroge le même serveur : liste des
+  réussites, remise à zéro d'un NIP, purge des données en fin de session.
+- Contenu exact de l'attestation, adresse de la page de vérification et forme
+  de la clé d'administration : jalon 5 (`PLAN.md`).
 
-**Faiblesse connue** : tout est reproductible par quiconque lit le JS de la
-page. Décision à prendre (voir `DECISIONS.md`, D6 ouverte) : conserver tel quel,
-ou signer le payload (ex. HMAC avec secret côté enseignant et vérification
-hors ligne), sachant qu'un site statique ne peut pas cacher un secret.
+L'ancien QR du classeur (`https://thierryleroux.github.io/tgm-fab/?data=…` :
+champs `;`-séparés, décalage César +4, base64, décodé par `legacy/index.htm`)
+était reproductible par quiconque lisait le code : il n'est pas repris. D19
+ferme D6.
 
 ## 9. Exigences non fonctionnelles
 
-- **Site statique** (HTML/CSS/JS, JSON) hébergé sur GitHub Pages ; aucun serveur,
-  aucune base de données, aucun compte.
+- **Un site sans étape de construction et un serveur de correction**
+  (décisions D19, D20) : un seul Worker Cloudflare sert `site/` (HTML/CSS/JS,
+  JSON) tel quel et expose l'API `/api/` ; base D1 pour les séances. Publié par
+  GitHub Actions (`wrangler deploy`) à chaque push sur `main`, après `npm test`.
 - Fonctionne dans les navigateurs récents du laboratoire et sur téléphone.
 - Interface en **français**.
 - **Durable** : sans étape de compilation obligatoire, dépendances minimales et
-  épinglées (QR code), données modifiables par l'enseignant en éditant les JSON.
+  épinglées (QR code à l'exécution, `wrangler` pour développer et publier),
+  données modifiables par l'enseignant en éditant les JSON.
 - Le **moteur de calcul et de correction est testé unitairement** (cas tirés du
-  classeur).
-- Aucune donnée personnelle envoyée à un tiers ; l'état de la session peut être
-  conservé localement (`localStorage`) pour survivre à un rechargement.
+  classeur), tout comme le Worker.
+- **Données personnelles** : prénom, nom, matricule, NIP haché et résultats ne
+  vont qu'au serveur de correction du projet, et sont **purgés par l'enseignant
+  en fin de session** (§7). Rien n'est envoyé à un tiers, et la page ne charge
+  rien d'un domaine externe (polices auto-hébergées, `UI.md` §1). Le navigateur
+  ne garde que `{ matricule, prenom, jeton }` (§7). Pied de page : « Tes
+  réponses sont corrigées par un serveur ; tes données sont effacées à la fin de
+  la session. »
 
 ## 10. Configuration d'un exercice (décision D11)
 
@@ -294,7 +371,7 @@ Précisions :
   « dimensions ») lèverait sinon une restriction en silence. Seules les clés
   commençant par `_` (commentaires, comme `_source`) sont ignorées.
 - La validation (`site/js/exercice.js`) est la même pour les tests, le quiz et
-  l'éditeur (jalon 4).
+  l'éditeur (jalon 6).
 - **Index des exercices offerts** : un site statique ne peut pas lister un
   dossier ; `site/exercices/index.json` dit quels exercices proposer, dans
   l'ordre d'affichage : `{ "exercices": [ { "id", "titre" }, … ] }`.
@@ -306,12 +383,13 @@ Précisions :
   `id` a son fichier `<id>.json` et le même `titre` (vérifié par les tests) ;
   « index » est un identifiant réservé. Un fichier d'exercice absent de
   l'index n'est pas offert.
-- Reporté : seuils du graphique de progression (jalon 5).
+- Reporté : seuils du graphique de progression (finition).
 
 ## 11. Questions ouvertes (résumé)
 
 1. ~~Arrondis des valeurs théoriques (§5).~~ Tranché : voir §5.
 2. ~~Réussites consécutives ou cumulées (§7).~~ Tranché : consécutives (D12).
 3. ~~Vérification du code : Moodle seul ou aussi QR (§8).~~ Tranché : plus de Moodle ; rapport PDF remis sur Léa, QR pour l'enseignant (D16).
-4. Sécurité du payload QR (§8 / D6).
-5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ?
+4. ~~Sécurité du payload QR (§8 / D6).~~ Tranché : attestation signée par le serveur de correction (D19).
+5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ? (D7)
+6. Serveur de correction : les cinq points ❓ de la fin du §7, à confirmer au jalon 3.
