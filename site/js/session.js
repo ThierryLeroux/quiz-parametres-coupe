@@ -26,6 +26,7 @@ export function validateStudent(student) {
   if (!isText(student.prenom)) errors.push('Le prénom est requis.');
   if (!isText(student.nom)) errors.push('Le nom est requis.');
   if (!isText(student.matricule)) errors.push('Le matricule est requis.');
+  else if (!/^\d{7}$/.test(student.matricule.trim())) errors.push('Le matricule doit avoir exactement 7 chiffres.');
   return errors;
 }
 

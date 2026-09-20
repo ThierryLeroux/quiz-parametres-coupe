@@ -37,6 +37,14 @@ test('validateStudent : une erreur par champ fautif', () => {
   assert.equal(validateStudent(null).length, 1);
 });
 
+test('validateStudent : le matricule a exactement 7 chiffres', () => {
+  for (const matricule of ['241234', '24123456', '241234a', '2412 345', '2412-345']) {
+    assert.deepEqual(validateStudent({ ...ETUDIANT, matricule }), ['Le matricule doit avoir exactement 7 chiffres.'], matricule);
+  }
+  assert.deepEqual(validateStudent({ ...ETUDIANT, matricule: 2412345 }), ['Le matricule est requis.']); // un nombre n'est pas un texte
+  assert.deepEqual(validateStudent({ ...ETUDIANT, matricule: ' 0412345 ' }), []); // espaces autour tolérés, zéro de tête conservé
+});
+
 test('createSession : état de départ complet', () => {
   assert.deepEqual(createSession(ETUDIANT, EXERCICE, DEBUT), {
     version: SESSION_VERSION,

@@ -201,7 +201,8 @@ sans sauvegarde.
 
 ## 8. Identification de l'étudiant et rapport
 
-Saisie au démarrage : prénom, nom, matricule. Rien d'autre.
+Saisie au démarrage : prénom, nom, **matricule à 7 chiffres** (espaces autour
+tolérés, conservé en texte). Rien d'autre.
 
 **La preuve de réussite est le rapport**, que l'étudiant enregistre en PDF et
 remet sur Léa (décision D16). Le QR code sert à l'enseignant pour vérifier un
