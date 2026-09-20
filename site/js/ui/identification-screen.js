@@ -1,17 +1,23 @@
-// Écran Identification (UI §3.2) : prénom, nom, matricule à 7 chiffres. Rien d'autre (D16).
-// Les règles et les messages viennent de studentErrors (session.js) : l'écran ne fait que les afficher.
+// Écran Identification (UI §3.2) : prénom, nom, matricule à 7 chiffres, NIP de 4 à 6 chiffres.
+// Un seul formulaire et un seul bouton pour la première visite comme pour la reprise : c'est le
+// serveur qui sait si le matricule a déjà une séance (D19).
+// Les règles et les messages viennent de studentErrors (identification.js) : l'écran ne fait que les afficher.
 
 import { el, showScreen } from './dom.js';
-import { studentErrors } from '../session.js';
+import { cleanStudent, studentErrors } from '../identification.js';
 
 const FIELDS = [
   { name: 'prenom', label: 'Prénom', note: '' },
   { name: 'nom', label: 'Nom', note: '' },
-  { name: 'matricule', label: 'Matricule', note: '7 chiffres', number: true },
+  { name: 'matricule', label: 'Matricule', note: '7 chiffres', number: true, maxlength: '7' },
+  { name: 'nip', label: 'NIP', note: '4 à 6 chiffres', number: true, maxlength: '6', secret: true },
 ];
 
-//   actions : { onBack, onStart(student) } — onStart reçoit { prenom, nom, matricule } déjà valide
-export function renderIdentification(main, { exercise }, actions) {
+//   notice  : message à montrer d'entrée sous le formulaire (ex. séance expirée), ou ''
+//   actions : { onSubmit(student) } — async ; reçoit { prenom, nom, matricule, nip } déjà valide et
+//             nettoyé ; retourne le message à afficher si le serveur refuse, ou null si un autre
+//             écran a pris la place
+export function renderIdentification(main, { exercise, notice = '' }, actions) {
   const inputs = {};
   const notes = {};
   // Un message d'erreur n'apparaît sous une case qu'une fois la case quittée (ou le formulaire
@@ -30,22 +36,35 @@ export function renderIdentification(main, { exercise }, actions) {
     return errors;
   }
 
-  function submit(event) {
+  const status = el('div', { class: 'server-message', role: 'status' }, notice);
+  const submitButton = el('button', { class: 'button', type: 'submit' }, 'Continuer');
+
+  async function submit(event) {
     event.preventDefault();
+    if (submitButton.disabled) return; // un envoi est déjà en cours (touche Entrée répétée)
     FIELDS.forEach(({ name }) => touched.add(name));
     const errors = refresh();
     const firstInvalid = FIELDS.find(({ name }) => errors[name] !== null);
-    if (firstInvalid) inputs[firstInvalid.name].focus();
-    else actions.onStart(readStudent());
+    if (firstInvalid) {
+      inputs[firstInvalid.name].focus();
+      return;
+    }
+    submitButton.disabled = true;
+    status.textContent = '';
+    const message = await actions.onSubmit(cleanStudent(readStudent()));
+    if (message === null) return;
+    status.textContent = message;
+    submitButton.disabled = false;
   }
 
-  const fields = FIELDS.map(({ name, label, note, number }) => {
+  const fields = FIELDS.map(({ name, label, note, number, maxlength, secret }) => {
     inputs[name] = el('input', {
       id: name,
       name,
-      type: 'text',
+      type: secret ? 'password' : 'text',
       inputmode: number ? 'numeric' : null,
-      autocomplete: 'off', // postes partagés du labo : ne pas proposer le nom de l'étudiant précédent
+      maxlength,
+      autocomplete: 'off', // postes partagés du labo : ne rien proposer de l'étudiant précédent
       autocapitalize: number ? null : 'words',
       spellcheck: 'false',
       'aria-describedby': `${name}-note`,
@@ -59,13 +78,10 @@ export function renderIdentification(main, { exercise }, actions) {
   const screen = el('div', { class: 'screen screen--narrow' }, el('section', { class: 'panel' }, [
     el('div', { class: 'eyebrow' }, 'Identification'),
     el('h1', { tabindex: '-1' }, "Qui fait l'exercice ?"),
-    el('p', { class: 'muted small' }, 'Ces informations apparaîtront sur ton rapport de réussite, que tu remettras sur Léa.'),
+    el('p', { class: 'muted small' }, "Choisis un NIP à ta première visite : il te servira à reprendre l'exercice sur un autre appareil."),
     el('form', { novalidate: true, onsubmit: submit }, [
       el('div', { class: 'form-grid' }, fields),
-      el('div', { class: 'form-actions' }, [
-        el('button', { class: 'button-link', type: 'button', onclick: actions.onBack }, '← Retour'),
-        el('button', { class: 'button', type: 'submit' }, "Commencer l'exercice"),
-      ]),
+      el('div', { class: 'form-actions' }, [status, submitButton]),
     ]),
   ]));
 

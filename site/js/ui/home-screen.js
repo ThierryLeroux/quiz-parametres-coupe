@@ -1,15 +1,37 @@
-// Écran Accueil (UI §3.1) : l'exercice demandé, la reprise d'une séance, le départ d'une nouvelle.
+// Écran Accueil (UI §3.1) : l'exercice demandé, et un seul bouton — « Reprendre, <prénom> » si ce
+// navigateur garde un jeton de séance, « Commencer ou reprendre » sinon.
 // Et, quand l'adresse ne nomme aucun exercice de l'index, la liste des exercices offerts.
 
 import { el, showScreen } from './dom.js';
-import { exerciseMeta, exerciseSummary, sessionSummary } from './text.js';
+import { exerciseMeta, exerciseSummary } from './text.js';
 
 // Accueil d'un exercice.
-//   resumable    : séance de cet exercice qu'on peut reprendre (restoreSession), ou null
-//   otherSession : true si le navigateur conserve une séance qu'on ne peut PAS reprendre ici
-//                  (autre exercice, autre version) — une nouvelle séance l'effacera aussi
-//   actions      : { onResume, onNew }
-export function renderHome(main, { exercise, resumable, otherSession }, actions) {
+//   local   : { matricule, prenom, jeton } gardé par ce navigateur (loadSession), ou null
+//   actions : { onResume, onStart, onForget }
+//     onResume : async — demande la séance au serveur ; retourne le message à afficher si ça
+//                échoue, ou null si un autre écran a pris la place
+//     onStart  : ouvre l'écran Identification
+//     onForget : « Changer d'étudiant » — oublie le jeton local
+export function renderHome(main, { exercise, local }, actions) {
+  const status = el('div', { class: 'server-message', role: 'status' });
+
+  async function resume(event) {
+    const button = event.currentTarget;
+    button.disabled = true;
+    status.textContent = '';
+    const message = await actions.onResume();
+    if (message === null) return;
+    status.textContent = message;
+    button.disabled = false;
+  }
+
+  const start = local === null
+    ? [el('button', { class: 'button', type: 'button', onclick: actions.onStart }, 'Commencer ou reprendre')]
+    : [
+      el('button', { class: 'button', type: 'button', onclick: resume }, `Reprendre, ${local.prenom}`),
+      el('button', { class: 'button-link', type: 'button', onclick: actions.onForget }, "Ce n'est pas toi ? Changer d'étudiant"),
+    ];
+
   const screen = el('div', { class: 'screen' }, [
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Exercice demandé par ton enseignant'),
@@ -19,25 +41,9 @@ export function renderHome(main, { exercise, resumable, otherSession }, actions)
       // Aucun moyen de changer d'exercice depuis la page (D11) : seulement la consigne de vérifier.
       el('p', { class: 'muted smaller' }, "Vérifie que le titre ci-dessus est bien l'exercice indiqué sur Léa. Il n'est pas possible d'en changer depuis cette page."),
     ]),
+    el('div', { class: 'home-start' }, start),
+    status,
   ]);
-
-  if (resumable !== null) {
-    screen.append(el('section', { class: 'panel panel--gold' }, el('div', { class: 'resume' }, [
-      el('div', {}, [
-        el('div', { class: 'resume-title' }, 'Séance en cours sur cet appareil'),
-        el('div', { class: 'muted smaller' }, sessionSummary(resumable)),
-      ]),
-      el('button', { class: 'button button--gold', type: 'button', onclick: actions.onResume }, 'Reprendre'),
-    ])));
-  }
-
-  let warning = '';
-  if (resumable !== null) warning = 'Une nouvelle séance efface la séance en cours.';
-  else if (otherSession) warning = "Une séance d'un autre exercice est conservée sur cet appareil : une nouvelle séance l'efface.";
-  screen.append(el('div', { class: 'new-session' }, [
-    el('button', { class: 'button', type: 'button', onclick: actions.onNew }, 'Nouvelle séance'),
-    el('div', { class: 'muted smaller' }, warning),
-  ]));
 
   showScreen(main, screen, { title: 'Quiz — paramètres de coupe', aside: 'Techniques de génie mécanique' });
 }

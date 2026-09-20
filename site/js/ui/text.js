@@ -43,15 +43,18 @@ export function formatDateTime(iso) {
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}, ${date.getHours()} h ${minutes}`;
 }
 
-// En-tête de l'écran Question : « Camille Tremblay · 2412345 »
-export function studentLine(state) {
-  const { prenom, nom, matricule } = state.etudiant;
-  return `${prenom} ${nom} · ${matricule}`;
+// Message à montrer quand un appel au serveur de correction échoue (ApiError d'api.js, ou toute
+// erreur portant { status, message }). Le 501 est la réponse du serveur tant qu'il n'existe pas.
+export function serverErrorMessage(error) {
+  if (error.status === 501) return 'Serveur de correction à venir';
+  if (error.status === 0 || error.status === undefined) return 'Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie.';
+  return error.message;
 }
 
-// Panneau « Séance en cours » : « Camille Tremblay · 2412345 · commencée le … · 7 réussites »
-export function sessionSummary(state) {
-  const parts = [studentLine(state), `commencée le ${formatDateTime(state.debut)}`, count(state.progression.totalReussies, 'réussite')];
-  if (state.reussite !== null) parts.push('exercice réussi');
-  return parts.join(' · ');
+// Même chose pour l'identification (UI §3.2), où 401 veut dire « NIP incorrect » et 429 « trop d'essais ».
+// Un 400 garde le message du serveur (ex. « Le matricule doit avoir exactement 7 chiffres. »).
+export function identificationErrorMessage(error) {
+  if (error.status === 401) return "NIP incorrect. Si tu l'as oublié, demande à ton enseignant de le remettre à zéro.";
+  if (error.status === 429) return "Trop d'essais. Attends 10 minutes avant de réessayer.";
+  return serverErrorMessage(error);
 }

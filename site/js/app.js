@@ -2,9 +2,13 @@
 //   nouvelle séance → question → correction → résultat enregistré → question suivante… → complétion.
 //
 // Aucun DOM ici : seulement des fonctions PURES, testables sous Node. Elles reçoivent l'état
-// d'une séance (session.js) et en retournent un nouveau, sans modifier celui qu'elles reçoivent.
-// L'aléa et l'heure sont injectés. Les écrans (à venir) n'auront qu'à appeler ces fonctions,
-// sauvegarder l'état retourné (saveSession) et l'afficher.
+// d'une séance et en retournent un nouveau, sans modifier celui qu'elles reçoivent. L'aléa et
+// l'heure sont injectés.
+//
+// Depuis D19, l'état d'une séance vit sur le serveur de correction : le navigateur n'appelle plus
+// que le « choix de l'exercice » ci-dessous, et passe par api.js pour tout le reste. Le cycle
+// d'une séance est gardé ici, testé, pour le serveur (jalon 3) ; l'état reste un simple objet
+// JSON, qui se range tel quel dans une base.
 
 import { fetchJson, loadData } from './data.js';
 import { fieldsToGrade, loadExercise, loadExerciseIndex } from './exercice.js';
@@ -12,8 +16,8 @@ import { generateQuestion } from './question.js';
 import { computeParameters } from './calcul.js';
 import { formatParameters } from './format.js';
 import { ANSWER_FIELDS, gradeAnswers } from './correction.js';
-import { eligibleTools, isComplete, recordResult } from './progression.js';
-import { createSession } from './session.js';
+import { createProgress, eligibleTools, isComplete, recordResult } from './progression.js';
+import { cleanStudent, validateStudent } from './identification.js';
 
 // --- Choix de l'exercice ---------------------------------------------------------------------
 
@@ -43,9 +47,10 @@ export async function loadApp(search, readJson = fetchJson) {
   return { data, index, exercise, unknownId };
 }
 
-// Une séance relue du stockage (loadSession) peut-elle continuer avec cet exercice ?
-// Retourne l'état tel quel, ou null s'il faut démarrer une nouvelle séance : rien de sauvegardé,
+// Une séance enregistrée peut-elle continuer avec cet exercice ?
+// Retourne l'état tel quel, ou null s'il faut démarrer une nouvelle séance : rien d'enregistré,
 // autre exercice, exercice modifié depuis (autre version), ou question sur un outil qui n'en fait plus partie.
+// ❓ SPEC §7, point 4 : ce que le serveur fera d'une séance dont l'exercice a changé reste à confirmer.
 export function restoreSession(saved, exercise) {
   if (saved === null) return null;
   if (saved.exerciceId !== exercise.id || saved.progression.exerciceId !== exercise.id) return null;
@@ -57,6 +62,27 @@ export function restoreSession(saved, exercise) {
 // --- Cycle d'une séance ----------------------------------------------------------------------
 
 const emptyAnswers = () => Object.fromEntries(ANSWER_FIELDS.map((field) => [field, '']));
+
+// État de départ d'une séance : étudiant identifié, exercice choisi, aucune question encore.
+//   student : { prenom, nom, matricule, nip } — le NIP est vérifié, mais n'entre JAMAIS dans l'état
+//   now     : Date du début (injectable pour les tests)
+export function createSession(student, exercise, now) {
+  const errors = validateStudent(student);
+  if (errors.length > 0) throw new Error(`Identification invalide :\n- ${errors.join('\n- ')}`);
+  const { prenom, nom, matricule } = cleanStudent(student);
+  return {
+    etudiant: { prenom, nom, matricule },
+    exerciceId: exercise.id,
+    exerciceVersion: exercise.version,
+    debut: now.toISOString(),
+    reussite: null, // date de réussite de l'exercice, quand il est complété
+    progression: createProgress(exercise),
+    question: null, // question en cours (generateQuestion)
+    saisies: {}, // saisies de la question en cours, en texte : { vc, feedPerTooth, rpm, feedPerRev, feedRate }
+    correction: null, // résultat de gradeAnswers une fois la question corrigée ; null tant qu'elle ne l'est pas
+    questionsReussies: [], // pour le rapport (SPEC §8) : { question, attendu, date } de chaque question réussie
+  };
+}
 
 // Nouvelle séance : identifie l'étudiant (createSession lève une erreur si l'identification
 // est invalide) et tire la première question.

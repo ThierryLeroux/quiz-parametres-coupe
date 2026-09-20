@@ -1,9 +1,9 @@
 // Tests de site/js/ui/text.js : textes des écrans composés à partir des données, sans DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exerciseMeta, exerciseSummary, formatDateTime, sessionSummary, studentLine } from '../site/js/ui/text.js';
+import { exerciseMeta, exerciseSummary, formatDateTime, identificationErrorMessage, serverErrorMessage } from '../site/js/ui/text.js';
 import { loadApp } from '../site/js/app.js';
-import { createSession } from '../site/js/session.js';
+import { ApiError } from '../site/js/api.js';
 import { lireFichier } from './aide.js';
 
 const { exercise: m10 } = await loadApp('?exercice=m10-tournage-vc', lireFichier);
@@ -16,7 +16,6 @@ const CINQ_CHAMPS = {
   outils: [{ id: 'mvlnr', reussites_requises: 2 }],
 };
 
-const ETUDIANT = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' };
 const DEBUT = new Date(2026, 8, 19, 13, 5); // heure du poste : le texte affiché ne dépend pas du fuseau du test
 
 test('exerciseMeta : version, nombre d’outils, champs évalués', () => {
@@ -46,12 +45,16 @@ test('formatDateTime : date et heure du poste, en français', () => {
   assert.equal(formatDateTime(new Date(2027, 0, 4, 8, 30).toISOString()), '4 janv. 2027, 8 h 30');
 });
 
-test('studentLine et sessionSummary : séance en cours, puis réussie', () => {
-  const etat = createSession(ETUDIANT, m10, DEBUT);
-  assert.equal(studentLine(etat), 'Camille Tremblay · 2412345');
-  assert.equal(sessionSummary(etat), 'Camille Tremblay · 2412345 · commencée le 19 sept. 2026, 13 h 05 · 0 réussite');
+test('serverErrorMessage : 501 → « Serveur de correction à venir » ; injoignable ; sinon le message du serveur', () => {
+  assert.equal(serverErrorMessage(new ApiError(501, "Le serveur de correction n'est pas encore en service.")), 'Serveur de correction à venir');
+  assert.equal(serverErrorMessage(new ApiError(0, 'Le serveur de correction ne répond pas.')), 'Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie.');
+  assert.equal(serverErrorMessage(new TypeError('imprévu')), 'Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie.');
+  assert.equal(serverErrorMessage(new ApiError(500, 'Erreur du serveur.')), 'Erreur du serveur.');
+});
 
-  const avancee = { ...etat, progression: { ...etat.progression, totalReussies: 7 } };
-  assert.equal(sessionSummary(avancee), 'Camille Tremblay · 2412345 · commencée le 19 sept. 2026, 13 h 05 · 7 réussites');
-  assert.match(sessionSummary({ ...avancee, reussite: DEBUT.toISOString() }), / · 7 réussites · exercice réussi$/);
+test('identificationErrorMessage : matricule invalide, NIP incorrect, trop d’essais (UI §3.2)', () => {
+  assert.equal(identificationErrorMessage(new ApiError(400, 'Le matricule doit avoir exactement 7 chiffres.')), 'Le matricule doit avoir exactement 7 chiffres.');
+  assert.equal(identificationErrorMessage(new ApiError(401, 'NIP incorrect.')), "NIP incorrect. Si tu l'as oublié, demande à ton enseignant de le remettre à zéro.");
+  assert.equal(identificationErrorMessage(new ApiError(429, "Trop d'essais.")), "Trop d'essais. Attends 10 minutes avant de réessayer.");
+  assert.equal(identificationErrorMessage(new ApiError(501, '…')), 'Serveur de correction à venir');
 });

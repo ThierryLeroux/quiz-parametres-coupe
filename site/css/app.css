@@ -107,22 +107,20 @@ body {
   line-height: 1.6;
 }
 
-/* Panneau « Séance en cours » : texte à gauche, Reprendre à droite ; empilés sur téléphone. */
-.resume {
+/* « Reprendre, <prénom> » et « Changer d'étudiant », ou « Commencer ou reprendre » seul. */
+.home-start {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-2) var(--space-5);
 }
 
-.resume-title { font-weight: 600; }
-
-.new-session {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-4);
+/* Réponse du serveur de correction, sous le bouton : « Serveur de correction à venir », « NIP incorrect… ».
+   La ligne est réservée : la page ne saute pas quand le message apparaît. */
+.server-message {
+  min-height: 1.5em;
+  font-size: var(--text-sm);
+  font-weight: 500;
 }
 
 .exercise-list {
@@ -157,14 +155,17 @@ body {
   margin-top: var(--space-4);
 }
 
+/* Message du serveur à gauche, « Continuer » à droite ; sur téléphone, le bouton passe dessous. */
 .form-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-3) var(--space-4);
   margin-top: var(--space-4);
 }
+
+.form-actions .server-message { flex: 1 1 240px; }
 
 /* --- Ordinateur --------------------------------------------------------------------------------------- */
 

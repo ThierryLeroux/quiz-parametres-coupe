@@ -73,6 +73,7 @@ La maquette `01-accueil.html` montre encore l'ancien panneau doré et le bouton 
   - trop d'essais : « Trop d'essais. Attends 10 minutes avant de réessayer. » ;
   - serveur pas encore en service (501) : « Serveur de correction à venir » ;
   - serveur injoignable : « Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie. »
+- Quand l'écran s'ouvre parce que le serveur a refusé le jeton local (UI §3.1), il affiche d'entrée : « Ta séance a expiré : identifie-toi de nouveau. »
 
 La maquette `02-identification.html` montre encore trois champs et deux boutons : ce texte-ci fait foi.
 

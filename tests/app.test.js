@@ -1,16 +1,16 @@
 // Tests de site/js/app.js : choix de l'exercice et cycle complet d'une séance, sans DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { answerFields, loadApp, nextQuestion, requestedExercise, restoreSession, sessionStep, startSession, submitAnswers, updateAnswers } from '../site/js/app.js';
+import { answerFields, createSession, loadApp, nextQuestion, requestedExercise, restoreSession, sessionStep, startSession, submitAnswers, updateAnswers } from '../site/js/app.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
 import { validateExercise } from '../site/js/exercice.js';
-import { SESSION_KEY, loadSession, saveSession } from '../site/js/session.js';
 import { aleaAGraine, data, lireFichier } from './aide.js';
 
 const { exercise: m10 } = await loadApp('?exercice=m10-tournage-vc', lireFichier);
 
-const ETUDIANT = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' };
+const IDENTITE = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' };
+const ETUDIANT = { ...IDENTITE, nip: '4821' }; // ce que l'étudiant saisit ; le NIP n'entre jamais dans l'état
 const DEBUT = new Date('2026-09-21T13:05:00.000Z');
 const minutesApres = (n) => new Date(DEBUT.getTime() + n * 60000);
 
@@ -26,15 +26,9 @@ const CINQ_CHAMPS = {
 };
 assert.deepEqual(validateExercise(CINQ_CHAMPS, data), []);
 
-// Faux localStorage en mémoire.
-function fauxStockage() {
-  const memoire = new Map();
-  return {
-    getItem: (cle) => (memoire.has(cle) ? memoire.get(cle) : null),
-    setItem: (cle, valeur) => { memoire.set(cle, String(valeur)); },
-    removeItem: (cle) => { memoire.delete(cle); },
-  };
-}
+// L'état d'une séance est rangé dans une base par le serveur (D19) : il doit survivre, identique,
+// à un aller-retour en JSON.
+const parLaBase = (etat) => JSON.parse(JSON.stringify(etat));
 
 // Les bonnes réponses d'une question, telles qu'affichées par le corrigé.
 const bonnesReponses = (etat) => formatParameters(computeParameters(etat.question, data));
@@ -87,9 +81,34 @@ test('loadApp : un fichier manquant fait échouer le chargement avec un message 
 
 // --- Cycle d'une séance ----------------------------------------------------------------------
 
+test('createSession : état de départ complet, sans le NIP', () => {
+  assert.deepEqual(createSession(ETUDIANT, m10, DEBUT), {
+    etudiant: IDENTITE,
+    exerciceId: 'm10-tournage-vc',
+    exerciceVersion: 'r0',
+    debut: '2026-09-21T13:05:00.000Z',
+    reussite: null,
+    progression: { exerciceId: 'm10-tournage-vc', reussites: {}, totalReussies: 0 },
+    question: null,
+    saisies: {},
+    correction: null,
+    questionsReussies: [],
+  });
+});
+
+test('createSession : retire les espaces autour de l’identification', () => {
+  const etat = createSession({ prenom: ' Camille ', nom: 'Tremblay ', matricule: ' 2412345', nip: ' 4821 ' }, m10, DEBUT);
+  assert.deepEqual(etat.etudiant, IDENTITE);
+});
+
+test('createSession : identification invalide → erreur qui énumère les problèmes', () => {
+  assert.throws(() => createSession({ ...ETUDIANT, nom: '', matricule: '' }, m10, DEBUT), /Identification invalide :\n- Le nom est requis\.\n- Le matricule/);
+  assert.throws(() => createSession(IDENTITE, m10, DEBUT), /Identification invalide :\n- Le NIP est requis\./);
+});
+
 test('startSession : identifie l’étudiant et pose la première question', () => {
   const etat = startSession(ETUDIANT, m10, data, DEBUT, aleaAGraine(1));
-  assert.deepEqual(etat.etudiant, ETUDIANT);
+  assert.deepEqual(etat.etudiant, IDENTITE);
   assert.equal(etat.exerciceId, 'm10-tournage-vc');
   assert.equal(etat.debut, '2026-09-21T13:05:00.000Z');
   assert.ok(m10.outils.some((o) => o.id === etat.question.tool.id));
@@ -167,16 +186,14 @@ test('une question n’est corrigée qu’une fois, et on ne passe pas une quest
   assert.equal(corrige.progression.totalReussies, 0);
 });
 
-test('cycle complet du M10 : 15 bonnes réponses, avec sauvegarde et relecture à chaque étape', () => {
-  const stockage = fauxStockage();
+test('cycle complet du M10 : 15 bonnes réponses, l’état passant par la base à chaque étape', () => {
   const random = aleaAGraine(2026);
   let etat = startSession(ETUDIANT, m10, data, DEBUT, random);
   let questions = 0;
 
   while (sessionStep(etat) !== 'reussite') {
-    // L'étudiant recharge la page au milieu de sa question : on repart de ce qui est sauvegardé.
-    assert.equal(saveSession(etat, stockage), true);
-    etat = restoreSession(loadSession(stockage), m10);
+    // L'étudiant ferme la page au milieu de sa question : on repart de ce qui est enregistré.
+    etat = restoreSession(parLaBase(etat), m10);
     assert.equal(sessionStep(etat), 'question');
     assert.equal(etat.reussite, null);
 
@@ -184,9 +201,8 @@ test('cycle complet du M10 : 15 bonnes réponses, avec sauvegarde et relecture �
     etat = submitAnswers(etat, m10, data, { vc: bonnesReponses(etat).vc }, minutesApres(questions));
     assert.equal(etat.correction.success, true, etat.question.displayId);
 
-    // Il recharge encore, cette fois devant le corrigé.
-    saveSession(etat, stockage);
-    etat = restoreSession(loadSession(stockage), m10);
+    // Il revient, cette fois devant le corrigé.
+    etat = restoreSession(parLaBase(etat), m10);
     assert.equal(sessionStep(etat), 'correction');
 
     etat = nextQuestion(etat, m10, data, random);
@@ -201,10 +217,11 @@ test('cycle complet du M10 : 15 bonnes réponses, avec sauvegarde et relecture �
   assert.equal(etat.reussite, minutesApres(15).toISOString()); // date de la 15e correction
   assert.equal(etat.debut, DEBUT.toISOString());
 
-  // L'état final se sauvegarde et se relit lui aussi.
-  saveSession(etat, stockage);
-  assert.deepEqual(restoreSession(loadSession(stockage), m10), etat);
-  assert.ok(stockage.getItem(SESSION_KEY).length < 50000, 'l’état complet reste petit pour localStorage');
+  // L'état final s'enregistre et se relit lui aussi, sans NIP et sans grossir démesurément.
+  assert.deepEqual(restoreSession(parLaBase(etat), m10), etat);
+  assert.deepEqual(Object.keys(etat.etudiant), ['prenom', 'nom', 'matricule']);
+  assert.equal('nip' in etat, false);
+  assert.ok(JSON.stringify(etat).length < 50000, 'l’état complet d’une séance reste petit');
 });
 
 test('cycle avec un échec : la série recommence, la date de réussite n’est posée qu’à la complétion', () => {
@@ -223,9 +240,9 @@ test('cycle avec un échec : la série recommence, la date de réussite n’est 
   assert.equal(etat.questionsReussies.length, 3);
 });
 
-// --- Reprise d'une séance sauvegardée ----------------------------------------------------------
+// --- Reprise d'une séance enregistrée ----------------------------------------------------------
 
-test('restoreSession : rien de sauvegardé, autre exercice ou exercice modifié → nouvelle séance', () => {
+test('restoreSession : rien d’enregistré, autre exercice ou exercice modifié → nouvelle séance', () => {
   const etat = startSession(ETUDIANT, m10, data, DEBUT, aleaAGraine(1));
   assert.equal(restoreSession(etat, m10), etat);
   assert.equal(restoreSession(null, m10), null);
@@ -234,13 +251,3 @@ test('restoreSession : rien de sauvegardé, autre exercice ou exercice modifié 
   assert.equal(restoreSession(etat, { ...m10, outils: m10.outils.filter((o) => o.id !== etat.question.tool.id) }), null); // l'outil de la question n'est plus évalué
 });
 
-test('stockage vide ou corrompu : loadSession donne null, restoreSession aussi, et une nouvelle séance démarre', () => {
-  const stockage = fauxStockage();
-  assert.equal(restoreSession(loadSession(stockage), m10), null);
-  stockage.setItem(SESSION_KEY, '{"version":1,"etudiant":');
-  assert.equal(restoreSession(loadSession(stockage), m10), null);
-
-  const etat = startSession(ETUDIANT, m10, data, DEBUT, aleaAGraine(1));
-  assert.equal(saveSession(etat, stockage), true);
-  assert.deepEqual(restoreSession(loadSession(stockage), m10), etat);
-});

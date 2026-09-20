@@ -30,7 +30,7 @@
   --color-accent: #2e9bff;        /* contours, boutons */
   --color-accent-light: #4fc3f7;  /* titres, liens, focus */
   --color-link-hover: #8fd8ff;
-  --color-gold: #ffc000;          /* panneau « séance en cours » */
+  --color-gold: #ffc000;          /* panneau ou bouton mis en avant (.panel--gold, .button--gold) */
 
   /* Correction — toujours doublée d'un texte (« Juste » / « Faux »), UI §7 */
   --color-correct: #35d07f;

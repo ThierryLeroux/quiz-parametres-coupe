@@ -1,41 +1,59 @@
 // Point d'entrée de la page : charge le quiz, puis passe d'un écran à l'autre (UI §2).
-// Toute la logique est dans app.js et session.js (fonctions pures, testées) ; ici on ne fait que
-// les appeler, sauvegarder l'état retourné et l'afficher.
+// Le navigateur affiche ; la séance vit sur le serveur de correction (D19). Ici on ne fait
+// qu'appeler app.js (choix de l'exercice), api.js (le serveur) et session.js (le jeton local).
 
-import { loadApp, restoreSession, startSession } from '../app.js';
-import { loadSession, saveSession } from '../session.js';
+import { loadApp } from '../app.js';
+import { getQuestion, identify } from '../api.js';
+import { clearSession, loadSession, saveSession } from '../session.js';
 import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
 import { renderIdentification } from './identification-screen.js';
 import { renderQuestion } from './question-screen.js';
+import { identificationErrorMessage, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
 
-let data; // catalogue (loadData)
 let exercise; // exercice demandé par l'adresse
-let session = null; // séance en cours, une fois commencée ou reprise
 
 function showHome() {
-  const saved = loadSession();
-  const resumable = restoreSession(saved, exercise);
-  renderHome(main, { exercise, resumable, otherSession: saved !== null && resumable === null }, {
-    onResume: () => { session = resumable; showQuestion(true); },
-    onNew: showIdentification,
+  const local = loadSession();
+  renderHome(main, { exercise, local }, {
+    onResume: () => openQuestion(local),
+    onStart: () => showIdentification(),
+    onForget: () => { clearSession(); showHome(); },
   });
 }
 
-// La séance précédente n'est effacée qu'au moment où la nouvelle commence : « ← Retour » la laisse intacte.
-function showIdentification() {
-  renderIdentification(main, { exercise }, {
-    onBack: showHome,
-    onStart: (student) => {
-      session = startSession(student, exercise, data, new Date());
-      showQuestion(saveSession(session));
+function showIdentification(notice = '') {
+  renderIdentification(main, { exercise, notice }, {
+    onSubmit: async (student) => {
+      try {
+        const { jeton, prenom } = await identify(student, exercise.id);
+        const local = { matricule: student.matricule, prenom, jeton };
+        saveSession(local); // si le navigateur refuse, on continue : il faudra seulement s'identifier de nouveau
+        return await openQuestion(local);
+      } catch (error) {
+        return identificationErrorMessage(error);
+      }
     },
   });
 }
 
-function showQuestion(saved) {
-  renderQuestion(main, { exercise, state: session, saved }, { onQuit: showHome });
+// Demande au serveur la question en cours de la séance et l'affiche.
+// Retourne null si un autre écran a pris la place, sinon le message à afficher sur l'écran courant.
+async function openQuestion(local) {
+  try {
+    await getQuestion(local.jeton, exercise.id); // la réponse sera affichée par l'écran Question (jalon 4)
+    renderQuestion(main, { exercise, local }, { onQuit: showHome });
+    return null;
+  } catch (error) {
+    // 401 : jeton inconnu ou expiré (2 h sans activité) → on oublie le jeton, l'étudiant s'identifie.
+    if (error.status === 401) {
+      clearSession();
+      showIdentification('Ta séance a expiré : identifie-toi de nouveau.');
+      return null;
+    }
+    return serverErrorMessage(error);
+  }
 }
 
 async function start() {
@@ -46,7 +64,6 @@ async function start() {
       renderExerciseList(main, app.index, app.unknownId);
       return;
     }
-    data = app.data;
     exercise = app.exercise;
     showHome();
   } catch (error) {
