@@ -20,6 +20,7 @@ site/            le site publié, tel quel
 site/data/       catalogue en JSON : matériaux, opérations, outils
 site/exercices/  un JSON par exercice configurable (outils évalués, réussites, champs)
 worker/          le Worker Cloudflare : API /api/ du serveur de correction
+migrations/      schéma de la base D1 (séances, journal des corrections)
 wrangler.jsonc   configuration du Worker
 tests/           tests unitaires — `npm test`
 legacy/          classeur d'origine, VBA exporté, page de vérification actuelle
@@ -27,16 +28,19 @@ legacy/          classeur d'origine, VBA exporté, page de vérification actuell
 
 ## Développer
 
-Prérequis : Git, Node.js 22, VS Code avec l'extension Claude Code.
+Prérequis : Git, Node.js 22.13 ou plus, VS Code avec l'extension Claude Code.
 
 ```
 npm install       # une fois : installe wrangler, la seule dépendance de développement
-npm test          # tests unitaires
+npm test          # tests unitaires, dont l'API du serveur
+npm run test:api  # l'API par HTTP, sur wrangler dev et une D1 locale jetable
 npm run dev       # le site et l'API en local (wrangler dev) : http://localhost:8787
+                  # demande un fichier .dev.vars : voir .dev.vars.exemple
 ```
 
 Publier = pousser sur la branche principale : GitHub Actions lance `npm test`,
-puis `wrangler deploy` (mise en place : `docs/DEMARRAGE.md`, étape 4).
+applique les migrations de la base, puis `wrangler deploy` (mise en place :
+`docs/DEMARRAGE.md`, étapes 4 et 5).
 
 ## Données
 

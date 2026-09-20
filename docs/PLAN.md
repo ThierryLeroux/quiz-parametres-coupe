@@ -29,39 +29,45 @@ Plomberie d'abord (aucun HTML ni CSS), écrans ensuite, après une maquette appr
 Depuis D19, l'état de séance vit sur le serveur : le navigateur affiche.
 
 - [x] `site/exercices/index.json` : exercices offerts, avec sa validation (`exercice.js`)
-- [x] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`, sans repli : D18) et cycle d'une séance, en fonctions pures — le cycle servira au serveur (jalon 3)
+- [x] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`, sans repli : D18) — le cycle d'une séance, d'abord écrit ici, est passé au serveur (`worker/seance.js`, jalon 3)
 - [x] Maquette des écrans, approuvée par Thierry (`docs/UI.md`, `docs/maquettes/`, décision D17)
 - [x] `site/css/tokens.css`, `base.css` : langage visuel et composants de base (UI §1, §4, §6) ; polices auto-hébergées dans `site/fonts/`
 - [x] Hébergement (D20) : `wrangler.jsonc`, `worker/index.js` minimal (`GET /api/version` ; 501 ailleurs sous `/api/`), `npm run dev`, `deploy.yml`
 - [x] `site/js/session.js` : le navigateur ne garde que `{ matricule, prenom, jeton }` (D19) ; `site/js/identification.js` : prénom, nom, matricule, NIP
-- [x] `site/js/api.js` : appels prévus au serveur (identification, question, correction, rapport)
-- [x] `site/index.html` + `site/js/ui/` : écrans Accueil et Identification (UI §3.1, §3.2) selon D19 — « Serveur de correction à venir » tant que l'API répond 501 ; écran Question en gabarit vide
+- [x] `site/js/api.js` : appels au serveur de correction
+- [x] `site/index.html` + `site/js/ui/` : écrans Accueil et Identification (UI §3.1, §3.2) selon D19 et D21
 
-## Jalon 3 — Serveur de correction (décisions D19, D20)
-Le moteur (jalons 1 et 1b) et le cycle d'`app.js` passent derrière l'API ; chaque route a ses tests.
-Avant de coder : trancher les cinq points ❓ de la fin de `SPEC.md` §7.
+## Jalon 3 — Serveur de correction (décisions D19 à D22)
+Le moteur (jalons 1 et 1b) passe derrière l'API ; les règles d'une séance sont dans `worker/seance.js` ; chaque route a ses tests.
 
-- [ ] Base **D1** : liaison dans `wrangler.jsonc`, **schéma et migrations** (séances, identifications, corrections), base locale pour `npm run dev` et les tests
-- [ ] `POST /api/identification` : matricule à 7 chiffres, NIP de 4 à 6 chiffres haché, 5 essais par 10 minutes par matricule, une séance par (matricule, exercice), jeton de séance qui expire après 2 h sans activité
-- [ ] `GET /api/question` : tirage côté serveur parmi les outils encore à évaluer ; la question en cours est rendue telle quelle à la reprise
-- [ ] `POST /api/correction` : correction, compteurs, une seule correction par question
-- [ ] **Cadence** : 10 s au moins entre deux corrections d'une même séance
-- [ ] **Horodatage** de chaque correction
-- [ ] Secrets du serveur (clé HMAC, clé d'administration) : `wrangler secret`, `.dev.vars` en local, mode d'emploi dans `DEMARRAGE.md`
+- [x] Les cinq points ❓ de `SPEC.md` §7 tranchés (D21) ; base, secrets, cryptographie et source des données décidés (D22)
+- [x] Base **D1** : liaison `DB` dans `wrangler.jsonc`, `migrations/0001_initial.sql` (tables `seances` et `corrections`), migrations locales par `npm run dev`, de production par `deploy.yml` avant le déploiement
+- [x] `worker/crypto.js` : sous-clés HKDF de `CLE_SECRETE`, NIP en HMAC-SHA-256, jeton de 32 octets stocké haché
+- [x] `worker/seance.js` : tirage, correction, compteurs, cadence, essais de NIP, exercice modifié en cours de session, vues envoyées au navigateur — fonctions pures ; le cycle quitte `app.js`
+- [x] `POST /api/identification` : création ou reprise par (exercice, matricule) ; 401 NIP incorrect ; 5 essais en 10 minutes → 429 pendant 10 minutes ; jeton de 2 h prolongé à chaque appel ; prénom et nom de la première visite
+- [x] `GET /api/seance`, `POST /api/question` : état de la séance ; question tirée par le serveur, mémorisée, jamais reprise du client
+- [x] `POST /api/correction` : correction de la question mémorisée, **cadence** de 10 s (429), compteurs, **journal horodaté**, question suivante ou réussite (date et version de l'exercice)
+- [x] `POST /api/deconnexion` : « Changer d'étudiant » invalide le jeton
+- [x] Données lues par `ASSETS` (`worker/catalogue.js`) : `site/data/` et `site/exercices/` restent la seule source
+- [x] Client : `api.js` sur le vrai serveur ; identification et reprise fonctionnelles ; écran Question en gabarit **fonctionnel** (outil, matériau, cinq champs, Vérifier, résultat, progression) ; écran minimal « Exercice réussi »
+- [x] Tests : `npm test` (vrai Worker sur SQLite en mémoire, horloge réglable) ; `npm run test:api` (HTTP sur `wrangler dev` et une vraie D1 locale) ; cycle complet vérifié dans Chrome à 1280 px et 390 px, reprise dans un second navigateur
+- [x] Secrets du serveur : `CLE_SECRETE`, `CLE_ADMIN` par `wrangler secret put` ; `.dev.vars` en local ; mode d'emploi dans `DEMARRAGE.md`, étape 5
+- [ ] **À faire par Thierry avant de pousser** : donner le droit **D1 : Edit** au jeton d'API de GitHub (`DEMARRAGE.md`, étape 5.5), sinon les migrations échouent et rien n'est publié
 
-## Jalon 4 — Écran Question et tables de référence, branchés sur le serveur
-- [ ] Écran Question (UI §3.3) : outil, dimension, matériau, 5 champs (évalués ou pré-remplis), aide contextuelle
-- [ ] Question corrigée (UI §3.4) : correction visuelle, bandeau, Question suivante ; attente imposée par la cadence
-- [ ] Progression par outil à l'écran
+## Jalon 4 — Écran Question et tables de référence, selon UI.md
+L'écran Question fonctionne déjà (jalon 3) ; reste sa présentation.
+
+- [ ] Écran Question (UI §3.3) : grille deux tiers / un tiers, panneaux de l'outil et du matériau aux couleurs de sens, photo de l'outil, pictogrammes des champs, aide contextuelle au clic
+- [ ] Question corrigée (UI §3.4) : explication de l'écart et de la tolérance, calcul en une ligne, outil « remis à zéro » en rouge ; **attente imposée par la cadence** montrée à l'écran (le serveur donne `attendre_s`)
+- [ ] Progression par outil (UI §3.3) : un point par réussite consécutive, outil en cours surligné ; distinguer les outils de même nom (SDTMR et barre à fileter, impérial et métrique)
 - [ ] Tables de référence (UI §3.5) : vitesses de coupe, avances, formules ; impression
 - [ ] Images d'outils (`site/img/outils/`) et pictogrammes (UI §5) affichés
-- [ ] Jeton expiré ou refusé en cours de séance : retour à l'identification, sans perte (l'état est sur le serveur)
 
 ## Jalon 5 — Rapport signé, page de vérification, administration (décisions D16, D19)
-- [ ] `GET /api/rapport` : rapport de réussite et **attestation signée** (HMAC)
+- [ ] `GET /api/rapport` : rapport de réussite tiré du journal des corrections, et **attestation signée** (HMAC, sous-clé « attestation » de `CLE_SECRETE`)
 - [ ] Page rapport imprimable (UI §3.6) + QR code de l'attestation (bibliothèque vendorisée)
-- [ ] **Page de vérification** publique : lit l'attestation du QR, interroge le serveur
-- [ ] **Page d'administration** à clé : liste des réussites, remise à zéro d'un NIP, purge de fin de session
+- [ ] **Page de vérification** publique : lit l'attestation du QR, interroge le serveur ; montre la durée totale et le temps médian par question (journal)
+- [ ] **Page d'administration** à clé (`CLE_ADMIN`) : liste des réussites, remise à zéro d'un NIP (`nip_hache` nul : déjà compris par l'identification), purge de fin de session
 - [ ] Essai avec un groupe d'étudiants ; correctifs
 
 ## Jalon 6 — Éditeur web du catalogue et des exercices (décision D11)

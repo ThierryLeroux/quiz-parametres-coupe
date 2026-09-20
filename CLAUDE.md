@@ -24,19 +24,23 @@ la lisibilité priment sur l'élégance technique.**
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
 - `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
 - `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions.
-- `worker/index.js` — le **serveur** : API `/api/…` du serveur de correction (décisions D19, D20). `site/js/api.js` est son pendant côté navigateur.
+- `worker/` — le **serveur de correction** (décisions D19 à D22, API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles (pur, testé), `base.js` tout le SQL, `crypto.js` le NIP et le jeton, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
+- `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
 
-## Pile et structure (décisions D3, D19, D20)
+## Pile et structure (décisions D3, D19, D20, D22)
 
 - HTML/CSS/JS natif (modules ES), **aucun framework, aucune étape de build**.
   `site/` est publié tel quel.
 - **Un seul Worker Cloudflare** (`worker/`, `wrangler.jsonc`) sert `site/` comme
   ressources statiques et expose l'API du **serveur de correction** sous `/api/`
   (D19 : l'état de séance, la correction et la signature de la réussite vivent
-  sur le serveur ; le navigateur affiche). Déployé par GitHub Actions à chaque
-  push sur `main`, après `npm test`.
-- Node.js sert aux tests (`node --test`) et à `wrangler`, **seule
+  sur le serveur ; le navigateur affiche). Base **D1** (liaison `DB`), secrets
+  `CLE_SECRETE` et `CLE_ADMIN` posés sur le Worker — en local : `.dev.vars`,
+  jamais commité. Déployé par GitHub Actions à chaque push sur `main` :
+  `npm test`, migrations D1, puis `wrangler deploy`.
+- Node.js ≥ 22.13 sert aux tests (`node --test` ; la base des tests du serveur
+  est `node:sqlite`, sans dépendance) et à `wrangler`, **seule
   `devDependency`**, version épinglée.
 - Une seule dépendance d'exécution autorisée : une bibliothèque QR code,
   version épinglée, copiée dans `site/vendor/`. Ne pas en ajouter d'autre sans
@@ -50,8 +54,9 @@ site/exercices/    un JSON par exercice configurable (décision D11, SPEC §10)
 site/img/outils/   images des outils
 site/editeur/      éditeur web statique du catalogue et des exercices (jalon 6)
 worker/            le Worker : API /api/… du serveur de correction (décisions D19, D20)
-wrangler.jsonc     configuration du Worker (nom, ressources statiques ; base D1 au jalon 3)
-tests/             tests unitaires du moteur et du Worker (node --test)
+migrations/        schéma de la base D1, un fichier SQL numéroté par changement
+wrangler.jsonc     configuration du Worker (nom, ressources statiques, base D1)
+tests/             tests du moteur et du serveur (node --test) ; api-locale.mjs = npm run test:api
 docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN
 legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
 ```
@@ -68,8 +73,8 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 ## Façon de travailler
 
 1. **Lire la tâche dans `docs/PLAN.md`** et la section correspondante de `SPEC.md` avant de coder.
-2. **Moteur d'abord, interface ensuite.** Toute fonction de calcul ou de correction a un test avant d'être branchée à l'interface.
-3. **Aléa injectable** : les fonctions de tirage reçoivent une source aléatoire en paramètre pour être testables.
+2. **Moteur d'abord, interface ensuite.** Toute fonction de calcul ou de correction a un test avant d'être branchée à l'interface. Côté serveur : une règle va dans `worker/seance.js` (pur), et chaque route a ses cas dans `tests/worker-api.test.js`.
+3. **Aléa et horloge injectables** : les fonctions de tirage reçoivent une source aléatoire, le serveur reçoit l'heure (`handle(request, env, { now, random })`), pour être testables.
 4. **Petits commits** en français, un sujet par commit (`Ajoute le calcul de N avec plafond RPM`).
    Un commit n'est créé que si `npm test` affiche `fail 0`. Un commit local non
    poussé qui s'avère rouge est **amendé**, jamais suivi d'un commit de réparation.
@@ -80,9 +85,10 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 ## Commandes
 
 ```
-npm test                 # tests unitaires
-npm run dev              # wrangler dev : le site et l'API /api/ en local (http://localhost:8787)
-npm run deploy           # wrangler deploy — normalement fait par GitHub Actions, pas à la main
+npm test                 # tests unitaires, dont l'API du serveur sur une base SQLite en mémoire
+npm run test:api         # l'API par HTTP sur wrangler dev et une vraie D1 locale jetable (~30 s)
+npm run dev              # migrations locales, puis wrangler dev : le site et l'API (http://localhost:8787)
+npm run deploy           # migrations de production puis wrangler deploy — normalement fait par GitHub Actions, pas à la main
 ```
 
 ## Ce qu'il ne faut pas faire
@@ -90,4 +96,6 @@ npm run deploy           # wrangler deploy — normalement fait par GitHub Actio
 - Ajouter un framework, un bundler, TypeScript, ou une dépendance CDN au moment de l'exécution.
 - Envoyer des données d'étudiants ailleurs qu'au serveur de correction du projet (D19), ou charger quoi que ce soit d'un domaine externe.
 - Réécrire `legacy/`.
+- Modifier un fichier de `migrations/` déjà appliqué, ou toucher à la base de production (`--remote`) sans que Thierry le demande.
+- Écrire un secret (`CLE_SECRETE`, `CLE_ADMIN`, jeton Cloudflare) dans le dépôt, un test, un journal ou une conversation.
 - Changer le format des JSON de données sans mettre à jour `SPEC.md` §3 et les tests de validation.

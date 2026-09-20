@@ -1,8 +1,8 @@
 # Spécification fonctionnelle — Quiz de paramètres de coupe (version web)
 
-Statut : **brouillon v0.1** (2026-09-19). Rédigée à partir de l'analyse du classeur
+Statut : **brouillon v0.2** (2026-09-20). Rédigée à partir de l'analyse du classeur
 `Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm` et de son VBA
-(voir `legacy/vba/`). Les points marqués ❓ sont à confirmer avec Thierry.
+(voir `legacy/vba/`). Un point marqué ❓ est à confirmer avec Thierry ; il n'y en a aucun en ce moment.
 
 ## 1. Objectif
 
@@ -180,90 +180,181 @@ comme corrects.
   `{ exerciceId, reussites: { [id d'outil]: n }, totalReussies }`.
 - Un graphique de progression par opération est affiché (VBA `modAffGraph`).
 
-### Serveur de correction (décision D19)
+### Serveur de correction (décisions D19, D21, D22)
 
 La preuve de réussite doit résister à un étudiant aidé d'une IA. Dans un
 navigateur, tout est falsifiable : **l'état de séance vit donc sur un serveur**,
 qui détient la clé secrète. Le navigateur **affiche** ; le serveur :
 
-- **tire** les questions (§4), calcule les réponses attendues (§5), **corrige**
-  (§6) et **tient les compteurs** (ci-dessus) ;
-- **horodate** chaque correction ;
+- **tire** les questions (§4) et **mémorise** la question tirée dans la séance :
+  tant qu'elle n'est pas corrigée, c'est elle qui revient — on ne « passe » pas
+  une question, et rien de ce que le navigateur dit de la question n'est cru ;
+- calcule les réponses attendues (§5), **corrige** (§6) la question mémorisée
+  et **tient les compteurs** (ci-dessus) ;
+- **horodate** et **journalise** chaque correction : outil, question tirée,
+  réponses données, résultat, heure. Le rapport (§8) en tire les questions
+  réussies ; la page de vérification, la durée totale et le temps médian par
+  question ;
 - impose une **cadence minimale** : 10 s entre deux corrections d'une même
-  séance ;
-- ne corrige une question **qu'une seule fois** ;
-- **signe l'attestation de réussite** (HMAC) que le rapport porte en QR (§8).
+  séance. Une correction demandée trop tôt est refusée (429), **sans effet** sur
+  les compteurs ni sur la question en cours ;
+- ne corrige une question **qu'une seule fois** : la correction tire aussitôt
+  la question suivante, ou constate la réussite ;
+- **signe l'attestation de réussite** (HMAC) que le rapport porte en QR (§8,
+  jalon 5).
 
-Une **séance** = un couple (matricule, exercice) : il n'y en a qu'une. Une
+Une **séance** = un couple (exercice, matricule) : il n'y en a qu'une. Une
 séance interrompue se reprend **de n'importe quel appareil**, en s'identifiant
 (§8) ; il n'y a ni lien de reprise ni QR de séance.
 
-**Le serveur conserve** : prénom, nom, matricule, NIP haché, compteurs, question
-en cours et horodatages. L'enseignant les **purge en fin de session** (page
-d'administration, §8).
+**Exercice modifié en cours de session (D21).** La séance **continue**. Les
+compteurs sont indexés par `id` d'outil : un outil retiré de l'exercice
+disparaît de la progression, un outil ajouté part à zéro, ce qui est acquis le
+reste. Une question en attente ne vaut plus si son outil a quitté l'exercice,
+ou s'y trouve déjà réussi parce qu'on exige maintenant moins de réussites : la
+suivante est tirée à la prochaine demande — ou la réussite est constatée s'il
+ne reste rien à tirer. La séance note la version de l'exercice **au début** et
+**à la réussite**. Une réussite acquise le reste, quoi que devienne l'exercice.
+
+**Le serveur conserve** (base D1, schéma dans `migrations/`) :
+
+| Table | Contenu |
+|---|---|
+| `seances` | une ligne par couple (exercice, matricule) : prénom et nom **de la première visite**, NIP haché, jeton haché et son expiration, début, dernière activité, dernière correction, version de l'exercice au début et à la réussite, compteurs (JSON), question en attente (JSON), date de réussite, essais de NIP et verrou |
+| `corrections` | le journal : séance, outil, question (JSON), réponses (JSON), résultat champ par champ et valeurs attendues (JSON), réussie ou non, horodatage |
+
+Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **purge le
+tout en fin de session** (page d'administration, §8) ; purger une séance efface
+son journal.
 
 **Le navigateur ne conserve que** `{ matricule, prenom, jeton }`
 (`site/js/session.js`), dans `localStorage` sous une seule clé
 (`quiz-parametres-coupe:seance`) : de quoi offrir « Reprendre, <prénom> » à
-l'accueil sans redemander le NIP. Le **jeton de séance**, remis par le serveur à
-l'identification, expire après **2 h sans activité**. Le stockage n'est jamais
-fiable (navigation privée, quota, contenu abîmé) : chaque lecture et chaque
-écriture est protégée ; stockage vide, illisible ou en panne → l'étudiant
-s'identifie, sans erreur.
+l'accueil sans redemander le NIP. Le stockage n'est jamais fiable (navigation
+privée, quota, contenu abîmé) : chaque lecture et chaque écriture est protégée ;
+stockage vide, illisible ou en panne → l'étudiant s'identifie, sans erreur.
+
+### Secrets, NIP et jeton (décision D22)
+
+- Deux secrets, posés sur le Worker et jamais dans le dépôt : `CLE_SECRETE`,
+  pour toute la cryptographie du serveur, et `CLE_ADMIN`, pour l'administration
+  (jalon 5). En local : `.dev.vars` (`DEMARRAGE.md`, étape 5). Sans
+  `CLE_SECRETE`, le serveur refuse de travailler (500) plutôt que de hacher
+  sans secret.
+- Une **sous-clé par usage** est dérivée de `CLE_SECRETE` par HKDF-SHA-256
+  (`worker/crypto.js`) : « nip » aujourd'hui, « attestation » au jalon 5.
+- **NIP** : la base garde HMAC-SHA-256(sous-clé « nip », matricule + NIP). Pas
+  de hachage lent : un NIP de 4 à 6 chiffres est trop court pour qu'il serve ;
+  la protection vient du secret, que la base ne contient pas. Le NIP appartient
+  à la séance, donc à l'exercice : l'étudiant en choisit un par exercice.
+- **Jeton de séance** : 32 octets aléatoires en base64url (43 caractères),
+  envoyé une seule fois, à l'identification ; la base n'en garde que le
+  SHA-256. Il expire **2 h après la dernière activité** ; chaque appel accepté
+  le prolonge. **Un seul jeton par séance** : s'identifier sur un second
+  appareil invalide le jeton du premier, qui sera renvoyé à l'identification.
+- Deux requêtes lancées en même temps ne passent pas toutes les deux : chaque
+  écriture ne vaut que si la séance n'a pas changé depuis sa lecture. Un seul
+  essai de NIP est examiné, une seule question est tirée, une seule correction
+  compte.
+
+### Données lues par le serveur (décision D22)
+
+Il n'y a **qu'une source** : `site/data/` (§3) et `site/exercices/` (§10), ceux
+que lit aussi le navigateur. Le Worker les lit **par sa liaison `ASSETS`**
+(`worker/catalogue.js`), avec `loadData` et `loadExercise` du site — donc avec
+les mêmes validations —, et garde le résultat en mémoire jusqu'au déploiement
+suivant. Seuls les exercices de l'index (§10) existent pour le serveur. Le
+moteur (`site/js/` : question, calcul, format, correction, progression) est
+importé par le Worker : il n'existe qu'en un exemplaire.
 
 ### API du serveur (`/api/…`, appelée par `site/js/api.js`)
 
-Requêtes et réponses en JSON. Après l'identification, chaque appel porte le
-jeton dans l'en-tête `Authorization: Bearer <jeton>`. Une erreur est de la
-forme `{ "erreur": "<message en français>" }`, avec un code HTTP.
+Requêtes et réponses en JSON. **Chaque appel nomme l'exercice** (D21). Après
+l'identification, chaque appel porte le jeton dans l'en-tête
+`Authorization: Bearer <jeton>`. Une erreur est de la forme
+`{ "erreur": "<message en français>" }`, avec un code HTTP.
 
 | Appel | Requête | Réponse |
 |---|---|---|
 | `GET /api/version` | — | `{ version }` (celle de `package.json`) |
-| `POST /api/identification` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, prenom }` |
-| `GET /api/question?exercice=<id>` | jeton | la question en cours de la séance (tirée au besoin), la progression |
-| `POST /api/correction` | jeton, `{ exercice, saisies }` | la correction de la question en cours, la progression |
-| `GET /api/rapport?exercice=<id>` | jeton | le rapport de réussite et son attestation signée (§8) |
+| `POST /api/identification` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, seance }` — crée la séance, ou la reprend si le NIP est le bon |
+| `GET /api/seance?exercice=<id>` | jeton | `{ seance }` — l'état, sans rien tirer |
+| `POST /api/question` | jeton, `{ exercice }` | `{ seance }` — avec la question mémorisée, tirée au besoin ; `question` vaut `null` si l'exercice est réussi |
+| `POST /api/correction` | jeton, `{ exercice, saisies }` | `{ correction, seance }` — `seance` porte déjà la question suivante, ou la réussite |
+| `POST /api/deconnexion` | jeton, `{ exercice }` | `{ deconnecte: true }` — « Changer d'étudiant » : le jeton ne vaut plus rien |
+
+`saisies` : les champs évalués, en texte, sous les noms du moteur —
+`{ vc, feedPerTooth, rpm, feedPerRev, feedRate }`. Tout le reste est ignoré.
+
+`seance` (composée par `worker/seance.js`) :
+
+```json
+{
+  "etudiant": { "prenom": "Camille", "nom": "Tremblay", "matricule": "2412345" },
+  "exercice": { "id": "m10-tournage-vc", "titre": "M10 — …", "version": "r0" },
+  "debut": "2026-09-21T13:05:00.000Z",
+  "reussite_le": null,
+  "progression": {
+    "outils": [ { "id": "mvlnr", "nom": "MVLNR", "reussites": 2, "requises": 3 } ],
+    "outils_termines": 4,
+    "total_reussies": 9
+  },
+  "question": {
+    "identifiant": "MVLNR - Ø charioté: 2.000\"",
+    "outil": { "id", "nom", "operation", "commentaire", "dents", "materiau", "limite_rpm", "fact_vc", "fact_av" },
+    "dimension": "2.000\"",
+    "materiau": { "iso", "groupe", "materiau", "composition", "etat", "durete", "exemple" },
+    "champs": [ { "champ": "vc", "evalue": true, "texte": "" },
+                { "champ": "rpm", "evalue": false, "texte": "800" } ]
+  }
+}
+```
+
+Un champ non évalué arrive avec sa valeur théorique mise en forme (§5, §10).
+**Rien de ce qui est à trouver ne part vers le navigateur** : ni la valeur
+attendue d'un champ évalué, ni les vitesses de coupe du matériau.
+
+`correction` : `{ reussie, outil: { id, nom, avant, apres }, champs: [ { champ,
+evalue, ok, saisie, attendu } ] }` — `attendu` est la valeur théorique mise en
+forme, montrée après la correction (`UI.md` §3.4) ; `avant` et `apres` sont le
+compteur de l'outil.
 
 | Code | Sens |
 |---|---|
-| 400 | requête invalide (ex. matricule qui n'a pas 7 chiffres, exercice inconnu) |
-| 401 | NIP incorrect (identification) ; jeton absent, inconnu ou expiré (autres appels) → l'étudiant s'identifie de nouveau |
-| 429 | trop d'essais de NIP (5 par 10 minutes par matricule), ou correction demandée moins de 10 s après la précédente |
-| 501 | pas encore en service : le site affiche « Serveur de correction à venir » |
+| 400 | requête invalide : JSON illisible, exercice inconnu, identification mal formée (le message dit quoi) |
+| 401 | NIP incorrect (identification) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau |
+| 404 | adresse inconnue sous `/api/` |
+| 409 | aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question |
+| 429 | identification : 5 essais de NIP en 10 minutes → verrou de 10 minutes, même pour le bon NIP ; correction : moins de 10 s depuis la précédente (`attendre_s` dit combien) |
+| 500 | erreur du serveur ; le détail reste dans ses journaux |
 
-Seul `GET /api/version` existe aujourd'hui ; tout autre chemin `/api/` répond
-501. Le contenu exact des réponses se précise au jalon 3 (`PLAN.md`).
+**Essais de NIP.** Chaque essai est compté avant d'être examiné. Le 5ᵉ essai
+d'une fenêtre de 10 minutes pose le verrou ; une identification réussie efface
+le compte. Le verrou est celui d'une séance : il ne touche aucun autre
+étudiant. Un NIP **remis à zéro** par l'enseignant (jalon 5) : le prochain NIP
+présenté pour ce matricule devient le nouveau.
 
-❓ À confirmer au jalon 3 (interprétations proposées, non tranchées) :
-
-1. **Jeton et exercice.** Le jeton appartient à une séance, donc à un exercice,
-   mais le navigateur n'en garde qu'un. Proposé : chaque appel nomme
-   l'`exercice` ; si le jeton est celui d'un autre exercice, le serveur répond
-   401, l'étudiant s'identifie, et le nouveau jeton remplace l'ancien.
-2. **Questions réussies.** Le tableau du rapport (§8) exige que le serveur
-   garde aussi chaque question réussie (question, valeurs, horodatage), ce que
-   la liste de D19 ne nomme pas.
-3. **Prénom et nom à la reprise.** Proposé : matricule et NIP identifient ; le
-   prénom et le nom restent ceux de la première identification.
-4. **Exercice modifié en cours de session** (nouvelle `version`, outil retiré) :
-   la séance continue-t-elle, ou repart-elle de zéro ?
-5. **Correction demandée trop tôt** (cadence) : proposé — refus (429), sans
-   effet sur les compteurs ; l'étudiant réessaie quelques secondes plus tard.
+**Tests.** `npm test` fait tourner le vrai Worker sur une base SQLite en mémoire
+(`node:sqlite`) où les vraies migrations sont appliquées, avec une horloge
+réglable (`tests/worker-api.test.js`). `npm run test:api` rejoue un scénario par
+HTTP sur `wrangler dev` et une vraie D1 locale.
 
 ## 8. Identification de l'étudiant et rapport
 
-Identification (décision D19) : prénom, nom, **matricule à 7 chiffres** (espaces
-autour tolérés, conservé en texte) et un **NIP de 4 à 6 chiffres**. Rien
-d'autre.
+Identification (décisions D19, D21) : prénom, nom, **matricule à 7 chiffres**
+(espaces autour tolérés, conservé en texte) et un **NIP de 4 à 6 chiffres**.
+Rien d'autre.
 
-- Le NIP est **choisi à la première identification** d'un matricule ; il sert
-  ensuite à reprendre l'exercice, y compris sur un autre appareil. Le serveur
-  n'en garde qu'un **haché**.
-- **5 essais par 10 minutes par matricule** ; au-delà, l'identification est
-  refusée (429) jusqu'à la fin du délai.
-- Un NIP oublié est **remis à zéro par l'enseignant** (page d'administration) :
-  l'étudiant en choisit alors un nouveau.
+- Le NIP est **choisi à la première identification** d'un matricule pour un
+  exercice ; il sert ensuite à reprendre cet exercice, y compris sur un autre
+  appareil. Le serveur n'en garde qu'un **haché** (§7).
+- **Matricule + NIP identifient.** Le prénom et le nom sont ceux de la
+  **première visite** : le serveur les renvoie et l'écran les affiche ; ceux
+  tapés à la reprise sont ignorés.
+- **5 essais de NIP en 10 minutes** pour une séance ; ensuite l'identification
+  est refusée (429) pendant 10 minutes, même avec le bon NIP (§7).
+- Un NIP oublié est **remis à zéro par l'enseignant** (page d'administration,
+  jalon 5) : l'étudiant en choisit un nouveau à sa prochaine identification.
 - Le navigateur vérifie la forme des champs avant l'envoi
   (`site/js/identification.js`) ; le serveur revérifie tout.
 
@@ -301,18 +392,21 @@ ferme D6.
 ## 9. Exigences non fonctionnelles
 
 - **Un site sans étape de construction et un serveur de correction**
-  (décisions D19, D20) : un seul Worker Cloudflare sert `site/` (HTML/CSS/JS,
-  JSON) tel quel et expose l'API `/api/` ; base D1 pour les séances. Publié par
-  GitHub Actions (`wrangler deploy`) à chaque push sur `main`, après `npm test`.
+  (décisions D19, D20, D22) : un seul Worker Cloudflare sert `site/`
+  (HTML/CSS/JS, JSON) tel quel et expose l'API `/api/` ; base D1 pour les
+  séances et le journal des corrections. Publié par GitHub Actions à chaque push
+  sur `main` : `npm test`, puis les migrations de la base, puis
+  `wrangler deploy`.
 - Fonctionne dans les navigateurs récents du laboratoire et sur téléphone.
 - Interface en **français**.
 - **Durable** : sans étape de compilation obligatoire, dépendances minimales et
   épinglées (QR code à l'exécution, `wrangler` pour développer et publier),
   données modifiables par l'enseignant en éditant les JSON.
 - Le **moteur de calcul et de correction est testé unitairement** (cas tirés du
-  classeur), tout comme le Worker.
-- **Données personnelles** : prénom, nom, matricule, NIP haché et résultats ne
-  vont qu'au serveur de correction du projet, et sont **purgés par l'enseignant
+  classeur), tout comme le serveur (§7, « Tests »). Node ≥ 22.13 pour
+  développer ; rien à installer pour l'étudiant.
+- **Données personnelles** : prénom, nom, matricule, NIP haché, réponses et
+  résultats ne vont qu'au serveur de correction du projet, et sont **purgés par l'enseignant
   en fin de session** (§7). Rien n'est envoyé à un tiers, et la page ne charge
   rien d'un domaine externe (polices auto-hébergées, `UI.md` §1). Le navigateur
   ne garde que `{ matricule, prenom, jeton }` (§7). Pied de page : « Tes
@@ -392,4 +486,4 @@ Précisions :
 3. ~~Vérification du code : Moodle seul ou aussi QR (§8).~~ Tranché : plus de Moodle ; rapport PDF remis sur Léa, QR pour l'enseignant (D16).
 4. ~~Sécurité du payload QR (§8 / D6).~~ Tranché : attestation signée par le serveur de correction (D19).
 5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ? (D7)
-6. Serveur de correction : les cinq points ❓ de la fin du §7, à confirmer au jalon 3.
+6. ~~Serveur de correction : cinq points du §7.~~ Tranchés : D21.

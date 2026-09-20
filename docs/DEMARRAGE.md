@@ -7,7 +7,7 @@ tapent dans **PowerShell** (touche Windows, taper « PowerShell », Entrée).
 
 ```powershell
 git --version        # attendu : git version 2.x
-node --version       # attendu : v20 ou plus
+node --version       # attendu : v22.13 ou plus (les tests du serveur utilisent node:sqlite)
 npm --version
 code --version       # attendu : 3 lignes (version, hash, architecture)
 code --list-extensions | Select-String claude   # attendu : anthropic.claude-code
@@ -57,7 +57,8 @@ le navigateur (ne jamais coller de mot de passe ou de jeton dans le terminal).
 Le site et son serveur de correction sont publiés ensemble, par **un seul
 Worker Cloudflare** nommé `quiz-parametres-coupe` (`wrangler.jsonc`). C'est
 `.github/workflows/deploy.yml` qui publie : à chaque push sur `main`, GitHub
-lance `npm test`, puis `wrangler deploy`. Si un test échoue, rien n'est publié.
+lance `npm test`, applique les migrations de la base (étape 5), puis
+`wrangler deploy`. Si un test échoue, rien n'est publié.
 À faire une seule fois :
 
 1. **Compte Cloudflare.** Créer un compte gratuit sur
@@ -89,11 +90,70 @@ lance `npm test`, puis `wrangler deploy`. Si un test échoue, rien n'est publié
    `https://quiz-parametres-coupe.<sous-domaine>.workers.dev/api/version`
    répond `{"version":"…"}`.
 
-En local, rien de tout cela n'est nécessaire : `npm install` une fois, puis
-`npm run dev` sert le site et l'API sur http://localhost:8787, sans compte
-Cloudflare.
+En local, rien de tout cela n'est nécessaire : `npm install` une fois, le
+fichier `.dev.vars` de l'étape 5, puis `npm run dev` sert le site et l'API sur
+http://localhost:8787, avec une base D1 locale, sans compte Cloudflare.
 
-## 5. Ouvrir dans VS Code et lancer Claude Code
+## 5. Base de données et secrets du serveur (décision D22)
+
+Le serveur de correction a besoin d'une base **D1** et de deux **secrets**. À
+faire une seule fois, dans PowerShell, à la racine du dépôt (après
+`npm install`) :
+
+1. **Se connecter à Cloudflare.**
+   ```powershell
+   npx wrangler login
+   ```
+   Le navigateur s'ouvre : autoriser wrangler. Rien n'est écrit dans le dépôt.
+2. **Créer la base D1.**
+   ```powershell
+   npx wrangler d1 create quiz-parametres-coupe
+   ```
+   Si wrangler propose d'ajouter la base à `wrangler.jsonc`, répondre non : la
+   liaison `DB` y est déjà.
+3. **Vérifier l'identifiant de la base.**
+   ```powershell
+   npx wrangler d1 list
+   ```
+   La colonne `uuid` doit être identique à `database_id` dans `wrangler.jsonc`.
+   Sinon (base recréée, autre compte), corriger `wrangler.jsonc` et commettre.
+   Cet identifiant n'est pas un secret.
+4. **Poser les deux secrets sur le Worker.** Chaque commande demande la valeur,
+   qui ne s'affiche pas. Prendre deux longues valeurs au hasard, différentes,
+   par exemple celles que donne
+   `node -e "console.log(crypto.randomBytes(32).toString('base64url'))"`, et les
+   ranger dans un gestionnaire de mots de passe — nulle part ailleurs.
+   ```powershell
+   npx wrangler secret put CLE_SECRETE
+   npx wrangler secret put CLE_ADMIN
+   ```
+   - `CLE_SECRETE` sert à toute la cryptographie du serveur (NIP, et plus tard
+     la signature des rapports). **Ne jamais la changer en cours de session** :
+     plus aucun NIP ne serait reconnu, et les rapports déjà remis ne se
+     vérifieraient plus.
+   - `CLE_ADMIN` ouvrira la page d'administration (jalon 5).
+5. **Donner le droit D1 au jeton d'API de GitHub.** `deploy.yml` applique les
+   migrations de la base avant chaque déploiement : le jeton de l'étape 4 doit
+   pouvoir écrire dans D1. Tableau de bord → *My Profile* → *API Tokens* →
+   « … » du jeton → *Edit* → *Add more* : **Account · D1 · Edit** → *Continue to
+   summary* → *Update token*. La valeur du jeton ne change pas : rien à refaire
+   côté GitHub.
+6. **Secrets locaux**, pour `npm run dev` : copier `.dev.vars.exemple` sous le
+   nom `.dev.vars` et y mettre deux valeurs au hasard. Ce fichier est ignoré par
+   git ; ses valeurs n'ont aucun rapport avec celles de production.
+
+Ensuite, rien à faire à la main : le schéma de la base est dans `migrations/`
+(un fichier SQL numéroté par changement, jamais modifié une fois appliqué).
+`npm run dev` applique les migrations à la base **locale** ; `deploy.yml` les
+applique à la base de **production**, juste avant de publier le Worker.
+
+Pour regarder la base de production (lecture seule, sans risque) :
+
+```powershell
+npx wrangler d1 execute quiz-parametres-coupe --remote --command "SELECT exercice_id, matricule, prenom, nom, debut, reussite_le FROM seances ORDER BY debut DESC LIMIT 20"
+```
+
+## 6. Ouvrir dans VS Code et lancer Claude Code
 
 ```powershell
 code C:\Projets\quiz-parametres-coupe
@@ -108,9 +168,10 @@ Dans VS Code, ouvrir le panneau Claude Code (icône dans la barre latérale ou
 > jalon 1 (site/js/data.js : chargement et validation des JSON) sans rien
 > modifier.
 
-## 6. Boucle de travail
+## 7. Boucle de travail
 
-1. Une tâche de `PLAN.md` à la fois dans Claude Code ; relire le diff ; `npm test`.
+1. Une tâche de `PLAN.md` à la fois dans Claude Code ; relire le diff ; `npm test`
+   (et `npm run test:api` quand le serveur change).
 2. Commit + push (Claude Code peut rédiger le message, en français).
 3. Les questions de conception (❓ de la SPEC, décisions ouvertes) se traitent
    dans le Projet Claude, puis on met à jour `SPEC.md` / `DECISIONS.md` et on
