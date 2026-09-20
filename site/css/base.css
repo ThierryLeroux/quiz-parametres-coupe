@@ -19,7 +19,8 @@ body {
 }
 
 h1, h2, p { margin: 0; }
-h1, h2 { color: var(--color-accent-light); font-weight: 700; line-height: 1.15; }
+/* 600 : la graisse la plus forte d'IBM Plex Sans fournie dans site/fonts/ ; sur une page en Carlito, c'est le 700 qui sert. */
+h1, h2 { color: var(--color-accent-light); font-weight: 600; line-height: 1.15; }
 
 a { color: var(--color-accent-light); }
 a:hover { color: var(--color-link-hover); }
@@ -95,7 +96,7 @@ a:hover { color: var(--color-link-hover); }
   color: var(--color-bg);
   font-family: var(--font-text);
   font-size: var(--text-md);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-align: center;
   text-decoration: none;

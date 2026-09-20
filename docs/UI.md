@@ -32,9 +32,10 @@ avant style**.
 
 ### Typographie
 
-- Une seule famille pour tout le texte : **IBM Plex Sans** (Google Fonts, repli `system-ui, sans-serif`).
-- **IBM Plex Mono** uniquement pour les nombres : cases de saisie, valeurs du rapport, formules.
-- Documents imprimables : **Carlito** (clone métrique de Calibri, celle des feuilles Excel), repli `Calibri, sans-serif`.
+- Une seule famille pour tout le texte : **IBM Plex Sans** 400, 500 et 600 (repli `system-ui, sans-serif`).
+- **IBM Plex Mono** 400 et 500, uniquement pour les nombres : cases de saisie, valeurs du rapport, formules (repli `ui-monospace, Consolas, monospace`).
+- Documents imprimables : **Carlito** 400 et 700, droit et italique (clone métrique de Calibri, celle des feuilles Excel), repli `Calibri, sans-serif`.
+- Les polices sont **auto-hébergées** dans `site/fonts/` : fichiers woff2 seulement, sous-ensemble latin, copiés des paquets npm `@fontsource/ibm-plex-sans`, `@fontsource/ibm-plex-mono` et `@fontsource/carlito` (copie de fichiers, aucune dépendance dans `package.json`), avec leurs licences OFL. Déclarées par `@font-face` avec `font-display: swap` dans `site/css/tokens.css`. **Aucune requête vers un domaine externe**, ni Google Fonts ni autre.
 - Le symbole de diamètre est toujours le caractère **Ø** (U+00D8), jamais un zéro barré ; vérifier son rendu dans chaque police retenue.
 - Pas de police d'affichage « futuriste » : essayée, retirée pour lisibilité.
 
