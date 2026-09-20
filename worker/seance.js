@@ -40,11 +40,12 @@ export function isExerciseComplete(counters, exercise) {
 
 // --- Question ------------------------------------------------------------------------------------------
 
-// La question mémorisée peut-elle encore être posée ? Non si son outil a quitté l'exercice ou le
-// catalogue depuis le tirage (exercice modifié en cours de session, D21).
-export function isQuestionValid(question, exercise, data) {
+// La question mémorisée peut-elle encore être posée ? Oui si son outil est toujours « à évaluer ».
+// Non si, depuis le tirage, l'exercice a été modifié (D21) et que l'outil l'a quitté, a quitté le
+// catalogue, ou se trouve déjà réussi parce qu'on exige maintenant moins de réussites.
+export function isQuestionValid(question, counters, exercise, data) {
   if (question === null) return false;
-  return exercise.outils.some((entry) => entry.id === question.tool.id) && data.outils.some((tool) => tool.id === question.tool.id);
+  return eligibleTools(exercise, data, progressOf(counters, exercise)).some((tool) => tool.id === question.tool.id);
 }
 
 // Tire une question parmi les outils encore à évaluer ; null s'il n'en reste aucun (exercice complété).
@@ -156,7 +157,7 @@ export function correctionView(question, answers, result, before, counters) {
 // L'état de la séance : qui, quel exercice, où il en est, la question en attente.
 // Le prénom et le nom sont ceux de la première visite (D21).
 export function sessionView(session, exercise, data) {
-  const question = isQuestionValid(session.question_courante, exercise, data) ? session.question_courante : null;
+  const question = isQuestionValid(session.question_courante, session.compteurs, exercise, data) ? session.question_courante : null;
   const tools = exercise.outils.map((entry) => ({
     id: entry.id,
     nom: data.outils.find((tool) => tool.id === entry.id).nom,

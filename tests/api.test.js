@@ -75,15 +75,6 @@ test('serveur injoignable ou réponse illisible : ApiError de statut 0, jamais u
   await assert.rejects(getQuestion('abc123', 'm10-tournage-vc', request), { name: 'ApiError', status: 0 });
 });
 
-test('avec le Worker d’aujourd’hui : la version répond, les quatre appels prévus lèvent une ApiError 501', async () => {
+test('avec le vrai Worker : api.js et le serveur s’entendent sur l’adresse de la version', async () => {
   assert.match((await getVersion(parLeWorker)).version, /^\d+\.\d+\.\d+$/);
-  const appels = [
-    () => identify(ETUDIANT, 'm10-tournage-vc', parLeWorker),
-    () => getQuestion('abc123', 'm10-tournage-vc', parLeWorker),
-    () => submitAnswers('abc123', 'm10-tournage-vc', { vc: '400' }, parLeWorker),
-    () => getReport('abc123', 'm10-tournage-vc', parLeWorker),
-  ];
-  for (const appel of appels) {
-    await assert.rejects(appel(), { name: 'ApiError', status: 501, message: "Le serveur de correction n'est pas encore en service." });
-  }
 });

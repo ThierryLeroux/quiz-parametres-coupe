@@ -116,12 +116,15 @@ test('exercice modifié : un outil retiré disparaît, un outil ajouté part à 
   assert.equal(drawQuestion(toutReussi, avecForet, data, aleaAGraine(1)).tool.id, 'foret_fractionnaire');
 });
 
-test('isQuestionValid : la question d’un outil retiré de l’exercice n’est plus posée', () => {
+test('isQuestionValid : la question d’un outil retiré de l’exercice, ou déjà réussi, n’est plus posée', () => {
   const question = questionPour({ outil: 'mvlnr', dimension: data.outils.find((o) => o.id === 'mvlnr').dimensions[0].libelle, dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
-  assert.equal(isQuestionValid(question, m10, data), true);
-  assert.equal(isQuestionValid(null, m10, data), false);
-  assert.equal(isQuestionValid(question, { ...m10, outils: m10.outils.filter((entry) => entry.id !== 'mvlnr') }, data), false);
-  assert.equal(isQuestionValid(question, m10, { ...data, outils: data.outils.filter((tool) => tool.id !== 'mvlnr') }), false);
+  const zero = emptyCounters();
+  assert.equal(isQuestionValid(question, zero, m10, data), true);
+  assert.equal(isQuestionValid(null, zero, m10, data), false);
+  assert.equal(isQuestionValid(question, zero, { ...m10, outils: m10.outils.filter((entry) => entry.id !== 'mvlnr') }, data), false);
+  // L'outil est déjà réussi (on exige maintenant moins de réussites) : sa question ne se pose plus.
+  assert.equal(isQuestionValid(question, { reussites: { mvlnr: 2 }, totalReussies: 2 }, m10, data), true);
+  assert.equal(isQuestionValid(question, { reussites: { mvlnr: 3 }, totalReussies: 3 }, m10, data), false);
 });
 
 // --- Cadence et essais de NIP ------------------------------------------------------------------------------
