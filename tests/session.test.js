@@ -1,7 +1,7 @@
 // Tests de site/js/session.js : état d'une séance, sauvegarde et relecture dans localStorage.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SESSION_KEY, SESSION_VERSION, clearSession, createSession, isValidSession, loadSession, saveSession, validateStudent } from '../site/js/session.js';
+import { SESSION_KEY, SESSION_VERSION, clearSession, createSession, isValidSession, loadSession, saveSession, studentErrors, validateStudent } from '../site/js/session.js';
 
 const ETUDIANT = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' };
 const EXERCICE = { id: 'm10-tournage-vc', version: 'r0' }; // createSession ne lit que l'id et la version
@@ -43,6 +43,16 @@ test('validateStudent : le matricule a exactement 7 chiffres', () => {
   }
   assert.deepEqual(validateStudent({ ...ETUDIANT, matricule: 2412345 }), ['Le matricule est requis.']); // un nombre n'est pas un texte
   assert.deepEqual(validateStudent({ ...ETUDIANT, matricule: ' 0412345 ' }), []); // espaces autour tolérés, zéro de tête conservé
+});
+
+test('studentErrors : le message de chaque champ, ou null', () => {
+  assert.deepEqual(studentErrors(ETUDIANT), { prenom: null, nom: null, matricule: null });
+  assert.deepEqual(studentErrors({ prenom: ' ', nom: 'Tremblay', matricule: '24123' }), {
+    prenom: 'Le prénom est requis.',
+    nom: null,
+    matricule: 'Le matricule doit avoir exactement 7 chiffres.',
+  });
+  assert.deepEqual(studentErrors({}), { prenom: 'Le prénom est requis.', nom: 'Le nom est requis.', matricule: 'Le matricule est requis.' });
 });
 
 test('createSession : état de départ complet', () => {

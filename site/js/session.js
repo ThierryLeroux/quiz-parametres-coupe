@@ -18,16 +18,27 @@ const isText = (v) => typeof v === 'string' && v.trim() !== '';
 const isTextOrNull = (v) => v === null || isText(v);
 const isObjectOrNull = (v) => v === null || isObject(v);
 
-// Vérifie l'identification saisie par l'étudiant (SPEC §8). Retourne la liste des erreurs,
-// en français, une par champ fautif (liste vide = identification valide).
+// Vérifie l'identification saisie par l'étudiant (SPEC §8), champ par champ, pour que l'écran
+// affiche chaque message sous sa case : { prenom, nom, matricule }, où chaque valeur est le
+// message d'erreur en français, ou null si le champ est valide.
+export function studentErrors(student) {
+  return {
+    prenom: isText(student.prenom) ? null : 'Le prénom est requis.',
+    nom: isText(student.nom) ? null : 'Le nom est requis.',
+    matricule: matriculeError(student.matricule),
+  };
+}
+
+function matriculeError(matricule) {
+  if (!isText(matricule)) return 'Le matricule est requis.';
+  if (!/^\d{7}$/.test(matricule.trim())) return 'Le matricule doit avoir exactement 7 chiffres.';
+  return null;
+}
+
+// Même vérification, en liste : une erreur par champ fautif (liste vide = identification valide).
 export function validateStudent(student) {
   if (!isObject(student)) return ["identification : n'est pas un objet"];
-  const errors = [];
-  if (!isText(student.prenom)) errors.push('Le prénom est requis.');
-  if (!isText(student.nom)) errors.push('Le nom est requis.');
-  if (!isText(student.matricule)) errors.push('Le matricule est requis.');
-  else if (!/^\d{7}$/.test(student.matricule.trim())) errors.push('Le matricule doit avoir exactement 7 chiffres.');
-  return errors;
+  return Object.values(studentErrors(student)).filter((message) => message !== null);
 }
 
 // État de départ d'une séance : étudiant identifié, exercice choisi, aucune question encore.
