@@ -17,30 +17,30 @@ import { createSession } from './session.js';
 
 // --- Choix de l'exercice ---------------------------------------------------------------------
 
-// Exercice demandé par l'adresse de la page : « ?exercice=<id> ».
+// Exercice demandé par l'adresse de la page : « ?exercice=<id> » (décision D18).
 //   search : location.search (ex. « ?exercice=m10-tournage-vc »)
 //   index  : résultat de loadExerciseIndex, [{ id, titre }, …]
-// Seuls les exercices de l'index sont offerts : id absent ou inconnu → le premier de l'index.
-export function resolveExerciseId(search, index) {
-  const requested = new URLSearchParams(search).get('exercice');
-  const found = index.find((entry) => entry.id === requested);
-  return (found ?? index[0]).id;
-}
-
-// L'exercice nommé par l'adresse, { id, titre }, ou null si l'adresse n'en nomme aucun ou en nomme
-// un qui n'est pas dans l'index. L'accueil montre alors la liste des exercices (UI §3.1).
+// Retourne { exercise, unknownId } :
+//   exercise  : l'entrée { id, titre } de l'index, ou null si l'adresse n'en nomme aucune
+//   unknownId : ce que l'adresse demande et qui n'est PAS dans l'index, ou null
+// Seuls les exercices de l'index sont offerts, et il n'y a aucun repli : sans exercice reconnu,
+// l'accueil montre la liste des exercices (UI §3.1).
 export function requestedExercise(search, index) {
-  const requested = new URLSearchParams(search).get('exercice');
-  return index.find((entry) => entry.id === requested) ?? null;
+  const requested = new URLSearchParams(search).get('exercice') || null;
+  const exercise = index.find((entry) => entry.id === requested) ?? null;
+  return { exercise, unknownId: exercise === null ? requested : null };
 }
 
-// Charge tout ce qu'il faut pour une séance : catalogue, index, exercice choisi par l'adresse.
+// Charge tout ce qu'il faut à la page : catalogue, index, et l'exercice nommé par l'adresse.
+// Retourne { data, index, exercise, unknownId } — exercise vaut null si l'adresse n'en nomme
+// aucun de l'index (voir requestedExercise) : aucun fichier d'exercice n'est alors lu.
 //   readJson : lecteur injectable (fetch par défaut), comme dans loadData
 export async function loadApp(search, readJson = fetchJson) {
   const data = await loadData('data/', readJson);
   const index = await loadExerciseIndex('exercices/', readJson);
-  const exercise = await loadExercise(resolveExerciseId(search, index), data, 'exercices/', readJson);
-  return { data, index, exercise };
+  const { exercise: entry, unknownId } = requestedExercise(search, index);
+  const exercise = entry === null ? null : await loadExercise(entry.id, data, 'exercices/', readJson);
+  return { data, index, exercise, unknownId };
 }
 
 // Une séance relue du stockage (loadSession) peut-elle continuer avec cet exercice ?

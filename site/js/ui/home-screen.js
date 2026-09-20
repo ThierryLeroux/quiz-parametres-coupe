@@ -42,14 +42,14 @@ export function renderHome(main, { exercise, resumable, otherSession }, actions)
   showScreen(main, screen, { title: 'Quiz — paramètres de coupe', aside: 'Techniques de génie mécanique' });
 }
 
-// Liste des exercices offerts : seulement quand l'adresse n'a pas de « ?exercice= » valide.
+// Liste des exercices offerts : seulement quand l'adresse n'a pas de « ?exercice= » valide (D18).
 //   index     : [{ id, titre }, …] (loadExerciseIndex)
 //   unknownId : ce que l'adresse demandait et qui n'existe pas, ou null si elle ne demandait rien
 export function renderExerciseList(main, index, unknownId) {
   const screen = el('div', { class: 'screen' }, el('section', { class: 'panel' }, [
     el('div', { class: 'eyebrow' }, 'Exercices'),
     el('h1', { tabindex: '-1' }, 'Quel exercice fais-tu ?'),
-    unknownId === null ? '' : el('p', { class: 'small' }, `L'exercice « ${unknownId} » n'existe pas : le lien est peut-être incomplet.`),
+    unknownId === null ? '' : el('p', { class: 'small' }, `L'exercice « ${unknownId} » n'existe pas — vérifie le lien sur Léa.`),
     el('p', { class: 'muted small' }, "Choisis l'exercice indiqué sur Léa par ton enseignant."),
     el('ul', { class: 'exercise-list' }, index.map((entry) => el('li', {}, el('a', { href: `?exercice=${encodeURIComponent(entry.id)}` }, entry.titre)))),
   ]));

@@ -2,7 +2,7 @@
 // Toute la logique est dans app.js et session.js (fonctions pures, testées) ; ici on ne fait que
 // les appeler, sauvegarder l'état retourné et l'afficher.
 
-import { loadApp, requestedExercise, restoreSession, startSession } from '../app.js';
+import { loadApp, restoreSession, startSession } from '../app.js';
 import { loadSession, saveSession } from '../session.js';
 import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
 import { renderIdentification } from './identification-screen.js';
@@ -41,11 +41,9 @@ function showQuestion(saved) {
 async function start() {
   try {
     const app = await loadApp(location.search);
-    // ❓ SPEC §10 : « id inconnu ou absent → le premier de l'index ». UI §3.1 : sans « ?exercice= », la
-    // liste des exercices. Interprétation : on montre la liste dans les deux cas (absent ou inconnu),
-    // plutôt que de lancer en silence un exercice que l'étudiant n'a pas demandé. À confirmer par Thierry.
-    if (requestedExercise(location.search, app.index) === null) {
-      renderExerciseList(main, app.index, new URLSearchParams(location.search).get('exercice') || null);
+    // D18 : « ?exercice= » absent ou inconnu → la liste des exercices, jamais un exercice par défaut.
+    if (app.exercise === null) {
+      renderExerciseList(main, app.index, app.unknownId);
       return;
     }
     data = app.data;

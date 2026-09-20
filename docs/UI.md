@@ -49,7 +49,7 @@ depuis l'accueil (état dans `localStorage`, SPEC §7).
 
 ### 3.1 Accueil (`01-accueil.html`)
 
-- Titre de l'exercice en grand, avec version, nombre d'outils, champs évalués, et la consigne « vérifie que c'est l'exercice indiqué sur Léa ». **Aucun moyen d'en changer** depuis la page (D11, point 10) ; la liste des exercices n'apparaît que si l'URL n'a pas de `?exercice=`.
+- Titre de l'exercice en grand, avec version, nombre d'outils, champs évalués, et la consigne « vérifie que c'est l'exercice indiqué sur Léa ». **Aucun moyen d'en changer** depuis la page (D11, point 10) ; la liste des exercices n'apparaît que si l'URL n'a pas de `?exercice=`, ou en nomme un qui n'existe pas — elle est alors précédée de « L'exercice « <id> » n'existe pas — vérifie le lien sur Léa » (D18).
 - Résumé de l'exercice en trois phrases (réussites consécutives, échec = compteur à zéro, rapport PDF à remettre sur Léa).
 - Panneau doré « Séance en cours sur cet appareil » (prénom, nom, matricule, début, nombre de réussites) avec **Reprendre**, seulement si une séance valide existe.
 - Bouton **Nouvelle séance** + avertissement « efface la séance en cours ».

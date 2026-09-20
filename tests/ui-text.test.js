@@ -6,7 +6,7 @@ import { loadApp } from '../site/js/app.js';
 import { createSession } from '../site/js/session.js';
 import { lireFichier } from './aide.js';
 
-const { exercise: m10 } = await loadApp('', lireFichier);
+const { exercise: m10 } = await loadApp('?exercice=m10-tournage-vc', lireFichier);
 
 const CINQ_CHAMPS = {
   id: 'essai',

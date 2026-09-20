@@ -1,14 +1,14 @@
 // Tests de site/js/app.js : choix de l'exercice et cycle complet d'une séance, sans DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { answerFields, loadApp, nextQuestion, requestedExercise, resolveExerciseId, restoreSession, sessionStep, startSession, submitAnswers, updateAnswers } from '../site/js/app.js';
+import { answerFields, loadApp, nextQuestion, requestedExercise, restoreSession, sessionStep, startSession, submitAnswers, updateAnswers } from '../site/js/app.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
 import { validateExercise } from '../site/js/exercice.js';
 import { SESSION_KEY, loadSession, saveSession } from '../site/js/session.js';
 import { aleaAGraine, data, lireFichier } from './aide.js';
 
-const { exercise: m10 } = await loadApp('', lireFichier);
+const { exercise: m10 } = await loadApp('?exercice=m10-tournage-vc', lireFichier);
 
 const ETUDIANT = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' };
 const DEBUT = new Date('2026-09-21T13:05:00.000Z');
@@ -41,25 +41,20 @@ const bonnesReponses = (etat) => formatParameters(computeParameters(etat.questio
 
 // --- Choix de l'exercice ---------------------------------------------------------------------
 
-test('resolveExerciseId : ?exercice=<id> choisit un exercice de l’index', () => {
-  assert.equal(resolveExerciseId('?exercice=essai-percage', INDEX), 'essai-percage');
-  assert.equal(resolveExerciseId('?autre=1&exercice=essai-percage', INDEX), 'essai-percage');
-  assert.equal(resolveExerciseId('exercice=essai-percage', INDEX), 'essai-percage'); // sans le « ? »
+test('requestedExercise : ?exercice=<id> choisit un exercice de l’index', () => {
+  const essai = { exercise: { id: 'essai-percage', titre: 'Essai' }, unknownId: null };
+  assert.deepEqual(requestedExercise('?exercice=essai-percage', INDEX), essai);
+  assert.deepEqual(requestedExercise('?autre=1&exercice=essai-percage', INDEX), essai);
+  assert.deepEqual(requestedExercise('exercice=essai-percage', INDEX), essai); // sans le « ? »
 });
 
-test('resolveExerciseId : repli sur le premier de l’index', () => {
-  assert.equal(resolveExerciseId('', INDEX), 'm10-tournage-vc');
-  assert.equal(resolveExerciseId('?exercice=', INDEX), 'm10-tournage-vc');
-  assert.equal(resolveExerciseId('?exercice=inconnu', INDEX), 'm10-tournage-vc');
-  assert.equal(resolveExerciseId('?exercice=../data/outils', INDEX), 'm10-tournage-vc'); // jamais un chemin
-  assert.equal(resolveExerciseId('?Exercice=essai-percage', INDEX), 'm10-tournage-vc'); // le nom du paramètre est en minuscules
-});
-
-test('requestedExercise : l’exercice nommé par l’adresse, ou null (l’accueil montre alors la liste)', () => {
-  assert.deepEqual(requestedExercise('?exercice=essai-percage', INDEX), { id: 'essai-percage', titre: 'Essai' });
-  assert.equal(requestedExercise('', INDEX), null);
-  assert.equal(requestedExercise('?exercice=', INDEX), null);
-  assert.equal(requestedExercise('?exercice=inconnu', INDEX), null);
+test('requestedExercise : absent → aucun exercice ; inconnu → aucun exercice et l’id fautif ; jamais de repli (D18)', () => {
+  assert.deepEqual(requestedExercise('', INDEX), { exercise: null, unknownId: null });
+  assert.deepEqual(requestedExercise('?exercice=', INDEX), { exercise: null, unknownId: null });
+  assert.deepEqual(requestedExercise('?Exercice=essai-percage', INDEX), { exercise: null, unknownId: null }); // le nom du paramètre est en minuscules
+  assert.deepEqual(requestedExercise('?exercice=inconnu', INDEX), { exercise: null, unknownId: 'inconnu' });
+  assert.deepEqual(requestedExercise('?exercice=../data/outils', INDEX), { exercise: null, unknownId: '../data/outils' }); // jamais un chemin
+  assert.deepEqual(requestedExercise('?exercice=M10-tournage-vc', INDEX), { exercise: null, unknownId: 'M10-tournage-vc' }); // l'id est en minuscules
 });
 
 test('loadApp : charge le catalogue, l’index et l’exercice demandé par l’adresse', async () => {
@@ -69,7 +64,20 @@ test('loadApp : charge le catalogue, l’index et l’exercice demandé par l’
   assert.equal(app.data.outils.length, 29);
   assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc']);
   assert.equal(app.exercise.id, 'm10-tournage-vc');
+  assert.equal(app.unknownId, null);
   assert.deepEqual(demandes.sort(), ['data/materiaux.json', 'data/operations.json', 'data/outils.json', 'exercices/index.json', 'exercices/m10-tournage-vc.json']);
+});
+
+test('loadApp : sans exercice reconnu, aucun fichier d’exercice n’est lu — l’accueil montrera la liste (D18)', async () => {
+  for (const [adresse, inconnu] of [['', null], ['?exercice=inconnu', 'inconnu'], ['?exercice=../data/outils', '../data/outils']]) {
+    const demandes = [];
+    const lecteur = (url) => { demandes.push(url); return lireFichier(url); };
+    const app = await loadApp(adresse, lecteur);
+    assert.equal(app.exercise, null, adresse);
+    assert.equal(app.unknownId, inconnu, adresse);
+    assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc']);
+    assert.deepEqual(demandes.sort(), ['data/materiaux.json', 'data/operations.json', 'data/outils.json', 'exercices/index.json'], adresse);
+  }
 });
 
 test('loadApp : un fichier manquant fait échouer le chargement avec un message clair', async () => {

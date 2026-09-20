@@ -297,9 +297,12 @@ Précisions :
   l'éditeur (jalon 4).
 - **Index des exercices offerts** : un site statique ne peut pas lister un
   dossier ; `site/exercices/index.json` dit quels exercices proposer, dans
-  l'ordre d'affichage : `{ "exercices": [ { "id", "titre" }, … ] }`. Le premier
-  est l'exercice par défaut ; `?exercice=<id>` dans l'adresse en choisit un
-  autre **parmi ceux de l'index** (id inconnu ou absent → le premier). Chaque
+  l'ordre d'affichage : `{ "exercices": [ { "id", "titre" }, … ] }`.
+  `?exercice=<id>` dans l'adresse choisit un exercice **parmi ceux de l'index**.
+  Il n'y a **pas d'exercice par défaut** (décision D18) : `?exercice=` absent →
+  l'accueil affiche la liste des exercices de l'index ; id inconnu → l'accueil
+  affiche « L'exercice « <id> » n'existe pas — vérifie le lien sur Léa », puis
+  la même liste. Chaque
   `id` a son fichier `<id>.json` et le même `titre` (vérifié par les tests) ;
   « index » est un identifiant réservé. Un fichier d'exercice absent de
   l'index n'est pas offert.
