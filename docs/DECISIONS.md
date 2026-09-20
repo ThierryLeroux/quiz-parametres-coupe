@@ -258,3 +258,79 @@ jamais copié des maquettes.
 
 **Conséquences.** `UI.md` figure dans la section « Où lire quoi » de
 `CLAUDE.md`. Changer un écran = mettre `UI.md` à jour dans le même commit.
+
+## D18 — `?exercice=` absent ou inconnu : l'accueil montre la liste, jamais un repli silencieux (2026-09-20, décidée)
+
+**Contexte.** `SPEC.md` §10 disait « id inconnu ou absent → le premier de
+l'index », alors que `UI.md` §3.1 montre la liste des exercices quand l'adresse
+n'a pas de `?exercice=`. Avec un repli silencieux, un lien mal copié depuis Léa
+lançait un exercice que l'étudiant n'avait pas demandé.
+
+**Décision.**
+
+- `?exercice=` **absent** → l'accueil affiche la liste des exercices de l'index ;
+- `?exercice=` **inconnu** → l'accueil affiche « L'exercice « <id> » n'existe
+  pas — vérifie le lien sur Léa », puis la même liste ;
+- plus aucun repli sur le premier exercice de l'index.
+
+**Conséquences.** `resolveExerciseId` disparaît d'`app.js` ; `loadApp` ne charge
+un exercice que si l'adresse en nomme un de l'index. L'ordre de l'index n'est
+plus que l'ordre d'affichage de la liste. `SPEC.md` §10 corrigée.
+
+## D19 — Serveur de correction : l'état de séance vit sur un serveur qui signe la réussite (2026-09-20, décidée)
+
+**Contexte.** La preuve de réussite (D16 : le rapport PDF) doit résister à un
+étudiant aidé d'une IA. Sur un site statique, tout est falsifiable : le moteur,
+l'état de séance dans `localStorage`, le contenu du QR (D6). Un secret ne peut
+pas vivre dans le navigateur.
+
+**Décision.** L'état de séance vit sur un **serveur** qui détient la clé
+secrète. Le navigateur affiche ; le serveur :
+
+- tire les questions, corrige, tient les compteurs ;
+- **horodate** chaque correction et impose une **cadence minimale** : 10 s
+  entre deux corrections d'une même séance ;
+- **signe l'attestation de réussite** (HMAC) que le rapport porte en QR.
+
+Une **page de vérification** publique et une **page d'administration** à clé
+(liste des réussites, remise à zéro d'un NIP, purge) interrogent le même
+serveur.
+
+*Identification.* Prénom, nom, matricule à 7 chiffres et un **NIP de 4 à 6
+chiffres**, choisi à la première identification (haché côté serveur ; 5 essais
+par 10 minutes par matricule). Une seule séance par couple (matricule,
+exercice). Le serveur renvoie un **jeton de séance**, que le navigateur garde
+dans `localStorage` avec le matricule et le prénom, et qui expire après 2 h
+sans activité. Plus de lien de reprise ni de QR de séance : on reprend de
+n'importe quel appareil en s'identifiant.
+
+*Données conservées par le serveur.* Prénom, nom, matricule, NIP haché,
+compteurs, question en cours et horodatages ; purgés en fin de session par
+l'enseignant. Nouveau pied de page : « Tes réponses sont corrigées par un
+serveur ; tes données sont effacées à la fin de la session. »
+
+**Conséquences.** Remplace « site statique, aucun serveur » de D1 et de D3 : le
+site reste du HTML/CSS/JS sans étape de construction, mais il ne fonctionne plus
+sans son serveur (hébergement : D20). **Ferme D6** : le QR porte une
+attestation signée par HMAC, vérifiée par le serveur. `session.js` ne garde
+plus que `{ matricule, prenom, jeton }` ; `site/js/api.js` fait les appels
+(`/api/…`). `SPEC.md` §7 à §9 et `UI.md` §3.1, §3.2 réécrites ; `PLAN.md` :
+jalon 3 = serveur, jalon 4 = écran Question et tables de référence branchés,
+jalon 5 = rapport signé, page de vérification, administration ; l'éditeur
+(D11) ensuite.
+
+## D20 — Hébergement : un Worker Cloudflare sert le site et l'API (2026-09-20, décidée)
+
+**Contexte.** D19 exige un serveur ; GitHub Pages ne sert que des fichiers.
+
+**Décision.** **Un seul Worker Cloudflare** sert `site/` comme ressources
+statiques et expose l'API sous `/api/`. Base **D1** pour les séances (jalon 3).
+Déploiement par **GitHub Actions** avec `wrangler`, à chaque push sur `main`,
+après `npm test`. Remplace GitHub Pages (D1, D3, D8) : `pages.yml` disparaît et
+l'étape 4 de `DEMARRAGE.md` est réécrite.
+
+**Conséquences.** `wrangler` devient la seule `devDependency` ; il n'y a
+toujours aucune étape de construction pour le site, et aucune dépendance
+d'exécution de plus. `wrangler.jsonc` à la racine, code du serveur dans
+`worker/`. `npm run dev` (= `wrangler dev`) remplace `npm run serve`. Deux
+secrets GitHub : `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`.
