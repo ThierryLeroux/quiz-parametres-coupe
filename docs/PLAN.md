@@ -34,7 +34,7 @@ Depuis D19, l'état de séance vit sur le serveur : le navigateur affiche.
 - [x] `site/css/tokens.css`, `base.css` : langage visuel et composants de base (UI §1, §4, §6) ; polices auto-hébergées dans `site/fonts/`
 - [x] Hébergement (D20) : `wrangler.jsonc`, `worker/index.js` minimal (`GET /api/version` ; 501 ailleurs sous `/api/`), `npm run dev`, `deploy.yml`
 - [ ] `site/js/session.js` : le navigateur ne garde que `{ matricule, prenom, jeton }` (D19) ; `site/js/identification.js` : prénom, nom, matricule, NIP
-- [ ] `site/js/api.js` : appels prévus au serveur (identification, question, correction, rapport)
+- [x] `site/js/api.js` : appels prévus au serveur (identification, question, correction, rapport)
 - [ ] `site/index.html` + `site/js/ui/` : écrans Accueil et Identification (UI §3.1, §3.2) selon D19 — « Serveur de correction à venir » tant que l'API répond 501 ; écran Question en gabarit vide
 
 ## Jalon 3 — Serveur de correction (décisions D19, D20)
