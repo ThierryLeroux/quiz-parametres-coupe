@@ -9,7 +9,8 @@ Statut : **brouillon v0.1** (2026-09-19). Rédigée à partir de l'analyse du cl
 Exerciseur auto-corrigé où l'étudiant calcule les paramètres de coupe d'une
 opération d'usinage tirée au hasard (outil × dimension × matériau brut), jusqu'à
 démontrer la maîtrise de chaque type d'outil. À la réussite, un **rapport** est
-produit avec un **code de réussite Moodle** et un **QR code** de vérification.
+produit, que l'étudiant enregistre en PDF et remet sur Léa ; il porte un
+**QR code** de vérification pour l'enseignant (décision D16).
 
 Public : étudiants du Cégep du Vieux Montréal, Techniques de génie mécanique
 (profil fabrication) et Techniques de génie de la maintenance industrielle.
@@ -184,7 +185,7 @@ rechargement de la page. Rien n'est envoyé ailleurs (§9).
 | Clé | Contenu |
 |---|---|
 | `version` | version du format de l'état ; un état d'une autre version est ignoré |
-| `etudiant` | `{ prenom, nom, matricule, numeroMoodle }` (§8) ; le numéro Moodle reste un texte de 5 chiffres |
+| `etudiant` | `{ prenom, nom, matricule }` (§8), en texte |
 | `exerciceId`, `exerciceVersion` | l'exercice de la séance (§10) |
 | `debut`, `reussite` | dates ISO ; `reussite` vaut `null` tant que l'exercice n'est pas complété |
 | `progression` | compteurs de réussites consécutives (ci-dessus) |
@@ -200,30 +201,21 @@ sans sauvegarde.
 
 ## 8. Identification de l'étudiant et rapport
 
-Saisie au démarrage : prénom, nom, matricule, **numéro Moodle** (5 chiffres,
-fourni par la question Moodle à l'étudiant).
+Saisie au démarrage : prénom, nom, matricule. Rien d'autre.
 
-Rapport de réussite :
-- version de l'exercice, numéro Moodle, **code de réussite**, prénom, nom,
-  matricule, date/heure de début, date/heure de réussite, nombre de questions
-  réussies ;
+**La preuve de réussite est le rapport**, que l'étudiant enregistre en PDF et
+remet sur Léa (décision D16). Le QR code sert à l'enseignant pour vérifier un
+rapport en cas de doute.
+
+Rapport de réussite (présentation : `UI.md` §3.6) :
+- exercice et sa version, prénom, nom, matricule, date/heure de début,
+  date/heure de réussite, nombre de questions réussies ;
 - tableau des questions réussies groupées par opération (outil, matériau,
   paramètres) ;
 - **QR code** vers la page de vérification.
 
-### Code de réussite Moodle (VBA `calcCodeM`)
-
-Avec `abcde` les 5 chiffres du numéro Moodle et `verMd` le multiplicateur de
-version (54126 pour le M10 actuel) :
-
-```
-code = ((verMd × (a^e + b^d + c^c + d^b + e^a)) mod 88888) + 11111
-```
-
-Formule identique côté Moodle (question calculée) :
-`fmod(54126*(pow({a},{e})+pow({b},{d})+pow({c},{c})+pow({d},{b})+pow({e},{a})),88888)+11111`.
-❓ Confirmer que la vérification se fait uniquement dans Moodle (l'étudiant
-saisit le code) et que le QR/rapport sert à l'enseignant en cas de doute.
+Moodle est abandonné (D16) : ni numéro Moodle, ni code de réussite. La formule
+du classeur (`calcCodeM`) reste dans `legacy/vba/` pour mémoire.
 
 ### QR code et page de vérification
 
@@ -261,7 +253,6 @@ dans le catalogue ce qui est évalué. Un exercice = un fichier
   "id": "m10-tournage-vc",
   "titre": "M10 — Tournage : vitesse de coupe",
   "version": "r0",
-  "multiplicateur_moodle": 54126,
   "champs_evalues": ["vc"],
   "outils": [
     { "id": "mvlnr", "reussites_requises": 3 },
@@ -278,7 +269,6 @@ dans le catalogue ce qui est évalué. Un exercice = un fichier
 | `id` | oui | minuscules, chiffres et tirets ; **identique au nom du fichier** (sans `.json`) |
 | `titre` | oui | texte affiché à l'étudiant et au rapport |
 | `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
-| `multiplicateur_moodle` | oui | entier > 0 ; c'est le `verMd` du code de réussite (§8) |
 | `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
 | `outils` | oui | au moins un ; chaque `id` une seule fois |
 | `outils[].id` | oui | `id` d'un outil du catalogue |
@@ -318,6 +308,6 @@ Précisions :
 
 1. ~~Arrondis des valeurs théoriques (§5).~~ Tranché : voir §5.
 2. ~~Réussites consécutives ou cumulées (§7).~~ Tranché : consécutives (D12).
-3. Vérification du code : Moodle seul ou aussi QR (§8).
+3. ~~Vérification du code : Moodle seul ou aussi QR (§8).~~ Tranché : plus de Moodle ; rapport PDF remis sur Léa, QR pour l'enseignant (D16).
 4. Sécurité du payload QR (§8 / D6).
 5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ?

@@ -16,7 +16,6 @@ const EXERCICE = {
   id: 'essai',
   titre: 'Essai',
   version: 'r1',
-  multiplicateur_moodle: 12345,
   champs_evalues: ['vc'],
   outils: [
     { id: 'mvlnr', reussites_requises: 3 },

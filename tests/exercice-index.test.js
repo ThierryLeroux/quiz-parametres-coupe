@@ -48,7 +48,7 @@ test('validateExerciseIndex : ne lève jamais d’exception', () => {
 });
 
 test('« index » est un identifiant réservé, pour l’exercice comme pour son chargement', async () => {
-  const exercice = { id: 'index', titre: 'Piège', version: 'r0', multiplicateur_moodle: 1, champs_evalues: ['vc'], outils: [{ id: 'mvlnr', reussites_requises: 1 }] };
+  const exercice = { id: 'index', titre: 'Piège', version: 'r0', champs_evalues: ['vc'], outils: [{ id: 'mvlnr', reussites_requises: 1 }] };
   assert.match(validateExercise(exercice, data)[0], /« id » doit être fait de minuscules/);
   await assert.rejects(loadExercise('index', data, 'exercices/', lireFichier), /Identifiant d'exercice invalide : « index »/);
 });

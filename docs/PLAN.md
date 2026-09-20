@@ -30,13 +30,12 @@ Plomberie d'abord (aucun HTML ni CSS), écrans ensuite, après une maquette appr
 - [x] `site/exercices/index.json` : exercices offerts, avec sa validation (`exercice.js`)
 - [x] `site/js/session.js` : état d'une séance dans `localStorage` (une clé, stockage vide ou corrompu toléré)
 - [x] `site/js/app.js` : choix de l'exercice (`?exercice=<id>`) et cycle d'une séance, en fonctions pures
-- [ ] Maquette des écrans, approuvée par Thierry
-- [ ] `site/index.html` : écran d'identification (prénom, nom, matricule, numéro Moodle) ; reprise d'une séance sauvegardée
+- [x] Maquette des écrans, approuvée par Thierry (`docs/UI.md`, `docs/maquettes/`, décision D17)
+- [ ] `site/index.html` : écran d'identification (prénom, nom, matricule) ; reprise d'une séance sauvegardée
 - [ ] Écran question : outil, dimension, matériau, 5 champs (évalués ou pré-remplis), correction visuelle
 - [ ] Progression par outil / opération à l'écran
 
-## Jalon 3 — Rapport, code Moodle, QR
-- [ ] Calcul du code de réussite (SPEC §8) et test contre des valeurs connues
+## Jalon 3 — Rapport et QR (décision D16 : plus de code Moodle)
 - [ ] Page rapport imprimable + QR code (bibliothèque vendorisée)
 - [ ] Compatibilité avec la page de vérification actuelle (`legacy/index.htm`) ou nouvelle page
 

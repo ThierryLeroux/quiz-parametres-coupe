@@ -16,7 +16,7 @@ export const GRADED_FIELD_KEYS = {
 };
 
 const EXERCISE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/; // minuscules, chiffres et tirets : c'est aussi le nom du fichier
-const EXERCISE_KEYS = ['id', 'titre', 'version', 'multiplicateur_moodle', 'champs_evalues', 'outils'];
+const EXERCISE_KEYS = ['id', 'titre', 'version', 'champs_evalues', 'outils'];
 const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes'];
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -59,9 +59,6 @@ export function validateExercise(exercise, data) {
   if (!isText(exercise.id) || !EXERCISE_ID.test(exercise.id) || exercise.id === 'index') errors.push(`${where} : « id » doit être fait de minuscules, de chiffres et de tirets (ex. « m10-tournage-vc »)`);
   if (!isText(exercise.titre)) errors.push(`${where} : « titre » est vide`);
   if (!isText(exercise.version)) errors.push(`${where} : « version » doit être un texte non vide (ex. « r0 »)`);
-  if (!Number.isInteger(exercise.multiplicateur_moodle) || exercise.multiplicateur_moodle < 1) {
-    errors.push(`${where} : « multiplicateur_moodle » doit être un entier ≥ 1`);
-  }
 
   const fields = Array.isArray(exercise.champs_evalues) ? exercise.champs_evalues : [];
   if (fields.length === 0) errors.push(`${where} : « champs_evalues » doit être une liste non vide`);

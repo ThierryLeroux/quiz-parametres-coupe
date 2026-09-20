@@ -26,7 +26,6 @@ export function validateStudent(student) {
   if (!isText(student.prenom)) errors.push('Le prénom est requis.');
   if (!isText(student.nom)) errors.push('Le nom est requis.');
   if (!isText(student.matricule)) errors.push('Le matricule est requis.');
-  if (!isText(student.numeroMoodle) || !/^\d{5}$/.test(student.numeroMoodle.trim())) errors.push('Le numéro Moodle doit avoir exactement 5 chiffres.');
   return errors;
 }
 
@@ -41,7 +40,6 @@ export function createSession(student, exercise, now) {
       prenom: student.prenom.trim(),
       nom: student.nom.trim(),
       matricule: student.matricule.trim(),
-      numeroMoodle: student.numeroMoodle.trim(),
     },
     exerciceId: exercise.id,
     exerciceVersion: exercise.version,
@@ -61,7 +59,7 @@ export function isValidSession(state) {
   return isObject(state)
     && state.version === SESSION_VERSION
     && isObject(state.etudiant)
-    && ['prenom', 'nom', 'matricule', 'numeroMoodle'].every((key) => isText(state.etudiant[key]))
+    && ['prenom', 'nom', 'matricule'].every((key) => isText(state.etudiant[key]))
     && isText(state.exerciceId)
     && isText(state.exerciceVersion)
     && isText(state.debut)

@@ -219,3 +219,42 @@ serait refusée.
 **Conséquences.** Remplace la ligne « Vitesse d'avance » du tableau de
 `SPEC.md` §6 (±5,1 % et ±25 % disparaissent). Une Vf cohérente mais loin de la
 théorie est bonne ; l'erreur est comptée sur N ou sur f, là où elle a été faite.
+
+## D16 — Abandon complet de Moodle : la preuve de réussite est le rapport PDF (2026-09-20, décidée)
+
+**Contexte.** Le classeur produisait un **code de réussite** calculé à partir
+d'un numéro Moodle à 5 chiffres et d'un multiplicateur propre à l'exercice
+(`calcCodeM`) ; l'étudiant le saisissait dans une question Moodle. D6 notait
+déjà que cette formule, lisible dans le JS d'un site statique, ne protège rien.
+
+**Décision.** Moodle disparaît du produit, entièrement :
+
+- `multiplicateur_moodle` sort du schéma d'exercice (`SPEC.md` §10) et de
+  `m10-tournage-vc.json` — la clé est désormais *inconnue*, donc refusée ;
+- le numéro Moodle sort de l'identification (`validateStudent`) et de l'état de
+  séance : l'étudiant donne prénom, nom et matricule, rien d'autre ;
+- aucun code de réussite n'est calculé ni affiché. La formule reste dans
+  `legacy/vba/` pour mémoire.
+
+La **preuve de réussite est le rapport PDF** que l'étudiant remet sur Léa. Le
+**QR code reste**, pour la vérification par l'enseignant.
+
+**Conséquences.** `SPEC.md` §8 perd sa section « code de réussite Moodle » ; le
+jalon 3 de `PLAN.md` devient « Rapport et QR ». Ferme la question ouverte n° 3
+de `SPEC.md` §11. D6 reste ouverte, mais ne concerne plus que le contenu du QR.
+
+## D17 — `docs/UI.md` est la référence de présentation (2026-09-20, décidée)
+
+**Contexte.** La maquette des écrans (v2, 25 points de révision) a été
+approuvée par Thierry le 2026-09-20. Elle est décrite dans `docs/UI.md` et
+illustrée par `docs/maquettes/*.html`.
+
+**Décision.** `docs/UI.md` est la source de vérité de la **présentation**
+(langage visuel, parcours, écrans, composants, impression, accessibilité), au
+même titre que `SPEC.md` pour le comportement. En cas de contradiction :
+`DECISIONS.md`, puis `SPEC.md`, puis `UI.md`. Les maquettes montrent
+l'intention ; le code est responsive, accessible et piloté par les données,
+jamais copié des maquettes.
+
+**Conséquences.** `UI.md` figure dans la section « Où lire quoi » de
+`CLAUDE.md`. Changer un écran = mettre `UI.md` à jour dans le même commit.

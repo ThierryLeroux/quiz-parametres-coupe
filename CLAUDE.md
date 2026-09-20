@@ -9,7 +9,7 @@ dans `docs/`.
 Exerciseur web auto-corrigé pour étudiants en génie mécanique (Cégep) : calcul
 des paramètres de coupe (Vc, N, avances) pour une opération d'usinage tirée au
 hasard. Il remplace un classeur Excel/VBA (`legacy/`) qu'on ne maintient plus.
-À la réussite : rapport, code Moodle et QR code de vérification.
+À la réussite : rapport PDF à remettre sur Léa, avec QR code de vérification.
 
 Propriétaire : Thierry, enseignant, expert en usinage CNC, développeur
 occasionnel. Il maintiendra seul ce code pendant des années : **la simplicité et
@@ -18,6 +18,7 @@ la lisibilité priment sur l'élégance technique.**
 ## Où lire quoi
 
 - `docs/SPEC.md` — comportement attendu (formules, tolérances, rapport). **Source de vérité fonctionnelle.** Les ❓ sont des questions ouvertes : ne pas les trancher seul, les remonter.
+- `docs/UI.md` — écrans et présentation (langage visuel, parcours, composants, impression). **Source de vérité de la présentation**, au même titre que SPEC pour le comportement (décision D17) ; maquettes approuvées dans `docs/maquettes/`. En cas de contradiction : DECISIONS, puis SPEC, puis UI.
 - `docs/DECISIONS.md` — décisions prises et ouvertes. Ne jamais contredire une décision fermée sans en ajouter une nouvelle.
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
 - `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
@@ -40,7 +41,7 @@ site/exercices/    un JSON par exercice configurable (décision D11, SPEC §10)
 site/img/outils/   images des outils (jalon 5)
 site/editeur/      éditeur web statique du catalogue et des exercices (jalon 4)
 tests/             tests unitaires du moteur (node --test)
-docs/              SPEC, DECISIONS, PLAN
+docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN
 legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
 ```
 

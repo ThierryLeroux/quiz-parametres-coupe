@@ -16,7 +16,6 @@ const exerciceValide = () => ({
   id: 'essai-percage',
   titre: 'Essai — perçage',
   version: 'r1',
-  multiplicateur_moodle: 12345,
   champs_evalues: ['vc', 'n', 'vf'],
   outils: [
     { id: 'mvlnr', reussites_requises: 3 },
@@ -47,9 +46,7 @@ const anomalies = [
   ['id absent', (e) => { delete e.id; }, /« id » doit être fait de minuscules/],
   ['titre vide', (e) => { e.titre = ' '; }, /« titre » est vide/],
   ['version numérique', (e) => { e.version = 1; }, /« version » doit être un texte/],
-  ['multiplicateur Moodle absent', (e) => { delete e.multiplicateur_moodle; }, /« multiplicateur_moodle » doit être un entier ≥ 1/],
-  ['multiplicateur Moodle décimal', (e) => { e.multiplicateur_moodle = 541.26; }, /« multiplicateur_moodle » doit être un entier ≥ 1/],
-  ['multiplicateur Moodle en texte', (e) => { e.multiplicateur_moodle = '54126'; }, /« multiplicateur_moodle » doit être un entier ≥ 1/],
+  ['clé abandonnée (D16 : plus de Moodle)', (e) => { e.multiplicateur_moodle = 54126; }, /clé inconnue « multiplicateur_moodle »/],
   ['clé inconnue à la racine', (e) => { e.champs_evaluees = ['vc']; }, /clé inconnue « champs_evaluees »/],
   ['aucun champ évalué', (e) => { e.champs_evalues = []; }, /« champs_evalues » doit être une liste non vide/],
   ['champ évalué inconnu (nom du moteur au lieu du nom du schéma)', (e) => { e.champs_evalues = ['vc', 'rpm']; }, /champ évalué inconnu : « rpm » \(choix : vc, fz, n, f, vf\)/],

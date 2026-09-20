@@ -3,8 +3,8 @@
 Exerciseur auto-corrigé pour les étudiants en Techniques de génie mécanique
 (Cégep du Vieux Montréal) : calcul des paramètres de coupe (vitesse de coupe,
 vitesse de rotation, avances) pour une opération de tournage, de fraisage ou de
-perçage tirée au hasard. À la réussite, l'étudiant obtient un rapport, un code
-de réussite Moodle et un QR code de vérification.
+perçage tirée au hasard. À la réussite, l'étudiant obtient un rapport à
+remettre sur Léa, avec un QR code de vérification pour l'enseignant.
 
 Ce projet remplace un classeur Excel/VBA (`legacy/`) par un site statique
 HTML/JS hébergé sur GitHub Pages. **État : squelette — jalon 0** (voir
@@ -14,7 +14,7 @@ HTML/JS hébergé sur GitHub Pages. **État : squelette — jalon 0** (voir
 
 ```
 CLAUDE.md        contexte et conventions pour Claude Code (lu à chaque session)
-docs/            SPEC.md (comportement), DECISIONS.md (journal), PLAN.md (jalons), DEMARRAGE.md (installation)
+docs/            SPEC.md (comportement), UI.md (écrans), DECISIONS.md (journal), PLAN.md (jalons), DEMARRAGE.md (installation)
 site/            le site publié (à construire)
 site/data/       catalogue en JSON : matériaux, opérations, outils
 site/exercices/  un JSON par exercice configurable (outils évalués, réussites, champs)

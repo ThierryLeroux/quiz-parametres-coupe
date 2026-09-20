@@ -10,7 +10,7 @@ import { aleaAGraine, data, lireFichier } from './aide.js';
 
 const { exercise: m10 } = await loadApp('', lireFichier);
 
-const ETUDIANT = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345', numeroMoodle: '40213' };
+const ETUDIANT = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' };
 const DEBUT = new Date('2026-09-21T13:05:00.000Z');
 const minutesApres = (n) => new Date(DEBUT.getTime() + n * 60000);
 
@@ -21,7 +21,6 @@ const CINQ_CHAMPS = {
   id: 'essai-percage',
   titre: 'Essai — perçage',
   version: 'r1',
-  multiplicateur_moodle: 12345,
   champs_evalues: ['vc', 'fz', 'n', 'f', 'vf'],
   outils: [{ id: 'foret_fractionnaire', reussites_requises: 2, dimensions: ['Ø 1/4 po'], materiaux_outil: ['Acier rapide'], groupes: ['P - Acier non allié'] }],
 };
@@ -85,7 +84,7 @@ test('startSession : identifie l’étudiant et pose la première question', () 
 });
 
 test('startSession : identification invalide → erreur, aucune séance', () => {
-  assert.throws(() => startSession({ ...ETUDIANT, numeroMoodle: '123' }, m10, data, DEBUT), /Identification invalide/);
+  assert.throws(() => startSession({ ...ETUDIANT, nom: '' }, m10, data, DEBUT), /Identification invalide/);
 });
 
 test('answerFields (M10) : Vc à saisir, les quatre autres champs pré-remplis avec la valeur mise en forme', () => {

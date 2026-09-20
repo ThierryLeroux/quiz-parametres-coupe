@@ -40,7 +40,6 @@ test('exercices/m10-tournage-vc.json : reprend les réussites requises du classe
   const exercice = JSON.parse(await readFile(new URL('../site/exercices/m10-tournage-vc.json', import.meta.url), 'utf8'));
   const { outils } = await lire('outils.json');
   assert.equal(exercice.id, 'm10-tournage-vc');
-  assert.equal(exercice.multiplicateur_moodle, 54126);
   assert.deepEqual(exercice.champs_evalues, ['vc']);
 
   // Ligne 3 de la feuille « Liste d'outils » : 9 outils de tournage évalués, les 20 autres à 0.

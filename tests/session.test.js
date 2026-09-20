@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SESSION_KEY, SESSION_VERSION, clearSession, createSession, isValidSession, loadSession, saveSession, validateStudent } from '../site/js/session.js';
 
-const ETUDIANT = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345', numeroMoodle: '40213' };
+const ETUDIANT = { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' };
 const EXERCICE = { id: 'm10-tournage-vc', version: 'r0' }; // createSession ne lit que l'id et la version
 const DEBUT = new Date('2026-09-21T13:05:00.000Z');
 
@@ -33,15 +33,8 @@ test('validateStudent : une erreur par champ fautif', () => {
   assert.deepEqual(validateStudent({ ...ETUDIANT, prenom: '  ' }), ['Le prénom est requis.']);
   assert.deepEqual(validateStudent({ ...ETUDIANT, nom: '' }), ['Le nom est requis.']);
   assert.deepEqual(validateStudent({ ...ETUDIANT, matricule: undefined }), ['Le matricule est requis.']);
-  assert.equal(validateStudent({}).length, 4);
+  assert.equal(validateStudent({}).length, 3);
   assert.equal(validateStudent(null).length, 1);
-});
-
-test('validateStudent : le numéro Moodle a exactement 5 chiffres', () => {
-  for (const numero of ['4021', '402130', '4021a', '40 213', '', 40213, null]) {
-    assert.deepEqual(validateStudent({ ...ETUDIANT, numeroMoodle: numero }), ['Le numéro Moodle doit avoir exactement 5 chiffres.'], String(numero));
-  }
-  assert.deepEqual(validateStudent({ ...ETUDIANT, numeroMoodle: ' 00213 ' }), []); // espaces autour tolérés, zéros de tête conservés
 });
 
 test('createSession : état de départ complet', () => {
@@ -60,13 +53,13 @@ test('createSession : état de départ complet', () => {
   });
 });
 
-test('createSession : retire les espaces autour de l’identification, garde le numéro Moodle en texte', () => {
-  const etat = createSession({ prenom: ' Camille ', nom: 'Tremblay ', matricule: ' 2412345', numeroMoodle: ' 00213 ' }, EXERCICE, DEBUT);
-  assert.deepEqual(etat.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345', numeroMoodle: '00213' });
+test('createSession : retire les espaces autour de l’identification', () => {
+  const etat = createSession({ prenom: ' Camille ', nom: 'Tremblay ', matricule: ' 2412345' }, EXERCICE, DEBUT);
+  assert.deepEqual(etat.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
 });
 
 test('createSession : identification invalide → erreur qui énumère les problèmes', () => {
-  assert.throws(() => createSession({ ...ETUDIANT, nom: '', numeroMoodle: '12' }, EXERCICE, DEBUT), /Identification invalide :\n- Le nom est requis\.\n- Le numéro Moodle/);
+  assert.throws(() => createSession({ ...ETUDIANT, nom: '', matricule: '' }, EXERCICE, DEBUT), /Identification invalide :\n- Le nom est requis\.\n- Le matricule/);
 });
 
 test('sauvegarde puis relecture : l’état revient identique, sous une seule clé', () => {
