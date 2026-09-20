@@ -1,0 +1,6 @@
+# Modèle du fichier .dev.vars : les secrets LOCAUX du Worker, lus par « npm run dev ».
+# Copier ce fichier sous le nom « .dev.vars » (ignoré par git) et y mettre deux valeurs au hasard,
+# par exemple celles que donne :   node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
+# Ces valeurs n'ont aucun rapport avec les secrets de production (docs/DEMARRAGE.md, étape 5).
+CLE_SECRETE=remplacer-par-une-valeur-au-hasard
+CLE_ADMIN=remplacer-par-une-autre-valeur-au-hasard

@@ -26,8 +26,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # D'abord les migrations de la base D1 (migrations/), puis le Worker : le code publié trouve
+      # toujours le schéma qu'il attend. Le jeton d'API doit avoir le droit « D1 : Edit ».
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          command: |
+            d1 migrations apply quiz-parametres-coupe --remote
+            deploy
