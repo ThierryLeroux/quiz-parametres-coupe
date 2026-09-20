@@ -1,0 +1,33 @@
+# Publication (décision D20) : à chaque push sur main, les tests, puis le déploiement du Worker
+# Cloudflare (site/ + API /api/) avec wrangler. Si un test échoue, rien n'est publié.
+# Les deux secrets se créent une fois : docs/DEMARRAGE.md, étape 4.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Un seul déploiement à la fois ; un déploiement en cours n'est jamais annulé, le suivant attend.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy

@@ -5,7 +5,7 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 
 ## Jalon 0 — Dépôt en place
 - [x] Dépôt GitHub créé, squelette commité
-- [ ] GitHub Pages activé sur `site/` (quand `site/index.html` existera)
+- [ ] Publication sur Cloudflare en place (décision D20 ; `DEMARRAGE.md`, étape 4) : compte, sous-domaine `workers.dev`, deux secrets GitHub, GitHub Pages désactivé
 - [x] VS Code + extension Claude Code opérationnels ; `CLAUDE.md` lu par Claude Code
 - [x] `npm test` (tests vides) passe
 
