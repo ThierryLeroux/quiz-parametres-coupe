@@ -50,6 +50,8 @@ offre « Reprendre, <prénom> » tant que le jeton local est valide.
 
 ## 3. Écrans
 
+Les maquettes `01-accueil.html` et `02-identification.html` sont **périmées depuis D19** et ne seront pas refaites : pour ces deux écrans, le texte ci-dessous fait foi (D21).
+
 ### 3.1 Accueil (`01-accueil.html`)
 
 - Titre de l'exercice en grand, avec version, nombre d'outils, champs évalués, et la consigne « vérifie que c'est l'exercice indiqué sur Léa ». **Aucun moyen d'en changer** depuis la page (D11, point 10) ; la liste des exercices n'apparaît que si l'URL n'a pas de `?exercice=`, ou en nomme un qui n'existe pas — elle est alors précédée de « L'exercice « <id> » n'existe pas — vérifie le lien sur Léa » (D18).
@@ -60,11 +62,12 @@ offre « Reprendre, <prénom> » tant que le jeton local est valide.
 - Tant que le serveur de correction répond 501 (pas encore en service), une ligne sous le bouton affiche « Serveur de correction à venir ».
 - Pied : « Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session. »
 
-La maquette `01-accueil.html` montre encore l'ancien panneau doré et le bouton « Nouvelle séance » : ce texte-ci fait foi.
-
 ### 3.2 Identification (`02-identification.html`)
 
-- Prénom, nom, **matricule à 7 chiffres**, **NIP de 4 à 6 chiffres** (case masquée, clavier numérique) ; validation à la saisie, messages en français. Rien d'autre (D16 : plus de numéro Moodle).
+- Prénom, nom, **matricule à 7 chiffres**, **NIP de 4 à 6 chiffres** ; validation à la saisie, messages en français. Rien d'autre (D16 : plus de numéro Moodle).
+- **Case du NIP** (D21) : champ **texte** à chiffres (`inputmode="numeric"`, `autocomplete="off"`), masqué par CSS (`-webkit-text-security: disc`) là où le navigateur le permet ; **jamais `type="password"`**, pour qu'aucun navigateur ne propose d'enregistrer le NIP sur un poste partagé. `autocomplete="off"` aussi sur le matricule (et sur le prénom et le nom).
+- Il n'y a pas de lien « ← Retour » : le **titre de l'exercice reste visible** dans la barre du haut, avec sa version.
+- À la reprise, le prénom et le nom tapés sont ignorés : l'écran suivant affiche ceux de la première visite, renvoyés par le serveur (D21).
 - Texte : « Choisis un NIP à ta première visite : il te servira à reprendre l'exercice sur un autre appareil. »
 - **Un seul bouton : Continuer** — la première visite et la reprise passent par le même formulaire ; c'est le serveur qui sait si le matricule a déjà une séance.
 - Erreurs — celle d'un champ sous sa case, avant l'envoi ; celles du serveur sous le formulaire :
@@ -74,8 +77,6 @@ La maquette `01-accueil.html` montre encore l'ancien panneau doré et le bouton 
   - serveur pas encore en service (501) : « Serveur de correction à venir » ;
   - serveur injoignable : « Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie. »
 - Quand l'écran s'ouvre parce que le serveur a refusé le jeton local (UI §3.1), il affiche d'entrée : « Ta séance a expiré : identifie-toi de nouveau. »
-
-La maquette `02-identification.html` montre encore trois champs et deux boutons : ce texte-ci fait foi.
 
 ### 3.3 Question (`03-question.html`, téléphone `03b-question-telephone.html`)
 
@@ -167,4 +168,4 @@ Tous en SVG trait/aplat, dans `site/img/pictos/`, référencés par les données
 
 - Le rendu final des 6 + 19 pictogrammes (proposition de Claude Code, validation de Thierry).
 - Le contenu exact du QR signé, la page de vérification et la page d'administration (D19, jalon 5).
-- L'éditeur (jalon 6) : accès par mot de passe pour les professeurs — empreinte seulement dans le code, jamais le mot de passe en clair, jamais dans les docs.
+- L'éditeur (jalon 6) : protégé par la **clé d'administration** du serveur (D21), la même que la page d'administration — jamais dans le code, jamais dans les docs. Son mode de sauvegarde (JSON à télécharger, ou autre) se décide au jalon 6.

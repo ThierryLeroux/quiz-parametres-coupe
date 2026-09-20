@@ -177,6 +177,10 @@ a:hover { color: var(--color-link-hover); }
 
 .field input::placeholder { color: var(--color-text-muted); }
 
+/* Case du NIP : un champ texte dont les chiffres sont remplacés par des points, là où le navigateur
+   le permet (Chrome, Edge, Safari, Firefox récents) ; ailleurs, les chiffres restent visibles. */
+.input-secret { -webkit-text-security: disc; }
+
 /* Case de nombre : chasse fixe (UI §1 : IBM Plex Mono pour les nombres seulement) */
 .field--number input {
   font-family: var(--font-number);

@@ -61,7 +61,10 @@ export function renderIdentification(main, { exercise, notice = '' }, actions) {
     inputs[name] = el('input', {
       id: name,
       name,
-      type: secret ? 'password' : 'text',
+      // Le NIP est un champ TEXTE masqué par CSS, jamais type="password" : aucun navigateur ne doit
+      // proposer de l'enregistrer sur un poste partagé (D21).
+      type: 'text',
+      class: secret ? 'input-secret' : null,
       inputmode: number ? 'numeric' : null,
       maxlength,
       autocomplete: 'off', // postes partagés du labo : ne rien proposer de l'étudiant précédent
