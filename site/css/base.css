@@ -1,0 +1,267 @@
+/* Composants de base (docs/UI.md §1, §4, §6, §7) : panneau biseauté, boutons, champs, page imprimable.
+   CSS natif, sans framework (D3). Toutes les valeurs viennent de tokens.css.
+   Les écrans (app.css) ne font qu'assembler ces composants. */
+
+/* --- Socle ------------------------------------------------------------------------------------ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* L'attribut hidden doit gagner contre « display: flex » et compagnie. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-text);
+  font-size: var(--text-md);
+  line-height: 1.5;
+}
+
+h1, h2, p { margin: 0; }
+h1, h2 { color: var(--color-accent-light); font-weight: 700; line-height: 1.15; }
+
+a { color: var(--color-accent-light); }
+a:hover { color: var(--color-link-hover); }
+
+/* Focus toujours visible au clavier (UI §7). */
+:focus-visible { outline: 2px solid var(--color-accent-light); outline-offset: 3px; }
+
+.muted { color: var(--color-text-muted); }
+.small { font-size: var(--text-sm); }
+.smaller { font-size: var(--text-xs); }
+
+/* Sur-titre d'un panneau : « IDENTIFICATION », « EXERCICE DEMANDÉ PAR TON ENSEIGNANT » */
+.eyebrow {
+  color: var(--color-accent-light);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* --- Panneau biseauté avec halo -------------------------------------------------------------- */
+/* Un seul élément : <section class="panel">. Coins coupés en haut à gauche et en bas à droite,
+   contour coloré, halo de la même couleur. La couleur se change avec --panel-color.
+
+   Comment : « clip-path » couperait aussi le halo. La forme est donc dessinée par deux
+   pseudo-éléments découpés (::before = le contour, ::after = l'intérieur, en retrait de
+   l'épaisseur du contour) et le halo (drop-shadow) est posé sur le panneau, qui n'est pas découpé. */
+.panel {
+  --panel-color: var(--color-accent);
+  position: relative;
+  padding: var(--space-5) var(--space-6);
+  filter: drop-shadow(0 0 var(--glow) color-mix(in srgb, var(--panel-color) 40%, transparent));
+}
+
+.panel::before,
+.panel::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+
+.panel::before {
+  --cut: var(--bevel);
+  inset: 0;
+  background: var(--panel-color);
+}
+
+.panel::after {
+  --cut: calc(var(--bevel) - 1px); /* un peu moins, pour que le contour garde la même épaisseur sur le biseau */
+  inset: var(--border);
+  background: var(--color-panel);
+}
+
+.panel--gold { --panel-color: var(--color-gold); }
+.panel--wrong { --panel-color: var(--color-wrong); }
+.panel--correct { --panel-color: var(--color-correct); }
+
+/* --- Boutons ------------------------------------------------------------------------------------ */
+/* <button class="button"> ou <a class="button">. Même technique que le panneau : le biseau est sur
+   ::before, pour que le contour de focus ne soit pas coupé. */
+.button {
+  --button-color: var(--color-accent);
+  position: relative;
+  isolation: isolate; /* garde ::before (z-index -1) derrière le texte, mais devant le panneau */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-height);
+  padding: 0 22px;
+  border: 0;
+  background: none;
+  color: var(--color-bg);
+  font-family: var(--font-text);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--button-color);
+  clip-path: polygon(var(--bevel-button) 0, 100% 0, 100% calc(100% - var(--bevel-button)), calc(100% - var(--bevel-button)) 100%, 0 100%, 0 var(--bevel-button));
+}
+
+.button:hover { color: var(--color-bg); }
+.button:hover::before { filter: brightness(1.2); }
+.button:disabled { opacity: 0.45; cursor: not-allowed; }
+.button:disabled::before { filter: none; }
+
+.button--gold { --button-color: var(--color-gold); }
+
+/* Bouton qui a l'air d'un lien : « ← Retour », « Quitter ». Garde une cible tactile de 44 px. */
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent-light);
+  font-family: var(--font-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button-link:hover { color: var(--color-link-hover); }
+
+/* --- Champs -------------------------------------------------------------------------------------- */
+/* <div class="field"> <label for> <input> <div class="field-note"> </div>
+   Quatre états (UI §4) :
+     à répondre : .field                      contour bleu ; bleu clair et halo quand la case a le focus
+     fourni     : .field.field--provided      grisé, « fourni par l'exercice » (input readonly)
+     juste      : .field.field--correct       vert  + note « Juste »
+     faux       : .field.field--wrong         rouge + note « Faux — attendu … »
+   Une saisie refusée (matricule incomplet) utilise aria-invalid="true" : même rouge que « faux ».
+   La couleur ne porte jamais le sens seule : la note le dit en texte (UI §7). */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.field input {
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: var(--border) solid var(--color-accent);
+  border-radius: 0;
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  font-family: var(--font-text);
+  font-size: var(--text-md);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--color-accent-light);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-light) 55%, transparent);
+}
+
+.field input::placeholder { color: var(--color-text-muted); }
+
+/* Case de nombre : chasse fixe (UI §1 : IBM Plex Mono pour les nombres seulement) */
+.field--number input {
+  font-family: var(--font-number);
+  font-size: var(--text-lg);
+}
+
+.field-note {
+  min-height: 1.5em; /* réserve la ligne : la page ne saute pas quand un message apparaît */
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.field--provided input {
+  border: 1px solid var(--color-input-provided-border);
+  background: var(--color-input-provided-bg);
+  color: var(--color-text-muted);
+}
+
+.field--correct input {
+  border-color: var(--color-correct);
+  background: var(--color-correct-bg);
+  box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--color-correct) 40%, transparent);
+}
+
+.field--wrong input,
+.field input[aria-invalid="true"] {
+  border-color: var(--color-wrong);
+  background: var(--color-wrong-bg);
+  box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--color-wrong) 40%, transparent);
+}
+
+.field--correct .field-note { color: var(--color-correct); }
+
+.field--wrong .field-note,
+.field input[aria-invalid="true"] ~ .field-note { color: var(--color-wrong); }
+
+/* --- Page imprimable, format lettre (UI §6) ------------------------------------------------------ */
+/* <main class="print-stage"> <article class="print-page"> … </article> </main>
+   À l'écran : une feuille blanche 8½ × 11 po sur fond gris. À l'impression : la feuille seule.
+   Tout ce qui ne s'imprime pas (barre du haut, boutons) porte la classe .no-print. */
+@page {
+  size: letter;
+  margin: 0.5in;
+}
+
+.print-stage {
+  display: flex;
+  justify-content: safe center;
+  padding: var(--space-5);
+  overflow-x: auto; /* sur téléphone, la feuille garde sa taille et défile */
+  background: var(--color-print-stage);
+}
+
+.print-page {
+  flex: none;
+  width: 8.5in;
+  min-height: 11in;
+  padding: 0.5in; /* à l'écran, tient lieu des marges de @page */
+  background: var(--color-page);
+  color: var(--color-page-text);
+  font-family: var(--font-page);
+  box-shadow: 0 0 30px #00000088;
+}
+
+.print-page h1,
+.print-page h2 { color: inherit; }
+
+@media print {
+  body { background: #fff; }
+
+  .no-print { display: none !important; }
+
+  .print-stage {
+    display: block;
+    padding: 0;
+    overflow: visible;
+    background: none;
+  }
+
+  .print-page {
+    width: auto;
+    min-height: 0;
+    padding: 0; /* les marges viennent de @page */
+    box-shadow: none;
+    /* conserve les couleurs de classe ISO et les barres d'avance */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

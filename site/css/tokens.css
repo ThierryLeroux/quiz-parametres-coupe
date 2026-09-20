@@ -1,0 +1,104 @@
+/* Variables de présentation (docs/UI.md §1) : couleurs, polices, espacements.
+   Aucune règle de mise en page ici — seulement des valeurs, lues par base.css et par les écrans.
+   Changer une couleur = la changer ici, une seule fois. */
+
+:root {
+  /* --- Univers « exercice » : fond nuit, panneaux lumineux ------------------------------ */
+  --color-bg: #05091a;            /* fond de la page */
+  --color-bg-header: #03060f;     /* barre du haut */
+  --color-panel: #0b1430;         /* intérieur d'un panneau */
+  --color-text: #dde6f5;
+  --color-text-muted: #8aa0c6;    /* texte atténué : notes, pied de page */
+  --color-accent: #2e9bff;        /* contours, boutons */
+  --color-accent-light: #4fc3f7;  /* titres, liens, focus */
+  --color-link-hover: #8fd8ff;
+  --color-gold: #ffc000;          /* panneau « séance en cours » */
+
+  /* Correction — toujours doublée d'un texte (« Juste » / « Faux »), UI §7 */
+  --color-correct: #35d07f;
+  --color-correct-bg: #0e2a20;
+  --color-wrong: #ff4d5a;
+  --color-wrong-bg: #2a0e14;
+
+  /* Cases de saisie */
+  --color-input-bg: #08102a;
+  --color-input-provided-bg: #121c3a;   /* champ « fourni par l'exercice » */
+  --color-input-provided-border: #8aa0c666;
+
+  /* --- Univers « documents » : tables de référence, rapport ------------------------------ */
+  --color-page: #ffffff;
+  --color-page-text: #000000;
+  --color-page-muted: #555555;
+  --color-page-rule: #dddddd;
+  --color-print-stage: #2a2f3a;   /* gris autour de la page lettre, à l'écran */
+
+  /* --- Couleurs de sens, identiques aux feuilles Excel ----------------------------------- */
+  /* Matériau d'outil : en-tête de colonne de la table des Vc, panneau de l'outil.
+     Les noms reprennent les clés de vc_pi_min dans materiaux.json. */
+  --tool-acier-rapide: #b4c7e7;
+  --tool-carbure-solide: #a6a6a6;
+  --tool-insert-carbure: #ffc000;
+
+  /* Classe ISO du matériau brut : couleur vive (lettre, panneau du matériau) */
+  --iso-p: #00b0f0;
+  --iso-m: #ffff00;
+  --iso-k: #ff0000;
+  --iso-n: #00b050;
+  --iso-s: #ffc000;
+  --iso-h: #d9d9d9;
+  --iso-o: #808080;
+
+  /* Classe ISO : teinte de ligne dans la table des Vc */
+  --iso-p-tint: #c1efff;
+  --iso-m-tint: #ffffb7;
+  --iso-k-tint: #ffc5c5;
+  --iso-n-tint: #b3ffd5;
+  --iso-s-tint: #fff1c5;
+  --iso-h-tint: #eeeeee;
+  --iso-o-tint: #d9d9d9;
+
+  /* Classe ISO : texte de la lettre posée sur la couleur vive */
+  --iso-p-text: #ffffff;
+  --iso-m-text: #000000;
+  --iso-k-text: #ffffff;
+  --iso-n-text: #ffffff;
+  --iso-s-text: #000000;
+  --iso-h-text: #000000;
+  --iso-o-text: #ffffff;
+
+  /* Feuille des formules et barres d'avance */
+  --color-part-rotation: #c1efff; /* 1re partie — vitesse de rotation */
+  --color-part-feed: #fff1c5;     /* 2e partie — vitesse d'avance */
+  --color-feed-bar: #ffc000;
+
+  /* --- Polices ---------------------------------------------------------------------------- */
+  /* ❓ UI §1 dit « Google Fonts », mais D3 interdit toute dépendance CDN à l'exécution et la page
+     promet qu'aucune donnée n'est envoyée. Rien n'est donc chargé ici : sans les polices installées
+     sur le poste, c'est le repli qui s'affiche. À trancher par Thierry (copier les .woff2 dans
+     site/vendor/ ?). */
+  --font-text: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-number: 'IBM Plex Mono', ui-monospace, Consolas, monospace; /* nombres seulement */
+  --font-page: 'Carlito', Calibri, sans-serif;                        /* documents imprimables */
+
+  --text-xs: 0.75rem;    /* 12 px : notes, pied de page */
+  --text-sm: 0.8125rem;  /* 13 px : libellés */
+  --text-md: 1rem;       /* 16 px : texte courant, boutons, cases (≥ 16 px : pas de zoom sur iPhone) */
+  --text-lg: 1.125rem;   /* 18 px : nombres dans les cases */
+  --text-xl: 1.625rem;   /* 26 px : titre d'un écran */
+  --text-2xl: 2.25rem;   /* 36 px : titre de l'exercice à l'accueil */
+
+  /* --- Espacements et formes --------------------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+
+  --bevel: 18px;          /* coin biseauté d'un panneau (haut-gauche et bas-droite) */
+  --bevel-button: 10px;   /* coin biseauté d'un bouton */
+  --border: 2px;          /* contour d'un panneau, d'une case */
+  --control-height: 48px; /* boutons et cases : cible tactile ≥ 44 px (UI §7) */
+  --glow: 10px;           /* rayon du halo */
+}
