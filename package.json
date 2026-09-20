@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test \"tests/**/*.test.js\"",
+    "test:api": "node tests/api-locale.mjs",
     "dev": "wrangler d1 migrations apply quiz-parametres-coupe --local && wrangler dev",
     "deploy": "wrangler d1 migrations apply quiz-parametres-coupe --remote && wrangler deploy"
   },
