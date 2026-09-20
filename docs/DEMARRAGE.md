@@ -54,9 +54,14 @@ le navigateur (ne jamais coller de mot de passe ou de jeton dans le terminal).
 
 ## 4. Activer GitHub Pages
 
-Sur GitHub : dépôt → *Settings* → *Pages* → *Source : Deploy from a branch* →
-branche `main`, dossier `/site` (le dossier `site/` doit contenir au moins un
-`index.html` ; Claude Code le créera au jalon 2 — l'activation peut attendre).
+Sur GitHub : dépôt → *Settings* → *Pages* → *Build and deployment* →
+*Source : **GitHub Actions*** (et non « Deploy from a branch » : ce mode ne sait
+publier que la racine du dépôt ou `/docs`, pas `/site`).
+
+C'est ensuite `.github/workflows/pages.yml` qui publie le dossier `site/`, tel
+quel, à chaque push sur `main`. Le déroulement et l'adresse du site se voient
+dans l'onglet *Actions* du dépôt ; la publication peut aussi y être relancée à
+la main (*Run workflow*).
 
 ## 5. Ouvrir dans VS Code et lancer Claude Code
 
