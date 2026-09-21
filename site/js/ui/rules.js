@@ -50,6 +50,25 @@ export function toolMaterialColor(label) {
   return key ? `--tool-${key.replaceAll('_', '-')}` : '--color-accent';
 }
 
+// Le panneau du matériau brut : { letter, title, lines, color, textColor }. Jamais ses vitesses de
+// coupe : les trouver dans la table, c'est l'exercice (et le serveur ne les envoie pas).
+export function materialCard(materiau) {
+  const hardness = typeof materiau.durete === 'number' ? `${materiau.durete} HB` : materiau.durete;
+  const example = typeof materiau.exemple === 'number' ? `AISI ${materiau.exemple}` : materiau.exemple;
+  const iso = materiau.iso.toLowerCase();
+  return {
+    letter: materiau.iso,
+    title: `${materiau.materiau} — groupe ${materiau.groupe}`,
+    lines: [
+      materiau.composition ? `Composition : ${materiau.composition}` : null,
+      [materiau.etat ? `État : ${materiau.etat}` : null, hardness ? `Dureté : ${hardness}` : null].filter(Boolean).join(' · ') || null,
+      example ? `Exemple : ${example}` : null,
+    ].filter(Boolean),
+    color: `--iso-${iso}`,
+    textColor: `--iso-${iso}-text`,
+  };
+}
+
 // --- Famille d'avance, facteurs ---------------------------------------------------------------------------------
 
 // 'thread' (filetage), 'proportional' (proportionnelle au Ø) ou 'fixed', comme dans calcul.js.

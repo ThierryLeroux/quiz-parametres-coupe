@@ -2,6 +2,8 @@ node_modules/
 # wrangler : état local de « npm run dev » et variables secrètes locales
 .wrangler/
 .dev.vars
+# Captures d'écran des vérifications dans Chrome (rapports de jalon) : à regarder, pas à versionner
+captures/
 .DS_Store
 Thumbs.db
 *.log

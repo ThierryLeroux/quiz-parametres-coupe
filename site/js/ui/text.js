@@ -71,8 +71,8 @@ export function newSessionNotice(matricule) {
 }
 
 // --- Écran Question (UI §3.3, §3.4) ---------------------------------------------------------------------
-// Les fonctions ci-dessous reçoivent ce que renvoie le serveur (SPEC §7) : seance.question,
-// correction, seance.progression.
+// Les fonctions ci-dessous reçoivent ce que renvoie le serveur (SPEC §7). Les règles d'affichage
+// plus riches (outil, matériau, aide, progression) sont dans rules.js.
 
 // Libellé complet de chaque champ : nom, symbole, unité (UI §3.3).
 export const FIELD_LABELS = {
@@ -83,34 +83,15 @@ export const FIELD_LABELS = {
   feedRate: "Vitesse d'avance (Vf, po/min)",
 };
 
-// Ce qu'il faut savoir de l'outil pour calculer : liste de [libellé, valeur]. Un facteur de vitesse
-// ou d'avance n'est montré que s'il diffère de 1 — sans lui, l'étudiant ne peut pas trouver N.
-export function toolFacts(question) {
-  const { outil } = question;
-  const facts = [
-    ['Opération', outil.operation],
-    ['Dimension', question.dimension],
-    ['Nombre de dents', String(outil.dents)],
-    ["Matériau de l'outil", outil.materiau],
-    ['RPM max de la machine-outil', String(outil.limite_rpm)],
-  ];
-  if (outil.fact_vc !== 1) facts.push(['Facteur de vitesse', `Vitesse ${outil.fact_vc < 1 ? 'réduite' : 'augmentée'} × ${outil.fact_vc}`]);
-  if (outil.fact_av !== 1) facts.push(["Facteur d'avance", `Avance ${outil.fact_av < 1 ? 'réduite' : 'augmentée'} × ${outil.fact_av}`]);
-  if (outil.commentaire) facts.push(['Note', outil.commentaire]);
-  return facts;
-}
-
-// Le matériau brut : liste de [libellé, valeur]. Jamais ses vitesses de coupe : c'est l'exercice.
-export function materialFacts(question) {
-  const m = question.materiau;
-  return [
-    ['Classe et groupe', `${m.iso}${m.groupe} — ${m.materiau}`],
-    ['Composition', String(m.composition ?? '—')],
-    ['État', String(m.etat ?? '—')],
-    ['Dureté', String(m.durete ?? '—')],
-    ['Exemple', String(m.exemple ?? '—')],
-  ];
-}
+// Les mêmes, en morceaux, pour l'écran : le nom en gras, « Vc · pi/min » dessous, et le fichier du
+// pictogramme de la grandeur (site/img/pictos/grandeurs/, UI §5).
+export const FIELD_PARTS = {
+  vc: { name: 'Vitesse de coupe', symbol: 'Vc', unit: 'pi/min', picto: 'vc' },
+  feedPerTooth: { name: 'Avance par dent', symbol: 'fz', unit: 'po/dent', picto: 'fz' },
+  rpm: { name: 'RPM', symbol: 'N', unit: 'rév/min', picto: 'n' },
+  feedPerRev: { name: 'Avance totale par révolution', symbol: 'f', unit: 'po/rév', picto: 'f' },
+  feedRate: { name: "Vitesse d'avance", symbol: 'Vf', unit: 'po/min', picto: 'vf' },
+};
 
 // Note sous un champ corrigé (UI §3.4) : « Juste », « Juste (2496 attendu) » si la saisie diffère de
 // la valeur attendue mais est tolérée, « Faux — attendu 12.500 » ; un champ fourni garde sa mention.
@@ -122,16 +103,13 @@ export function fieldResultNote(champ) {
 }
 
 // Bandeau après « Vérifier » (UI §3.4).
-export function correctionBanner(correction, requises) {
-  const { nom, avant, apres } = correction.outil;
+//   name : le nom de l'outil à afficher (« SDTMR (métrique) », rules.js) ; par défaut, celui du serveur
+export function correctionBanner(correction, requises, name = correction.outil.nom) {
+  const { avant, apres } = correction.outil;
+  const nom = name;
   if (correction.reussie) return `Bonne réponse — ${nom} : ${count(apres, 'réussite')} de suite sur ${requises}.`;
   if (avant === 0) return `Question ratée — le compteur de ${nom} reste à zéro.`;
   return `Question ratée — le compteur de ${nom} retombe à zéro (${avant} → 0).`;
-}
-
-// Une ligne de la progression : « MVLNR — 2 / 3 », et « réussi » quand c'est acquis.
-export function progressLine(outil) {
-  return `${outil.nom} — ${outil.reussites} / ${outil.requises}${outil.reussites >= outil.requises ? ' · réussi' : ''}`;
 }
 
 // En-tête des écrans d'une séance : « Camille Tremblay · 2412345 » — le prénom et le nom de la

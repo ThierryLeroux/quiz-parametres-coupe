@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 80">
+  <rect x="30" y="14" width="88" height="7" fill="#C1EFFF">
+  </rect>
+  <rect x="30" y="14" width="8" height="7" fill="#00B0F0">
+  </rect>
+  <rect x="30" y="22" width="88" height="7" fill="#C1EFFF">
+  </rect>
+  <rect x="30" y="22" width="8" height="7" fill="#00B0F0">
+  </rect>
+  <rect x="30" y="30" width="88" height="7" fill="#FFFFB7">
+  </rect>
+  <rect x="30" y="30" width="8" height="7" fill="#FFFF00">
+  </rect>
+  <rect x="30" y="38" width="88" height="7" fill="#FFC5C5">
+  </rect>
+  <rect x="30" y="38" width="8" height="7" fill="#FF0000">
+  </rect>
+  <rect x="30" y="46" width="88" height="7" fill="#B3FFD5">
+  </rect>
+  <rect x="30" y="46" width="8" height="7" fill="#00B050">
+  </rect>
+  <rect x="30" y="54" width="88" height="7" fill="#FFF1C5">
+  </rect>
+  <rect x="30" y="54" width="8" height="7" fill="#FFC000">
+  </rect>
+  <rect x="30" y="62" width="88" height="7" fill="#EEEEEE">
+  </rect>
+  <rect x="30" y="62" width="8" height="7" fill="#D9D9D9">
+  </rect>
+  <rect x="94" y="6" width="8" height="7" fill="#B4C7E7">
+  </rect>
+  <rect x="102" y="6" width="8" height="7" fill="#A6A6A6">
+  </rect>
+  <rect x="110" y="6" width="8" height="7" fill="#FFC000">
+  </rect>
+  <path d="M4 41.5h24" stroke="#1b1b1b" stroke-width="1.5">
+  </path>
+  <path d="M24 39l4 2.5-4 2.5" fill="none" stroke="#1b1b1b" stroke-width="1.5">
+  </path>
+  <path d="M114 4v6" stroke="#1b1b1b" stroke-width="1.5">
+  </path>
+  <rect x="110" y="38" width="8" height="7" fill="none" stroke="#1b1b1b" stroke-width="1.5">
+  </rect>
+  <text x="4" y="36" font-size="6.5" font-family="Carlito, sans-serif">matériau brut</text>
+  <text x="60" y="10" font-size="6.5" font-family="Carlito, sans-serif">matériau d'outil</text>
+  <text x="4" y="76" font-size="7" font-family="Carlito, sans-serif">Ligne × colonne = Vc</text>
+</svg>

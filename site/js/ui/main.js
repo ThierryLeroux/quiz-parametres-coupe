@@ -8,11 +8,16 @@ import { clearSession, loadSession, saveSession } from '../session.js';
 import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
 import { renderQuestion, renderSuccess } from './question-screen.js';
+import { createReference } from './reference-screen.js';
+import { toolLabels } from './rules.js';
 import { identificationErrorMessage, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
 
 let exercise; // exercice demandé par l'adresse
+let data; // catalogue (loadData) : feuilles de référence, aide contextuelle
+let labels; // noms à afficher des outils de l'exercice (« SDTMR (métrique) »)
+let reference; // feuilles de référence, ouvertes par-dessus l'écran Question
 
 function showHome() {
   const local = loadSession();
@@ -95,11 +100,12 @@ function sessionExpired() {
 function showSession(jeton, seance) {
   const actions = { onQuit: showHome, onIdentity: () => showIdentity(jeton, seance) };
   if (seance.reussite_le !== null) {
-    renderSuccess(main, { seance }, actions);
+    renderSuccess(main, { seance, labels }, actions);
     return;
   }
-  renderQuestion(main, { seance }, {
+  renderQuestion(main, { seance, data, labels }, {
     ...actions,
+    onTables: (sheet) => reference.open(sheet),
     onNext: (next) => showSession(jeton, next),
     onCheck: async (answers) => {
       try {
@@ -139,6 +145,9 @@ async function start() {
       return;
     }
     exercise = app.exercise;
+    data = app.data;
+    labels = toolLabels(exercise, data);
+    reference = createReference(data);
     showHome();
   } catch (error) {
     renderLoadError(main, error);

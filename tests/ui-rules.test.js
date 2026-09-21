@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { factorLines, feedFamily, gapExplanation, helpLine, labeledIdentifier, progressRows, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { factorLines, feedFamily, materialCard, gapExplanation, helpLine, labeledIdentifier, progressRows, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
 import { feedSheet, inches, operationPicto, operationSlug, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
@@ -53,6 +53,16 @@ test('factorLines : un facteur n’apparaît que s’il diffère de 1', () => {
   assert.deepEqual(factorLines({ fact_vc: 1, fact_av: 1 }), []);
   assert.deepEqual(factorLines({ fact_vc: 0.25, fact_av: 1 }), ['Vitesse réduite × 0.25']);
   assert.deepEqual(factorLines({ fact_vc: 0.125, fact_av: 1.5 }), ['Vitesse réduite × 0.125', 'Avance augmentée × 1.5']);
+});
+
+test('materialCard : lettre de classe, matériau et groupe, composition, état, dureté, exemple — jamais les Vc', () => {
+  assert.deepEqual(materialCard({ iso: 'P', groupe: 2, materiau: 'Acier non allié', composition: 'C > 0.25 ... ≤ 0.55 %', etat: 'Recuit', durete: 190, exemple: 1045 }), {
+    letter: 'P', title: 'Acier non allié — groupe 2', color: '--iso-p', textColor: '--iso-p-text',
+    lines: ['Composition : C > 0.25 ... ≤ 0.55 %', 'État : Recuit · Dureté : 190 HB', 'Exemple : AISI 1045'],
+  });
+  assert.deepEqual(materialCard({ iso: 'H', groupe: 38, materiau: 'Acier durci', composition: null, etat: 'Durci et revenu', durete: '50 HRC', exemple: 'acier outil' }).lines, ['État : Durci et revenu · Dureté : 50 HRC', 'Exemple : acier outil']);
+  assert.deepEqual(materialCard({ iso: 'O', groupe: 47, materiau: 'Graphite', composition: null, etat: null, durete: '80 Shore', exemple: null }).lines, ['Dureté : 80 Shore']);
+  for (const materiau of data.materiaux) assert.deepEqual(Object.keys(materialCard(materiau)).sort(), ['color', 'letter', 'lines', 'textColor', 'title']); // tout le catalogue passe, et rien d'autre ne sort
 });
 
 test('feedFamily : filetage, proportionnelle au Ø, fixe — comme calcul.js', () => {
