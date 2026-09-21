@@ -195,15 +195,57 @@ test('correctionView : juste ou faux, saisie et valeur attendue de chaque champ,
   const reponses = cleanAnswers({ ...bonnesReponses(question), vc: '1' });
   const avant = { reussites: { foret_fractionnaire: 1 }, totalReussies: 1 };
   const { result, counters } = gradeQuestion(question, reponses, avant, CINQ_CHAMPS, data);
-  const vue = correctionView(question, reponses, result, 1, counters);
+  const vue = correctionView(question, reponses, result, 1, counters, data);
   assert.equal(vue.reussie, false);
   assert.deepEqual(vue.outil, { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', avant: 1, apres: 0 });
-  assert.deepEqual(vue.champs[0], { champ: 'vc', evalue: true, ok: false, saisie: '1', attendu: bonnesReponses(question).vc });
+  const vc = Number(bonnesReponses(question).vc);
+  assert.deepEqual(vue.champs[0], { champ: 'vc', evalue: true, ok: false, saisie: '1', attendu: String(vc), tolerance: 'exacte', ecart_pct: Number((((1 - vc) / vc) * 100).toFixed(1)), calcul: null });
   assert.deepEqual(vue.champs.slice(1).map((champ) => champ.ok), [true, true, true, true]);
 
   const m10Question = drawQuestion(emptyCounters(), m10, data, aleaAGraine(1));
   const bonne = gradeQuestion(m10Question, cleanAnswers({ vc: bonnesReponses(m10Question).vc }), emptyCounters(), m10, data);
-  assert.deepEqual(correctionView(m10Question, cleanAnswers({}), bonne.result, 0, bonne.counters).champs.map((champ) => champ.evalue), [true, false, false, false, false]);
+  const vueM10 = correctionView(m10Question, cleanAnswers({}), bonne.result, 0, bonne.counters, data);
+  assert.deepEqual(vueM10.champs.map((champ) => champ.evalue), [true, false, false, false, false]);
+  assert.deepEqual(vueM10.champs.slice(1).map((champ) => [champ.tolerance, champ.ecart_pct, champ.calcul]), Array(4).fill([null, null, null])); // champs fournis : rien à expliquer
+});
+
+test('correctionView : tolérance en clair, écart en %, calcul en une ligne (UI §3.4) — foret Ø 1/4 po, acier rapide, acier 1020', () => {
+  // Vc 100, N = 100 × 4 / 0.25 = 1600, fz = 0.006 × 0.25 = 0.0015, f = 0.0030 (2 lèvres), Vf = 4.800
+  const question = questionPour({ outil: 'foret_fractionnaire', dimension: 'Ø 1/4 po', dents: 2, materiauOutil: 'Acier rapide', groupeMateriau: 1 });
+  const reponses = cleanAnswers({ vc: '100', feedPerTooth: '0,0015', rpm: '1650', feedPerRev: '0.0030', feedRate: '5.2' });
+  const { result, counters } = gradeQuestion(question, reponses, emptyCounters(), CINQ_CHAMPS, data);
+  const champs = Object.fromEntries(correctionView(question, reponses, result, 0, counters, data).champs.map((champ) => [champ.champ, champ]));
+
+  assert.deepEqual([champs.rpm.ok, champs.rpm.attendu, champs.rpm.tolerance, champs.rpm.ecart_pct], [true, '1600', '±5 %', 3.1]);
+  assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø = 100 × 4 / 0.25');
+  assert.deepEqual([champs.feedPerTooth.tolerance, champs.feedPerTooth.calcul], ['±25 %, au plus ±0.001 po', 'fz = avance × Ø = 0.006 × 0.25']);
+  assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.0015 × 2');
+
+  // Vf est jugée sur le N et le f SAISIS (D15) : attendu = 1650 × 0.0030 = 4.950, et non les 4.800 théoriques.
+  assert.deepEqual([champs.feedRate.ok, champs.feedRate.attendu, champs.feedRate.tolerance, champs.feedRate.ecart_pct], [false, '4.950', '±0.5 % de N × f', 5.1]);
+  assert.equal(champs.feedRate.calcul, 'Vf = N × f = 1650 × 0.0030');
+});
+
+test('correctionView : facteur de vitesse, plafond du RPM, pas d’un filet, réponse vide', () => {
+  // Lame à tronçonner : fact_vc = 0.125. Saisie vide : pas d'écart à calculer.
+  const lame = questionPour({ outil: 'lame_a_tronconner', dimension: data.outils.find((o) => o.id === 'lame_a_tronconner').dimensions[0].libelle, dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
+  const tousLesChamps = { ...CINQ_CHAMPS, outils: [{ id: 'lame_a_tronconner', reussites_requises: 1 }, { id: 'taraud_imperial', reussites_requises: 1 }, { id: 'foret_fractionnaire', reussites_requises: 1 }] };
+  let corrige = gradeQuestion(lame, cleanAnswers({}), emptyCounters(), tousLesChamps, data);
+  let champs = Object.fromEntries(correctionView(lame, cleanAnswers({}), corrige.result, 0, corrige.counters, data).champs.map((champ) => [champ.champ, champ]));
+  assert.match(champs.rpm.calcul, /^N = Vc × 4 \/ Ø = 400 × 4 \/ [\d.]+ × 0\.125$/);
+  assert.deepEqual([champs.rpm.ok, champs.rpm.ecart_pct, champs.feedPerTooth.calcul], [false, null, null]); // avance fixe : elle se lit dans la table
+
+  // Foret Ø 1/64 po au carbure dans l'aluminium : N plafonné par la machine.
+  const petit = questionPour({ outil: 'foret_fractionnaire', dimension: 'Ø 1/64 po', dents: 2, materiauOutil: 'Carbure de tungstène solide', groupeMateriau: 21 });
+  corrige = gradeQuestion(petit, cleanAnswers({}), emptyCounters(), tousLesChamps, data);
+  champs = Object.fromEntries(correctionView(petit, cleanAnswers({}), corrige.result, 0, corrige.counters, data).champs.map((champ) => [champ.champ, champ]));
+  assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø = 400 × 4 / 0.015625 → plafonné à 10000');
+
+  // Taraud 1/4-20 : fz = pas.
+  const taraud = questionPour({ outil: 'taraud_imperial', dimension: '1/4- 20 UNC', dents: 1, materiauOutil: 'Acier rapide', groupeMateriau: 1 });
+  corrige = gradeQuestion(taraud, cleanAnswers({}), emptyCounters(), tousLesChamps, data);
+  champs = Object.fromEntries(correctionView(taraud, cleanAnswers({}), corrige.result, 0, corrige.counters, data).champs.map((champ) => [champ.champ, champ]));
+  assert.deepEqual([champs.feedPerTooth.calcul, champs.feedPerTooth.tolerance, champs.rpm.tolerance], ['fz = pas du filet = 0.05000', '±0.1 %', 'de −90 % à +0.1 %']);
 });
 
 test('sessionView : étudiant de la première visite, exercice, progression par outil, question en attente', () => {

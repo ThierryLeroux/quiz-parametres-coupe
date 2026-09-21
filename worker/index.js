@@ -228,7 +228,7 @@ async function correction(request, env, { now, random }) {
 
   const updated = await base.findSessionById(env.DB, session.id);
   return json({
-    correction: correctionView(asked, answers, graded.result, before, graded.counters),
+    correction: correctionView(asked, answers, graded.result, before, graded.counters, data),
     seance: sessionView(updated, exercise, data),
   });
 }

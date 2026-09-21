@@ -7,7 +7,7 @@
 // il n'existe qu'en un exemplaire.
 
 import { computeParameters } from '../site/js/calcul.js';
-import { ANSWER_FIELDS, gradeAnswers } from '../site/js/correction.js';
+import { ANSWER_FIELDS, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
 import { fieldsToGrade } from '../site/js/exercice.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools, isComplete, recordResult } from '../site/js/progression.js';
@@ -137,20 +137,59 @@ export function questionView(question, exercise, data) {
   };
 }
 
-// La correction, prête à afficher : pour chaque champ, juste ou faux, la saisie et la valeur attendue.
+// Le calcul d'un champ, en une ligne, montré sous un champ faux (UI §3.4) : « Vf = N × f = 2500 × 0.0050 ».
+// null quand il n'y a pas de calcul : Vc et l'avance fixe se lisent dans une table.
+//   shown : textes des valeurs à montrer — la saisie de l'étudiant quand elle est lisible, sinon la valeur théorique
+function calculationLine(field, question, expected, shown, tool, operation) {
+  const diameter = String(Number(question.dimension.diameter.toPrecision(5)));
+  if (field === 'rpm') {
+    const factor = tool.fact_vc === 1 ? '' : ` × ${tool.fact_vc}`;
+    const capped = expected.rpmCapped ? ` → plafonné à ${tool.limite_rpm}` : '';
+    return `N = Vc × 4 / Ø = ${shown.vc} × 4 / ${diameter}${factor}${capped}`;
+  }
+  if (field === 'feedPerTooth' && expected.feedType === 'thread') return `fz = pas du filet = ${shown.feedPerTooth}`;
+  if (field === 'feedPerTooth' && expected.feedType === 'proportional') {
+    const factor = tool.fact_av === 1 ? '' : ` × ${tool.fact_av}`;
+    const capped = expected.feedPerToothCapped ? ` → plafonné à ${operation.avance_max_po_rev}` : '';
+    return `fz = avance × Ø = ${operation.avance_po_rev} × ${diameter}${factor}${capped}`;
+  }
+  if (field === 'feedPerRev') return `f = fz × dents = ${shown.feedPerTooth} × ${question.teeth}`;
+  if (field === 'feedRate') return `Vf = N × f = ${shown.rpm} × ${shown.feedPerRev}`;
+  return null;
+}
+
+// La correction, prête à afficher (UI §3.4). Pour chaque champ : juste ou faux, la saisie, la valeur
+// attendue, et — pour un champ évalué — la tolérance en clair, l'écart en % et le calcul en une ligne.
+// Pour Vf, la valeur attendue est N × f AVEC les N et f saisis (cohérence interne, D15), pas la
+// valeur théorique : c'est sur elle que Vf a été jugée.
 //   before : compteur de l'outil avant cette correction (« le compteur retombe à zéro (2 → 0) »)
-export function correctionView(question, answers, result, before, counters) {
-  const displayed = formatParameters(result.attendu);
+export function correctionView(question, answers, result, before, counters, data) {
+  const expected = result.attendu;
+  const tool = data.outils.find((entry) => entry.id === question.tool.id);
+  const operation = data.operationByName.get(tool.operation);
+
+  const typed = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, parseAnswer(answers[field])]));
+  const reference = { ...expected, feedRate: (typed.rpm ?? expected.rpm) * (typed.feedPerRev ?? expected.feedPerRev) };
+  const displayed = formatParameters(reference);
+  const shown = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, typed[field] === null ? displayed[field] : answers[field].replace(',', '.')]));
+
   return {
     reussie: result.success,
     outil: { id: question.tool.id, nom: question.tool.name, avant: before, apres: counters.reussites[question.tool.id] ?? 0 },
-    champs: ANSWER_FIELDS.map((field) => ({
-      champ: field,
-      evalue: result.fields[field].min !== null,
-      ok: result.fields[field].ok,
-      saisie: answers[field],
-      attendu: displayed[field],
-    })),
+    champs: ANSWER_FIELDS.map((field) => {
+      const evaluated = result.fields[field].min !== null;
+      const gap = evaluated && typed[field] !== null && reference[field] !== 0 ? (typed[field] - reference[field]) / reference[field] : null;
+      return {
+        champ: field,
+        evalue: evaluated,
+        ok: result.fields[field].ok,
+        saisie: answers[field],
+        attendu: displayed[field],
+        tolerance: evaluated ? toleranceLabel(expected.feedType, field) : null,
+        ecart_pct: gap === null ? null : Number((gap * 100).toFixed(1)),
+        calcul: evaluated ? calculationLine(field, question, expected, shown, tool, operation) : null,
+      };
+    }),
   };
 }
 

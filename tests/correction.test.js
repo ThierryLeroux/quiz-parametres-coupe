@@ -1,7 +1,7 @@
 // Tests de site/js/correction.js : tolérances de la SPEC §6 (décisions D13 et D15), une case du tableau à la fois.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANSWER_FIELDS, gradeAnswers, parseAnswer } from '../site/js/correction.js';
+import { ANSWER_FIELDS, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
 
 // Valeurs théoriques des cas de référence de tests/calcul.test.js (une par famille d'avance).
 // feedRate est écrit comme le moteur le calcule, bruit de virgule flottante compris.
@@ -233,4 +233,12 @@ test('erreurs de programmation : champ à corriger ou famille inconnus', () => {
 test('le résultat est sérialisable en JSON', () => {
   const resultat = gradeAnswers(FILETAGE, BONNES.get(FILETAGE));
   assert.deepEqual(JSON.parse(JSON.stringify(resultat)), resultat);
+});
+
+test('toleranceLabel : la tolérance de chaque champ, en clair, telle que le tableau de la SPEC §6', () => {
+  const ligne = (type) => ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate'].map((champ) => toleranceLabel(type, champ));
+  assert.deepEqual(ligne('thread'), ['exacte', '±0.1 %', 'de −90 % à +0.1 %', '±0.1 %', '±0.5 % de N × f']);
+  assert.deepEqual(ligne('fixed'), ['exacte', 'exacte', '±5 %', '±0.1 %', '±0.5 % de N × f']);
+  assert.deepEqual(ligne('proportional'), ['exacte', '±25 %, au plus ±0.001 po', '±5 %', '±20 %', '±0.5 % de N × f']);
+  assert.throws(() => toleranceLabel('inconnue', 'vc'), /Tolérance inconnue/);
 });

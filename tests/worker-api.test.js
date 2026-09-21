@@ -281,7 +281,7 @@ test('correction juste : compteur de l’outil, total, journal, question suivant
   assert.equal(status, 200);
   assert.equal(corps.correction.reussie, true);
   assert.deepEqual(corps.correction.outil, { id: outil, nom: seance.question.outil.nom, avant: 0, apres: 1 });
-  assert.deepEqual(corps.correction.champs[0], { champ: 'vc', evalue: true, ok: true, saisie: bonnes.vc, attendu: bonnes.vc });
+  assert.deepEqual(corps.correction.champs[0], { champ: 'vc', evalue: true, ok: true, saisie: bonnes.vc, attendu: bonnes.vc, tolerance: 'exacte', ecart_pct: 0, calcul: null });
   assert.equal(corps.seance.progression.outils.find((o) => o.id === outil).reussites, 1);
   assert.equal(corps.seance.progression.total_reussies, 1);
   assert.notEqual(corps.seance.question, null); // la suivante est déjà tirée et mémorisée

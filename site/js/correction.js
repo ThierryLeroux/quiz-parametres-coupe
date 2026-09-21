@@ -37,6 +37,20 @@ const TOLERANCES = {
   },
 };
 
+// La tolérance d'un champ, en clair, pour l'expliquer à l'étudiant après la correction (UI §3.4) :
+// « exacte », « ±5 % », « de −90 % à +0.1 % », « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ».
+// Écrite à partir des mêmes constantes que la correction : elle ne peut pas la contredire.
+// (La demi-unité d'affichage de D13 n'y est pas dite : elle ne sert qu'à accepter les arrondis.)
+export function toleranceLabel(feedType, field) {
+  const percent = (fraction) => `${Number((fraction * 100).toPrecision(6))} %`;
+  const tolerance = field === 'feedRate' ? FEED_RATE_TOLERANCE : TOLERANCES[feedType]?.[field];
+  if (!tolerance) throw new Error(`Tolérance inconnue : « ${feedType} », « ${field} »`);
+  if (tolerance.below === 0 && tolerance.above === 0) return 'exacte';
+  let label = tolerance.below === tolerance.above ? `±${percent(tolerance.above)}` : `de −${percent(tolerance.below)} à +${percent(tolerance.above)}`;
+  if (tolerance.maxDeviation !== undefined) label += `, au plus ±${tolerance.maxDeviation} po`;
+  return field === 'feedRate' ? `${label} de N × f` : label;
+}
+
 // Lit une saisie : point ou virgule décimale (D10), espaces ignorés (« 1 600 »).
 // Retourne le nombre, ou null si la saisie est vide ou illisible (« abc », « 1.2.3 », « -5 »).
 export function parseAnswer(text) {
