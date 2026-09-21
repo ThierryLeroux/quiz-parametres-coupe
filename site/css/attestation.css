@@ -66,3 +66,6 @@
 @media print {
   .attestation { min-height: 10in; } /* @page laisse 0.5 po de marge : il reste 10 po de haut */
 }
+
+/* Le titre reçoit le focus à l'ouverture (lecteurs d'écran) : sans cadre, il ne s'imprimerait pas mieux. */
+.attestation h1:focus { outline: none; }

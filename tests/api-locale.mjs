@@ -62,7 +62,9 @@ try {
   assert.equal(migrations.status, 0, `migrations : ${migrations.stdout}\n${migrations.stderr}`);
   console.log('# migrations appliquées sur une D1 locale jetable');
 
-  serveur = spawn(process.execPath, [WRANGLER, 'dev', '--port', String(PORT), '--persist-to', dossier, '--var', 'CLE_SECRETE:secret-du-test-api-locale'], { cwd: ROOT, stdio: 'ignore' });
+  // « --var » l'emporte sur .dev.vars : le test ne dépend ni du secret local, ni d'un MODE_TEST=1 laissé là
+  // par l'enseignant (D26) — la cadence de l'étape 6 doit tenir.
+  serveur = spawn(process.execPath, [WRANGLER, 'dev', '--port', String(PORT), '--persist-to', dossier, '--var', 'CLE_SECRETE:secret-du-test-api-locale', '--var', 'MODE_TEST:0'], { cwd: ROOT, stdio: 'ignore' });
   for (let essai = 0; ; essai += 1) {
     assert.ok(essai < 60, 'wrangler dev ne répond pas après 60 s');
     await sleep(1000);

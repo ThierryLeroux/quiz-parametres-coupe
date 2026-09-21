@@ -61,22 +61,34 @@ Le moteur (jalons 1 et 1b) passe derrière l'API ; les règles d'une séance son
 - [x] Progression par outil (UI §3.3) : un point par réussite consécutive, outil en cours surligné ; outils de même nom distingués par l'unité, sinon par la plage de dimensions (`site/js/ui/rules.js`)
 - [x] Tables de référence (UI §3.5) : vitesses de coupe, avances (générée depuis `operations.json`), formules ; ouvertes par-dessus la question sans perdre la saisie, défilement dans leur propre cadre, impression de la feuille seule
 - [x] Images d'outils (`site/img/outils/`) et pictogrammes (`site/img/pictos/`) affichés
-- [ ] Pictogrammes d'opérations en SVG : les dix-neuf PNG du classeur sont provisoires (`site/img/pictos/README.md`) — fichiers d'origine de Thierry, ou redessin à valider
+- [x] Pictogrammes d'opérations en SVG : les dix-neuf dessins DrawingML du classeur, convertis sans redessin (`reference/pictogrammes-du-classeur/convertir.mjs`, D29) — planche-contact à valider par Thierry (`captures/jalon-4/planche-pictogrammes.png`)
+- [x] Corrections après le premier essai de Thierry (D24 à D29) : gabarit de nomenclature validé et jetons `[Dia]`, `[Pas]`, `[IdBarre]` ; **deux diamètres de la barre à aléser** ; feuilles comme le classeur (traits de famille `debut_famille`, bande grise des avances proportionnelles, révision des tables au pied, formule exacte de N à titre indicatif, colonnes figées sur téléphone) ; département sur trois lignes et « TGM-TMI » ; rouge K éclairci sur fond nuit
+- [x] **Mode test** local (D26 : `MODE_TEST=1` dans `.dev.vars`, décidé par le serveur, jamais en production) et exercice `test-complet` (tous les outils, les cinq grandeurs)
+- [x] Écran « Exercice réussi » : « Voir mon attestation » → attestation **provisoire, non signée** (la version signée : jalon 5, en tête)
+- [ ] **À confirmer par Thierry** : barres de la barre à aléser (1/2, 5/8, 3/4, 1, 1 1/4 po) et rapport 0,75 (D25) ; un N calculé avec 12/π puis arrondi à l'entier est refusé sous ~90 rév/min (SPEC §5, test `todo`)
 - [ ] Attente imposée par la cadence montrée à l'écran (compte à rebours ; le serveur donne déjà `attendre_s`) — aujourd'hui, un message sous le formulaire
 - [ ] Sur téléphone, replier les outils terminés de la progression (UI §3.3 : « peuvent être repliés »)
 - [ ] Impression des feuilles vérifiée sur papier par Thierry (une page lettre chacune)
 
-## Jalon 5 — Rapport signé, page de vérification, administration (décisions D16, D19)
-- [ ] `GET /api/rapport` : rapport de réussite tiré du journal des corrections, et **attestation signée** (HMAC, sous-clé « attestation » de `CLE_SECRETE`)
-- [ ] Page rapport imprimable (UI §3.6) + QR code de l'attestation (bibliothèque vendorisée)
+## Jalon 5 — Attestation signée, page de vérification, connexion professeur et administration (décisions D16, D19)
+**En tête : l'attestation de réussite signée** — c'est la sortie du parcours étudiant (D29). L'écran et le bouton « Voir mon attestation » existent déjà (jalon 4), en version provisoire non signée.
+
+- [ ] `GET /api/rapport` : **attestation signée** (HMAC, sous-clé « attestation » de `CLE_SECRETE`) et rapport de réussite tiré du journal des corrections
+- [ ] Attestation imprimable (UI §3.6) + **QR code** de l'attestation (bibliothèque vendorisée, seule dépendance d'exécution permise) ; l'avis « provisoire, non signée » disparaît
+- [ ] `POST /api/consultation` **limitée** (D29) : le cégep sort par une seule adresse IP (NAT), donc une limite par IP reste large ; préférer un plafond de **matricules distincts par heure**
 - [ ] **Page de vérification** publique : lit l'attestation du QR, interroge le serveur ; montre la durée totale et le temps médian par question (journal)
+- [ ] **Connexion professeur** = **une clé par enseignant** ; elle ouvre la page d'administration, puis l'éditeur (jalon 6), et pourra ouvrir le **mode test** aux séances d'un professeur connecté (D26)
 - [ ] **Page d'administration**, avec **une clé par enseignant** (D23 : plusieurs enseignants, rien ne se répare à la main) : liste des réussites, **remise à zéro d'un NIP** (`nip_hache` nul : déjà compris par la reprise), **suppression d'une séance** (séance ouverte par un autre au matricule d'un étudiant : farce visible aux horodatages), purge de fin de session
 - [ ] Page de vérification : montre aussi les **corrections d'identité** de la séance (journal `corrections_identite`, D23)
 - [ ] Essai avec un groupe d'étudiants ; correctifs
 
 ## Jalon 6 — Éditeur web du catalogue et des exercices (décision D11)
-- [ ] `site/editeur/` : éditer un exercice (outils, réussites, champs évalués, restrictions), validé par `exercice.js`
-- [ ] Éditer le catalogue (outils, matériaux, opérations), validé par `data.js`
+Rien n'en existe encore. Protégé par la connexion professeur du jalon 5 (UI §8).
+
+- [ ] `site/editeur/` : **création de devoirs** — éditer un exercice (outils, réussites, champs évalués, restrictions), validé par `exercice.js` ; l'inscrire à l'index
+- [ ] Éditer les **outils** (`outils.json`), validé par `data.js` : dimensions, **gabarit de nomenclature** avec la liste des jetons et un aperçu (D24), **barres** d'un outil à deux diamètres (D25)
+- [ ] Éditer les **tables de référence** : vitesses de coupe (`materiaux.json`, dont `debut_famille`, D27), avances (`operations.json`), **révision** de chaque table (D28)
+- [ ] **Images** : photo d'un outil (`site/img/outils/`), pictogramme d'une opération (`site/img/pictos/operations/`)
 - [ ] Télécharger les JSON produits ; mode d'emploi « déposer dans le dépôt et commettre »
 
 ## Finition

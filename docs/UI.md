@@ -28,6 +28,7 @@ avant style**.
 
 - Matériau d'outil — c'est la couleur de l'en-tête de colonne de la table des Vc, et celle du **panneau de l'outil** (contour, halo, titre) : acier rapide `#B4C7E7`, carbure de tungstène solide `#A6A6A6`, insert de carbure de tungstène `#FFC000`.
 - Classe ISO du matériau brut — couleur vive de la lettre et du **panneau du matériau** : P `#00B0F0`, M `#FFFF00`, K `#FF0000`, N `#00B050`, S `#FFC000`, H `#D9D9D9`, O `#808080`. Teintes de ligne dans la table : P `#C1EFFF`, M `#FFFFB7`, K `#FFC5C5`, N `#B3FFD5`, S `#FFF1C5`, H `#EEEEEE`, O `#D9D9D9`. Texte de la lettre : blanc sur P, K, N, O ; noir sur M, S, H.
+- **Rouge de la classe K** : `#FF0000` sur les feuilles (thème clair), **inchangé** ; sur fond nuit (panneau du matériau brut), il est éclairci en `#FF5C5C` pour le contraste AA (`--iso-k-night`, appliqué dans `.material-card` seulement).
 - Ces couleurs vivent dans `site/css/tokens.css` (variables) et sont lues par les composants ; les JSON n'en contiennent pas.
 
 ### Typographie
@@ -39,11 +40,15 @@ avant style**.
 - Le symbole de diamètre est toujours le caractère **Ø** (U+00D8), jamais un zéro barré ; vérifier son rendu dans chaque police retenue.
 - Pas de police d'affichage « futuriste » : essayée, retirée pour lisibilité.
 
+### Nom du département
+
+Partout, sur **trois lignes**, comme sur les feuilles de l'atelier : « Techniques de génie mécanique / Technique du génie de la maintenance industrielle / (fiabilité des systèmes de production) » — au pied de toutes les pages de l'exercice (accueil, identification, question, exercice réussi), dans l'en-tête des feuilles et de l'attestation. Le sigle affiché est **« TGM-TMI »**, jamais « TGM » seul (D29) ; les noms de dépôt, chemins et adresses ne changent pas. Texte : `DEPARTMENT_LINES` et `DEPARTMENT_SHORT` (`site/js/ui/text.js`).
+
 ## 2. Parcours
 
 `?exercice=<id>` (lien diffusé sur Léa) → **Accueil** → **Identification** (1 / 2 le matricule, 2 / 2 reprendre ou commencer : D23) →
 **Question** ⇄ **Tables de référence** → (Vérifier) → **Question corrigée** →
-Question suivante… → **Réussite** (rapport). L'état de la séance vit sur le
+Question suivante… → **Exercice réussi** → **Attestation** (« Voir mon attestation », §3.6). L'état de la séance vit sur le
 serveur de correction (D19, SPEC §7) : une séance interrompue se reprend de
 n'importe quel appareil, en s'identifiant ; sur le même appareil, l'accueil
 offre « Reprendre, <prénom> » tant que le jeton local est valide.
@@ -96,9 +101,10 @@ Téléphone : tout s'empile dans l'ordre outil → matériau → questionnaire �
 **Titre** : « Question », puis « Question — corrigée » ; à droite, « n questions réussies ». Pas de numéro de question, et jamais de nombre d'échecs (la maquette 03 en montre un : c'est le texte qui fait foi, §3.4).
 
 **Panneau de l'outil** (couleur du matériau d'outil) :
-- photo (`site/img/outils/<id>.png`, halo de la même couleur), identifiant résolu du gabarit (« MVLNR — Ø charioté : 5/8 po »), rappel du matériau d'outil en petit ;
+- photo (`site/img/outils/<id>.png`, halo de la même couleur), **nom de l'outil = son gabarit de nomenclature résolu, tel quel** (D24, SPEC §4.6 : « MVLNR - Ø charioté: 2.000" », « Alésoir 0.6250" - 8 lèvres »), rappel du matériau d'outil en petit ;
 - opération, précédée de son **pictogramme** (§5) sur une pastille blanche — il aide à retrouver le rang de la table des avances —, nombre de dents, **RPM max de la machine-outil** (`limite_rpm`), note de l'outil (`commentaire`) ;
-- **outils de même nom** dans un exercice : l'écran ajoute ce qui les distingue, entre parenthèses, ici et dans la progression — l'unité si elle diffère (« SDTMR (impérial) », « SDTMR (métrique) »), sinon la plage de dimensions (« Foret fractionnaire (Ø 1/64 po à Ø 1 po) ») ; la donnée `nom` ne change pas ;
+- **outil à deux diamètres** (barre à aléser, D25) : deux lignes en gras nomment chacun avec son rôle — « Ø alésé : 1.500" — pour le RPM », « Ø de la barre : 3/4 po — pour l'avance » ;
+- **outils de même nom** dans un exercice : la **progression** (et le bandeau de correction) ajoute ce qui les distingue, entre parenthèses — l'unité si elle diffère (« SDTMR (impérial) », « SDTMR (métrique) »), sinon la plage de dimensions (« Foret fractionnaire (Ø 1/64 po à Ø 1 po) ») ; la donnée `nom` ne change pas, et le titre de la question reste le gabarit résolu, que sa dimension distingue déjà ;
 - **facteur de vitesse ou d'avance affiché seulement s'il diffère de 1**, en clair : « Vitesse réduite × 0.25 » (alésoir), « × 0.125 » (lame à tronçonner). Sans cette ligne l'étudiant ne peut pas trouver N.
 
 **Panneau du matériau brut** (couleur de la classe ISO) : lettre de classe en badge, matériau et groupe, composition, état, dureté, exemple AISI.
@@ -112,8 +118,10 @@ Téléphone : tout s'empile dans l'ordre outil → matériau → questionnaire �
 **Aide contextuelle, au clic seulement** (point 17) : quand une case reçoit le focus, une ligne d'aide apparaît sous le formulaire, **méthode jamais valeur** et sans nommer la ligne ni la colonne :
 - Vc : « table des vitesses de coupe : le matériau brut donne la ligne, le matériau de l'outil donne la colonne » + bouton **Ouvrir la table** ;
 - fz : « table des avances, à l'opération de l'outil » + bouton **Ouvrir la table** (sur la feuille des avances) + selon la famille : « proportionnelle au Ø : avance × Ø outil, sans dépasser l'avance max » ou « filetage : fz = pas = 1 / filets au pouce (ou mm / 25.4) » ;
-- N : « N = Vc × 4 / Ø, plafonnée au RPM max de la machine » (+ facteur s'il y en a un) ;
+- N : « N = Vc × 4 / Ø, plafonnée au RPM max de la machine » (+ facteur s'il y en a un) ; barre à aléser : « … / Ø alésé (le trou, pas la barre) », et pour fz « avance × Ø de la barre (pas le Ø alésé) » ;
 - f : « f = fz × nombre de dents » ; Vf : « Vf = N × f ».
+
+**Mode test (D26)** : seulement si le serveur local a joint les réponses attendues à la question (SPEC §7), un bandeau doré « Mode test » au-dessus des panneaux, avec le bouton **Remplir** ; les cases arrivent remplies et restent modifiables. Jamais en production ; aucun interrupteur dans la page.
 
 Bouton **Vérifier** (un seul clic possible : le serveur ne corrige une question qu'une fois, SPEC §7).
 
@@ -132,12 +140,16 @@ Même écran après **Vérifier** avec au moins un champ faux (choix de Thierry 
 
 - Les feuilles s'ouvrent **par-dessus** l'écran Question (bouton de l'en-tête, ou « Ouvrir la table » de l'aide) : la saisie en cours n'est pas perdue, et la case reprend le focus au retour ; Échap ferme aussi. Elles **défilent dans leur propre cadre** : sur téléphone, la feuille garde sa taille lisible et défile dans les deux sens, la page en dessous ne bouge pas.
 - Barre d'application (HUD) : trois onglets *Vitesses de coupe / Avances / Formules*, bouton **Imprimer / PDF**, ← Retour à la question. L'impression est ouverte à tous.
-- Sous la barre, une **page lettre blanche** identique à la feuille imprimée de l'atelier : en-tête (logo `site/img/logo-cvm.png` à gauche, « Paramètres de coupe / valeurs de départ » au centre, bloc TGM à droite), pied (date, « TGM — profil fabrication », page ; le numéro de révision de la maquette n'existe pas encore dans les données). Police Carlito.
-- **Vitesses de coupe** : *toutes* les classes et les 47 lignes, quel que soit l'exercice ; colonnes Classe, No de groupe, Matériau, Composition, État, Dureté, Exemple, puis les trois colonnes de Vc dont les **en-têtes colorés ont la même hauteur** ; lettre et numéro sur fond vif, ligne teintée par classe ; **une ligne par matériau, sans repli** (réduire le corps si un libellé est long ; abréviations admises comme « Haute résis. traction, Ampco ») ; aucun séparateur entre groupes ; **aucun surlignage** de la question en cours.
-- **Avances** : colonnes Machine-outil et direction d'avance (texte vertical, **centré sur la hauteur du groupe**), opération, **pictogramme** (§5), barre orangée `#FFC000 → blanc` dont la **longueur est proportionnelle à l'avance** (calculée depuis `operations.json`), « pas du filetage » pour les filetages ; les **opérations proportionnelles au Ø** sont ceinturées par un encadré gris à liseré orangé qui porte la note (« Avances pour un outil Ø1'' — ajuster l'avance ↔ Ø outil », exemple « .006''/dent × Ø1/4'' = .0015''/dent », « Ne pas dépasser .010''/dent ») ; l'alésage à la barre a son propre encadré (« Av. MAX. .006''/tour »). Tout est généré depuis les données : ajouter une opération dans l'éditeur l'ajoute à la feuille.
-- **Formules** (nouvelle feuille) : deux parties séparées par un bandeau — *1re partie — Vitesse de rotation (rév/min)* (bleu `#C1EFFF`) : Vc relevée, N = Vc × 4 / Ø ; *2e partie — Vitesse d'avance (po/min)* (orangé `#FFF1C5`) : fz relevée, pas d'un filet (deux lignes : `pas = 1 / filets par pouce`, `pas = mm / 25.4`), f = fz × dents, Vf = N × f. Chaque ligne : pictogramme, nom et unité, formule **sur une seule ligne**, note. Les deux relevés dans les tables sont illustrés par une **miniature schématique** de la feuille (flèche sur la ligne et la colonne pour Vc, sur l'opération pour fz). Exemples de filetage sur trois lignes. Exemple complet surligné des deux couleurs. Rappel de la règle de saisie.
+- Sous la barre, une **page lettre blanche** identique à la feuille imprimée de l'atelier : en-tête (logo `site/img/logo-cvm.png` à gauche, « Paramètres de coupe / valeurs de départ » au centre, bloc TGM à droite), pied (date, « TGM-TMI — profil fabrication », **révision de la table** — `revision` du JSON, D28 : « révision A2026_r0 » — et page ; la feuille des formules, sans données, n'a pas de révision). Police Carlito.
+- **Vitesses de coupe** : *toutes* les classes et les 47 lignes, quel que soit l'exercice ; colonnes Classe, No de groupe, Matériau, Composition, État, Dureté, Exemple, puis les trois colonnes de Vc dont les **en-têtes colorés ont la même hauteur** ; lettre et numéro sur fond vif, ligne teintée par classe ; **une ligne par matériau, sans repli** (réduire le corps si un libellé est long ; abréviations admises comme « Haute résis. traction, Ampco ») ; **aucune ligne blanche** entre les rangs ; les **traits noirs fins du classeur** (« hairline ») : un au-dessus de chaque changement de matériau usiné — `debut_famille` dans les données, D27 : groupes 6, 10, 12, 15, 17, 19, 21, 23, 26, 31, 36, 38, 41 et 42 —, plus le cadre du tableau et le trait sous l'en-tête ; **aucun surlignage** de la question en cours. Quand la feuille défile de côté (téléphone), les colonnes **Classe et No de groupe restent figées**. Trait et bande sont des variables CSS (`--sheet-rule`, `--sheet-band`) : une feuille en thème nuit n'aurait qu'à les redéfinir (le même trait en clair, la même bande en gris plus clair que le fond) — aujourd'hui les feuilles sont toujours des pages blanches (§1).
+- **Avances** : colonnes Machine-outil et direction d'avance (texte vertical, **centré sur la hauteur du groupe**), opération, **pictogramme** (§5), puis **« Avance par révolution »** : barre orangée `#FFC000` qui s'estompe, dont la **longueur est proportionnelle à l'avance** (calculée depuis `operations.json`), « pas du filetage » pour les filetages ; les **opérations proportionnelles au Ø** portent, comme dans le classeur, une **bande grise horizontale** de la colonne Opération à la colonne de la note (pas sur Machine-outil ni direction d'avance) — `linear-gradient(to right, #fff 0%, #f2f2f2 39%, #d9d9d9 64%, #fff 100%)` — et le suffixe « × Ø outil » sur la valeur ; il n'y a **pas d'en-tête** « Avance proportionnelle au Ø de l'outil ». La note est posée sur la bande, sans encadré (« Avances pour un outil Ø1'' — ajuster l'avance ↔ Ø outil », exemple calculé « .006''/dent × Ø1/4'' = .0015''/dent », « Ne pas dépasser .010''/dent ») ; l'alésage à la barre a la sienne (« Av. MAX. .006''/tour »). Tout est généré depuis les données : ajouter une opération dans l'éditeur l'ajoute à la feuille.
+- **Formules** (nouvelle feuille) : deux parties séparées par un bandeau — *1re partie — Vitesse de rotation (rév/min)* (bleu `#C1EFFF`) : Vc relevée, N = Vc × 4 / Ø, avec dessous, en petit et **à titre indicatif**, la formule exacte « N = Vc × 12 / (π × Ø) » (la correction reste sur Vc × 4 / Ø, D29) ; *2e partie — Vitesse d'avance (po/min)* (orangé `#FFF1C5`) : fz relevée, pas d'un filet (deux lignes : `pas = 1 / filets par pouce`, `pas = mm / 25.4`), f = fz × dents, Vf = N × f. Chaque ligne : pictogramme, nom et unité, formule **sur une seule ligne**, note. Les deux relevés dans les tables sont illustrés par une **miniature schématique** de la feuille (flèche sur la ligne et la colonne pour Vc, sur l'opération pour fz). Exemples de filetage sur trois lignes. Exemple complet surligné des deux couleurs. Rappel de la règle de saisie.
 
-### 3.6 Réussite — rapport (`06-rapport-reussite.html`)
+### 3.6 Réussite — attestation et rapport (`06-rapport-reussite.html`)
+
+**Écran « Exercice réussi »** : titre, « Prénom Nom · matricule — réussi le …, avec n questions réussies », bouton **Voir mon attestation**, progression complète ; dans l'en-tête, Corriger mon identité et Quitter. Ce n'est plus un cul-de-sac.
+
+**Attestation provisoire** (D29, d'ici le jalon 5) : page lettre claire — logo, « Attestation de réussite — calcul de paramètres d'usinage », bloc du département ; bloc d'informations (Exercice avec version, Prénom, Nom, Matricule, Début, Réussite, Questions réussies, Champs évalués) ; à droite, l'**emplacement du code QR** en pointillé (« à venir ») ; un avis « **Attestation provisoire, non signée** … ne vaut pas preuve de réussite ». Barre : « Enregistre le PDF, puis remets-le sur Léa », **Enregistrer en PDF** (nom proposé `Attestation-<exercice>-<Nom>-<Prenom>`), ← Retour. Le jalon 5 la remplace par la version signée décrite ci-dessous.
 
 - Barre HUD : « Exercice réussi — rapport », consigne « Enregistre le PDF, puis remets-le sur Léa », bouton **Enregistrer en PDF** (impression du navigateur, nom de fichier proposé `Rapport-<exercice>-<Nom>-<Prenom>.pdf`), Terminer.
 - La page est **claire, en format lettre, identique à l'écran et à l'impression** : logo et bloc TGM, titre « Rapport de réussite — calcul de paramètres d'usinage », bloc d'informations sur deux colonnes (Exercice avec version, Prénom, Nom, Matricule, Début, Réussite, Questions réussies, Champs évalués) et le **QR code à droite de ce bloc**, dans l'en-tête.
@@ -151,7 +163,7 @@ Même écran après **Vérifier** avec au moins un champ faux (choix de Thierry 
 
 ## 5. Pictogrammes (SVG, dans le dépôt, modifiables)
 
-Tous en SVG trait/aplat, dans `site/img/pictos/`, référencés par les données ou par le code, et éditables (D11 : l'éditeur permet d'en changer). **État** : les six grandeurs (`grandeurs/`) et les deux miniatures de la feuille Formules (`miniatures/`) sont les SVG des maquettes approuvées ; les dix-neuf opérations (`operations/`) sont encore les **PNG provisoires** du classeur, nommés d'après l'opération — à remplacer par des SVG (`site/img/pictos/README.md`).
+Tous en SVG trait/aplat, dans `site/img/pictos/`, référencés par les données ou par le code, et éditables (D11 : l'éditeur permet d'en changer). **État** : les six grandeurs (`grandeurs/`) et les deux miniatures de la feuille Formules (`miniatures/`) sont les SVG des maquettes approuvées ; les dix-neuf opérations (`operations/`) sont **les dessins d'origine du classeur, convertis en SVG sans redessin** (D29) par `reference/pictogrammes-du-classeur/convertir.mjs`, nommés d'après l'opération (`site/img/pictos/README.md`).
 
 **Grandeurs** (un par champ, aussi dans la feuille Formules) :
 - Vc : l'outil qui file en **ligne droite** dans la matière (vitesse linéaire) ;
@@ -161,7 +173,7 @@ Tous en SVG trait/aplat, dans `site/img/pictos/`, référencés par les données
 - f : **un tour complet et la distance parcourue** ;
 - Vf : déplacement rapide (double flèche).
 
-**Opérations** (19, feuille des avances) : chacun montre **la bouchée par dent que prend l'outil dans ce type d'opération**, dans l'esprit des dessins bleus du classeur. Références visuelles provisoires : `reference/pictogrammes-excel-provisoires/` et `docs/maquettes/pictos-sprite-provisoire.png` (rognés, pixellisés : références, pas des icônes finales). Palette : bleu `#00B0F0`, contour noir, bouchée orangée `#FFC000`.
+**Opérations** (19 ; feuille des avances, et panneau de l'outil de l'écran Question, sur une pastille blanche) : chacun montre **la bouchée par dent que prend l'outil dans ce type d'opération**. Ce sont les formes DrawingML de la feuille « Avances d'usinage » du classeur (`xl/drawings/drawing3.xml`, « Group 4 », 19 sous-groupes), converties telles quelles : ne pas les retoucher à la main, relancer la conversion. Palette : bleu `#00B0F0`, contour noir 0,5 pt, bouchée orangée `#FFC000`. Les anciens recadrages PNG (`reference/pictogrammes-excel-provisoires/`) ne servent plus au site.
 
 ## 6. Impression
 
@@ -178,6 +190,5 @@ Tous en SVG trait/aplat, dans `site/img/pictos/`, référencés par les données
 
 ## 8. Ce que la maquette ne tranche pas (à traiter au fil des jalons)
 
-- Le rendu final des 19 pictogrammes d'opérations, encore provisoires (§5) ; les 6 grandeurs sont celles des maquettes.
 - Le contenu exact du QR signé, la page de vérification et la page d'administration (D19, jalon 5).
-- L'éditeur (jalon 6) : protégé par la **clé d'administration** du serveur (D21), la même que la page d'administration — jamais dans le code, jamais dans les docs. Son mode de sauvegarde (JSON à télécharger, ou autre) se décide au jalon 6.
+- L'éditeur (jalon 6) : il édite aussi le gabarit de nomenclature des outils (D24), les barres d'un outil à deux diamètres (D25), `debut_famille` (D27), la révision des tables (D28), les images et les pictogrammes. Il est protégé par la **clé d'administration** du serveur (D21), la même que la page d'administration — jamais dans le code, jamais dans les docs. Son mode de sauvegarde (JSON à télécharger, ou autre) se décide au jalon 6.

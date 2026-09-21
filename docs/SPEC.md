@@ -1,6 +1,6 @@
 # Spécification fonctionnelle — Quiz de paramètres de coupe (version web)
 
-Statut : **brouillon v0.2** (2026-09-20). Rédigée à partir de l'analyse du classeur
+Statut : **brouillon v0.3** (2026-09-21). Rédigée à partir de l'analyse du classeur
 `Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm` et de son VBA
 (voir `legacy/vba/`). Un point marqué ❓ est à confirmer avec Thierry ; il n'y en a aucun en ce moment.
 
@@ -36,13 +36,40 @@ Les JSON vivent dans `site/data/`, en un seul exemplaire publié avec le site
 
 | Fichier | Contenu | Source Excel |
 |---|---|---|
-| `materiaux.json` | 47 matériaux, classes ISO 513 P/M/K/N/S/H/O, groupe VDI 3323, dureté, exemple AISI/SAE, **Vc (pi/min)** pour 3 matériaux d'outil | `Vitesses de coupe` / `tblVitesse` |
-| `operations.json` | 19 opérations : machine, direction d'avance, avance/rév., avance max, drapeaux *filetage* et *proportionnelle au Ø* | `Avances d'usinage` / `tblAvance` |
-| `outils.json` | 29 outils : opération, facteurs Vc/avance, limites RPM/avance, plage de nb de dents, matériaux d'outil possibles, groupes ISO usinables, liste des dimensions (libellé + valeur) | `Liste d'outils` (masquée) |
+| `materiaux.json` | `revision` de la table ; 47 matériaux, classes ISO 513 P/M/K/N/S/H/O, groupe VDI 3323, dureté, exemple AISI/SAE, **Vc (pi/min)** pour 3 matériaux d'outil, `debut_famille` | `Vitesses de coupe` / `tblVitesse` |
+| `operations.json` | `revision` de la table ; 19 opérations : machine, direction d'avance, avance/rév., avance max, drapeaux *filetage* et *proportionnelle au Ø* | `Avances d'usinage` / `tblAvance` |
+| `outils.json` | 29 outils : gabarit de nom (`format_identifiant`, §4.6), opération, facteurs Vc/avance, limites RPM/avance, plage de nb de dents, matériaux d'outil possibles, groupes ISO usinables, liste des dimensions (libellé + valeur) ; pour un outil à deux diamètres, `dimensions_barre` et `rapport_barre_max` | `Liste d'outils` (masquée) |
 
 Unités : **impériales** (pouces, pi/min, rév/min, po/min). Les dimensions
 métriques sont déjà converties en pouces dans `outils.json` ; le libellé affiché
 reste métrique (ex. « 10 mm »).
+
+**Révision des tables (décision D28).** `materiaux.json` et `operations.json`
+portent chacun une clé `revision` (texte non vide, ex. « A2026_r0 »), affichée au
+pied de la feuille de référence correspondante, comme « révision H2025_r0 » au
+pied des feuilles du classeur. C'est la révision **des tables** ; la version d'un
+exercice est dans l'exercice (§10). `loadData` la rend dans `revisions`.
+
+**Familles de matériaux (décision D27).** `debut_famille: true` sur un matériau
+= un trait fin au-dessus de sa ligne dans la feuille des vitesses de coupe : il
+marque un changement de **matériau usiné** (compositions et états d'un même
+matériau restent ensemble ; plastiques et graphite, groupes 42 à 47, forment une
+seule famille). Booléen facultatif, **donnée et non calcul** : l'éditeur peut le
+changer. Il ne sert qu'à la feuille ; il n'entre pas dans la question tirée.
+
+**Outil à deux diamètres (décision D25).** Pour la barre à aléser, `dimensions`
+est le **Ø alésé** (le trou), qui sert à N, et `dimensions_barre` (libellé +
+Ø en pouces) le **Ø de la barre**, qui sert à l'avance proportionnelle (§5).
+`rapport_barre_max` (> 0 et ≤ 1, ex. 0,75) dit quelles barres entrent dans un
+trou : Ø barre ≤ rapport × Ø alésé. Les deux clés vont ensemble, ne sont permises
+que sur une opération à avance proportionnelle au Ø, et le catalogue est refusé
+si une dimension n'a aucune barre qui y entre. Valeurs de départ (barres de 1/2,
+5/8, 3/4, 1 et 1 1/4 po ; rapport 0,75) : **proposées, à confirmer par Thierry**.
+Aucun autre outil n'a aujourd'hui deux diamètres à distinguer (D25).
+
+Le champ `note` des opérations a été supprimé (D29) : il contredisait la table
+(« .008 × Ø 1/4 = .002 ») et n'était plus affiché ; l'encadré de la feuille des
+avances est calculé depuis les avances.
 
 Champ `limite_avance` de `outils.json` : présent dans le classeur, **non utilisé
 par le moteur** (ni par le VBA). Le seul plafond d'avance est
@@ -50,29 +77,32 @@ par le moteur** (ni par le VBA). Le seul plafond d'avance est
 
 Groupes « O - Plastique renforci d'aramid » et « O - Graphite » : **volontairement** attachés à aucun outil (jugés trop rares pour les étudiants) ; ils restent au catalogue pour pouvoir l'être plus tard.
 
-Les images d'outils (29, EMF/PNG dans le classeur) restent à exporter — champ
-`image` vide pour l'instant.
+Les images d'outils sont dans `site/img/outils/<id>.png` ; le champ `image` du
+catalogue n'est pas encore utilisé.
 
 ## 4. Génération d'une question
 
 1. **Outil** : tirage uniforme parmi les outils *encore à évaluer* de l'exercice (voir §7 et §10). Les restrictions de l'exercice (dimensions, matériaux d'outil, groupes) s'appliquent aux tirages 3, 4 et 5.
 2. **Nombre de dents** : entier uniforme dans `[nb_dents_min, nb_dents_max]`.
-3. **Dimension** : tirage uniforme dans `dimensions[]` de l'outil.
+3. **Dimension** : tirage uniforme dans `dimensions[]` de l'outil. Pour un outil à deux diamètres (§3, D25), un **7e tirage**, le dernier, choisit ensuite la barre, uniformément parmi celles qui entrent dans le trou tiré.
    - Outil de filetage : libellé du type `Ø-filets/po` (impérial : `0.25-20` → Ø 0,25 po, pas = 1/20 po) ou `ØxPas` mm (métrique : `10x1.5` → Ø 10/25,4 po, pas = 1,5/25,4 po).
    - Sinon : Ø en pouces.
 4. **Matériau d'outil** : tirage uniforme dans `materiaux_outil[]`.
 5. **Matériau brut** : tirage d'un *groupe* dans `groupes_materiaux_usinables[]`, puis tirage uniforme d'un matériau de ce groupe dans `materiaux.json`.
-6. **Identifiant affiché** : gabarit `format_identifiant` avec substitution des jetons. Liste officielle (tout autre jeton est une erreur) :
+6. **Nom affiché — gabarit de nomenclature (décision D24)** : chaque outil porte dans `format_identifiant` le gabarit de la ligne 4 (`IdFormat`) de « Liste d'outils », même syntaxe : des jetons entre crochets, remplacés par les valeurs tirées. Ex. : « Foret [IdDia] », « Alésoir [IdDia] - [NbDent] lèvres », « MCLNR - Ø charioté: [IdDia] », « Barre à aléser Ø [IdBarre] - Ø alésé: [IdDia] ». Liste officielle (`TEMPLATE_TOKENS`, `site/js/data.js`) :
 
    | Jeton | Remplacé par |
    |---|---|
-   | `[IdDia]` | libellé de la dimension tirée (ex. « 1/4 po », « M10 x 1.50 ») |
+   | `[IdDia]` | libellé de la dimension tirée (ex. « Ø 1/64 po », « 1/4- 20 UNC », « M6 x 1 ») |
+   | `[Dia]` | Ø de la dimension tirée, en pouces (au plus 5 décimales, sans zéros de fin) |
+   | `[Pas]` | pas du filet, en pouces — **outil de filetage seulement** |
+   | `[IdBarre]` | libellé de la barre tirée — **outil à deux diamètres seulement** (D25) |
    | `[NbDent]` | nombre de dents tiré |
    | `[NomOutil]` | `nom` de l'outil |
    | `[Operation]` | `operation` de l'outil |
    | `[Matoutil]` | matériau d'outil tiré (ex. « Acier rapide ») |
 
-   Les autres jetons du VBA (`[Pas]`, `[Dia]`, `[Couleur]`, etc.) ne sont pas repris.
+   Tout autre jeton, ou un jeton sans valeur pour l'outil, est une erreur **dès la validation du catalogue**. Les autres jetons du VBA (`[Couleur]`, `[FactVc]`, etc.) ne sont pas repris. Le gabarit résolu est le titre de la question, tel quel ; la progression garde le `nom` générique (`UI.md` §3.3). L'éditeur (jalon 6) permettra de le modifier.
 
 ## 5. Calcul des réponses attendues
 
@@ -85,12 +115,26 @@ N         = min(N_brut, limite_rpm)
 
 avance par dent (fz) :
   filetage                : fz = pas   (la table d'avance donne « pas du filetage »)
-  proportionnelle au Ø    : fz = min(avance_po_rev × D × fact_av, avance_max_po_rev)
+  proportionnelle au Ø    : fz = min(avance_po_rev × D_outil × fact_av, avance_max_po_rev)
   fixe                    : fz = avance_po_rev
 
 avance par révolution  f  = fz × nb_dents                                (po/rév)
 vitesse d'avance       Vf = N × f                                        (po/min)
 ```
+
+`D` est le Ø de la dimension tirée. `D_outil` est le même, sauf pour un outil à
+deux diamètres (décision D25) : pour la barre à aléser, **N se calcule avec le Ø
+alésé et l'avance avec le Ø de la barre** (0,006 × Ø barre, plafonnée à
+0,006 po/tour).
+
+La feuille des formules montre aussi, **à titre indicatif**, la formule exacte
+`N = Vc × 12 / (π × Ø)` (D29) ; la correction reste sur `Vc × 4 / Ø`. Un N calculé
+avec 12/π est plus bas de 4,5 % : il tient dans la tolérance de N (§6) pour
+toutes les combinaisons du catalogue **s'il n'est pas arrondi**
+(`tests/chaine.test.js`).
+❓ Arrondi à l'entier, il est refusé pour 122 combinaisons sur 40 733 (0,3 %),
+toutes sous 90 rév/min, où l'arrondi s'ajoute aux 4,5 % : à trancher par Thierry
+(test `todo`).
 
 **Arrondis (décisions D9, D14).** Aucun arrondi sur les valeurs théoriques,
 comme dans le VBA (arrondis commentés) : les tolérances du §6 absorbent les
@@ -195,7 +239,7 @@ qui détient la clé secrète. Le navigateur **affiche** ; le serveur :
   réponses données, résultat, heure. Le rapport (§8) en tire les questions
   réussies ; la page de vérification, la durée totale et le temps médian par
   question ;
-- impose une **cadence minimale** : 10 s entre deux corrections d'une même
+- impose une **cadence minimale** (levée en mode test, ci-dessous) : 10 s entre deux corrections d'une même
   séance. Une correction demandée trop tôt est refusée (429), **sans effet** sur
   les compteurs ni sur la question en cours ;
 - ne corrige une question **qu'une seule fois** : la correction tire aussitôt
@@ -308,7 +352,7 @@ l'identification, chaque appel porte le jeton dans l'en-tête
   },
   "question": {
     "identifiant": "MVLNR - Ø charioté: 2.000\"",
-    "outil": { "id", "nom", "operation", "commentaire", "dents", "materiau", "limite_rpm", "fact_vc", "fact_av" },
+    "outil": { "id", "nom", "operation", "commentaire", "dents", "materiau", "limite_rpm", "fact_vc", "fact_av", "barre" },
     "dimension": "2.000\"",
     "materiau": { "iso", "groupe", "materiau", "composition", "etat", "durete", "exemple" },
     "champs": [ { "champ": "vc", "evalue": true, "texte": "" },
@@ -318,6 +362,10 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 ```
 
 Un champ non évalué arrive avec sa valeur théorique mise en forme (§5, §10).
+`identifiant` est le gabarit de nom résolu (§4.6). `outil.barre` est le libellé
+de la barre tirée pour un outil à deux diamètres (`dimension` est alors le Ø
+alésé), sinon `null`. En mode test seulement, `question` porte aussi
+`reponses_test` (ci-dessous).
 
 **Règle : rien de ce qui est à trouver ne part au navigateur.** Ni la valeur
 attendue d'un champ évalué, ni les vitesses de coupe du matériau, ni rien qui
@@ -337,7 +385,8 @@ Pour chaque champ :
   « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ») ; `ecart_pct`, l'écart de
   la saisie en % (`null` si elle est vide ou illisible) ; `calcul`, le calcul en
   une ligne (« Vf = N × f = 2500 × 0.0050 », facteur de vitesse et plafond du
-  RPM compris ; `null` pour Vc et pour une avance fixe, qui se lisent dans une
+  RPM compris ; pour un outil à deux diamètres, il nomme celui qui sert :
+  « N = Vc × 4 / Ø alésé = … », « fz = avance × Ø barre = 0.006 × 0.75 » ; `null` pour Vc et pour une avance fixe, qui se lisent dans une
   table). Pour un champ fourni, ces trois valeurs sont `null`.
 
 | Code | Sens |
@@ -354,6 +403,32 @@ d'une fenêtre de 10 minutes pose le verrou ; une identification réussie efface
 le compte. Le verrou est celui d'une séance : il ne touche aucun autre
 étudiant. Un NIP **remis à zéro** par l'enseignant (jalon 5) : le prochain NIP
 présenté pour ce matricule devient le nouveau.
+
+### Mode test (décision D26)
+
+Pour essayer le parcours sans calculer : les cases se remplissent d'elles-mêmes,
+restent modifiables (pour simuler une erreur), et il n'y a qu'à cliquer Vérifier
+puis Question suivante. **Sans porte à la tricherie** :
+
+- le mode n'existe que **sur le poste de développement** : variable
+  `MODE_TEST=1` dans `.dev.vars`, lu par `wrangler dev`. Elle n'est **jamais**
+  dans `wrangler.jsonc`, ni dans le déploiement, ni en production (un test le
+  vérifie) ;
+- second verrou : même avec la variable, le serveur n'accepte le mode que pour
+  une requête adressée à `localhost`, `127.0.0.1` ou `[::1]`
+  (`isTestMode`, `worker/seance.js`) ;
+- **c'est le serveur qui joint les valeurs attendues** à la question, dans
+  `seance.question.reponses_test` (`{ vc: "100", rpm: "1600", … }`, champs
+  évalués seulement), et seulement dans ce mode. Rien de ce qu'envoie le
+  navigateur — adresse, en-tête, corps — ne l'active ;
+- le navigateur n'affiche le bandeau « Mode test » et le bouton « Remplir » que
+  si la question porte `reponses_test` ; il n'a aucun interrupteur ;
+- dans ce mode, la cadence de 10 s est levée.
+
+L'exercice `test-complet` (§10) sert à cet essai. Plus tard, le mode pourra
+s'ouvrir aux séances d'un **professeur connecté** (jalon 5 ou 6) ; pour toute
+séance d'étudiant, la règle « rien de ce qui est à trouver ne part au
+navigateur » reste entière.
 
 **Tests.** `npm test` fait tourner le vrai Worker sur une base SQLite en mémoire
 (`node:sqlite`) où les vraies migrations sont appliquées, avec une horloge
@@ -397,6 +472,12 @@ silence (présentation : `UI.md` §3.2) :
 **La preuve de réussite est le rapport**, que l'étudiant enregistre en PDF et
 remet sur Léa (décision D16). Le QR code sert à l'enseignant pour vérifier un
 rapport en cas de doute.
+
+**Attestation provisoire (D29).** Depuis l'écran « Exercice réussi », « Voir mon
+attestation » ouvre une page lettre imprimable tirée de la séance (exercice et
+version, identité, début, réussite, questions réussies, champs évalués), avec
+l'emplacement du code QR. Tant que le serveur ne la signe pas (jalon 5, en tête),
+elle se dit **provisoire, non signée**, et ne vaut pas preuve.
 
 Rapport de réussite (présentation : `UI.md` §3.6) :
 - exercice et sa version, prénom, nom, matricule, date/heure de début,
@@ -513,6 +594,11 @@ Précisions :
   `id` a son fichier `<id>.json` et le même `titre` (vérifié par les tests) ;
   « index » est un identifiant réservé. Un fichier d'exercice absent de
   l'index n'est pas offert.
+- **`test-complet`** (décision D26) : exercice de test pour l'enseignant — tous
+  les outils du catalogue, les cinq grandeurs, une réussite par outil, aucune
+  restriction. Un test vérifie qu'un outil ajouté au catalogue y figure. Il est
+  dans l'index, donc offert aussi en production ; il n'y donne aucune réponse
+  (le mode test n'existe qu'en local, §7).
 - Reporté : seuils du graphique de progression (finition).
 
 ## 11. Questions ouvertes (résumé)
@@ -523,3 +609,5 @@ Précisions :
 4. ~~Sécurité du payload QR (§8 / D6).~~ Tranché : attestation signée par le serveur de correction (D19).
 5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ? (D7)
 6. ~~Serveur de correction : cinq points du §7.~~ Tranchés : D21.
+7. ❓ Un N calculé avec 12/π **puis arrondi à l'entier** est refusé sous ~90 rév/min (§5) : élargir la tolérance de N, ou ne rien changer ?
+8. ❓ Barres de la barre à aléser et rapport 0,75 (§3, D25) : valeurs proposées, à confirmer.
