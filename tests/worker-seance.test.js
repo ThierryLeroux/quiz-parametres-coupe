@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CADENCE_MS, NIP_CLEARED, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
-  gradeQuestion, isExerciseComplete, isNipLocked, isQuestionValid, later, questionView, sessionView,
+  gradeQuestion, isExerciseComplete, isNipLocked, isQuestionValid, isTestMode, later, questionView, sessionView,
 } from '../worker/seance.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
@@ -187,7 +187,59 @@ test('questionView (M10) : Vc à saisir, les quatre autres champs fournis ; jama
 
 test('questionView (cinq champs évalués) : aucune valeur attendue ne part vers le navigateur', () => {
   const question = drawQuestion(emptyCounters(), CINQ_CHAMPS, data, aleaAGraine(1));
-  assert.deepEqual(questionView(question, CINQ_CHAMPS, data).champs.map((champ) => [champ.evalue, champ.texte]), Array(5).fill([true, '']));
+  const vue = questionView(question, CINQ_CHAMPS, data);
+  assert.deepEqual(vue.champs.map((champ) => [champ.evalue, champ.texte]), Array(5).fill([true, '']));
+  assert.equal('reponses_test' in vue, false);
+});
+
+// --- Mode test (D26) ------------------------------------------------------------------------------------------
+
+test('isTestMode : la variable MODE_TEST=1 ET une requête adressée au poste lui-même ; rien d’autre', () => {
+  for (const hote of ['localhost', '127.0.0.1', '[::1]']) assert.equal(isTestMode('1', hote), true, hote);
+  for (const [variable, hote] of [
+    ['1', 'quiz-parametres-coupe.exemple.workers.dev'], ['1', 'localhost.exemple.com'], ['1', ''], ['1', undefined],
+    [undefined, 'localhost'], ['', 'localhost'], ['0', 'localhost'], ['true', 'localhost'], [1, 'localhost'], [true, 'localhost'],
+  ]) assert.equal(isTestMode(variable, hote), false, `${String(variable)} / ${String(hote)}`);
+});
+
+test('questionView en mode test : les valeurs attendues des champs ÉVALUÉS seulement, mises en forme', () => {
+  const question = drawQuestion(emptyCounters(), m10, data, aleaAGraine(1));
+  assert.deepEqual(questionView(question, m10, data, { testMode: true }).reponses_test, { vc: bonnesReponses(question).vc });
+  const complete = questionView(question, { ...CINQ_CHAMPS, outils: m10.outils }, data, { testMode: true });
+  assert.deepEqual(complete.reponses_test, bonnesReponses(question));
+  assert.equal('reponses_test' in questionView(question, m10, data, { testMode: false }), false);
+});
+
+test('cadenceWait en mode test : la cadence est levée', () => {
+  assert.equal(cadenceWait(seance({ derniere_correction: MAINTENANT.toISOString() }), apres(1000), { testMode: true }), 0);
+  assert.equal(cadenceWait(seance({ derniere_correction: MAINTENANT.toISOString() }), apres(1000)), 9);
+});
+
+// --- Outil à deux diamètres (D25) --------------------------------------------------------------------------------
+
+const BARRE = { ...CINQ_CHAMPS, id: 'essai-barre', outils: [{ id: 'barre_a_aleser', reussites_requises: 1 }] };
+const questionBarre = () => questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', barre: '3/4 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
+
+test('barre à aléser : la vue nomme la barre ; la correction calcule N avec le Ø alésé et fz avec le Ø de la barre', () => {
+  const question = questionBarre();
+  const vue = questionView(question, BARRE, data);
+  assert.equal(vue.identifiant, 'Barre à aléser Ø 3/4 po - Ø alésé: 2.000"');
+  assert.deepEqual([vue.outil.barre, vue.dimension], ['3/4 po', '2.000"']);
+  assert.equal(questionView(drawQuestion(emptyCounters(), CINQ_CHAMPS, data, aleaAGraine(1)), CINQ_CHAMPS, data).outil.barre, null);
+
+  const corrige = gradeQuestion(question, cleanAnswers({}), emptyCounters(), BARRE, data);
+  const champs = Object.fromEntries(correctionView(question, cleanAnswers({}), corrige.result, 0, corrige.counters, data).champs.map((champ) => [champ.champ, champ]));
+  assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø alésé = 400 × 4 / 2');
+  assert.equal(champs.feedPerTooth.calcul, 'fz = avance × Ø barre = 0.006 × 0.75');
+  assert.deepEqual([champs.rpm.attendu, champs.feedPerTooth.attendu], ['800', '0.0045']);
+});
+
+test('isQuestionValid : une question de barre à aléser tirée avant D25, sans barre, n’est plus posée', () => {
+  const question = questionBarre();
+  assert.equal(isQuestionValid(question, emptyCounters(), BARRE, data), true);
+  const { bar: _avantD25, ...ancienne } = question;
+  assert.equal(isQuestionValid(ancienne, emptyCounters(), BARRE, data), false);
+  assert.equal(isQuestionValid({ ...question, bar: null }, emptyCounters(), BARRE, data), false);
 });
 
 test('correctionView : juste ou faux, saisie et valeur attendue de chaque champ, compteur avant → après', () => {

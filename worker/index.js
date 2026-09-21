@@ -13,7 +13,7 @@ import { loadCatalogue } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameText } from './crypto.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
-  gradeQuestion, isNipLocked, isQuestionValid, later, sessionView,
+  gradeQuestion, isNipLocked, isQuestionValid, isTestMode, later, sessionView,
 } from './seance.js';
 
 // Réponse JSON, jamais mise en cache : une réponse de l'API ne vaut que pour l'instant présent.
@@ -66,6 +66,10 @@ async function authenticate(request, env, exercise, now) {
   await base.touchSession(env.DB, session.id, now.toISOString(), later(now, TOKEN_LIFETIME_MS));
   return session;
 }
+
+// Mode test (D26) : décidé ici, par le serveur seul — la variable MODE_TEST de .dev.vars et une
+// requête adressée au poste lui-même. Retourne les options des vues de seance.js.
+const viewOptions = (request, env) => ({ testMode: isTestMode(env.MODE_TEST, new URL(request.url).hostname) });
 
 // --- Identification en deux temps (D23) ------------------------------------------------------------------
 
@@ -126,7 +130,7 @@ async function creation(request, env, { now }) {
   });
   if (!created) throw new HttpError(409, ALREADY_EXISTS);
   const session = await base.findSession(env.DB, exercise.id, student.matricule);
-  return json({ jeton: token, seance: sessionView(session, exercise, data) });
+  return json({ jeton: token, seance: sessionView(session, exercise, data, viewOptions(request, env)) });
 }
 
 // --- POST /api/reprise — écran 2/2, séance trouvée : matricule + NIP. Ni prénom ni nom.
@@ -144,7 +148,7 @@ async function reprise(request, env, { now }) {
   const { token, stored } = await freshToken(now);
   // nip_hache est réécrit : c'est ainsi qu'un NIP remis à zéro par l'enseignant est remplacé.
   await base.openSession(env.DB, session.id, { ...stored, nip_hache: await hashNip(env.CLE_SECRETE, matricule, nip), now: now.toISOString(), cleared: NIP_CLEARED });
-  return json({ jeton: token, seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data) });
+  return json({ jeton: token, seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env)) });
 }
 
 // --- POST /api/identite — « Corriger mon identité » : prénom, nom, matricule ; NIP exigé.
@@ -164,7 +168,7 @@ async function identite(request, env, { now }) {
     const moved = await base.moveSession(env.DB, session, { ...identity, nip_hache: await hashNip(env.CLE_SECRETE, identity.matricule, identity.nip) }, now.toISOString());
     if (!moved) throw new HttpError(409, ALREADY_EXISTS);
   }
-  return json({ seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data) });
+  return json({ seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env)) });
 }
 
 // --- GET /api/seance?exercice=<id> ---------------------------------------------------------------------
@@ -172,7 +176,7 @@ async function identite(request, env, { now }) {
 async function seance(request, env, { now }) {
   const { data, exercise } = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
   const session = await authenticate(request, env, exercise, now);
-  return json({ seance: sessionView(session, exercise, data) });
+  return json({ seance: sessionView(session, exercise, data, viewOptions(request, env)) });
 }
 
 // --- POST /api/question ----------------------------------------------------------------------------------
@@ -190,7 +194,7 @@ async function question(request, env, { now, random }) {
     await base.saveQuestion(env.DB, session, drawn, completion); // si une autre requête a tiré avant nous, c'est sa question qui vaut
     session = await base.findSessionById(env.DB, session.id);
   }
-  return json({ seance: sessionView(session, exercise, data) });
+  return json({ seance: sessionView(session, exercise, data, viewOptions(request, env)) });
 }
 
 // --- POST /api/correction --------------------------------------------------------------------------------
@@ -204,7 +208,7 @@ async function correction(request, env, { now, random }) {
   if (session.reussite_le !== null || !isQuestionValid(session.question_courante, session.compteurs, exercise, data)) {
     throw new HttpError(409, "Aucune question n'attend de correction.");
   }
-  const wait = cadenceWait(session, now);
+  const wait = cadenceWait(session, now, viewOptions(request, env));
   if (wait > 0) throw new HttpError(429, `Attends encore ${wait} s avant de faire corriger ta réponse.`, { attendre_s: wait });
 
   const asked = session.question_courante;
@@ -229,7 +233,7 @@ async function correction(request, env, { now, random }) {
   const updated = await base.findSessionById(env.DB, session.id);
   return json({
     correction: correctionView(asked, answers, graded.result, before, graded.counters, data),
-    seance: sessionView(updated, exercise, data),
+    seance: sessionView(updated, exercise, data, viewOptions(request, env)),
   });
 }
 

@@ -29,7 +29,7 @@ test('loadApp : charge le catalogue, l’index et l’exercice demandé par l’
   const lecteur = (url) => { demandes.push(url); return lireFichier(url); };
   const app = await loadApp('?exercice=m10-tournage-vc', lecteur);
   assert.equal(app.data.outils.length, 29);
-  assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc']);
+  assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc', 'test-complet']);
   assert.equal(app.exercise.id, 'm10-tournage-vc');
   assert.equal(app.unknownId, null);
   assert.deepEqual(demandes.sort(), ['data/materiaux.json', 'data/operations.json', 'data/outils.json', 'exercices/index.json', 'exercices/m10-tournage-vc.json']);
@@ -42,7 +42,7 @@ test('loadApp : sans exercice reconnu, aucun fichier d’exercice n’est lu —
     const app = await loadApp(adresse, lecteur);
     assert.equal(app.exercise, null, adresse);
     assert.equal(app.unknownId, inconnu, adresse);
-    assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc']);
+    assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc', 'test-complet']);
     assert.deepEqual(demandes.sort(), ['data/materiaux.json', 'data/operations.json', 'data/outils.json', 'exercices/index.json'], adresse);
   }
 });

@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MINUTE, SECONDE, serveurDeTest } from './aide-serveur.js';
+import { readFile } from 'node:fs/promises';
 import { lireFichier } from './aide.js';
 
 const M10 = 'm10-tournage-vc';
@@ -36,6 +37,61 @@ async function repondre(serveur, jeton, juste, exercice = M10, matricule = '2412
   const bonnes = serveur.bonnesReponses(matricule, exercice);
   return serveur.appel('POST', '/api/correction', { jeton, corps: { exercice, saisies: juste ? bonnes : { ...bonnes, vc: '1' } } });
 }
+
+// --- Mode test (D26) : local seulement, et c'est le serveur qui décide --------------------------------------------
+
+const LOCAL = { hote: 'http://localhost:8787', variables: { MODE_TEST: '1' } };
+
+test('mode test : MODE_TEST=1 sur localhost → les réponses attendues accompagnent la question, et la cadence est levée', async () => {
+  const serveur = serveurDeTest(LOCAL);
+  const { jeton, seance } = await commencer(serveur);
+  assert.deepEqual(seance.question.reponses_test, { vc: serveur.bonnesReponses('2412345', M10).vc });
+  assert.deepEqual((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.question.reponses_test, seance.question.reponses_test);
+
+  // Deux corrections coup sur coup : pas de 429 ; la question suivante arrive avec ses réponses.
+  for (let i = 0; i < 2; i += 1) {
+    const { status, corps } = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: serveur.bonnesReponses('2412345', M10) } });
+    assert.equal(status, 200, JSON.stringify(corps));
+    assert.equal(corps.correction.reussie, true);
+    assert.deepEqual(corps.seance.question.reponses_test, { vc: serveur.bonnesReponses('2412345', M10).vc });
+  }
+});
+
+test('mode test : rien de ce qu’envoie le navigateur ne l’active — ni adresse, ni en-tête, ni corps', async () => {
+  const cas = [
+    ['sans la variable, sur localhost', { hote: 'http://localhost:8787' }],
+    ['variable à une autre valeur', { hote: 'http://localhost:8787', variables: { MODE_TEST: 'true' } }],
+    ['avec la variable, mais ailleurs que sur le poste (production)', { variables: { MODE_TEST: '1' } }],
+  ];
+  for (const [nom, options] of cas) {
+    const serveur = serveurDeTest(options);
+    const { status, corps } = await serveur.appel('POST', '/api/creation?mode_test=1&MODE_TEST=1', { corps: { ...CAMILLE, mode_test: true, MODE_TEST: '1' }, entetes: { 'x-mode-test': '1', host: 'localhost' } });
+    assert.equal(status, 200, nom);
+    const question = await serveur.appel('POST', '/api/question?mode_test=1', { jeton: corps.jeton, corps: { exercice: M10, mode_test: true, MODE_TEST: '1' }, entetes: { 'x-mode-test': '1' } });
+    assert.equal(question.status, 200, nom);
+    assert.equal(JSON.stringify(question.corps).includes('reponses_test'), false, nom);
+    // Et la cadence tient : une seconde correction aussitôt → 429.
+    const saisies = serveur.bonnesReponses('2412345', M10);
+    assert.equal((await serveur.appel('POST', '/api/correction', { jeton: corps.jeton, corps: { exercice: M10, saisies } })).status, 200, nom);
+    assert.equal((await serveur.appel('POST', '/api/correction', { jeton: corps.jeton, corps: { exercice: M10, saisies: serveur.bonnesReponses('2412345', M10) } })).status, 429, nom);
+  }
+});
+
+test('mode test : MODE_TEST ne figure ni dans wrangler.jsonc ni dans le déploiement ; seulement, en commentaire, dans .dev.vars.exemple', async () => {
+  const lire = (chemin) => readFile(new URL(`../${chemin}`, import.meta.url), 'utf8');
+  assert.equal((await lire('wrangler.jsonc')).includes('MODE_TEST'), false, 'wrangler.jsonc');
+  assert.equal((await lire('.github/workflows/deploy.yml')).includes('MODE_TEST'), false, 'deploy.yml');
+  assert.equal((await lire('package.json')).includes('MODE_TEST'), false, 'package.json');
+  const actives = (await lire('.dev.vars.exemple')).split(/\r?\n/).filter((ligne) => ligne.includes('MODE_TEST') && !ligne.trim().startsWith('#'));
+  assert.deepEqual(actives, [], 'dans le modèle, MODE_TEST reste en commentaire');
+});
+
+test('test-complet : l’exercice de test est servi par le serveur, avec ses 29 outils et ses cinq champs à saisir', async () => {
+  const serveur = serveurDeTest();
+  const { seance } = await commencer(serveur, { ...CAMILLE, exercice: 'test-complet' });
+  assert.equal(seance.progression.outils.length, 29);
+  assert.deepEqual(seance.question.champs.map((champ) => champ.evalue), [true, true, true, true, true]);
+});
 
 // --- Généralités ---------------------------------------------------------------------------------------
 

@@ -26,7 +26,9 @@ export function fauxSite(remplacements = {}) {
 
 // Un serveur de test : sa base, son horloge, et `appel` pour lui parler.
 //   appel('POST', '/api/question', { jeton, corps }) → { status, corps }
-export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test' } = {}) {
+//   hote      : l'adresse à laquelle les requêtes sont faites — le mode test (D26) n'existe que sur localhost
+//   variables : variables du Worker en plus des secrets, ex. { MODE_TEST: '1' }
+export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', hote = 'https://quiz.example', variables = {} } = {}) {
   const serveur = {
     db: fausseD1(),
     env: null,
@@ -35,10 +37,10 @@ export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'sec
     avancer(ms) { this.maintenant = new Date(this.maintenant.getTime() + ms); },
     // Republie le site avec d'autres JSON, sans toucher à la base : « l'enseignant modifie l'exercice ».
     publier(nouveaux) { this.env = { ...this.env, ASSETS: fauxSite(nouveaux) }; },
-    async appel(methode, chemin, { jeton, corps } = {}) {
-      const headers = {};
+    async appel(methode, chemin, { jeton, corps, entetes = {} } = {}) {
+      const headers = { ...entetes };
       if (jeton) headers.authorization = `Bearer ${jeton}`;
-      const request = new Request(`https://quiz.example${chemin}`, { method: methode, headers, body: corps === undefined ? undefined : JSON.stringify(corps) });
+      const request = new Request(`${hote}${chemin}`, { method: methode, headers, body: corps === undefined ? undefined : JSON.stringify(corps) });
       const response = await handle(request, this.env, { now: this.maintenant, random: this.random });
       return { status: response.status, corps: await response.json() };
     },
@@ -54,7 +56,7 @@ export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'sec
       return formatParameters(computeParameters(JSON.parse(this.seance(matricule, exercice).question_courante), data));
     },
   };
-  serveur.env = { DB: serveur.db, ASSETS: fauxSite(remplacements), CLE_SECRETE: secret };
+  serveur.env = { DB: serveur.db, ASSETS: fauxSite(remplacements), CLE_SECRETE: secret, ...variables };
   return serveur;
 }
 

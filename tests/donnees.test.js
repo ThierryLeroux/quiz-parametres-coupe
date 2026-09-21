@@ -48,6 +48,15 @@ test("outils.json : chaque outil référence une opération connue et a des dime
   }
 });
 
+test('exercices/test-complet.json : tous les outils du catalogue, les cinq grandeurs, une réussite chacun (D26)', async () => {
+  const exercice = JSON.parse(await readFile(new URL('../site/exercices/test-complet.json', import.meta.url), 'utf8'));
+  const { outils } = await lire('outils.json');
+  assert.deepEqual(exercice.outils.map((o) => o.id), outils.map((o) => o.id), 'un outil ajouté au catalogue doit l’être aussi à test-complet.json');
+  assert.deepEqual(exercice.outils.map((o) => Object.keys(o)), outils.map(() => ['id', 'reussites_requises']), 'aucune restriction');
+  assert.ok(exercice.outils.every((o) => o.reussites_requises === 1));
+  assert.deepEqual(exercice.champs_evalues, ['vc', 'fz', 'n', 'f', 'vf']);
+});
+
 test('exercices/m10-tournage-vc.json : reprend les réussites requises du classeur M10', async () => {
   const exercice = JSON.parse(await readFile(new URL('../site/exercices/m10-tournage-vc.json', import.meta.url), 'utf8'));
   const { outils } = await lire('outils.json');
