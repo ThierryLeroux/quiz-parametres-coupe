@@ -40,7 +40,9 @@ export function computeParameters(question, data) {
     feedPerTooth = question.dimension.pitch; // filetage : l'avance est le pas
   } else if (operation.avance_proportionnelle_diametre) {
     feedType = 'proportional';
-    const proportional = operation.avance_po_rev * diameter * tool.fact_av;
+    // Outil à deux diamètres (D25) : l'avance suit le Ø de l'outil (la barre), pas le Ø alésé qui sert à N.
+    const toolDiameter = question.bar ? question.bar.diameter : diameter;
+    const proportional = operation.avance_po_rev * toolDiameter * tool.fact_av;
     feedPerToothCapped = proportional > operation.avance_max_po_rev;
     feedPerTooth = feedPerToothCapped ? operation.avance_max_po_rev : proportional;
   } else {

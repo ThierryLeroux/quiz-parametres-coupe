@@ -1,7 +1,7 @@
 // Aides partagées par les tests (ce fichier n'est pas un test : il ne finit pas par .test.js).
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { loadData } from '../site/js/data.js';
+import { fittingBars, loadData } from '../site/js/data.js';
 import { generateQuestion } from '../site/js/question.js';
 
 // Lit un fichier de site/ : sous Node, fetch ne lit pas les fichiers locaux.
@@ -21,7 +21,8 @@ export const aleaAGraine = (graine) => () => {
 // Fabrique une question précise en passant par le vrai générateur : chaque tirage
 // est choisi pour tomber sur l'élément voulu (milieu de sa tranche de [0, 1[).
 //   groupeMateriau : numéro de groupe (VDI 3323) du matériau brut, clé « groupe » de materiaux.json
-export function questionPour({ outil, dimension, dents, materiauOutil, groupeMateriau }) {
+//   barre          : libellé de la barre, pour un outil à deux diamètres (D25) ; par défaut, la première qui entre
+export function questionPour({ outil, dimension, dents, materiauOutil, groupeMateriau, barre }) {
   const o = data.outils.find((t) => t.id === outil);
   const m = data.materiaux.find((x) => x.groupe === groupeMateriau);
   const etiquette = `${m.iso} - ${m.materiau}`;
@@ -37,15 +38,20 @@ export function questionPour({ outil, dimension, dents, materiauOutil, groupeMat
     viser(o.groupes_materiaux_usinables.indexOf(etiquette), o.groupes_materiaux_usinables.length),
     viser(data.materialsByGroup.get(etiquette).indexOf(m), data.materialsByGroup.get(etiquette).length),
   ];
+  if (o.dimensions_barre) {
+    const barres = fittingBars(o, o.dimensions.find((d) => d.libelle === dimension).valeur);
+    tirages.push(barre === undefined ? 0 : viser(barres.findIndex((b) => b.libelle === barre), barres.length));
+  }
   const question = generateQuestion(data, [o], () => tirages.shift());
   assert.equal(question.dimension.label, dimension);
   assert.equal(question.teeth, dents);
   assert.equal(question.material.groupe, groupeMateriau);
+  if (barre !== undefined) assert.equal(question.bar.label, barre);
   return question;
 }
 
 // Toutes les questions possibles du catalogue : chaque outil × nombre de dents × dimension ×
-// matériau d'outil × matériau brut usinable. Générateur (for…of) pour ne pas tout garder en mémoire.
+// matériau d'outil × matériau brut usinable (× barre qui entre, pour un outil à deux diamètres). Générateur (for…of) pour ne pas tout garder en mémoire.
 export function* toutesLesQuestions() {
   for (const o of data.outils) {
     for (let dents = o.nb_dents_min; dents <= o.nb_dents_max; dents += 1) {
@@ -53,7 +59,8 @@ export function* toutesLesQuestions() {
         for (const materiauOutil of o.materiaux_outil) {
           for (const etiquette of o.groupes_materiaux_usinables) {
             for (const m of data.materialsByGroup.get(etiquette)) {
-              yield questionPour({ outil: o.id, dimension: dimension.libelle, dents, materiauOutil, groupeMateriau: m.groupe });
+              const barres = o.dimensions_barre ? fittingBars(o, dimension.valeur).map((b) => b.libelle) : [undefined];
+              for (const barre of barres) yield questionPour({ outil: o.id, dimension: dimension.libelle, dents, materiauOutil, groupeMateriau: m.groupe, barre });
             }
           }
         }

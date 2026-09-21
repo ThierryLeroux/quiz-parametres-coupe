@@ -15,6 +15,18 @@ test('materiaux.json : 47 matériaux, groupes 1..47, Vc positives', async () => 
   });
 });
 
+// D27 : le trait de la feuille marque un changement de matériau usiné ; plastiques et graphite
+// (42 à 47) forment une seule famille. Liste donnée par Thierry (2026-09-20), plus le groupe 1.
+test('materiaux.json : « debut_famille » sur les groupes 1, 6, 10, 12, 15, 17, 19, 21, 23, 26, 31, 36, 38, 41 et 42', async () => {
+  const { materiaux } = await lire('materiaux.json');
+  assert.deepEqual(materiaux.filter((m) => m.debut_famille === true).map((m) => m.groupe), [1, 6, 10, 12, 15, 17, 19, 21, 23, 26, 31, 36, 38, 41, 42]);
+});
+
+test('révision des tables de référence : présente dans materiaux.json et operations.json (D28)', async () => {
+  assert.match((await lire('materiaux.json')).revision, /^[AH]\d{4}_r\d+$/);
+  assert.match((await lire('operations.json')).revision, /^[AH]\d{4}_r\d+$/);
+});
+
 test('operations.json : chaque opération est fixe, proportionnelle ou filetage', async () => {
   const { operations } = await lire('operations.json');
   assert.equal(operations.length, 19);

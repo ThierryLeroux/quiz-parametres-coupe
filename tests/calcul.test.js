@@ -79,11 +79,27 @@ test('plafond avance_max : foret fractionnaire Ø 2 po, acier rapide, acier 1020
   });
 });
 
-test('plafond avance_max : une avance égale au plafond n’est pas « plafonnée » (barre à aléser 1.000")', () => {
-  const question = questionPour({ outil: 'barre_a_aleser', dimension: '1.000"', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_1020 });
+test('plafond avance_max : une avance égale au plafond n’est pas « plafonnée » (barre à aléser de 1 po)', () => {
+  const question = questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', barre: '1 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_1020 });
   const parametres = computeParameters(question, data);
   assert.equal(parametres.feedPerTooth, 0.006); // Alésage à la barre : 0,006 × 1 = avance_max = 0,006
   assert.equal(parametres.feedPerToothCapped, false);
+});
+
+// D25 : deux diamètres. Le Ø alésé (le trou) sert à N ; le Ø de la barre sert à l'avance.
+test('barre à aléser : N avec le Ø alésé, avance avec le Ø de la barre (D25)', () => {
+  const question = questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', barre: '3/4 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_1020 });
+  const parametres = computeParameters(question, data);
+  assert.equal(parametres.rpm, parametres.vc * 4 / 2); // Ø alésé 2 po
+  assert.equal(parametres.feedPerTooth, 0.006 * 0.75); // 0,006 × Ø barre 3/4 po = 0,0045 — et non 0,006 × 2
+  assert.equal(parametres.feedPerToothCapped, false);
+});
+
+test('barre à aléser de 1 1/4 po : 0,006 × 1,25 dépasse l’avance max, donc 0,006 (D25)', () => {
+  const question = questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', barre: '1 1/4 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_1020 });
+  const parametres = computeParameters(question, data);
+  assert.equal(parametres.feedPerTooth, 0.006);
+  assert.equal(parametres.feedPerToothCapped, true);
 });
 
 test('plafond limite_rpm : foret fractionnaire Ø 1/64 po, carbure, aluminium', () => {

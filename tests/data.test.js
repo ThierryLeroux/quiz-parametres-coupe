@@ -97,6 +97,7 @@ test('filetages : chaque libellé est couvert par un des trois tests de cohéren
 // fixe, filetage) et 2 outils. Chaque appel retourne une copie neuve, à abîmer.
 const donneesValides = () => ({
   materiaux: {
+    revision: 'T_r0',
     groupes_iso: ['P - Acier non allié', 'N - Aluminium de corroyage'],
     materiaux: [
       { iso: 'P', groupe: 1, materiau: 'Acier non allié', vc_pi_min: { acier_rapide: 100, carbure_solide: 200, insert_carbure: 400 } },
@@ -104,6 +105,7 @@ const donneesValides = () => ({
     ],
   },
   operations: {
+    revision: 'T_r0',
     operations: [
       { operation: 'Perçage', avance_po_rev: 0.006, avance_max_po_rev: 0.01, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: true },
       { operation: 'Chariotage', avance_po_rev: 0.01, avance_max_po_rev: 0.01, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false },
@@ -141,6 +143,24 @@ test('validateData : le jeu minimal est valide', () => {
   assert.deepEqual(validateData(donneesValides()), []);
 });
 
+// Outil à deux diamètres (D25) : le foret du jeu minimal, affublé de barres, pour la validation seulement.
+const avecBarres = (d, barres = [{ libelle: '1/8 po', valeur: 0.125 }], rapport = 0.75) => {
+  Object.assign(d.outils.outils[0], { dimensions_barre: barres, rapport_barre_max: rapport, format_identifiant: 'Barre Ø [IdBarre] - Ø alésé: [IdDia]' });
+};
+
+test('validateData : un outil à deux diamètres dont chaque dimension reçoit une barre est valide (D25)', () => {
+  const donnees = donneesValides();
+  avecBarres(donnees);
+  assert.deepEqual(validateData(donnees), []);
+});
+
+test('validateData : tous les jetons du gabarit sont permis là où ils ont un sens (D24)', () => {
+  const donnees = donneesValides();
+  donnees.outils.outils[0].format_identifiant = '[NomOutil] [IdDia] ([Dia] po) - [NbDent] lèvres - [Matoutil] - [Operation]';
+  donnees.outils.outils[1].format_identifiant = 'Taraud [IdDia], pas de [Pas] po';
+  assert.deepEqual(validateData(donnees), []);
+});
+
 test('validateData : fact_av ≠ 1 est permis sur une avance proportionnelle au Ø', () => {
   const donnees = donneesValides();
   donnees.outils.outils[0].fact_av = 0.5; // le foret fait du « Perçage », proportionnel
@@ -167,6 +187,16 @@ const anomalies = [
   ['avance absente', (d) => { d.operations.operations[1].avance_po_rev = null; }, /« Chariotage ».*avance_po_rev/],
   ['avance max plus petite que l’avance', (d) => { d.operations.operations[0].avance_max_po_rev = 0.001; }, /« Perçage ».*avance_max_po_rev/],
   ['drapeau non booléen', (d) => { d.operations.operations[1].avance_proportionnelle_diametre = 'non'; }, /« Chariotage ».*true ou false/],
+  ['révision des vitesses de coupe absente (D28)', (d) => { delete d.materiaux.revision; }, /materiaux\.json : « revision »/],
+  ['révision des avances vide (D28)', (d) => { d.operations.revision = ' '; }, /operations\.json : « revision »/],
+  ['début de famille non booléen (D27)', (d) => { d.materiaux.materiaux[0].debut_famille = 'oui'; }, /groupe 1.*debut_famille/],
+  ['jeton inconnu dans le gabarit (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [Couleur]'; }, /« Foret ».*jeton inconnu.*\[Couleur\]/],
+  ['jeton [Pas] hors filetage (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [IdDia] [Pas]'; }, /« Foret ».*\[Pas\]/],
+  ['jeton [IdBarre] sans barres (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [IdBarre]'; }, /« Foret ».*\[IdBarre\] exige/],
+  ['aucune barre n’entre dans le trou (D25)', (d) => { avecBarres(d, [{ libelle: '1/4 po', valeur: 0.25 }]); }, /« Foret ».*« Ø 1\/4 po » : aucune barre/],
+  ['barres sans rapport (D25)', (d) => { avecBarres(d); delete d.outils.outils[0].rapport_barre_max; }, /« Foret ».*rapport_barre_max/],
+  ['barres sur une avance fixe (D25)', (d) => { avecBarres(d); d.outils.outils[0].operation = 'Chariotage'; }, /« Foret ».*dimensions_barre.*proportionnelle/],
+  ['barre sans Ø (D25)', (d) => { avecBarres(d, [{ libelle: '1/8 po', valeur: 0.125 }, { libelle: '?', valeur: 0 }]); }, /« Foret ».*barre « \? »/],
   ['opération inconnue', (d) => { d.outils.outils[0].operation = 'Brochage'; }, /« Foret ».*opération inconnue : « Brochage »/],
   ['id d’outil en double', (d) => { d.outils.outils[1].id = 'foret'; }, /id en double : « foret »/],
   ['limite RPM nulle', (d) => { d.outils.outils[0].limite_rpm = 0; }, /« Foret ».*limite_rpm/],

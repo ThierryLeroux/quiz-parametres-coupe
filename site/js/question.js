@@ -2,7 +2,7 @@
 // Ce module ne calcule aucune réponse (voir calcul.js) et ne décide pas quels
 // outils sont « encore à évaluer » : l'appelant lui fournit la liste admissible.
 
-import { TOOL_MATERIAL_KEYS, parseThread } from './data.js';
+import { TOOL_MATERIAL_KEYS, fittingBars, parseThread } from './data.js';
 
 // Tirage uniforme d'un élément de la liste. `random` retourne un nombre dans [0, 1[, comme Math.random.
 function pick(list, random) {
@@ -14,11 +14,15 @@ function randomInt(min, max, random) {
   return min + Math.floor(random() * (max - min + 1));
 }
 
-// Remplace les jetons « [Nom] » du gabarit par leur valeur (VBA clsOutil.instIdOutil).
-// Un jeton inconnu est une erreur : mieux vaut un message clair qu'un « [Xyz] » affiché à l'étudiant.
+// Une longueur en pouces pour les jetons [Dia] et [Pas] : au plus 5 décimales, sans zéros de fin.
+const inchesText = (value) => String(Number(value.toFixed(5)));
+
+// Remplace les jetons « [Nom] » du gabarit par leur valeur (VBA clsOutil.instIdOutil ; décision D24).
+// Un jeton inconnu, ou sans valeur pour cet outil ([Pas] hors filetage), est une erreur : mieux vaut
+// un message clair qu'un « [Xyz] » affiché à l'étudiant. validateData (data.js) l'attrape dès le chargement.
 function resolveDisplayId(template, values) {
   return template.replace(/\[([^\]]*)\]/g, (token, name) => {
-    if (!(name in values)) throw new Error(`Jeton inconnu dans le gabarit « ${template} » : ${token}`);
+    if (values[name] === undefined || values[name] === null) throw new Error(`Jeton inconnu dans le gabarit « ${template} » : ${token}`);
     return String(values[name]);
   });
 }
@@ -30,6 +34,8 @@ function resolveDisplayId(template, values) {
 //
 // Il y a toujours exactement 6 tirages, dans cet ordre (celui du VBA et de la SPEC §4) :
 // outil, nombre de dents, dimension, matériau d'outil, groupe de matériaux, matériau brut.
+// Un outil à deux diamètres (barre à aléser, D25) en demande un 7e, le dernier : sa barre, parmi
+// celles qui entrent dans le trou tiré.
 //
 // Retourne un objet simple, sérialisable en JSON (localStorage, rapport). Il ne contient
 // pas l'outil complet (jusqu'à 111 dimensions) : calcul.js le retrouve par `tool.id`.
@@ -43,15 +49,22 @@ export function generateQuestion(data, eligibleTools, random = Math.random) {
   const rawDimension = pick(tool.dimensions, random);
   const toolMaterialLabel = pick(tool.materiaux_outil, random);
   const group = pick(tool.groupes_materiaux_usinables, random);
-  const material = pick(data.materialsByGroup.get(group), random);
+  // L'entrée de materiaux.json, sans ce qui ne regarde que la mise en page de la feuille (D27).
+  const { debut_famille: _layout, ...material } = pick(data.materialsByGroup.get(group), random);
 
   // Filetage : la valeur est un texte (« 0.25-20 », « 10x1.5 ») ; sinon c'est le Ø en pouces.
   const isThread = data.operationByName.get(tool.operation).avance_egale_pas_filetage;
   const { diameter, pitch } = isThread ? parseThread(rawDimension.valeur) : { diameter: rawDimension.valeur, pitch: null };
 
-  // Liste officielle des jetons : SPEC §4.6.
+  // Outil à deux diamètres : « dimension » est le Ø usiné (pour N), « bar » le Ø de l'outil (pour l'avance).
+  const rawBar = tool.dimensions_barre ? pick(fittingBars(tool, diameter), random) : null;
+
+  // Liste officielle des jetons : SPEC §4.6 (TEMPLATE_TOKENS, data.js).
   const displayId = resolveDisplayId(tool.format_identifiant, {
     IdDia: rawDimension.libelle,
+    Dia: inchesText(diameter),
+    Pas: pitch === null ? null : inchesText(pitch),
+    IdBarre: rawBar?.libelle,
     NbDent: teeth,
     NomOutil: tool.nom,
     Operation: tool.operation,
@@ -63,7 +76,8 @@ export function generateQuestion(data, eligibleTools, random = Math.random) {
     displayId,
     teeth,
     dimension: { label: rawDimension.libelle, diameter, pitch }, // pouces ; pitch = null hors filetage
+    bar: rawBar === null ? null : { label: rawBar.libelle, diameter: rawBar.valeur }, // null : l'outil n'a qu'un Ø
     toolMaterial: { label: toolMaterialLabel, key: TOOL_MATERIAL_KEYS[toolMaterialLabel] },
-    material: { ...material, vc_pi_min: { ...material.vc_pi_min } }, // copie de l'entrée de materiaux.json
+    material: { ...material, vc_pi_min: { ...material.vc_pi_min } }, // copie : la question ne partage rien avec le catalogue
   };
 }

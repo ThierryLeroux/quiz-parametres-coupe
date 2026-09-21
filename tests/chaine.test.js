@@ -52,6 +52,26 @@ test('toutes les combinaisons : l’avance affichée n’est jamais « 0.0000 »
   }
 });
 
+// La feuille des formules montre aussi la formule exacte, N = Vc × 12 / (π × Ø), à titre indicatif
+// (D29). Elle donne un N plus bas de 4,5 % que la formule du cours (Vc × 4 / Ø), sur laquelle on
+// corrige : cet écart tient dans la tolérance de N (±5 % ; de −90 % à +0,1 % en filetage).
+test('toutes les combinaisons : un N calculé avec 12/π, sans l’arrondir, réussit la correction', () => {
+  for (const question of toutesLesQuestions()) {
+    const attendu = computeParameters(question, data);
+    const outil = data.outils.find((o) => o.id === question.tool.id);
+    const exact = Math.min((attendu.vc * 12 / Math.PI / question.dimension.diameter) * outil.fact_vc, outil.limite_rpm);
+    const resultat = gradeAnswers(attendu, { rpm: exact.toFixed(2) }, ['rpm']);
+    assert.equal(resultat.fields.rpm.ok, true, `${question.displayId} / ${question.material.groupe} : ${exact.toFixed(2)} ∉ [${resultat.fields.rpm.min} ; ${resultat.fields.rpm.max}]`);
+  }
+});
+
+// ❓ À confirmer avec Thierry : arrondi À L'ENTIER, ce même N échoue pour 122 combinaisons sur
+// 40 733 (0,3 %), toutes sous 90 rév/min (alésoirs, lame à tronçonner, barre à rainurer, fraise
+// 82°…) : l'arrondi s'ajoute aux 4,5 %. Ex. alésoir 0.7500", attendu 26.67 → [25.33 ; 28] ; exact
+// 25.46, arrondi « 25 » : refusé. Pistes : élargir N à ±5 % ET ±1 rév/min, ou ne rien changer
+// (la formule du cours reste la référence).
+test.todo('❓ un N calculé avec 12/π puis arrondi à l’entier est refusé sous ~90 rév/min (122 combinaisons)');
+
 // --- Cas nommés : ceux qui échouaient avant D13, D14 et D15 ---------------------------------
 
 test('lame à tronçonner Ø 4.000" dans l’acier 440C durci : N = 4,375 rév/min, et « 4 » est accepté', () => {

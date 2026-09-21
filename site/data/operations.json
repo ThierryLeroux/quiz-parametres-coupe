@@ -1,7 +1,8 @@
 {
-  "_source": "feuille 'Avances d'usinage', table tblAvance (+ colonnes Machine-outil, direction, notes)",
+  "_source": "feuille 'Avances d'usinage', table tblAvance (+ colonnes Machine-outil, direction). Les notes de la feuille ne sont pas reprises : l'encadré est calculé depuis les avances (D29)",
   "_unites": "avance en pouces par révolution (par dent pour les outils multi-dents ; ×Ø outil si proportionnelle) ; filetage : avance = pas",
   "_regle_proportionnelle": "avance_dent = avance_po_rev × diametre_po × fact_av, plafonnée à avance_max_po_rev",
+  "revision": "A2026_r0",
   "operations": [
     {
       "operation": "Contournage ébauche",
@@ -10,8 +11,7 @@
       "avance_po_rev": 0.006,
       "avance_max_po_rev": 0.01,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": true,
-      "note": "Avances pour un outil Ø1''\n\nAjuster l'avance ↔ Ø outil\n\nExemple:\nForet de Ø1/4''\n.008''/dent * Ø1/4'' = .002''/dent\n\n\nNe pas dépasser .010\" / dent"
+      "avance_proportionnelle_diametre": true
     },
     {
       "operation": "Contournage finition",
@@ -20,8 +20,7 @@
       "avance_po_rev": 0.004,
       "avance_max_po_rev": 0.01,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": true,
-      "note": null
+      "avance_proportionnelle_diametre": true
     },
     {
       "operation": "Surfaçage",
@@ -30,8 +29,7 @@
       "avance_po_rev": 0.004,
       "avance_max_po_rev": 0.01,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": true,
-      "note": null
+      "avance_proportionnelle_diametre": true
     },
     {
       "operation": "Chanfreinage / ébavurage",
@@ -40,8 +38,7 @@
       "avance_po_rev": 0.002,
       "avance_max_po_rev": 0.01,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": true,
-      "note": null
+      "avance_proportionnelle_diametre": true
     },
     {
       "operation": "Perçage",
@@ -50,8 +47,7 @@
       "avance_po_rev": 0.006,
       "avance_max_po_rev": 0.01,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": true,
-      "note": null
+      "avance_proportionnelle_diametre": true
     },
     {
       "operation": "Chanfreinage",
@@ -60,8 +56,7 @@
       "avance_po_rev": 0.004,
       "avance_max_po_rev": 0.01,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": true,
-      "note": null
+      "avance_proportionnelle_diametre": true
     },
     {
       "operation": "Alésage à l'alésoir",
@@ -70,8 +65,7 @@
       "avance_po_rev": 0.002,
       "avance_max_po_rev": 0.01,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": true,
-      "note": null
+      "avance_proportionnelle_diametre": true
     },
     {
       "operation": "Pointage",
@@ -80,8 +74,7 @@
       "avance_po_rev": 0.001,
       "avance_max_po_rev": 0.001,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Taraudage",
@@ -90,8 +83,7 @@
       "avance_po_rev": null,
       "avance_max_po_rev": null,
       "avance_egale_pas_filetage": true,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Filetage externe",
@@ -100,8 +92,7 @@
       "avance_po_rev": null,
       "avance_max_po_rev": null,
       "avance_egale_pas_filetage": true,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Filetage interne",
@@ -110,8 +101,7 @@
       "avance_po_rev": null,
       "avance_max_po_rev": null,
       "avance_egale_pas_filetage": true,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Chariotage ébauche",
@@ -120,8 +110,7 @@
       "avance_po_rev": 0.01,
       "avance_max_po_rev": 0.01,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Chariotage finition",
@@ -130,8 +119,7 @@
       "avance_po_rev": 0.005,
       "avance_max_po_rev": 0.005,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Centrage",
@@ -140,8 +128,7 @@
       "avance_po_rev": 0.002,
       "avance_max_po_rev": 0.002,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Alésage à la barre",
@@ -150,8 +137,7 @@
       "avance_po_rev": 0.006,
       "avance_max_po_rev": 0.006,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": true,
-      "note": "Ajuster l'avance ↔ Ø outil\nAv. MAX.: .006\" / tour"
+      "avance_proportionnelle_diametre": true
     },
     {
       "operation": "Dressage",
@@ -160,8 +146,7 @@
       "avance_po_rev": 0.005,
       "avance_max_po_rev": 0.005,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Tronçonnage",
@@ -170,8 +155,7 @@
       "avance_po_rev": 0.004,
       "avance_max_po_rev": 0.004,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Rainurage externe",
@@ -180,8 +164,7 @@
       "avance_po_rev": 0.003,
       "avance_max_po_rev": 0.003,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     },
     {
       "operation": "Rainurage interne",
@@ -190,8 +173,7 @@
       "avance_po_rev": 0.003,
       "avance_max_po_rev": 0.003,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false,
-      "note": null
+      "avance_proportionnelle_diametre": false
     }
   ]
 }

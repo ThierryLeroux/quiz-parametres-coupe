@@ -38,6 +38,7 @@ test('tirage déterministe : fraise en bout, 5 dents, Ø 1/4 po, carbure, acier 
     displayId: 'Fraise en bout Ø 1/4 po - 5 lèvres',
     teeth: 5,
     dimension: { label: '1/4 po', diameter: 0.25, pitch: null },
+    bar: null,
     toolMaterial: { label: 'Carbure de tungstène solide', key: 'carbure_solide' },
     material: {
       iso: 'P', groupe: 2, materiau: 'Acier non allié', composition: 'C > 0.25 … ≤ 0.55%', etat: 'Recuit',
@@ -61,7 +62,43 @@ test('bornes de l’aléa : 0 donne le premier choix partout, 0,999… le dernie
   assert.equal(derniere.dimension.label, fraise.dimensions.at(-1).libelle);
   assert.equal(derniere.toolMaterial.label, fraise.materiaux_outil.at(-1));
   const dernierGroupe = data.materialsByGroup.get(fraise.groupes_materiaux_usinables.at(-1));
-  assert.deepEqual(derniere.material, dernierGroupe.at(-1));
+  // La question copie l'entrée de materiaux.json, sauf « debut_famille », qui ne sert qu'à la feuille (D27).
+  const { debut_famille: _feuille, ...dernierMateriau } = dernierGroupe.at(-1);
+  assert.deepEqual(derniere.material, dernierMateriau);
+});
+
+// D25 : un outil à deux diamètres demande un 7e tirage, sa barre, parmi celles qui entrent dans le trou.
+test('barre à aléser : la barre est tirée parmi celles qui entrent dans le trou (Ø barre ≤ 0,75 × Ø alésé)', () => {
+  const barre = outil('barre_a_aleser');
+  // Ø alésé 1.000" (1re dimension) : 1/2, 5/8 et 3/4 po entrent ; le dernier choix est donc 3/4 po.
+  const petite = generateQuestion(data, [barre], suite(0, 0, 0, 0, 0, 0, 1 - Number.EPSILON));
+  assert.deepEqual(petite.dimension, { label: '1.000"', diameter: 1, pitch: null });
+  assert.deepEqual(petite.bar, { label: '3/4 po', diameter: 0.75 });
+  assert.equal(petite.displayId, 'Barre à aléser Ø 3/4 po - Ø alésé: 1.000"');
+  // Ø alésé 4.000" (dernière dimension) : toutes les barres entrent.
+  const grande = generateQuestion(data, [barre], suite(0, 0, 1 - Number.EPSILON, 0, 0, 0, 1 - Number.EPSILON));
+  assert.deepEqual(grande.bar, { label: '1 1/4 po', diameter: 1.25 });
+});
+
+test('barre à aléser : sur 500 tirages, la barre entre toujours dans le trou', () => {
+  const barre = outil('barre_a_aleser');
+  const random = aleaAGraine(25);
+  for (let i = 0; i < 500; i += 1) {
+    const question = generateQuestion(data, [barre], random);
+    assert.ok(question.bar.diameter <= barre.rapport_barre_max * question.dimension.diameter, question.displayId);
+  }
+});
+
+// D24 : les jetons [Dia] et [Pas] du classeur, en pouces.
+test('gabarit : [Dia] et [Pas] donnent le Ø et le pas en pouces, au plus 5 décimales', () => {
+  const taraud = { ...outil('taraud_metrique'), format_identifiant: '[NomOutil] [IdDia] : Ø [Dia] po, pas [Pas] po' };
+  const question = generateQuestion(data, [taraud], suite(0, 0, 0, 0, 0, 0));
+  assert.equal(question.displayId, 'Taraud métrique M1.6 x 0.35 : Ø 0.06299 po, pas 0.01378 po');
+});
+
+test('gabarit : un jeton sans valeur pour cet outil est une erreur, jamais un « [Pas] » à l’écran', () => {
+  const foret = { ...outil('foret_udrill'), format_identifiant: 'Foret [IdDia] [Pas]' };
+  assert.throws(() => generateQuestion(data, [foret], suite(0, 0, 0, 0, 0, 0)), /Jeton inconnu.*\[Pas\]/);
 });
 
 test('filetage impérial : « 5/16 - 18 UNC » → Ø 0,3125 po, pas 1/18 po', () => {
