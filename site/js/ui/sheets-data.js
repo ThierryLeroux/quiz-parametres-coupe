@@ -1,0 +1,98 @@
+// Contenu des feuilles de référence (UI §3.5), composé à partir du catalogue : fonctions PURES, sans
+// DOM, testées sous Node ; reference-screen.js ne fait que les mettre en page. Tout vient des
+// données : ajouter une opération à operations.json l'ajoute à la feuille des avances.
+
+import { TOOL_MATERIAL_KEYS } from '../data.js';
+
+// Une avance en pouces, comme sur la feuille de l'atelier : sans zéro de tête, au moins trois
+// décimales — 0.006 → « .006" », 0.0015 → « .0015" », 0.01 → « .010" ».
+export function inches(value) {
+  let text = String(Number(value.toFixed(5))).replace(/^0/, '');
+  if (!text.includes('.')) text += '.';
+  return `${text.padEnd(4, '0')}"`;
+}
+
+// Nom du fichier d'un pictogramme d'opération : « Chanfreinage / ébavurage » → « chanfreinage_ebavurage ».
+export function operationSlug(name) {
+  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+export const operationPicto = (name) => `img/pictos/operations/${operationSlug(name)}.png`;
+
+// --- Vitesses de coupe -----------------------------------------------------------------------------------------
+// Toutes les classes et toutes les lignes, quel que soit l'exercice ; aucune ligne surlignée.
+// Retourne { columns, rows } : columns = les trois matériaux d'outil, { label, key } ; rows = les
+// matériaux de materiaux.json, dans leur ordre.
+export function vcSheet(data) {
+  return {
+    columns: Object.entries(TOOL_MATERIAL_KEYS).map(([label, key]) => ({ label, key })),
+    rows: data.materiaux,
+  };
+}
+
+// --- Avances -------------------------------------------------------------------------------------------------------
+
+const isLathe = (operation) => operation.machine === 'Tour';
+
+// Le texte posé sur la barre d'une opération.
+function feedLabel(operation) {
+  if (operation.avance_egale_pas_filetage) return 'pas du filetage';
+  const perTooth = isLathe(operation) ? '' : ' / dent';
+  const proportional = operation.avance_proportionnelle_diametre ? ' x Ø outil' : '';
+  return `${inches(operation.avance_po_rev)}${perTooth}${proportional}`;
+}
+
+// Suites d'éléments voisins de même clé : [{ key, start, span }] — start compte à partir de 0.
+function runs(items, keyOf) {
+  const found = [];
+  items.forEach((item, i) => {
+    const key = keyOf(item);
+    const last = found.at(-1);
+    if (last && last.key === key && last.start + last.span === i) last.span += 1;
+    else found.push({ key, start: i, span: 1 });
+  });
+  return found;
+}
+
+// L'encadré qui ceinture une suite d'opérations proportionnelles au Ø. Les nombres viennent des
+// données : l'exemple est calculé (« .006"/dent × Ø1/4" = .0015"/dent »), jamais recopié.
+function proportionalBox(operations) {
+  const max = Math.max(...operations.map((operation) => operation.avance_max_po_rev));
+  if (operations.every(isLathe)) {
+    return [{ text: "Ajuster l'avance ↔ Ø outil", strong: true }, { text: `Av. MAX. : ${inches(max)} / tour` }];
+  }
+  const drilling = operations.find((operation) => operation.operation === 'Perçage');
+  const example = drilling ?? operations[0];
+  return [
+    { text: 'Avances pour un outil Ø1"', strong: true },
+    { text: "Ajuster l'avance ↔ Ø outil", strong: true },
+    { text: 'Exemple :' },
+    { text: drilling ? 'Foret de Ø1/4"' : `${example.operation}, outil de Ø1/4"` },
+    { text: `${inches(example.avance_po_rev)}/dent × Ø1/4" = ${inches(example.avance_po_rev / 4)}/dent`, italic: true },
+    { text: `Ne pas dépasser ${inches(max)} / dent`, strong: true },
+  ];
+}
+
+// Retourne { rows, machines, directions, boxes } :
+//   rows       : une opération par rang — { operation, picto, label, bar } ; bar = longueur de la barre,
+//                de 0 à 1, proportionnelle à l'avance (null pour un filetage : pas de barre)
+//   machines   : [{ key, start, span }] — la machine-outil, sur la hauteur de ses opérations
+//   directions : idem pour la direction d'avance (à l'intérieur d'une machine)
+//   boxes      : [{ start, span, lines }] — encadrés des suites d'opérations proportionnelles au Ø
+export function feedSheet(data) {
+  const { operations } = data;
+  const longest = Math.max(...operations.filter((operation) => !operation.avance_egale_pas_filetage).map((operation) => operation.avance_po_rev));
+  return {
+    rows: operations.map((operation) => ({
+      operation: operation.operation,
+      picto: operationPicto(operation.operation),
+      label: feedLabel(operation),
+      bar: operation.avance_egale_pas_filetage ? null : operation.avance_po_rev / longest,
+    })),
+    machines: runs(operations, (operation) => operation.machine),
+    directions: runs(operations, (operation) => `${operation.machine}|${operation.direction_avance}`).map((run) => ({ ...run, key: run.key.split('|')[1] })),
+    boxes: runs(operations, (operation) => (operation.avance_proportionnelle_diametre ? 'proportionnelle' : `fixe-${operation.operation}`))
+      .filter((run) => run.key === 'proportionnelle')
+      .map(({ start, span }) => ({ start, span, lines: proportionalBox(operations.slice(start, start + span)) })),
+  };
+}
