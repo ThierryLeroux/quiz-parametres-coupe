@@ -54,14 +54,17 @@ Le moteur (jalons 1 et 1b) passe derrière l'API ; les règles d'une séance son
 - [x] Secrets du serveur : `CLE_SECRETE`, `CLE_ADMIN` par `wrangler secret put` ; `.dev.vars` en local ; mode d'emploi dans `DEMARRAGE.md`, étape 5
 - [ ] **À faire par Thierry avant de pousser** : donner le droit **D1 : Edit** au jeton d'API de GitHub (`DEMARRAGE.md`, étape 5.5), sinon les migrations échouent et rien n'est publié
 
-## Jalon 4 — Écran Question et tables de référence, selon UI.md
-L'écran Question fonctionne déjà (jalon 3) ; reste sa présentation.
-
-- [ ] Écran Question (UI §3.3) : grille deux tiers / un tiers, panneaux de l'outil et du matériau aux couleurs de sens, photo de l'outil, pictogrammes des champs, aide contextuelle au clic
-- [ ] Question corrigée (UI §3.4) : explication de l'écart et de la tolérance, calcul en une ligne, outil « remis à zéro » en rouge ; **attente imposée par la cadence** montrée à l'écran (le serveur donne `attendre_s`)
-- [ ] Progression par outil (UI §3.3) : un point par réussite consécutive, outil en cours surligné ; distinguer les outils de même nom (SDTMR et barre à fileter, impérial et métrique)
-- [ ] Tables de référence (UI §3.5) : vitesses de coupe, avances, formules ; impression
-- [ ] Images d'outils (`site/img/outils/`) et pictogrammes (UI §5) affichés
+## Jalon 4 — Identification en deux temps (D23), écran Question et tables de référence selon UI.md
+- [x] D23 : consultation, création, reprise (le serveur ne devine plus), « Corriger mon identité » avec NIP exigé, séance déplacée jamais copiée, corrections d'identité journalisées (migration `0002`) ; écrans 1 / 2 et 2 / 2
+- [x] Écran Question (UI §3.3) : grille deux tiers / un tiers, panneaux de l'outil et du matériau aux couleurs de sens, photo de l'outil, pictogrammes des champs et de l'opération, aide contextuelle au clic ; saisie : `inputmode="decimal"`, point ou virgule, Entrée = Vérifier, focus sur le premier champ
+- [x] Question corrigée (UI §3.4) : explication de l'écart et de la tolérance, calcul en une ligne, outil « remis à zéro » en rouge — le serveur donne `tolerance`, `ecart_pct` et `calcul` avec la correction
+- [x] Progression par outil (UI §3.3) : un point par réussite consécutive, outil en cours surligné ; outils de même nom distingués par l'unité, sinon par la plage de dimensions (`site/js/ui/rules.js`)
+- [x] Tables de référence (UI §3.5) : vitesses de coupe, avances (générée depuis `operations.json`), formules ; ouvertes par-dessus la question sans perdre la saisie, défilement dans leur propre cadre, impression de la feuille seule
+- [x] Images d'outils (`site/img/outils/`) et pictogrammes (`site/img/pictos/`) affichés
+- [ ] Pictogrammes d'opérations en SVG : les dix-neuf PNG du classeur sont provisoires (`site/img/pictos/README.md`) — fichiers d'origine de Thierry, ou redessin à valider
+- [ ] Attente imposée par la cadence montrée à l'écran (compte à rebours ; le serveur donne déjà `attendre_s`) — aujourd'hui, un message sous le formulaire
+- [ ] Sur téléphone, replier les outils terminés de la progression (UI §3.3 : « peuvent être repliés »)
+- [ ] Impression des feuilles vérifiée sur papier par Thierry (une page lettre chacune)
 
 ## Jalon 5 — Rapport signé, page de vérification, administration (décisions D16, D19)
 - [ ] `GET /api/rapport` : rapport de réussite tiré du journal des corrections, et **attestation signée** (HMAC, sous-clé « attestation » de `CLE_SECRETE`)

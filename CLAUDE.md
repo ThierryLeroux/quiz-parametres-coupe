@@ -25,6 +25,7 @@ la lisibilité priment sur l'élégance technique.**
 - `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
 - `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions.
 - `worker/` — le **serveur de correction** (décisions D19 à D22, API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles (pur, testé), `base.js` tout le SQL, `crypto.js` le NIP et le jeton, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
+- `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js`) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
 - `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
 

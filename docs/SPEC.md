@@ -326,9 +326,19 @@ qu'avec la correction, une fois la réponse donnée. Toute nouvelle donnée ajou
 à `seance.question` se juge à cette règle.
 
 `correction` : `{ reussie, outil: { id, nom, avant, apres }, champs: [ { champ,
-evalue, ok, saisie, attendu } ] }` — `attendu` est la valeur théorique mise en
-forme, montrée après la correction (`UI.md` §3.4) ; `avant` et `apres` sont le
-compteur de l'outil.
+evalue, ok, saisie, attendu, tolerance, ecart_pct, calcul } ] }`, montrée après
+la correction (`UI.md` §3.4) ; `avant` et `apres` sont le compteur de l'outil.
+Pour chaque champ :
+
+- `attendu` : la valeur théorique mise en forme — sauf pour **Vf**, où c'est
+  *N × f* **avec les N et f saisis** (D15) : c'est sur elle que Vf est jugée ;
+- pour un champ évalué : `tolerance`, en clair et écrite à partir des constantes
+  mêmes de la correction (« exacte », « ±5 % », « de −90 % à +0.1 % »,
+  « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ») ; `ecart_pct`, l'écart de
+  la saisie en % (`null` si elle est vide ou illisible) ; `calcul`, le calcul en
+  une ligne (« Vf = N × f = 2500 × 0.0050 », facteur de vitesse et plafond du
+  RPM compris ; `null` pour Vc et pour une avance fixe, qui se lisent dans une
+  table). Pour un champ fourni, ces trois valeurs sont `null`.
 
 | Code | Sens |
 |---|---|
