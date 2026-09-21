@@ -1,8 +1,8 @@
-// Appels au serveur de correction (décisions D19, D21 ; table des appels dans SPEC §7).
+// Appels au serveur de correction (décisions D19, D21, D23 ; table des appels dans SPEC §7).
 // Le navigateur affiche ; c'est le serveur qui tire les questions, corrige et tient les compteurs.
 //
 // Chaque fonction retourne la réponse JSON du serveur, ou lève une ApiError. Aucun DOM ici.
-//   jeton      : jeton de séance remis par identify, gardé par session.js
+//   jeton      : jeton de séance remis par createSession ou resumeSession, gardé par session.js
 //   exerciseId : chaque appel nomme l'exercice ; un jeton d'un autre exercice est refusé (401)
 //   request    : fonction fetch injectable, pour les tests
 
@@ -51,11 +51,31 @@ export function getVersion(request) {
   return call('GET', '/api/version', {}, request);
 }
 
-// Identification (SPEC §8) — première visite ou reprise, c'est le serveur qui le sait.
-//   student : { prenom, nom, matricule, nip }
-// Retourne { jeton, seance }. Erreurs : 400 identification invalide, 401 NIP incorrect, 429 trop d'essais.
-export function identify(student, exerciseId, request) {
-  return call('POST', '/api/identification', { body: { exercice: exerciseId, ...student } }, request);
+// Identification en deux temps (SPEC §8, D23) — le serveur ne devine rien : on consulte, puis on
+// crée OU on reprend.
+
+// 1/2 : ce matricule a-t-il une séance pour cet exercice ?
+// Retourne { trouvee: false }, ou { trouvee: true, prenom, initiale } — rien d'autre ne sort.
+export function lookupSession(matricule, exerciseId, request) {
+  return call('POST', '/api/consultation', { body: { exercice: exerciseId, matricule } }, request);
+}
+
+// 2/2, aucune séance : { prenom, nom, matricule, nip } → { jeton, seance }.
+// Erreurs : 400 identification mal formée ; 409 ce matricule a déjà une séance.
+export function createSession(student, exerciseId, request) {
+  return call('POST', '/api/creation', { body: { exercice: exerciseId, ...student } }, request);
+}
+
+// 2/2, séance trouvée : matricule + NIP → { jeton, seance }.
+// Erreurs : 401 NIP incorrect ; 429 trop d'essais ; 404 aucune séance pour ce matricule.
+export function resumeSession(matricule, nip, exerciseId, request) {
+  return call('POST', '/api/reprise', { body: { exercice: exerciseId, matricule, nip } }, request);
+}
+
+// « Corriger mon identité » : { prenom, nom, matricule, nip } — NIP exigé → { seance }.
+// Erreurs : 401 NIP incorrect ; 429 trop d'essais ; 409 le nouveau matricule a déjà une séance.
+export function updateIdentity(jeton, exerciseId, identity, request) {
+  return call('POST', '/api/identite', { jeton, body: { exercice: exerciseId, ...identity } }, request);
 }
 
 // L'état de la séance, sans rien tirer : { seance }.

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FIELD_LABELS, correctionBanner, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
+  FIELD_LABELS, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
   materialFacts, progressLine, serverErrorMessage, studentLine, toolFacts,
 } from '../site/js/ui/text.js';
 import { loadApp } from '../site/js/app.js';
@@ -59,6 +59,8 @@ test('identificationErrorMessage : matricule invalide, NIP incorrect, trop d’e
   assert.equal(identificationErrorMessage(new ApiError(400, 'Le matricule doit avoir exactement 7 chiffres.')), 'Le matricule doit avoir exactement 7 chiffres.');
   assert.equal(identificationErrorMessage(new ApiError(401, 'NIP incorrect.')), "NIP incorrect. Si tu l'as oublié, demande à ton enseignant de le remettre à zéro.");
   assert.equal(identificationErrorMessage(new ApiError(429, "Trop d'essais.")), "Trop d'essais. Attends 10 minutes avant de réessayer.");
+  assert.equal(identificationErrorMessage(new ApiError(409, 'Ce matricule a déjà une séance pour cet exercice.')), 'Ce matricule a déjà une séance.');
+  assert.equal(identificationErrorMessage(new ApiError(404, 'Aucune séance pour ce matricule dans cet exercice.')), 'Aucune séance pour ce matricule dans cet exercice.');
   assert.equal(identificationErrorMessage(new ApiError(0, '…')), 'Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie.');
 });
 
@@ -71,6 +73,11 @@ const QUESTION = {
   materiau: { iso: 'P', groupe: 1, materiau: 'Acier non allié', composition: 'C ≤ 0.25%', etat: 'Recuit', durete: 125, exemple: 1020 },
   champs: [],
 };
+
+test('identification en deux temps : les deux textes de l’écran 2/2 (D23)', () => {
+  assert.equal(sessionFoundNotice('Romain', 'L'), 'Séance de Romain L. trouvée. Entre ton NIP pour la reprendre.');
+  assert.equal(newSessionNotice('7654321'), "Nouvelle séance pour le matricule 7654321. Vérifie-le : il figurera sur ton rapport et te servira à reprendre l'exercice sur un autre appareil.");
+});
 
 test('FIELD_LABELS : nom, symbole et unité des cinq champs (UI §3.3)', () => {
   assert.deepEqual(Object.keys(FIELD_LABELS), ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate']);

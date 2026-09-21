@@ -180,7 +180,7 @@ comme corrects.
   `{ exerciceId, reussites: { [id d'outil]: n }, totalReussies }`.
 - Un graphique de progression par opération est affiché (VBA `modAffGraph`).
 
-### Serveur de correction (décisions D19, D21, D22)
+### Serveur de correction (décisions D19, D21, D22, D23)
 
 La preuve de réussite doit résister à un étudiant aidé d'une IA. Dans un
 navigateur, tout est falsifiable : **l'état de séance vit donc sur un serveur**,
@@ -221,6 +221,7 @@ ne reste rien à tirer. La séance note la version de l'exercice **au début** e
 | Table | Contenu |
 |---|---|
 | `seances` | une ligne par couple (exercice, matricule) : prénom et nom **de la première visite**, NIP haché, jeton haché et son expiration, début, dernière activité, dernière correction, version de l'exercice au début et à la réussite, compteurs (JSON), question en attente (JSON), date de réussite, essais de NIP et verrou |
+| `corrections_identite` | le journal des corrections d'identité (D23) : séance, anciens et nouveaux prénom, nom et matricule, horodatage — pour la page de vérification |
 | `corrections` | le journal : séance, outil, question (JSON), réponses (JSON), résultat champ par champ et valeurs attendues (JSON), réussie ou non, horodatage |
 
 Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **purge le
@@ -245,7 +246,8 @@ stockage vide, illisible ou en panne → l'étudiant s'identifie, sans erreur.
   (`worker/crypto.js`) : « nip » aujourd'hui, « attestation » au jalon 5.
 - **NIP** : la base garde HMAC-SHA-256(sous-clé « nip », matricule + NIP). Pas
   de hachage lent : un NIP de 4 à 6 chiffres est trop court pour qu'il serve ;
-  la protection vient du secret, que la base ne contient pas. Le NIP appartient
+  la protection vient du secret, que la base ne contient pas. Le matricule fait partie du haché : « Corriger mon identité » vers un autre
+  matricule rehache le même NIP. Le NIP appartient
   à la séance, donc à l'exercice : l'étudiant en choisit un par exercice.
   Accepté pour la v1 ; si cela gêne, la piste est une table `etudiants` — un
   NIP par matricule, alimentée par une liste de classe (D23).
@@ -279,7 +281,10 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | Appel | Requête | Réponse |
 |---|---|---|
 | `GET /api/version` | — | `{ version }` (celle de `package.json`) |
-| `POST /api/identification` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, seance }` — crée la séance, ou la reprend si le NIP est le bon |
+| `POST /api/consultation` | `{ exercice, matricule }` | `{ trouvee: false }`, ou `{ trouvee: true, prenom, initiale }` — **rien d'autre ne sort** |
+| `POST /api/creation` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, seance }` — crée la séance ; ne reprend **jamais** une séance existante (409) |
+| `POST /api/reprise` | `{ exercice, matricule, nip }` | `{ jeton, seance }` — ni prénom ni nom ; 404 s'il n'y a pas de séance |
+| `POST /api/identite` | jeton, `{ exercice, prenom, nom, matricule, nip }` | `{ seance }` — « Corriger mon identité » : NIP exigé, séance **déplacée, jamais copiée**, correction journalisée ; le jeton ne change pas |
 | `GET /api/seance?exercice=<id>` | jeton | `{ seance }` — l'état, sans rien tirer |
 | `POST /api/question` | jeton, `{ exercice }` | `{ seance }` — avec la question mémorisée, tirée au besoin ; `question` vaut `null` si l'exercice est réussi |
 | `POST /api/correction` | jeton, `{ exercice, saisies }` | `{ correction, seance }` — `seance` porte déjà la question suivante, ou la réussite |
@@ -328,13 +333,13 @@ compteur de l'outil.
 | Code | Sens |
 |---|---|
 | 400 | requête invalide : JSON illisible, exercice inconnu, identification mal formée (le message dit quoi) |
-| 401 | NIP incorrect (identification) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau |
-| 404 | adresse inconnue sous `/api/` |
-| 409 | aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question |
-| 429 | identification : 5 essais de NIP en 10 minutes → verrou de 10 minutes, même pour le bon NIP ; correction : moins de 10 s depuis la précédente (`attendre_s` dit combien) |
+| 401 | NIP incorrect (reprise, correction d'identité) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau |
+| 404 | adresse inconnue sous `/api/` ; reprise : aucune séance pour ce matricule dans cet exercice |
+| 409 | création ou correction d'identité : ce matricule a déjà une séance pour cet exercice ; correction : aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question |
+| 429 | reprise et correction d'identité : 5 essais de NIP en 10 minutes → verrou de 10 minutes, même pour le bon NIP ; correction : moins de 10 s depuis la précédente (`attendre_s` dit combien) |
 | 500 | erreur du serveur ; le détail reste dans ses journaux |
 
-**Essais de NIP.** Chaque essai est compté avant d'être examiné. Le 5ᵉ essai
+**Essais de NIP.** Ils se comptent à la reprise **et** à la correction d'identité, qui exige le NIP : ce n'est pas un moyen de le deviner sans limite. Chaque essai est compté avant d'être examiné. Le 5ᵉ essai
 d'une fenêtre de 10 minutes pose le verrou ; une identification réussie efface
 le compte. Le verrou est celui d'une séance : il ne touche aucun autre
 étudiant. Un NIP **remis à zéro** par l'enseignant (jalon 5) : le prochain NIP
@@ -347,20 +352,35 @@ HTTP sur `wrangler dev` et une vraie D1 locale.
 
 ## 8. Identification de l'étudiant et rapport
 
-Identification (décisions D19, D21) : prénom, nom, **matricule à 7 chiffres**
+Identification (décisions D19, D21, D23) : prénom, nom, **matricule à 7 chiffres**
 (espaces autour tolérés, conservé en texte) et un **NIP de 4 à 6 chiffres**.
-Rien d'autre.
+Rien d'autre. Elle se fait **en deux temps**, pour que rien ne se décide en
+silence (présentation : `UI.md` §3.2) :
 
-- Le NIP est **choisi à la première identification** d'un matricule pour un
-  exercice ; il sert ensuite à reprendre cet exercice, y compris sur un autre
+1. **Le matricule seul.** Le serveur dit s'il a une séance pour cet exercice :
+   « séance trouvée », avec le prénom et l'initiale du nom pour que l'étudiant
+   se reconnaisse, ou « aucune séance ». Rien d'autre ne sort.
+2. **Séance trouvée → reprendre** : le NIP, et lui seul. **Matricule + NIP
+   identifient** ; le prénom et le nom sont ceux de la création.
+   **Aucune séance → commencer** : le matricule, montré en gros pour être
+   vérifié, puis prénom, nom et NIP **choisi**.
+
+- Le serveur ne devine jamais : créer une séance qui existe est refusé (409),
+  reprendre une séance qui n'existe pas aussi (404).
+- Le NIP sert ensuite à reprendre cet exercice, y compris sur un autre
   appareil. Le serveur n'en garde qu'un **haché** (§7).
-- **Matricule + NIP identifient.** Le prénom et le nom sont ceux de la
-  **première visite** : le serveur les renvoie et l'écran les affiche ; ceux
-  tapés à la reprise sont ignorés.
-- **5 essais de NIP en 10 minutes** pour une séance ; ensuite l'identification
-  est refusée (429) pendant 10 minutes, même avec le bon NIP (§7).
+- **5 essais de NIP en 10 minutes** pour une séance ; ensuite le NIP est refusé
+  (429) pendant 10 minutes, même s'il est le bon (§7).
+- **Réparation sans enseignant — « Corriger mon identité »**, depuis la séance :
+  prénom, nom et matricule modifiables, **NIP exigé**. Un nouveau matricule
+  n'est accepté que s'il n'a pas de séance pour cet exercice. La séance est
+  **déplacée, jamais copiée** : compteurs, question en attente et journal
+  suivent. Chaque correction est **journalisée** (anciennes et nouvelles
+  valeurs, horodatage) et sera montrée par la page de vérification (jalon 5).
 - Un NIP oublié est **remis à zéro par l'enseignant** (page d'administration,
-  jalon 5) : l'étudiant en choisit un nouveau à sa prochaine identification.
+  jalon 5) : l'étudiant en choisit un nouveau à sa prochaine reprise. Une
+  séance ouverte par un autre au matricule d'un étudiant — farce visible aux
+  horodatages — se supprime de la même page.
 - Le navigateur vérifie la forme des champs avant l'envoi
   (`site/js/identification.js`) ; le serveur revérifie tout.
 

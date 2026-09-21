@@ -50,12 +50,24 @@ export function serverErrorMessage(error) {
   return error.message;
 }
 
-// Même chose pour l'identification (UI §3.2), où 401 veut dire « NIP incorrect » et 429 « trop d'essais ».
-// Un 400 garde le message du serveur (ex. « Le matricule doit avoir exactement 7 chiffres. »).
+// Même chose pour l'identification (UI §3.2), où 401 veut dire « NIP incorrect », 429 « trop
+// d'essais » et 409 « ce matricule est pris ». Un 400 ou un 404 garde le message du serveur
+// (ex. « Le matricule doit avoir exactement 7 chiffres. »).
 export function identificationErrorMessage(error) {
   if (error.status === 401) return "NIP incorrect. Si tu l'as oublié, demande à ton enseignant de le remettre à zéro.";
   if (error.status === 429) return "Trop d'essais. Attends 10 minutes avant de réessayer.";
+  if (error.status === 409) return 'Ce matricule a déjà une séance.';
   return serverErrorMessage(error);
+}
+
+// Écran 2/2, séance trouvée (D23) : « Séance de Romain L. trouvée. Entre ton NIP pour la reprendre. »
+export function sessionFoundNotice(prenom, initiale) {
+  return `Séance de ${prenom} ${initiale}. trouvée. Entre ton NIP pour la reprendre.`;
+}
+
+// Écran 2/2, aucune séance (D23).
+export function newSessionNotice(matricule) {
+  return `Nouvelle séance pour le matricule ${matricule}. Vérifie-le : il figurera sur ton rapport et te servira à reprendre l'exercice sur un autre appareil.`;
 }
 
 // --- Écran Question (UI §3.3, §3.4) ---------------------------------------------------------------------

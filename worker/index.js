@@ -1,4 +1,4 @@
-// Serveur du quiz : un Worker Cloudflare (décisions D19 à D22 ; API décrite dans SPEC §7).
+// Serveur du quiz : un Worker Cloudflare (décisions D19 à D23 ; API décrite dans SPEC §7).
 //   /api/…  → le serveur de correction, en JSON
 //   le reste → les fichiers de site/, servis tels quels (liaison ASSETS de wrangler.jsonc)
 //
@@ -65,47 +65,6 @@ async function authenticate(request, env, exercise, now) {
   }
   await base.touchSession(env.DB, session.id, now.toISOString(), later(now, TOKEN_LIFETIME_MS));
   return session;
-}
-
-// --- POST /api/identification ------------------------------------------------------------------------
-// Crée la séance du couple (exercice, matricule), ou la reprend si le NIP est le bon.
-async function identification(request, env, { now }) {
-  const body = await readBody(request);
-  const { data, exercise } = await findExercise(env, body.exercice);
-  const errors = validateStudent(body);
-  if (errors.length > 0) throw new HttpError(400, errors[0]);
-
-  const student = cleanStudent(body);
-  const nipHash = await hashNip(env.CLE_SECRETE, student.matricule, student.nip);
-  const token = newToken();
-  const opening = { nip_hache: nipHash, jeton_hache: await hashToken(token), jeton_expire_le: later(now, TOKEN_LIFETIME_MS) };
-
-  let session = await base.findSession(env.DB, exercise.id, student.matricule);
-  const created = session === null && await base.createSession(env.DB, {
-    ...opening,
-    exercice_id: exercise.id,
-    matricule: student.matricule,
-    prenom: student.prenom,
-    nom: student.nom,
-    debut: now.toISOString(),
-    version_exercice: exercise.version,
-    compteurs: emptyCounters(),
-  });
-
-  if (!created) {
-    // Reprise : matricule + NIP identifient ; le prénom et le nom tapés sont ignorés (D21).
-    session ??= await base.findSession(env.DB, exercise.id, student.matricule);
-    const tooMany = new HttpError(429, "Trop d'essais. Attends 10 minutes avant de réessayer.");
-    if (isNipLocked(session, now)) throw tooMany;
-    // L'essai est compté avant d'être examiné : des essais lancés en parallèle ne passent pas tous.
-    if (!await base.takeNipAttempt(env.DB, session, countNipAttempt(session, now))) throw tooMany;
-    // nip_hache nul = NIP remis à zéro par l'enseignant : le NIP présenté devient le nouveau.
-    if (session.nip_hache !== null && !sameText(session.nip_hache, nipHash)) throw new HttpError(401, 'NIP incorrect.');
-    await base.openSession(env.DB, session.id, { ...opening, now: now.toISOString(), cleared: NIP_CLEARED });
-  }
-
-  session = await base.findSession(env.DB, exercise.id, student.matricule);
-  return json({ jeton: token, seance: sessionView(session, exercise, data) });
 }
 
 // --- Identification en deux temps (D23) ------------------------------------------------------------------
@@ -285,7 +244,6 @@ async function deconnexion(request, env, { now }) {
 }
 
 const ROUTES = {
-  'POST /api/identification': identification, // ancienne route, retirée dès que le client passe à D23
   'POST /api/consultation': consultation,
   'POST /api/creation': creation,
   'POST /api/reprise': reprise,

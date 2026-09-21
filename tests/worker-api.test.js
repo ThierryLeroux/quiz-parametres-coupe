@@ -42,7 +42,7 @@ async function repondre(serveur, jeton, juste, exercice = M10, matricule = '2412
 test('GET /api/version, adresse inconnue (404, plus de 501), et le reste aux fichiers du site', async () => {
   const serveur = serveurDeTest();
   assert.match((await serveur.appel('GET', '/api/version')).corps.version, /^\d+\.\d+\.\d+$/);
-  for (const [methode, chemin] of [['GET', '/api/creation'], ['POST', '/api/version'], ['GET', '/api/rapport'], ['GET', '/api/'], ['GET', '/api']]) {
+  for (const [methode, chemin] of [['GET', '/api/creation'], ['POST', '/api/identification'], ['POST', '/api/version'], ['GET', '/api/rapport'], ['GET', '/api/'], ['GET', '/api']]) {
     const { status, corps } = await serveur.appel(methode, chemin);
     assert.equal(status, 404, chemin);
     assert.equal(typeof corps.erreur, 'string');

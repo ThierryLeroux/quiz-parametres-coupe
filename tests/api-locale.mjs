@@ -83,18 +83,22 @@ try {
     assert.match(await page.text(), /<title>Quiz — paramètres de coupe<\/title>/);
   });
 
-  await etape('création : première identification', async () => {
-    const { status, corps } = await appel('POST', '/api/identification', { corps: CAMILLE });
+  await etape('consultation « aucune séance », création, consultation « séance trouvée » (D23)', async () => {
+    assert.deepEqual((await appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: CAMILLE.matricule } })).corps, { trouvee: false });
+    const { status, corps } = await appel('POST', '/api/creation', { corps: CAMILLE });
     assert.equal(status, 200, JSON.stringify(corps));
     assert.match(corps.jeton, /^[A-Za-z0-9_-]{43}$/);
     assert.deepEqual(corps.seance.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
     jeton = corps.jeton;
+    assert.deepEqual((await appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: CAMILLE.matricule } })).corps, { trouvee: true, prenom: 'Camille', initiale: 'T' });
+    assert.equal((await appel('POST', '/api/creation', { corps: CAMILLE })).status, 409);
+    assert.equal((await appel('POST', '/api/reprise', { corps: { ...CAMILLE, matricule: '2498765' } })).status, 404);
   });
 
   await etape('requêtes invalides → 400 ; NIP incorrect → 401 ; sans jeton → 401', async () => {
-    assert.equal((await appel('POST', '/api/identification', { corps: { ...CAMILLE, exercice: 'inconnu' } })).status, 400);
-    assert.equal((await appel('POST', '/api/identification', { corps: { ...CAMILLE, matricule: '123' } })).status, 400);
-    assert.deepEqual(await appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: '0000' } }), { status: 401, corps: { erreur: 'NIP incorrect.' } });
+    assert.equal((await appel('POST', '/api/creation', { corps: { ...CAMILLE, exercice: 'inconnu' } })).status, 400);
+    assert.equal((await appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '123' } })).status, 400);
+    assert.deepEqual(await appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: '0000' } }), { status: 401, corps: { erreur: 'NIP incorrect.' } });
     assert.equal((await appel('GET', `/api/seance?exercice=${M10}`)).status, 401);
   });
 
@@ -130,13 +134,26 @@ try {
   });
 
   await etape('reprise avec matricule + NIP : nouvel appareil, même séance ; l’ancien jeton ne vaut plus', async () => {
-    const reprise = await appel('POST', '/api/identification', { corps: { ...CAMILLE, prenom: 'Cam', nom: 'T.' } });
+    const reprise = await appel('POST', '/api/reprise', { corps: { exercice: M10, matricule: CAMILLE.matricule, nip: CAMILLE.nip } });
     assert.equal(reprise.status, 200);
     assert.deepEqual(reprise.corps.seance.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
     assert.equal(reprise.corps.seance.progression.total_reussies, 1);
     assert.equal((await appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 401);
     jeton = reprise.corps.jeton;
     assert.equal((await appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 200);
+  });
+
+  await etape('corriger mon identité : la séance est déplacée vers le bon matricule, puis ramenée (D23)', async () => {
+    const corrige = await appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camila', matricule: '2412346' } });
+    assert.equal(corrige.status, 200, JSON.stringify(corrige.corps));
+    assert.deepEqual(corrige.corps.seance.etudiant, { prenom: 'Camila', nom: 'Tremblay', matricule: '2412346' });
+    assert.equal(corrige.corps.seance.progression.total_reussies, 1);
+    assert.deepEqual((await appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: CAMILLE.matricule } })).corps, { trouvee: false });
+    assert.equal((await appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, nip: '0000' } })).status, 401);
+    assert.equal((await appel('POST', '/api/identite', { jeton, corps: CAMILLE })).status, 200);
+    // Un matricule déjà pris pour cet exercice : refusé par la contrainte d'unicité de la vraie D1.
+    assert.equal((await appel('POST', '/api/creation', { corps: { ...CAMILLE, prenom: 'Alex', matricule: '2498765' } })).status, 200);
+    assert.equal((await appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, matricule: '2498765' } })).status, 409);
   });
 
   await etape('changer d’étudiant : le jeton ne vaut plus rien', async () => {
@@ -146,9 +163,9 @@ try {
 
   await etape('verrou : 5 NIP incorrects → 429, même avec le bon NIP', async () => {
     for (let essai = 1; essai <= 5; essai += 1) {
-      assert.equal((await appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: `999${essai}` } })).status, 401, `essai ${essai}`);
+      assert.equal((await appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: `999${essai}` } })).status, 401, `essai ${essai}`);
     }
-    assert.equal((await appel('POST', '/api/identification', { corps: CAMILLE })).status, 429);
+    assert.equal((await appel('POST', '/api/reprise', { corps: CAMILLE })).status, 429);
   });
 
   console.log(`\n# ${etapes} étapes réussies sur wrangler dev et une vraie D1 locale`);

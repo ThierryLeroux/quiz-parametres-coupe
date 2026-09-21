@@ -2,7 +2,7 @@
 // vrai Worker (aide-serveur.js) à la place du réseau : les deux côtés s'entendent sur les adresses.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError, getSession, getVersion, identify, nextQuestion, signOut, submitAnswers } from '../site/js/api.js';
+import { ApiError, createSession, getSession, getVersion, lookupSession, nextQuestion, resumeSession, signOut, submitAnswers, updateIdentity } from '../site/js/api.js';
 import { SECONDE, serveurDeTest } from './aide-serveur.js';
 
 const M10 = 'm10-tournage-vc';
@@ -18,14 +18,21 @@ function fauxFetch(status, corps) {
   return { appels, request };
 }
 
-test('identify : POST /api/identification avec l’exercice et l’identification, sans jeton', async () => {
-  const { appels, request } = fauxFetch(200, { jeton: 'abc123', seance: {} });
-  assert.deepEqual(await identify(ETUDIANT, M10, request), { jeton: 'abc123', seance: {} });
-  assert.equal(appels.length, 1);
-  assert.equal(appels[0].url, '/api/identification');
-  assert.equal(appels[0].method, 'POST');
-  assert.deepEqual(appels[0].headers, { accept: 'application/json', 'content-type': 'application/json' });
-  assert.deepEqual(JSON.parse(appels[0].body), { exercice: M10, ...ETUDIANT });
+test('lookupSession, createSession, resumeSession : POST sans jeton, avec l’exercice et seulement ce que l’écran a demandé (D23)', async () => {
+  const cas = [
+    [(request) => lookupSession('2412345', M10, request), '/api/consultation', { exercice: M10, matricule: '2412345' }],
+    [(request) => createSession(ETUDIANT, M10, request), '/api/creation', { exercice: M10, ...ETUDIANT }],
+    [(request) => resumeSession('2412345', '4821', M10, request), '/api/reprise', { exercice: M10, matricule: '2412345', nip: '4821' }],
+  ];
+  for (const [appel, chemin, corps] of cas) {
+    const { appels, request } = fauxFetch(200, { jeton: 'abc123', seance: {} });
+    assert.deepEqual(await appel(request), { jeton: 'abc123', seance: {} });
+    assert.equal(appels.length, 1);
+    assert.equal(appels[0].url, chemin);
+    assert.equal(appels[0].method, 'POST');
+    assert.deepEqual(appels[0].headers, { accept: 'application/json', 'content-type': 'application/json' });
+    assert.deepEqual(JSON.parse(appels[0].body), corps);
+  }
 });
 
 test('getSession : GET avec le jeton dans l’en-tête Authorization, l’exercice dans l’adresse', async () => {
@@ -37,11 +44,12 @@ test('getSession : GET avec le jeton dans l’en-tête Authorization, l’exerci
   assert.equal(appels[0].body, undefined);
 });
 
-test('nextQuestion, submitAnswers, signOut : POST avec le jeton, et l’exercice dans le corps', async () => {
+test('nextQuestion, submitAnswers, signOut, updateIdentity : POST avec le jeton, et l’exercice dans le corps', async () => {
   const cas = [
     [(request) => nextQuestion('abc123', M10, request), '/api/question', { exercice: M10 }],
     [(request) => submitAnswers('abc123', M10, { vc: '400', rpm: '1,600' }, request), '/api/correction', { exercice: M10, saisies: { vc: '400', rpm: '1,600' } }],
     [(request) => signOut('abc123', M10, request), '/api/deconnexion', { exercice: M10 }],
+    [(request) => updateIdentity('abc123', M10, ETUDIANT, request), '/api/identite', { exercice: M10, ...ETUDIANT }],
   ];
   for (const [appel, chemin, corps] of cas) {
     const { appels, request } = fauxFetch(200, { ok: true });
@@ -57,7 +65,7 @@ test('erreur du serveur : ApiError avec le code HTTP, le message en français et
   const cas = [[400, 'Le matricule doit avoir exactement 7 chiffres.'], [401, 'NIP incorrect.'], [429, "Trop d'essais."]];
   for (const [status, erreur] of cas) {
     const { request } = fauxFetch(status, { erreur });
-    await assert.rejects(identify(ETUDIANT, M10, request), (error) => {
+    await assert.rejects(resumeSession('2412345', '4821', M10, request), (error) => {
       assert.ok(error instanceof ApiError);
       assert.deepEqual([error.status, error.message, error.details], [status, erreur, {}]);
       return true;
@@ -74,12 +82,12 @@ test('réponse d’erreur sans JSON : ApiError avec le code HTTP', async () => {
 
 test('serveur injoignable ou réponse illisible : ApiError de statut 0, jamais une autre exception', async () => {
   const horsLigne = async () => { throw new TypeError('Failed to fetch'); };
-  await assert.rejects(identify(ETUDIANT, M10, horsLigne), { name: 'ApiError', status: 0, message: 'Le serveur de correction ne répond pas.' });
+  await assert.rejects(createSession(ETUDIANT, M10, horsLigne), { name: 'ApiError', status: 0, message: 'Le serveur de correction ne répond pas.' });
   const { request } = fauxFetch(200, 'pas du JSON');
   await assert.rejects(nextQuestion('abc123', M10, request), { name: 'ApiError', status: 0 });
 });
 
-test('avec le vrai Worker : identification, question, correction, état, déconnexion — de bout en bout', async () => {
+test('avec le vrai Worker : consultation, création, reprise, identité, question, correction, état, déconnexion — de bout en bout', async () => {
   const serveur = serveurDeTest();
   const parLeWorker = async (url, options) => {
     const { status, corps } = await serveur.appel(options.method, url, { jeton: options.headers.authorization?.slice(7), corps: options.body && JSON.parse(options.body) });
@@ -87,9 +95,16 @@ test('avec le vrai Worker : identification, question, correction, état, déconn
   };
 
   assert.match((await getVersion(parLeWorker)).version, /^\d+\.\d+\.\d+$/);
-  const { jeton, seance } = await identify(ETUDIANT, M10, parLeWorker);
+  assert.deepEqual(await lookupSession('2412345', M10, parLeWorker), { trouvee: false });
+  const { jeton: premier, seance } = await createSession(ETUDIANT, M10, parLeWorker);
   assert.equal(seance.etudiant.prenom, 'Camille');
-  await assert.rejects(identify({ ...ETUDIANT, nip: '0000' }, M10, parLeWorker), { status: 401, message: 'NIP incorrect.' });
+  assert.deepEqual(await lookupSession('2412345', M10, parLeWorker), { trouvee: true, prenom: 'Camille', initiale: 'T' });
+  await assert.rejects(createSession(ETUDIANT, M10, parLeWorker), { status: 409 });
+  await assert.rejects(resumeSession('2412345', '0000', M10, parLeWorker), { status: 401, message: 'NIP incorrect.' });
+  await assert.rejects(resumeSession('2498765', '4821', M10, parLeWorker), { status: 404 });
+  const { jeton } = await resumeSession('2412345', '4821', M10, parLeWorker);
+  assert.notEqual(jeton, premier);
+  assert.equal((await updateIdentity(jeton, M10, { ...ETUDIANT, prenom: 'Camila' }, parLeWorker)).seance.etudiant.prenom, 'Camila');
 
   const { seance: posee } = await nextQuestion(jeton, M10, parLeWorker);
   assert.equal(posee.question.champs.length, 5);

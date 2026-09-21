@@ -155,6 +155,22 @@ body {
   margin-top: var(--space-4);
 }
 
+/* Un seul champ (matricule, NIP) : il ne s'étire pas sur toute la largeur. */
+.form-grid.form-grid--single { grid-template-columns: minmax(0, 280px); }
+
+/* Liens sous un formulaire : « Ce n'est pas moi », « Mauvais matricule », « Annuler ». */
+.form-links { margin-top: var(--space-2); }
+.form-links:empty { display: none; }
+
+/* Le matricule à vérifier avant de créer une séance (D23) : en gros, en chasse fixe. */
+.matricule-display {
+  margin: var(--space-2) 0;
+  font-family: var(--font-number);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
 /* Message du serveur à gauche, « Continuer » à droite ; sur téléphone, le bouton passe dessous. */
 .form-actions {
   display: flex;

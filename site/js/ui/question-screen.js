@@ -18,11 +18,15 @@ function progressPanel(progression) {
 
 const header = (seance, actions) => ({
   title: seance.exercice.titre,
-  aside: [el('span', {}, studentLine(seance)), el('button', { class: 'button-link', type: 'button', onclick: actions.onQuit }, 'Quitter')],
+  aside: [
+    el('span', {}, studentLine(seance)),
+    el('button', { class: 'button-link', type: 'button', onclick: actions.onIdentity }, 'Corriger mon identité'),
+    el('button', { class: 'button-link', type: 'button', onclick: actions.onQuit }, 'Quitter'),
+  ],
 });
 
 //   seance  : l'état renvoyé par le serveur, avec seance.question
-//   actions : { onCheck(answers), onNext(seance), onQuit }
+//   actions : { onCheck(answers), onNext(seance), onIdentity, onQuit }
 //     onCheck : async — fait corriger ; retourne { correction, seance }, ou { message } si le serveur
 //               refuse (cadence, réseau), ou null si un autre écran a pris la place
 //     onNext  : affiche la suite (question suivante ou réussite) à partir de la séance reçue
@@ -105,7 +109,7 @@ export function renderQuestion(main, { seance }, actions) {
 }
 
 // Exercice réussi — écran minimal ; le rapport à remettre sur Léa viendra au jalon 5.
-//   actions : { onQuit }
+//   actions : { onIdentity, onQuit }
 export function renderSuccess(main, { seance }, actions) {
   const screen = el('div', { class: 'screen' }, [
     el('section', { class: 'panel panel--correct' }, [

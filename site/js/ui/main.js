@@ -3,10 +3,10 @@
 // qu'appeler app.js (choix de l'exercice), api.js (le serveur) et session.js (le jeton local).
 
 import { loadApp } from '../app.js';
-import { identify, nextQuestion, signOut, submitAnswers } from '../api.js';
+import { createSession, lookupSession, nextQuestion, resumeSession, signOut, submitAnswers, updateIdentity } from '../api.js';
 import { clearSession, loadSession, saveSession } from '../session.js';
 import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
-import { renderIdentification } from './identification-screen.js';
+import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
 import { renderQuestion, renderSuccess } from './question-screen.js';
 import { identificationErrorMessage, serverErrorMessage } from './text.js';
 
@@ -18,7 +18,7 @@ function showHome() {
   const local = loadSession();
   renderHome(main, { exercise, local }, {
     onResume: () => openQuestion(local.jeton),
-    onStart: () => showIdentification(),
+    onStart: () => showMatricule(),
     onForget: () => {
       signOut(local.jeton, exercise.id).catch(() => {}); // le serveur oublie le jeton ; s'il ne répond pas, le jeton expirera seul
       clearSession();
@@ -27,15 +27,55 @@ function showHome() {
   });
 }
 
-function showIdentification(notice = '') {
-  renderIdentification(main, { exercise, notice }, {
-    onSubmit: async (student) => {
+// --- Identification en deux temps (D23) : rien ne se décide en silence -----------------------------------
+
+// Garde { matricule, prenom, jeton } — le prénom est celui que connaît le serveur. Si le navigateur
+// refuse, on continue : il faudra seulement s'identifier de nouveau.
+const remember = (jeton, seance) => saveSession({ matricule: seance.etudiant.matricule, prenom: seance.etudiant.prenom, jeton });
+
+// Ouvre la séance que le serveur vient de créer ou de rendre. Retourne le message à afficher, ou null.
+async function enter(opening) {
+  try {
+    const { jeton, seance } = await opening;
+    remember(jeton, seance);
+    return await openQuestion(jeton);
+  } catch (error) {
+    return identificationErrorMessage(error);
+  }
+}
+
+// 1/2 : le matricule seul ; le serveur dit s'il a une séance pour cet exercice.
+function showMatricule(notice = '', matricule = '') {
+  renderMatricule(main, { exercise, notice, matricule }, {
+    onSubmit: async (typed) => {
       try {
-        const { jeton, seance } = await identify(student, exercise.id);
-        // Le prénom gardé est celui de la première visite, renvoyé par le serveur (D21).
-        saveSession({ matricule: seance.etudiant.matricule, prenom: seance.etudiant.prenom, jeton }); // si le navigateur refuse, on continue
-        return await openQuestion(jeton);
+        const found = await lookupSession(typed, exercise.id);
+        const back = () => showMatricule('', typed);
+        if (found.trouvee) {
+          renderResume(main, { exercise, ...found }, { onBack: back, onSubmit: (nip) => enter(resumeSession(typed, nip, exercise.id)) });
+        } else {
+          renderCreate(main, { exercise, matricule: typed }, { onBack: back, onSubmit: (student) => enter(createSession(student, exercise.id)) });
+        }
+        return null;
       } catch (error) {
+        return identificationErrorMessage(error);
+      }
+    },
+  });
+}
+
+// « Corriger mon identité », depuis la séance : le jeton ne change pas, la séance est déplacée (D23).
+function showIdentity(jeton, seance) {
+  renderIdentity(main, { exercise, seance }, {
+    onBack: () => showSession(jeton, seance),
+    onSubmit: async (identity) => {
+      try {
+        const { seance: corrected } = await updateIdentity(jeton, exercise.id, identity);
+        remember(jeton, corrected);
+        showSession(jeton, corrected);
+        return null;
+      } catch (error) {
+        // 401 veut dire ici « NIP incorrect » : le jeton, lui, vient d'être accepté ou la séance aurait expiré avant.
         return identificationErrorMessage(error);
       }
     },
@@ -45,14 +85,15 @@ function showIdentification(notice = '') {
 // Le serveur a refusé le jeton (expiré après 2 h, remplacé sur un autre appareil, autre exercice) :
 // on l'oublie, et l'étudiant s'identifie. Rien n'est perdu : la séance est sur le serveur.
 function sessionExpired() {
+  const matricule = loadSession()?.matricule ?? '';
   clearSession();
-  showIdentification('Ta séance a expiré : identifie-toi de nouveau.');
+  showMatricule('Ta séance a expiré : identifie-toi de nouveau.', matricule);
   return null;
 }
 
 // Affiche où en est la séance : la question à laquelle répondre, ou la réussite.
 function showSession(jeton, seance) {
-  const actions = { onQuit: showHome };
+  const actions = { onQuit: showHome, onIdentity: () => showIdentity(jeton, seance) };
   if (seance.reussite_le !== null) {
     renderSuccess(main, { seance }, actions);
     return;

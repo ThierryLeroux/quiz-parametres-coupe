@@ -41,7 +41,7 @@ avant style**.
 
 ## 2. Parcours
 
-`?exercice=<id>` (lien diffusé sur Léa) → **Accueil** → **Identification** →
+`?exercice=<id>` (lien diffusé sur Léa) → **Accueil** → **Identification** (1 / 2 le matricule, 2 / 2 reprendre ou commencer : D23) →
 **Question** ⇄ **Tables de référence** → (Vérifier) → **Question corrigée** →
 Question suivante… → **Réussite** (rapport). L'état de la séance vit sur le
 serveur de correction (D19, SPEC §7) : une séance interrompue se reprend de
@@ -63,27 +63,35 @@ Les maquettes `01-accueil.html` et `02-identification.html` sont **périmées de
 - « Changer d'étudiant » prévient aussi le serveur, qui oublie le jeton (SPEC §7).
 - Pied : « Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session. »
 
-### 3.2 Identification (`02-identification.html`)
+### 3.2 Identification, en deux temps (D23 ; la maquette `02-identification.html` est périmée)
 
-- Prénom, nom, **matricule à 7 chiffres**, **NIP de 4 à 6 chiffres** ; validation à la saisie, messages en français. Rien d'autre (D16 : plus de numéro Moodle).
-- **Case du NIP** (D21) : champ **texte** à chiffres (`inputmode="numeric"`, `autocomplete="off"`), masqué par CSS (`-webkit-text-security: disc`) là où le navigateur le permet ; **jamais `type="password"`**, pour qu'aucun navigateur ne propose d'enregistrer le NIP sur un poste partagé. `autocomplete="off"` aussi sur le matricule (et sur le prénom et le nom).
-- Il n'y a pas de lien « ← Retour » : le **titre de l'exercice reste visible** dans la barre du haut, avec sa version.
-- À la reprise, le prénom et le nom tapés sont ignorés : l'écran suivant affiche ceux de la première visite, renvoyés par le serveur (D21).
-- Texte : « Choisis un NIP à ta première visite : il te servira à reprendre l'exercice sur un autre appareil. »
-- **Un seul bouton : Continuer** — la première visite et la reprise passent par le même formulaire ; c'est le serveur qui sait si le matricule a déjà une séance.
-- Erreurs — celle d'un champ sous sa case, avant l'envoi ; celles du serveur sous le formulaire :
+Rien ne se décide en silence : l'étudiant voit si le serveur a **trouvé** sa séance ou s'il en **crée** une.
+
+**Écran 1 / 2 — le matricule seul.** Titre « Quel est ton matricule ? », un champ **Matricule** (7 chiffres), bouton **Continuer**. Le serveur répond « séance trouvée » (avec le prénom et l'initiale du nom) ou « aucune séance » — rien d'autre ne sort. Quand l'écran s'ouvre parce que le serveur a refusé le jeton local (UI §3.1), il affiche d'entrée « Ta séance a expiré : identifie-toi de nouveau. », matricule déjà rempli.
+
+**Écran 2 / 2, séance trouvée.** « Séance de Romain L. trouvée. Entre ton NIP pour la reprendre. », un champ **NIP**, bouton **Reprendre**, lien « Ce n'est pas moi » qui ramène au 1 / 2. Aucun champ prénom ni nom.
+
+**Écran 2 / 2, aucune séance.** Le **matricule en gros caractères**, puis « Nouvelle séance pour le matricule 7654321. Vérifie-le : il figurera sur ton rapport et te servira à reprendre l'exercice sur un autre appareil. », puis **Prénom**, **Nom**, **« Choisis un NIP (4 à 6 chiffres) »**, bouton **Commencer**, lien « Mauvais matricule » qui ramène au 1 / 2 (matricule gardé, à corriger).
+
+**« Corriger mon identité »** — lien dans l'en-tête de la séance (écrans Question et Réussite), à côté de Quitter : **Prénom**, **Nom**, **Matricule** déjà remplis et modifiables, **NIP exigé**, bouton **Enregistrer**, lien « Annuler ». Texte : « Ton prénom, ton nom et ton matricule figureront sur ton rapport. Ta progression ne change pas. Entre ton NIP pour confirmer. » La séance est déplacée, jamais copiée ; on revient à la question en attente.
+
+Communs aux quatre écrans :
+
+- **Case du NIP** (D21) : champ **texte** à chiffres (`inputmode="numeric"`, `autocomplete="off"`), masqué par CSS (`-webkit-text-security: disc`) là où le navigateur le permet ; **jamais `type="password"`**, pour qu'aucun navigateur ne propose d'enregistrer le NIP sur un poste partagé. `autocomplete="off"` sur tous les champs.
+- Il n'y a pas de lien « ← Retour » vers l'accueil : le **titre de l'exercice reste visible** dans la barre du haut, avec sa version.
+- Validation à la saisie (`site/js/identification.js`), messages en français. Erreurs — celle d'un champ sous sa case, avant l'envoi ; celles du serveur sous le formulaire :
   - matricule invalide : « Le matricule doit avoir exactement 7 chiffres. » ; NIP mal formé : « Le NIP doit avoir de 4 à 6 chiffres. » ;
   - NIP incorrect : « NIP incorrect. Si tu l'as oublié, demande à ton enseignant de le remettre à zéro. » ;
   - trop d'essais : « Trop d'essais. Attends 10 minutes avant de réessayer. » ;
+  - matricule déjà pris (nouvelle séance créée entre-temps, ou correction d'identité vers un matricule qui a sa séance) : « Ce matricule a déjà une séance. » ;
   - serveur injoignable : « Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie. »
-- Quand l'écran s'ouvre parce que le serveur a refusé le jeton local (UI §3.1), il affiche d'entrée : « Ta séance a expiré : identifie-toi de nouveau. »
 
 ### 3.3 Question (`03-question.html`, téléphone `03b-question-telephone.html`)
 
 Grille ordinateur : deux tiers pour la question, un tiers pour la progression.
 Téléphone : tout s'empile dans l'ordre outil → matériau → questionnaire → progression.
 
-**En-tête** : titre de l'exercice, « Prénom Nom · matricule », bouton **Tables de référence**, lien Quitter.
+**En-tête** : titre de l'exercice, « Prénom Nom · matricule », bouton **Tables de référence**, liens **Corriger mon identité** (D23, §3.2) et Quitter.
 
 **Panneau de l'outil** (couleur du matériau d'outil) :
 - photo (`site/img/outils/<id>.png`, halo de la même couleur), identifiant résolu du gabarit (« MVLNR — Ø charioté : 5/8 po »), rappel du matériau d'outil en petit ;
