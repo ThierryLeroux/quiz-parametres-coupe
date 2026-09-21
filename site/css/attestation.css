@@ -1,0 +1,68 @@
+/* Attestation de réussite (docs/UI.md §3.6) : une page lettre claire (base.css : .print-page), avec
+   l'en-tête et le pied des feuilles de référence (sheets.css : .sheet-header, .sheet-footer). */
+
+.attestation-screen { width: 100%; }
+
+.attestation-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.attestation-bar p { flex: 1 1 240px; }
+
+.attestation {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.attestation .sheet-title h1 { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.1; }
+
+.attestation-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.6in;
+  gap: 24px;
+  align-items: start;
+  margin-top: 12px;
+}
+
+.attestation-info {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.attestation-info dt { color: var(--color-page-muted); }
+.attestation-info dd { margin: 0; font-weight: 700; }
+
+/* L'emplacement du code QR : un carré en pointillé tant que l'attestation n'est pas signée. */
+.attestation-qr {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 8px;
+  border: 1px dashed var(--color-page-muted);
+  color: var(--color-page-muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.attestation-notice {
+  margin-top: 28px;
+  padding: 10px 12px;
+  border-left: 4px solid var(--color-feed-bar);
+  background: #f2f2f2;
+  font-size: 12px;
+}
+
+.attestation .sheet-footer { margin-top: auto; }
+
+@media print {
+  .attestation { min-height: 10in; } /* @page laisse 0.5 po de marge : il reste 10 po de haut */
+}

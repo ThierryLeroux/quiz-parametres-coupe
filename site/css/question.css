@@ -286,3 +286,20 @@
 
   .answer-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
+
+/* Mode test (D26) : n'apparaît que si le serveur local a joint les réponses attendues à la question. */
+.banner--test {
+  align-items: center;
+  margin: 0 0 var(--space-4);
+  border-color: var(--color-gold);
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+}
+
+.banner--test strong { color: var(--color-gold); font-size: inherit; }
+
+/* Le rouge de la classe K, #FF0000 sur les feuilles, manque de contraste sur fond nuit : il est
+   éclairci ICI seulement (UI §1) ; la couleur des feuilles ne change pas. */
+.material-card { --iso-k: var(--iso-k-night); }
+
+/* Écran « Exercice réussi » : « Voir mon attestation ». */
+.success-actions { margin-top: var(--space-4); }

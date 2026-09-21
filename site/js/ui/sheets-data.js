@@ -17,16 +17,21 @@ export function operationSlug(name) {
   return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
 
-export const operationPicto = (name) => `img/pictos/operations/${operationSlug(name)}.png`;
+// Les pictogrammes d'opérations sont les dessins vectoriels du classeur, convertis en SVG (D29 ;
+// reference/pictogrammes-du-classeur/).
+export const operationPicto = (name) => `img/pictos/operations/${operationSlug(name)}.svg`;
 
 // --- Vitesses de coupe -----------------------------------------------------------------------------------------
 // Toutes les classes et toutes les lignes, quel que soit l'exercice ; aucune ligne surlignée.
-// Retourne { columns, rows } : columns = les trois matériaux d'outil, { label, key } ; rows = les
-// matériaux de materiaux.json, dans leur ordre.
+// Retourne { columns, rows, revision } : columns = les trois matériaux d'outil, { label, key } ;
+// rows = les matériaux de materiaux.json, dans leur ordre — « debut_famille » y commande le trait fin
+// au-dessus d'un changement de matériau usiné (D27 : une donnée, pas un calcul) ; revision = celle
+// de la table, pour le pied de la feuille (D28).
 export function vcSheet(data) {
   return {
     columns: Object.entries(TOOL_MATERIAL_KEYS).map(([label, key]) => ({ label, key })),
     rows: data.materiaux,
+    revision: data.revisions.materiaux,
   };
 }
 
@@ -38,7 +43,7 @@ const isLathe = (operation) => operation.machine === 'Tour';
 function feedLabel(operation) {
   if (operation.avance_egale_pas_filetage) return 'pas du filetage';
   const perTooth = isLathe(operation) ? '' : ' / dent';
-  const proportional = operation.avance_proportionnelle_diametre ? ' x Ø outil' : '';
+  const proportional = operation.avance_proportionnelle_diametre ? ' × Ø outil' : '';
   return `${inches(operation.avance_po_rev)}${perTooth}${proportional}`;
 }
 
@@ -54,7 +59,7 @@ function runs(items, keyOf) {
   return found;
 }
 
-// L'encadré qui ceinture une suite d'opérations proportionnelles au Ø. Les nombres viennent des
+// La note posée à droite d'une suite d'opérations proportionnelles au Ø, sur leur bande grise. Les nombres viennent des
 // données : l'exemple est calculé (« .006"/dent × Ø1/4" = .0015"/dent »), jamais recopié.
 function proportionalBox(operations) {
   const max = Math.max(...operations.map((operation) => operation.avance_max_po_rev));
@@ -73,12 +78,14 @@ function proportionalBox(operations) {
   ];
 }
 
-// Retourne { rows, machines, directions, boxes } :
-//   rows       : une opération par rang — { operation, picto, label, bar } ; bar = longueur de la barre,
-//                de 0 à 1, proportionnelle à l'avance (null pour un filetage : pas de barre)
+// Retourne { rows, machines, directions, boxes, revision } :
+//   rows       : une opération par rang — { operation, picto, label, bar, proportional } ; bar = longueur
+//                de la barre, de 0 à 1, proportionnelle à l'avance (null pour un filetage : pas de barre) ;
+//                proportional = avance proportionnelle au Ø : le rang porte la bande grise du classeur
 //   machines   : [{ key, start, span }] — la machine-outil, sur la hauteur de ses opérations
 //   directions : idem pour la direction d'avance (à l'intérieur d'une machine)
-//   boxes      : [{ start, span, lines }] — encadrés des suites d'opérations proportionnelles au Ø
+//   boxes      : [{ start, span, lines }] — notes des suites d'opérations proportionnelles au Ø
+//   revision   : celle de la table des avances, pour le pied de la feuille (D28)
 export function feedSheet(data) {
   const { operations } = data;
   const longest = Math.max(...operations.filter((operation) => !operation.avance_egale_pas_filetage).map((operation) => operation.avance_po_rev));
@@ -88,11 +95,13 @@ export function feedSheet(data) {
       picto: operationPicto(operation.operation),
       label: feedLabel(operation),
       bar: operation.avance_egale_pas_filetage ? null : operation.avance_po_rev / longest,
+      proportional: operation.avance_proportionnelle_diametre,
     })),
     machines: runs(operations, (operation) => operation.machine),
     directions: runs(operations, (operation) => `${operation.machine}|${operation.direction_avance}`).map((run) => ({ ...run, key: run.key.split('|')[1] })),
     boxes: runs(operations, (operation) => (operation.avance_proportionnelle_diametre ? 'proportionnelle' : `fixe-${operation.operation}`))
       .filter((run) => run.key === 'proportionnelle')
       .map(({ start, span }) => ({ start, span, lines: proportionalBox(operations.slice(start, start + span)) })),
+    revision: data.revisions.operations,
   };
 }

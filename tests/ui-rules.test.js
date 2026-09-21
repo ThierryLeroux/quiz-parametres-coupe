@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { factorLines, feedFamily, materialCard, gapExplanation, helpLine, labeledIdentifier, progressRows, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { diameterLines, factorLines, feedFamily, materialCard, gapExplanation, helpLine, progressRows, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
 import { feedSheet, inches, operationPicto, operationSlug, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
@@ -33,11 +33,27 @@ test('toolLabels : avec tout le catalogue dans un exercice, aucun nom affiché n
   assert.equal(new Set(labels).size, data.outils.length, labels.join(' | '));
 });
 
-test('labeledIdentifier : le nom à afficher dans l’en-tête de la question', () => {
-  const labels = toolLabels(m10, data);
-  assert.equal(labeledIdentifier({ identifiant: 'SDTMR - filetage: M64 x 6', outil: { id: 'sdtmr_2', nom: 'SDTMR' } }, labels), 'SDTMR (métrique) - filetage: M64 x 6');
-  assert.equal(labeledIdentifier({ identifiant: 'MVLNR - Ø charioté: 2.000"', outil: { id: 'mvlnr', nom: 'MVLNR' } }, labels), 'MVLNR - Ø charioté: 2.000"');
-  assert.equal(labeledIdentifier({ identifiant: 'Foret Ø 1/4 po', outil: { id: 'foret_fractionnaire', nom: 'Foret fractionnaire' } }, new Map()), 'Foret Ø 1/4 po');
+// D25 : la barre à aléser a deux diamètres ; le panneau, l'aide de N et celle de fz disent lequel sert à quoi.
+const BARRE = { identifiant: 'Barre à aléser Ø 3/4 po - Ø alésé: 2.000"', dimension: '2.000"', outil: { id: 'barre_a_aleser', nom: 'Barre à aléser', barre: '3/4 po', fact_vc: 1, fact_av: 1 } };
+
+test('diameterLines : les deux diamètres de la barre à aléser, chacun avec son rôle ; rien pour les autres outils', () => {
+  assert.deepEqual(diameterLines(BARRE), ['Ø alésé : 2.000" — pour le RPM', "Ø de la barre : 3/4 po — pour l'avance"]);
+  assert.deepEqual(diameterLines({ dimension: '2.000"', outil: { barre: null } }), []);
+  assert.deepEqual(diameterLines({ dimension: '2.000"', outil: {} }), []); // séance servie par un serveur d'avant D25
+});
+
+test('helpLine, outil à deux diamètres : N avec le Ø alésé, avance avec le Ø de la barre', () => {
+  const texte = (aide) => aide.parts.map((part) => part.text).join('');
+  assert.equal(texte(helpLine('rpm', BARRE, 'proportional')), 'RPM → N = Vc × 4 / Ø alésé (le trou, pas la barre), plafonnée au RPM max de la machine.');
+  assert.match(texte(helpLine('feedPerTooth', BARRE, 'proportional')), /avance × Ø de la barre \(pas le Ø alésé\)/);
+});
+
+test('testAnswers : le bouton « Remplir » n’existe que si le serveur a joint les réponses (D26)', () => {
+  assert.equal(testAnswers({ champs: [] }), null);
+  assert.equal(testAnswers({ reponses_test: null }), null);
+  assert.equal(testAnswers({ reponses_test: {} }), null);
+  assert.equal(testAnswers({ reponses_test: 'oui' }), null);
+  assert.deepEqual(testAnswers({ reponses_test: { vc: '100' } }), { vc: '100' });
 });
 
 // --- Panneau de l'outil -----------------------------------------------------------------------------------------------
@@ -147,7 +163,7 @@ test('inches : une avance comme sur la feuille de l’atelier', () => {
   assert.deepEqual([0.006, 0.0015, 0.01, 0.001, 0.00025].map(inches), ['.006"', '.0015"', '.010"', '.001"', '.00025"']);
 });
 
-test('operationSlug et pictogrammes : chaque opération du catalogue a son fichier dans site/img/pictos/operations/', () => {
+test('operationSlug et pictogrammes : chaque opération du catalogue a son fichier SVG dans site/img/pictos/operations/', () => {
   assert.equal(operationSlug('Chanfreinage / ébavurage'), 'chanfreinage_ebavurage');
   assert.equal(operationSlug("Alésage à l'alésoir"), 'alesage_a_l_alesoir');
   for (const operation of data.operations) {
@@ -161,8 +177,10 @@ test('pictogrammes de grandeurs : les six fichiers SVG de site/img/pictos/grande
   }
 });
 
-test('vcSheet : toutes les lignes du catalogue, les trois colonnes de matériau d’outil', () => {
+test('vcSheet : toutes les lignes du catalogue, les trois colonnes de matériau d’outil, les débuts de famille et la révision', () => {
   const feuille = vcSheet(data);
+  assert.equal(feuille.revision, data.revisions.materiaux);
+  assert.equal(feuille.rows.filter((row) => row.debut_famille).length, 15); // D27 : le trait vient des données
   assert.equal(feuille.rows.length, 47);
   assert.deepEqual(feuille.columns.map((column) => column.key), ['acier_rapide', 'carbure_solide', 'insert_carbure']);
   for (const row of feuille.rows) for (const { key } of feuille.columns) assert.equal(typeof row.vc_pi_min[key], 'number');
@@ -174,11 +192,16 @@ test('feedSheet : une opération par rang, barre proportionnelle à l’avance, 
   const rang = (nom) => feuille.rows.find((row) => row.operation === nom);
   assert.deepEqual([rang('Chariotage ébauche').label, rang('Chariotage ébauche').bar], ['.010"', 1]);
   assert.deepEqual([rang('Chariotage finition').label, rang('Chariotage finition').bar], ['.005"', 0.5]);
-  assert.equal(rang('Perçage').label, '.006" / dent x Ø outil');
+  assert.equal(rang('Perçage').label, '.006" / dent × Ø outil');
   assert.equal(rang('Pointage').label, '.001" / dent');
-  assert.equal(rang('Alésage à la barre').label, '.006" x Ø outil');
+  assert.equal(rang('Alésage à la barre').label, '.006" × Ø outil');
   assert.deepEqual([rang('Taraudage').label, rang('Taraudage').bar], ['pas du filetage', null]);
-  assert.equal(rang('Perçage').picto, 'img/pictos/operations/percage.png');
+  assert.equal(rang('Perçage').picto, 'img/pictos/operations/percage.svg');
+  assert.equal(feuille.revision, data.revisions.operations);
+  // La bande grise du classeur : les huit opérations à avance proportionnelle au Ø, et elles seules.
+  assert.deepEqual(feuille.rows.filter((row) => row.proportional).map((row) => row.operation), [
+    'Contournage ébauche', 'Contournage finition', 'Surfaçage', 'Chanfreinage / ébavurage', 'Perçage', 'Chanfreinage', "Alésage à l'alésoir", 'Alésage à la barre',
+  ]);
 });
 
 test('feedSheet : machines et directions sur la hauteur de leurs opérations ; encadrés des opérations proportionnelles au Ø', () => {
@@ -195,9 +218,9 @@ test('feedSheet : machines et directions sur la hauteur de leurs opérations ; e
 });
 
 test('feedSheet : une opération ajoutée au catalogue apparaît dans la feuille, sans toucher au code', () => {
-  const lamage = { operation: 'Lamage', machine: 'Perceuse / Fraiseuse', direction_avance: 'Avance axiale', avance_po_rev: 0.003, avance_max_po_rev: 0.003, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false, note: null };
+  const lamage = { operation: 'Lamage', machine: 'Perceuse / Fraiseuse', direction_avance: 'Avance axiale', avance_po_rev: 0.003, avance_max_po_rev: 0.003, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false };
   const feuille = feedSheet({ ...data, operations: [...data.operations.slice(0, 9), lamage, ...data.operations.slice(9)] });
   assert.equal(feuille.rows.length, 20);
-  assert.deepEqual([feuille.rows[9].label, feuille.rows[9].picto], ['.003" / dent', 'img/pictos/operations/lamage.png']);
+  assert.deepEqual([feuille.rows[9].label, feuille.rows[9].picto], ['.003" / dent', 'img/pictos/operations/lamage.svg']);
   assert.deepEqual(feuille.machines[1], { key: 'Perceuse / Fraiseuse', start: 4, span: 6 });
 });

@@ -61,6 +61,7 @@
   --iso-p: #00b0f0;
   --iso-m: #ffff00;
   --iso-k: #ff0000;
+  --iso-k-night: #ff5c5c;        /* la même, éclaircie pour le fond nuit seulement (panneau du matériau brut) : contraste AA */
   --iso-n: #00b050;
   --iso-s: #ffc000;
   --iso-h: #d9d9d9;

@@ -5,6 +5,7 @@
 
 import { el } from './dom.js';
 import { feedSheet, vcSheet } from './sheets-data.js';
+import { DEPARTMENT_LINES, DEPARTMENT_SHORT } from './text.js';
 
 const TABS = [
   { id: 'vc', label: 'Vitesses de coupe' },
@@ -17,22 +18,27 @@ function picto(name) {
   return el('span', { class: 'picto picto--sheet', 'aria-hidden': 'true', style: `-webkit-mask-image: ${url}; mask-image: ${url};` });
 }
 
-// La page lettre : en-tête (logo, titre, bloc TGM), contenu, pied (date, révision, page).
-function page(content) {
+// La page lettre : en-tête (logo, titre, bloc du département), contenu, pied (date, sigle, révision
+// de la table — D28 ; la feuille des formules, qui n'a pas de données, n'en porte pas — et page).
+function page(content, revision = null) {
   return el('article', { class: 'print-page sheet' }, [
     el('header', { class: 'sheet-header' }, [
       el('img', { class: 'sheet-logo', src: 'img/logo-cvm.png', alt: 'Cégep du Vieux Montréal' }),
       el('div', { class: 'sheet-title' }, [el('div', {}, 'Paramètres de coupe'), el('small', {}, 'valeurs de départ')]),
-      el('div', { class: 'sheet-program' }, [el('div', {}, 'Techniques de génie mécanique'), el('div', {}, 'Technique du génie de la maintenance industrielle'), el('div', {}, '(fiabilité des systèmes de production)')]),
+      el('div', { class: 'sheet-program' }, DEPARTMENT_LINES.map((line) => el('div', {}, line))),
     ]),
     el('div', { class: 'sheet-body' }, content),
-    el('footer', { class: 'sheet-footer' }, [el('span', {}, new Date().toISOString().slice(0, 10)), el('span', {}, 'TGM — profil fabrication'), el('span', {}, 'Page 1 de 1')]),
+    el('footer', { class: 'sheet-footer' }, [
+      el('span', {}, new Date().toISOString().slice(0, 10)),
+      el('span', {}, `${DEPARTMENT_SHORT} — profil fabrication`),
+      el('span', {}, revision === null ? 'Page 1 de 1' : `révision ${revision} · Page 1 de 1`),
+    ]),
   ]);
 }
 
 // --- Vitesses de coupe : toutes les classes, toutes les lignes, aucune surlignée ------------------------------
 function vcPage(data) {
-  const { columns, rows } = vcSheet(data);
+  const { columns, rows, revision } = vcSheet(data);
   // Une ligne par matériau, sans repli : un libellé long est écrit plus petit (UI §3.5).
   const cell = (text, className = '') => {
     const shown = text === null || text === undefined ? '' : String(text);
@@ -48,7 +54,8 @@ function vcPage(data) {
       ])),
       el('tbody', {}, rows.map((row) => {
         const iso = row.iso.toLowerCase();
-        return el('tr', { style: `background: var(--iso-${iso}-tint)` }, [
+        // Un trait fin au-dessus d'un changement de matériau usiné (D27).
+        return el('tr', { class: row.debut_famille ? 'vc-family' : null, style: `background: var(--iso-${iso}-tint)` }, [
           el('td', { class: 'vc-class', style: `background: var(--iso-${iso}); color: var(--iso-${iso}-text)` }, row.iso),
           el('td', { class: 'vc-class', style: `background: var(--iso-${iso}); color: var(--iso-${iso}-text)` }, String(row.groupe)),
           cell(row.materiau, 'left'), cell(row.composition, 'left'), cell(row.etat, 'left'), cell(row.durete), cell(row.exemple),
@@ -56,20 +63,22 @@ function vcPage(data) {
         ]);
       })),
     ]),
-  ]);
+  ], revision);
 }
 
 // --- Avances : une grille, un rang par opération ; machines, directions et encadrés sur plusieurs rangs ----------
 function feedPage(data) {
-  const { rows, machines, directions, boxes } = feedSheet(data);
+  const { rows, machines, directions, boxes, revision } = feedSheet(data);
   const at = (start, span) => `grid-row: ${start + 2} / span ${span}`; // le rang 1 est l'en-tête
   const lastOfMachine = new Set(machines.map((run) => run.start + run.span - 1));
   return page([
     el('div', { class: 'feed-grid' }, [
       el('div', { class: 'feed-head', style: 'grid-column: 1 / span 2' }, 'Machine-outil'),
       el('div', { class: 'feed-head', style: 'grid-column: 3 / span 2' }, 'Opération'),
-      el('div', { class: 'feed-head', style: 'grid-column: 5' }, 'Avance / rév.'),
-      el('div', { class: 'feed-head feed-head--note', style: 'grid-column: 6' }, "Avance proportionnelle au Ø de l'outil"),
+      el('div', { class: 'feed-head', style: 'grid-column: 5 / span 2' }, 'Avance par révolution'),
+      // Avance proportionnelle au Ø : une bande grise de la colonne Opération à la note, comme dans le
+      // classeur. Posée avant les cellules, elle passe dessous.
+      ...rows.flatMap((row, i) => (row.proportional ? [el('div', { class: 'feed-band', style: `grid-column: 3 / span 4; ${at(i, 1)}` })] : [])),
       ...machines.map((run) => el('div', { class: 'feed-machine', style: `grid-column: 1; ${at(run.start, run.span)}` }, run.key.split(' / ').flatMap((part, i) => (i === 0 ? [part] : [el('br'), part])))),
       ...directions.map((run) => el('div', { class: 'feed-direction', style: `grid-column: 2; ${at(run.start, run.span)}` }, el('span', {}, run.key))),
       ...rows.flatMap((row, i) => {
@@ -85,7 +94,7 @@ function feedPage(data) {
       }),
       ...boxes.map((box) => el('div', { class: 'feed-box', style: `grid-column: 6; ${at(box.start, box.span)}` }, el('div', {}, box.lines.map((line) => el('p', { class: [line.strong ? 'strong' : '', line.italic ? 'italic' : ''].join(' ').trim() || null }, line.text))))),
     ]),
-  ]);
+  ], revision);
 }
 
 // --- Formules : deux parties, du relevé dans les tables jusqu'à Vf ---------------------------------------------------
@@ -107,7 +116,7 @@ function formulasPage() {
     el('div', { class: 'sheet-caption' }, [el('strong', {}, 'Formules et unités'), el('span', {}, 'Unités impériales')]),
     el('div', { class: 'formula-part formula-part--rotation' }, [el('strong', {}, '1re partie — Vitesse de rotation (rév/min)'), el('span', {}, 'Vc → N')]),
     formulaRow('vc', 'Vitesse de coupe', 'Vc (pi/min)', miniature('table-vc', 'Schéma de la table des vitesses de coupe : une ligne, une colonne'), ['Relevée dans la ', b('table des vitesses de coupe'), ' : le matériau brut donne la ligne, le matériau de l’outil donne la colonne.']),
-    formulaRow('n', 'Vitesse de rotation', 'N (rév/min)', 'N = Vc × 4 / Ø', ['Ø en pouces : Ø de l’outil en fraisage et perçage, Ø usiné en tournage. ', b('Plafonnée à la vitesse maximale de la machine.'), ' Certains outils imposent une réduction (alésoir, lame à tronçonner).']),
+    formulaRow('n', 'Vitesse de rotation', 'N (rév/min)', ['N = Vc × 4 / Ø', el('small', {}, 'exacte : N = Vc × 12 / (π × Ø)')], ['Ø en pouces : Ø de l’outil en fraisage et perçage, Ø usiné en tournage. ', b('Plafonnée à la vitesse maximale de la machine.'), ' Certains outils imposent une réduction (alésoir, lame à tronçonner). ', el('em', {}, 'La formule exacte est donnée à titre indicatif (12 / π = 3.82) : le cours et la correction utilisent N = Vc × 4 / Ø.')]),
     el('div', { class: 'formula-part formula-part--feed' }, [el('strong', {}, '2e partie — Vitesse d’avance (po/min)'), el('span', {}, 'fz → f → Vf')]),
     formulaRow('fz', 'Avance par dent', 'fz (po/dent)', miniature('table-avances', 'Schéma de la table des avances : le rang de l’opération'), ['Relevée dans la ', b('table des avances'), ', à l’opération de l’outil. Fixe : la valeur de la table. ', b('Proportionnelle au Ø'), ' : fz = avance × Ø outil, sans dépasser l’avance maximale. ', b('Filetage'), ' : fz = pas.']),
     formulaRow('pas', 'Pas d’un filet', '(po)', ['pas = 1 / filets par pouce', 'pas = mm / 25.4'], [el('div', {}, '1/4-20 UNC : pas = 1 / 20 = 0.0500 po'), el('div', {}, 'M10 × 1.5 : pas = 1.5 / 25.4 = 0.0591 po'), el('div', {}, 'M10 : Ø = 10 / 25.4 = 0.3937 po')]),

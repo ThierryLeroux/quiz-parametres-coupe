@@ -6,7 +6,7 @@
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
 import { el, showScreen } from './dom.js';
-import { factorLines, feedFamily, gapExplanation, helpLine, labeledIdentifier, materialCard, progressRows, toolMaterialColor, toolStreak } from './rules.js';
+import { diameterLines, factorLines, feedFamily, gapExplanation, helpLine, materialCard, progressRows, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
 import { operationPicto } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, formatDateTime, studentLine } from './text.js';
 
@@ -47,16 +47,18 @@ function progressPanel(progression, labels, marks) {
   ]);
 }
 
-// Panneau de l'outil, à la couleur de son matériau (UI §1).
-function toolPanel(question, labels) {
+// Panneau de l'outil, à la couleur de son matériau (UI §1). Son titre est le gabarit de nom de
+// l'outil, résolu par le serveur avec les valeurs tirées (D24).
+function toolPanel(question) {
   const { outil } = question;
   return el('section', { class: 'panel tool-card', style: `--panel-color: var(${toolMaterialColor(outil.materiau)})` }, [
     el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Outil de coupe'), el('div', { class: 'swatch smaller' }, outil.materiau.toLowerCase())]),
     el('div', { class: 'tool-body' }, [
       optionalImage(`img/outils/${outil.id}.png`, 'tool-photo'),
       el('div', {}, [
-        el('h2', { class: 'tool-title' }, labeledIdentifier(question, labels)),
+        el('h2', { class: 'tool-title' }, question.identifiant),
         el('p', { class: 'tool-operation small' }, [optionalImage(operationPicto(outil.operation), 'operation-picto'), `Opération : ${outil.operation}`]),
+        ...diameterLines(question).map((line) => el('p', { class: 'small' }, el('strong', {}, line))),
         el('p', { class: 'small' }, `Nombre de dents : ${outil.dents}`),
         el('p', { class: 'small' }, ['RPM max de la machine : ', el('strong', { class: 'accent' }, `${outil.limite_rpm} rév/min`)]),
         ...factorLines(outil).map((line) => el('p', { class: 'small' }, el('strong', { class: 'accent' }, line))),
@@ -135,6 +137,16 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   const title = el('h1', { class: 'question-title', tabindex: '-1' }, 'Question');
   const status = el('div', { class: 'server-message', role: 'status' });
   const checkButton = el('button', { class: 'button', type: 'submit' }, 'Vérifier');
+
+  // Mode test (D26) : seulement si le SERVEUR a joint les réponses attendues à la question. Les cases
+  // se remplissent d'elles-mêmes et restent modifiables (pour simuler une erreur) ; « Remplir » les remet.
+  const expected = testAnswers(question);
+  const fill = () => { for (const [champ, texte] of Object.entries(expected)) if (inputs[champ]) inputs[champ].value = texte; };
+  const testBanner = expected === null ? '' : el('div', { class: 'banner banner--test' }, [
+    el('p', {}, [el('strong', {}, 'Mode test'), ' — le serveur local a joint les réponses attendues. Modifie une case pour simuler une erreur.']),
+    el('button', { class: 'button-outline', type: 'button', onclick: fill }, 'Remplir'),
+  ]);
+  if (expected !== null) fill();
   const reminder = el('p', { class: 'muted smaller form-reminder' }, `Point décimal, sans séparateur de milliers : 2496 · 0.005  ·  ${toolStreak(seance.progression, question.outil.id)}`);
   // Rappel et message du serveur à gauche, « Vérifier » à droite, sur la même ligne (maquette 03).
   const actionsRow = el('div', { class: 'form-actions' }, [el('div', { class: 'form-notes' }, [reminder, status]), checkButton]);
@@ -156,6 +168,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     title.textContent = 'Question — corrigée';
     help.hidden = true;
     reminder.hidden = true;
+    if (testBanner) testBanner.hidden = true;
     actionsRow.replaceChildren(nextButton);
     actionsRow.before(banner);
     // La progression d'après la correction ; l'outil remis à zéro y passe en rouge.
@@ -183,7 +196,8 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   const screen = el('div', { class: 'screen screen--wide question-layout' }, [
     el('div', { class: 'question-main' }, [
       el('div', { class: 'question-head' }, [title, el('div', { class: 'muted smaller' }, `${total} question${total > 1 ? 's' : ''} réussie${total > 1 ? 's' : ''}`)]),
-      el('div', { class: 'question-cards' }, [toolPanel(question, labels), materialPanel(question)]),
+      testBanner,
+      el('div', { class: 'question-cards' }, [toolPanel(question), materialPanel(question)]),
       el('section', { class: 'panel' }, [
         el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Questionnaire'), el('div', { class: 'muted smaller' }, "clique une case pour voir l'aide")]),
         el('form', { novalidate: true, onsubmit: check }, [el('div', { class: 'answer-grid' }, fields), help, reminder, actionsRow]),
@@ -197,15 +211,16 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   showScreen(main, screen, header(seance, actions), firstGraded ? `#${firstGraded.champ}` : 'h1');
 }
 
-// Exercice réussi — écran minimal ; le rapport à remettre sur Léa viendra au jalon 5.
-//   actions : { onIdentity, onQuit }
+// Exercice réussi : la sortie du parcours est l'attestation (attestation-screen.js).
+//   actions : { onAttestation, onIdentity, onQuit }
 export function renderSuccess(main, { seance, labels }, actions) {
   const screen = el('div', { class: 'screen' }, [
     el('section', { class: 'panel panel--correct' }, [
       el('div', { class: 'eyebrow' }, seance.exercice.titre),
       el('h1', { tabindex: '-1' }, 'Exercice réussi'),
       el('p', {}, `${studentLine(seance)} — réussi le ${formatDateTime(seance.reussite_le)}, avec ${seance.progression.total_reussies} questions réussies.`),
-      el('p', { class: 'muted small' }, 'Ta réussite est enregistrée sur le serveur de correction. Le rapport à remettre sur Léa sera offert ici prochainement.'),
+      el('p', { class: 'muted small' }, 'Ta réussite est enregistrée sur le serveur de correction.'),
+      el('div', { class: 'success-actions' }, el('button', { class: 'button', type: 'button', onclick: actions.onAttestation }, 'Voir mon attestation')),
     ]),
     progressPanel(seance.progression, labels, {}),
   ]);

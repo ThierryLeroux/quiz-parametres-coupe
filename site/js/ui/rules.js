@@ -5,8 +5,10 @@
 import { TOOL_MATERIAL_KEYS } from '../data.js';
 
 // --- Outils de même nom -------------------------------------------------------------------------------------
-// Quand deux outils d'un exercice portent le même nom (« SDTMR » impérial et métrique), l'écran
-// ajoute ce qui les distingue, entre parenthèses ; la donnée `nom` ne change pas.
+// Le TITRE de la question est le gabarit de l'outil résolu par le serveur (question.identifiant,
+// D24), tel quel : « SDTMR - filetage: M64 x 6 ». La PROGRESSION, elle, liste les outils par leur nom
+// générique : quand deux outils d'un exercice portent le même nom (« SDTMR » impérial et métrique),
+// elle ajoute ce qui les distingue, entre parenthèses ; la donnée `nom` ne change pas.
 //   1. l'unité, si elle diffère : « SDTMR (impérial) », « SDTMR (métrique) » ;
 //   2. sinon la plage de dimensions : « Foret fractionnaire (Ø 1/64 po à Ø 1 po) ».
 
@@ -32,14 +34,6 @@ export function toolLabels(exercise, data) {
     }
   }
   return labels;
-}
-
-// L'en-tête de la question avec le nom à afficher : « SDTMR (métrique) - filetage: M64 x 6 ».
-// Un identifiant qui ne contient pas le nom de l'outil (« Foret Ø 1/4 po ») reste tel quel : sa
-// dimension le distingue déjà.
-export function labeledIdentifier(question, labels) {
-  const label = labels.get(question.outil.id) ?? question.outil.nom;
-  return question.identifiant.replace(question.outil.nom, label);
 }
 
 // --- Couleurs de sens (UI §1) ---------------------------------------------------------------------------------
@@ -86,6 +80,13 @@ export function factorLines(outil) {
   ];
 }
 
+// Outil à deux diamètres (barre à aléser, D25) : le panneau de l'outil nomme chacun, avec son rôle.
+// Pour les autres outils, la dimension est déjà dans le titre : aucune ligne.
+export function diameterLines(question) {
+  if (!question.outil.barre) return [];
+  return [`Ø alésé : ${question.dimension} — pour le RPM`, `Ø de la barre : ${question.outil.barre} — pour l'avance`];
+}
+
 // --- Aide contextuelle (UI §3.3) : la méthode, jamais la valeur, ni la ligne ni la colonne -------------------------
 // Retourne { parts, table } :
 //   parts : le texte, en morceaux — { text, accent } où accent vaut 'material' ou 'tool' pour les
@@ -107,7 +108,9 @@ export function helpLine(field, question, family) {
   }
   if (field === 'feedPerTooth') {
     const byFamily = {
-      proportional: ' Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.',
+      proportional: question.outil.barre
+        ? ' Avance proportionnelle au Ø : avance × Ø de la barre (pas le Ø alésé), sans dépasser l’avance max.'
+        : ' Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.',
       thread: ' Filetage : fz = pas = 1 / filets au pouce (ou mm / 25.4).',
       fixed: '',
     };
@@ -115,7 +118,8 @@ export function helpLine(field, question, family) {
   }
   if (field === 'rpm') {
     const factor = question.outil.fact_vc === 1 ? '' : `, × ${question.outil.fact_vc} pour cet outil`;
-    return plain(`RPM → N = Vc × 4 / Ø, plafonnée au RPM max de la machine${factor}.`);
+    const which = question.outil.barre ? 'Ø alésé (le trou, pas la barre)' : 'Ø';
+    return plain(`RPM → N = Vc × 4 / ${which}, plafonnée au RPM max de la machine${factor}.`);
   }
   if (field === 'feedPerRev') return plain('Avance totale par révolution → f = fz × nombre de dents.');
   return plain("Vitesse d'avance → Vf = N × f.");
@@ -153,6 +157,14 @@ export function progressRows(progression, labels, { currentId = null, resetId = 
       state,
     };
   });
+}
+
+// --- Mode test (D26) ---------------------------------------------------------------------------------------------
+// Le serveur — et lui seul — décide du mode test : il joint alors à la question les valeurs attendues
+// (question.reponses_test). Sans elles, ni bandeau ni bouton « Remplir » : retourne null.
+export function testAnswers(question) {
+  const answers = question.reponses_test;
+  return answers !== null && typeof answers === 'object' && Object.keys(answers).length > 0 ? answers : null;
 }
 
 // Rappel sous le formulaire : « Sur cet outil : 2 réussites de suite sur 3 ».

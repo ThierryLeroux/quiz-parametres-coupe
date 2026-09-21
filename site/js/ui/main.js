@@ -7,6 +7,7 @@ import { createSession, lookupSession, nextQuestion, resumeSession, signOut, sub
 import { clearSession, loadSession, saveSession } from '../session.js';
 import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
+import { renderAttestation } from './attestation-screen.js';
 import { renderQuestion, renderSuccess } from './question-screen.js';
 import { createReference } from './reference-screen.js';
 import { toolLabels } from './rules.js';
@@ -100,7 +101,9 @@ function sessionExpired() {
 function showSession(jeton, seance) {
   const actions = { onQuit: showHome, onIdentity: () => showIdentity(jeton, seance) };
   if (seance.reussite_le !== null) {
-    renderSuccess(main, { seance, labels }, actions);
+    // « Voir mon attestation » : la sortie du parcours (UI §3.6).
+    const onAttestation = () => renderAttestation(main, { seance, exercise }, { onBack: () => showSession(jeton, seance) });
+    renderSuccess(main, { seance, labels }, { ...actions, onAttestation });
     return;
   }
   renderQuestion(main, { seance, data, labels }, {

@@ -1,8 +1,9 @@
 // Tests de site/js/ui/text.js : textes des écrans composés à partir des données, sans DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
-  FIELD_LABELS, FIELD_PARTS, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
+  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, attestationFileName, attestationLines, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
   serverErrorMessage, studentLine,
 } from '../site/js/ui/text.js';
 import { loadApp } from '../site/js/app.js';
@@ -20,6 +21,31 @@ const CINQ_CHAMPS = {
 };
 
 const DEBUT = new Date(2026, 8, 19, 13, 5); // heure du poste : le texte affiché ne dépend pas du fuseau du test
+
+test('le département : trois lignes, les mêmes dans le pied de index.html ; le sigle TGM-TMI, et plus aucun « TGM » seul affiché (D29)', async () => {
+  assert.deepEqual(DEPARTMENT_LINES, ['Techniques de génie mécanique', 'Technique du génie de la maintenance industrielle', '(fiabilité des systèmes de production)']);
+  assert.equal(DEPARTMENT_SHORT, 'TGM-TMI');
+  const page = await readFile(new URL('../site/index.html', import.meta.url), 'utf8');
+  for (const line of DEPARTMENT_LINES) assert.ok(page.includes(`<div>${line}</div>`), line);
+  assert.ok(page.includes('TGM-TMI'));
+  assert.doesNotMatch(page.replaceAll('TGM-TMI', ''), /TGM/);
+});
+
+test('attestationLines et attestationFileName : ce que porte l’attestation, tiré de la séance du serveur', () => {
+  const seance = {
+    etudiant: { prenom: 'Camille', nom: 'Tremblay-Côté', matricule: '2412345' },
+    exercice: { id: 'm10-tournage-vc', titre: 'M10 — Tournage : vitesse de coupe', version: 'r0' },
+    debut: '2026-09-21T13:05:00.000Z', reussite_le: '2026-09-21T13:40:00.000Z',
+    progression: { total_reussies: 17 },
+  };
+  const lignes = Object.fromEntries(attestationLines(seance, m10));
+  assert.equal(lignes.Exercice, 'M10 — Tournage : vitesse de coupe (version r0)');
+  assert.deepEqual([lignes['Prénom'], lignes.Nom, lignes.Matricule, lignes['Questions réussies']], ['Camille', 'Tremblay-Côté', '2412345', '17']);
+  assert.equal(lignes['Réussite'], formatDateTime(seance.reussite_le));
+  assert.equal(lignes['Champ évalué'], 'vitesse de coupe');
+  assert.equal(Object.fromEntries(attestationLines(seance, CINQ_CHAMPS))['Champs évalués'].split(', ').length, 5);
+  assert.equal(attestationFileName(seance), 'Attestation-m10-tournage-vc-Tremblay-Cote-Camille');
+});
 
 test('exerciseMeta : version, nombre d’outils, champs évalués', () => {
   assert.equal(exerciseMeta(m10), 'version r0 · 9 outils · champ évalué : vitesse de coupe');

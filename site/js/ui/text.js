@@ -10,6 +10,12 @@ const FIELD_NAMES = {
   vf: "vitesse d'avance",
 };
 
+// Le département, sur trois lignes, comme sur les feuilles de l'atelier : le même texte dans toutes
+// les pages (pied de page de index.html, feuilles de référence, attestation). Son sigle, partout où
+// il est affiché : « TGM-TMI » (D29). Les noms de dépôt, chemins et adresses ne changent pas.
+export const DEPARTMENT_LINES = ['Techniques de génie mécanique', 'Technique du génie de la maintenance industrielle', '(fiabilité des systèmes de production)'];
+export const DEPARTMENT_SHORT = 'TGM-TMI';
+
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juill.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
 // « 1 outil », « 9 outils », « 0 réussite » : en français, 0 et 1 sont au singulier.
@@ -68,6 +74,31 @@ export function sessionFoundNotice(prenom, initiale) {
 // Écran 2/2, aucune séance (D23).
 export function newSessionNotice(matricule) {
   return `Nouvelle séance pour le matricule ${matricule}. Vérifie-le : il figurera sur ton rapport et te servira à reprendre l'exercice sur un autre appareil.`;
+}
+
+// --- Attestation de réussite (UI §3.6) ----------------------------------------------------------------------
+// Le bloc d'informations de l'attestation, tiré de ce que renvoie le serveur : [[libellé, valeur], …].
+//   exercise : l'exercice (site/exercices/<id>.json), pour ses champs évalués
+export function attestationLines(seance, exercise) {
+  const { prenom, nom, matricule } = seance.etudiant;
+  return [
+    ['Exercice', `${seance.exercice.titre} (version ${seance.exercice.version})`],
+    ['Prénom', prenom],
+    ['Nom', nom],
+    ['Matricule', matricule],
+    ['Début', formatDateTime(seance.debut)],
+    ['Réussite', formatDateTime(seance.reussite_le)],
+    ['Questions réussies', String(seance.progression.total_reussies)],
+    [exercise.champs_evalues.length > 1 ? 'Champs évalués' : 'Champ évalué', exercise.champs_evalues.map((field) => FIELD_NAMES[field]).join(', ')],
+  ];
+}
+
+// Nom de fichier proposé par « Enregistrer en PDF » (c'est le titre de l'onglet) :
+// « Attestation-m10-tournage-vc-Tremblay-Camille ».
+export function attestationFileName(seance) {
+  // Sans accents (les marques de la forme décomposée sont retirées), le reste en tirets.
+  const clean = (text) => text.normalize('NFD').replace(/\p{M}/gu, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `Attestation-${seance.exercice.id}-${clean(seance.etudiant.nom)}-${clean(seance.etudiant.prenom)}`;
 }
 
 // --- Écran Question (UI §3.3, §3.4) ---------------------------------------------------------------------
