@@ -7,7 +7,7 @@
 // site/ dans catalogue.js.
 
 import pkg from '../package.json' with { type: 'json' };
-import { cleanStudent, validateStudent } from '../site/js/identification.js';
+import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import * as base from './base.js';
 import { loadCatalogue } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameText } from './crypto.js';
@@ -108,6 +108,106 @@ async function identification(request, env, { now }) {
   return json({ jeton: token, seance: sessionView(session, exercise, data) });
 }
 
+// --- Identification en deux temps (D23) ------------------------------------------------------------------
+
+const ALREADY_EXISTS = 'Ce matricule a déjà une séance pour cet exercice.';
+
+// Le premier message d'erreur des règles d'identification.js, ou rien : requête mal formée → 400.
+function requireValid(...errors) {
+  const message = errors.flat().find((error) => error !== null);
+  if (message !== undefined) throw new HttpError(400, message);
+}
+
+// Vérifie le NIP présenté pour une séance ; retourne normalement s'il est le bon, lève 401 ou 429.
+// Verrou d'abord ; puis l'essai est compté AVANT d'être examiné : des essais lancés en parallèle
+// ne passent pas tous. nip_hache nul = NIP remis à zéro par l'enseignant : le NIP présenté est adopté.
+async function checkNip(env, session, nip, now) {
+  const nipHash = await hashNip(env.CLE_SECRETE, session.matricule, nip);
+  const tooMany = new HttpError(429, "Trop d'essais. Attends 10 minutes avant de réessayer.");
+  if (isNipLocked(session, now)) throw tooMany;
+  if (!await base.takeNipAttempt(env.DB, session, countNipAttempt(session, now))) throw tooMany;
+  if (session.nip_hache !== null && !sameText(session.nip_hache, nipHash)) throw new HttpError(401, 'NIP incorrect.');
+}
+
+// Un nouveau jeton de séance : ce qu'on envoie une fois, et ce que la base en garde.
+async function freshToken(now) {
+  const token = newToken();
+  return { token, stored: { jeton_hache: await hashToken(token), jeton_expire_le: later(now, TOKEN_LIFETIME_MS) } };
+}
+
+// --- POST /api/consultation — écran 1/2 : ce matricule a-t-il une séance pour cet exercice ?
+// Répond le prénom et l'initiale du nom, pour que l'étudiant se reconnaisse. Rien d'autre ne sort.
+async function consultation(request, env) {
+  const body = await readBody(request);
+  const { exercise } = await findExercise(env, body.exercice);
+  requireValid(matriculeError(body.matricule));
+  const session = await base.findSession(env.DB, exercise.id, body.matricule.trim());
+  if (session === null) return json({ trouvee: false });
+  return json({ trouvee: true, prenom: session.prenom, initiale: [...session.nom][0].toUpperCase() });
+}
+
+// --- POST /api/creation — écran 2/2, aucune séance : prénom, nom, matricule, NIP choisi.
+// Ne reprend jamais une séance existante : 409, et l'écran renvoie à la reprise.
+async function creation(request, env, { now }) {
+  const body = await readBody(request);
+  const { data, exercise } = await findExercise(env, body.exercice);
+  requireValid(validateStudent(body));
+  const student = cleanStudent(body);
+  const { token, stored } = await freshToken(now);
+  const created = await base.createSession(env.DB, {
+    ...stored,
+    nip_hache: await hashNip(env.CLE_SECRETE, student.matricule, student.nip),
+    exercice_id: exercise.id,
+    matricule: student.matricule,
+    prenom: student.prenom,
+    nom: student.nom,
+    debut: now.toISOString(),
+    version_exercice: exercise.version,
+    compteurs: emptyCounters(),
+  });
+  if (!created) throw new HttpError(409, ALREADY_EXISTS);
+  const session = await base.findSession(env.DB, exercise.id, student.matricule);
+  return json({ jeton: token, seance: sessionView(session, exercise, data) });
+}
+
+// --- POST /api/reprise — écran 2/2, séance trouvée : matricule + NIP. Ni prénom ni nom.
+async function reprise(request, env, { now }) {
+  const body = await readBody(request);
+  const { data, exercise } = await findExercise(env, body.exercice);
+  requireValid(matriculeError(body.matricule), nipError(body.nip));
+  const matricule = body.matricule.trim();
+  const nip = body.nip.trim();
+
+  const session = await base.findSession(env.DB, exercise.id, matricule);
+  if (session === null) throw new HttpError(404, "Aucune séance pour ce matricule dans cet exercice.");
+  await checkNip(env, session, nip, now);
+
+  const { token, stored } = await freshToken(now);
+  // nip_hache est réécrit : c'est ainsi qu'un NIP remis à zéro par l'enseignant est remplacé.
+  await base.openSession(env.DB, session.id, { ...stored, nip_hache: await hashNip(env.CLE_SECRETE, matricule, nip), now: now.toISOString(), cleared: NIP_CLEARED });
+  return json({ jeton: token, seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data) });
+}
+
+// --- POST /api/identite — « Corriger mon identité » : prénom, nom, matricule ; NIP exigé.
+// La séance est déplacée, jamais copiée ; la correction est journalisée. Le jeton reste le même.
+async function identite(request, env, { now }) {
+  const body = await readBody(request);
+  const { data, exercise } = await findExercise(env, body.exercice);
+  const session = await authenticate(request, env, exercise, now);
+  requireValid(validateStudent(body));
+  const identity = cleanStudent(body);
+  await checkNip(env, session, identity.nip, now);
+  await base.clearNipAttempts(env.DB, session.id, NIP_CLEARED);
+
+  const changed = ['prenom', 'nom', 'matricule'].some((key) => identity[key] !== session[key]);
+  if (changed) {
+    // Le NIP est haché avec le matricule (crypto.js) : nouveau matricule, nouveau haché du même NIP.
+    const moved = await base.moveSession(env.DB, session, { ...identity, nip_hache: await hashNip(env.CLE_SECRETE, identity.matricule, identity.nip) }, now.toISOString());
+    if (!moved) throw new HttpError(409, ALREADY_EXISTS);
+  }
+  return json({ seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data) });
+}
+
 // --- GET /api/seance?exercice=<id> ---------------------------------------------------------------------
 // L'état de la séance, sans rien tirer.
 async function seance(request, env, { now }) {
@@ -185,7 +285,11 @@ async function deconnexion(request, env, { now }) {
 }
 
 const ROUTES = {
-  'POST /api/identification': identification,
+  'POST /api/identification': identification, // ancienne route, retirée dès que le client passe à D23
+  'POST /api/consultation': consultation,
+  'POST /api/creation': creation,
+  'POST /api/reprise': reprise,
+  'POST /api/identite': identite,
   'GET /api/seance': seance,
   'POST /api/question': question,
   'POST /api/correction': correction,

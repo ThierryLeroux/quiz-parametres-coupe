@@ -1,5 +1,6 @@
-// Règles de l'identification (SPEC §8, décision D19) : prénom, nom, matricule à 7 chiffres et
-// NIP de 4 à 6 chiffres. Rien d'autre.
+// Règles de l'identification (SPEC §8, décisions D19, D23) : prénom, nom, matricule à 7 chiffres et
+// NIP de 4 à 6 chiffres. Rien d'autre. Selon l'écran, on en vérifie une partie : le matricule
+// seul (1/2), le NIP seul (reprise), les quatre champs (nouvelle séance, correction d'identité).
 //
 // Le navigateur s'en sert pour vérifier la FORME des champs avant l'envoi ; le serveur revérifie
 // tout, et lui seul sait si le NIP est le bon. Fonctions pures, sans DOM.
@@ -19,13 +20,13 @@ export function studentErrors(student) {
   };
 }
 
-function matriculeError(matricule) {
+export function matriculeError(matricule) {
   if (!isText(matricule)) return 'Le matricule est requis.';
   if (!/^\d{7}$/.test(matricule.trim())) return 'Le matricule doit avoir exactement 7 chiffres.';
   return null;
 }
 
-function nipError(nip) {
+export function nipError(nip) {
   if (!isText(nip)) return 'Le NIP est requis.';
   if (!/^\d{4,6}$/.test(nip.trim())) return 'Le NIP doit avoir de 4 à 6 chiffres.';
   return null;

@@ -103,6 +103,34 @@ export async function recordCorrection(db, session, c) {
   return update.meta.changes === 1;
 }
 
+// « Corriger mon identité » (D23) : la séance est DÉPLACÉE — même ligne, mêmes compteurs, même
+// journal — et la correction est notée, en un seul lot. Si le nouveau matricule a déjà une séance
+// pour cet exercice, la contrainte d'unicité refuse tout le lot : retourne false.
+//   identity : { prenom, nom, matricule, nip_hache } — le NIP est haché avec le matricule, donc à refaire
+export async function moveSession(db, session, identity, now) {
+  try {
+    await db.batch([
+      db.prepare('UPDATE seances SET prenom = ?, nom = ?, matricule = ?, nip_hache = ? WHERE id = ?')
+        .bind(identity.prenom, identity.nom, identity.matricule, identity.nip_hache, session.id),
+      db.prepare(`
+        INSERT INTO corrections_identite (seance_id, ancien_prenom, ancien_nom, ancien_matricule,
+                                          nouveau_prenom, nouveau_nom, nouveau_matricule, horodatage)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(session.id, session.prenom, session.nom, session.matricule, identity.prenom, identity.nom, identity.matricule, now),
+    ]);
+    return true;
+  } catch (error) {
+    if (/UNIQUE/i.test(String(error?.message))) return false;
+    throw error;
+  }
+}
+
+// Après un NIP reconnu sans ouvrir de nouveau jeton (« Corriger mon identité ») : essais effacés.
+export async function clearNipAttempts(db, id, cleared) {
+  await db.prepare('UPDATE seances SET essais_nip = ?, essais_nip_debut = ?, verrou_nip_jusqua = ? WHERE id = ?')
+    .bind(cleared.essais_nip, cleared.essais_nip_debut, cleared.verrou_nip_jusqua, id).run();
+}
+
 export async function findSessionById(db, id) {
   return decode(await db.prepare('SELECT * FROM seances WHERE id = ?').bind(id).first());
 }

@@ -21,9 +21,9 @@ const DEUX_EXERCICES = {
   'exercices/essai-percage.json': ESSAI,
 };
 
-// Identifie Camille et demande sa première question ; retourne { jeton, seance }.
+// Crée la séance de Camille et demande sa première question ; retourne { jeton, seance }.
 async function commencer(serveur, etudiant = CAMILLE) {
-  const { status, corps } = await serveur.appel('POST', '/api/identification', { corps: etudiant });
+  const { status, corps } = await serveur.appel('POST', '/api/creation', { corps: etudiant });
   assert.equal(status, 200, JSON.stringify(corps));
   const question = await serveur.appel('POST', '/api/question', { jeton: corps.jeton, corps: { exercice: etudiant.exercice } });
   assert.equal(question.status, 200, JSON.stringify(question.corps));
@@ -42,7 +42,7 @@ async function repondre(serveur, jeton, juste, exercice = M10, matricule = '2412
 test('GET /api/version, adresse inconnue (404, plus de 501), et le reste aux fichiers du site', async () => {
   const serveur = serveurDeTest();
   assert.match((await serveur.appel('GET', '/api/version')).corps.version, /^\d+\.\d+\.\d+$/);
-  for (const [methode, chemin] of [['GET', '/api/identification'], ['POST', '/api/version'], ['GET', '/api/rapport'], ['GET', '/api/'], ['GET', '/api']]) {
+  for (const [methode, chemin] of [['GET', '/api/creation'], ['POST', '/api/version'], ['GET', '/api/rapport'], ['GET', '/api/'], ['GET', '/api']]) {
     const { status, corps } = await serveur.appel(methode, chemin);
     assert.equal(status, 404, chemin);
     assert.equal(typeof corps.erreur, 'string');
@@ -62,7 +62,7 @@ test('requêtes invalides : 400 avec un message en français', async () => {
     [[1, 2], 'Requête illisible : du JSON est attendu.'],
   ];
   for (const [corps, erreur] of cas) {
-    assert.deepEqual(await serveur.appel('POST', '/api/identification', { corps }), { status: 400, corps: { erreur } });
+    assert.deepEqual(await serveur.appel('POST', '/api/creation', { corps }), { status: 400, corps: { erreur } });
   }
   assert.equal(serveur.db.sqlite.prepare('SELECT COUNT(*) AS n FROM seances').get().n, 0);
 });
@@ -73,7 +73,7 @@ test('sans CLE_SECRETE : erreur 500 sans détail, et aucune séance créée', as
   const { error } = console;
   console.error = (e) => erreurs.push(e);
   try {
-    const { status, corps } = await serveur.appel('POST', '/api/identification', { corps: CAMILLE });
+    const { status, corps } = await serveur.appel('POST', '/api/creation', { corps: CAMILLE });
     assert.equal(status, 500);
     assert.equal(corps.erreur, 'Erreur du serveur de correction. Réessaie dans un instant.');
   } finally {
@@ -85,9 +85,9 @@ test('sans CLE_SECRETE : erreur 500 sans détail, et aucune séance créée', as
 
 // --- Identification --------------------------------------------------------------------------------------
 
-test('création : première identification → séance, jeton de 43 caractères ; la base ne contient ni le NIP ni le jeton', async () => {
+test('création : nouvelle séance, jeton de 43 caractères ; la base ne contient ni le NIP ni le jeton', async () => {
   const serveur = serveurDeTest();
-  const { status, corps } = await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, prenom: ' Camille ', matricule: ' 2412345' } });
+  const { status, corps } = await serveur.appel('POST', '/api/creation', { corps: { ...CAMILLE, prenom: ' Camille ', matricule: ' 2412345' } });
   assert.equal(status, 200);
   assert.match(corps.jeton, /^[A-Za-z0-9_-]{43}$/);
   assert.deepEqual(corps.seance.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
@@ -105,15 +105,15 @@ test('création : première identification → séance, jeton de 43 caractères 
   assert.equal(contenu.includes(corps.jeton), false);
 });
 
-test('reprise : matricule + NIP identifient ; prénom et nom de la première visite ; la progression et la question reviennent', async () => {
+test('reprise : matricule + NIP suffisent ; prénom et nom de la création ; la progression et la question reviennent', async () => {
   const serveur = serveurDeTest();
   const { jeton, seance } = await commencer(serveur);
   assert.equal((await repondre(serveur, jeton, true)).status, 200);
   const enCours = (await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance;
 
-  // Sur un autre appareil, avec un prénom et un nom fantaisistes.
+  // Sur un autre appareil. Ni prénom ni nom ne sont demandés ; s'il en vient, ils sont ignorés.
   serveur.avancer(5 * MINUTE);
-  const reprise = await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, prenom: 'Cam', nom: 'T.' } });
+  const reprise = await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, prenom: 'Cam', nom: 'T.' } });
   assert.equal(reprise.status, 200);
   assert.notEqual(reprise.corps.jeton, jeton);
   assert.deepEqual(reprise.corps.seance, enCours);
@@ -138,11 +138,11 @@ test('deux étudiants, deux séances : le même NIP ne donne pas la même valeur
 test('NIP incorrect : 401, la séance n’est ni reprise ni modifiée ; le bon NIP passe ensuite et efface le compte des essais', async () => {
   const serveur = serveurDeTest();
   const { jeton } = await commencer(serveur);
-  assert.deepEqual(await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: '0000' } }), { status: 401, corps: { erreur: 'NIP incorrect.' } });
+  assert.deepEqual(await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: '0000' } }), { status: 401, corps: { erreur: 'NIP incorrect.' } });
   assert.equal(serveur.seance().essais_nip, 1);
   assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 200); // le jeton en cours reste valide
 
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: CAMILLE })).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 200);
   assert.deepEqual([serveur.seance().essais_nip, serveur.seance().essais_nip_debut, serveur.seance().verrou_nip_jusqua], [0, null, null]);
 });
 
@@ -151,15 +151,15 @@ test('verrou : 5 échecs en 10 minutes → 429 pendant 10 minutes, même avec le
   await commencer(serveur);
   for (let essai = 1; essai <= 5; essai += 1) {
     serveur.avancer(20 * SECONDE);
-    assert.equal((await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: `000${essai}` } })).status, 401, `essai ${essai}`);
+    assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: `000${essai}` } })).status, 401, `essai ${essai}`);
   }
-  const verrouille = await serveur.appel('POST', '/api/identification', { corps: CAMILLE });
+  const verrouille = await serveur.appel('POST', '/api/reprise', { corps: CAMILLE });
   assert.deepEqual(verrouille, { status: 429, corps: { erreur: "Trop d'essais. Attends 10 minutes avant de réessayer." } });
 
   serveur.avancer(10 * MINUTE - SECONDE);
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: CAMILLE })).status, 429);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 429);
   serveur.avancer(SECONDE);
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: CAMILLE })).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 200);
 });
 
 test('verrou : des échecs étalés sur plus de 10 minutes ne verrouillent pas ; le verrou d’un étudiant ne touche pas les autres', async () => {
@@ -168,17 +168,17 @@ test('verrou : des échecs étalés sur plus de 10 minutes ne verrouillent pas ;
   await commencer(serveur, { ...CAMILLE, matricule: '2498765' });
   for (let essai = 0; essai < 8; essai += 1) {
     serveur.avancer(3 * MINUTE);
-    assert.equal((await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: '0000' } })).status, 401);
+    assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: '0000' } })).status, 401);
   }
-  for (let essai = 0; essai < 6; essai += 1) await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: '1111' } });
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: CAMILLE })).status, 429);
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, matricule: '2498765' } })).status, 200);
+  for (let essai = 0; essai < 6; essai += 1) await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: '1111' } });
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 429);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, matricule: '2498765' } })).status, 200);
 });
 
 test('essais lancés en même temps : ils ne passent pas tous — au plus un est examiné par état lu', async () => {
   const serveur = serveurDeTest();
   await commencer(serveur);
-  const essais = await Promise.all(Array.from({ length: 20 }, (_, i) => serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: String(1000 + i) } })));
+  const essais = await Promise.all(Array.from({ length: 20 }, (_, i) => serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: String(1000 + i) } })));
   const examines = essais.filter((essai) => essai.status === 401).length;
   assert.ok(examines <= 5, `${examines} essais examinés`);
   assert.equal(essais.every((essai) => essai.status === 401 || essai.status === 429), true);
@@ -188,9 +188,9 @@ test('NIP remis à zéro par l’enseignant (nip_hache nul) : le prochain NIP pr
   const serveur = serveurDeTest();
   await commencer(serveur);
   serveur.db.sqlite.exec('UPDATE seances SET nip_hache = NULL, jeton_hache = NULL');
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: '135790' } })).status, 200);
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: CAMILLE })).status, 401); // l'ancien NIP ne vaut plus
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, nip: '135790' } })).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: '135790' } })).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 401); // l'ancien NIP ne vaut plus
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: '135790' } })).status, 200);
 });
 
 // --- Jeton -----------------------------------------------------------------------------------------------
@@ -221,7 +221,7 @@ test('jeton : expire 2 h après la dernière activité ; chaque appel le prolong
 
   // L'état est sur le serveur : on s'identifie, et la même question attend toujours.
   const avant = serveur.seance().question_courante;
-  const reprise = await serveur.appel('POST', '/api/identification', { corps: CAMILLE });
+  const reprise = await serveur.appel('POST', '/api/reprise', { corps: CAMILLE });
   assert.equal(reprise.status, 200);
   assert.equal(serveur.seance().question_courante, avant);
 });
@@ -236,7 +236,7 @@ test('jeton d’un autre exercice → 401 ; chaque exercice a sa séance, son NI
   assert.equal((await serveur.appel('POST', '/api/correction', { jeton: essai.jeton, corps: { exercice: M10, saisies: {} } })).status, 401);
   assert.equal((await serveur.appel('GET', `/api/seance?exercice=${ESSAI.id}`, { jeton: essai.jeton })).status, 200);
   assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton: m10Seance.jeton })).status, 200);
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, exercice: ESSAI.id } })).status, 401); // le NIP du M10 n'est pas celui de l'essai
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, exercice: ESSAI.id } })).status, 401); // le NIP du M10 n'est pas celui de l'essai
 });
 
 test('changer d’étudiant : le jeton ne vaut plus rien ; la séance, elle, reste', async () => {
@@ -245,7 +245,7 @@ test('changer d’étudiant : le jeton ne vaut plus rien ; la séance, elle, res
   assert.deepEqual(await serveur.appel('POST', '/api/deconnexion', { jeton, corps: { exercice: M10 } }), { status: 200, corps: { deconnecte: true } });
   assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 401);
   assert.equal(serveur.seance().jeton_hache, null);
-  assert.equal((await serveur.appel('POST', '/api/identification', { corps: CAMILLE })).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 200);
 });
 
 // --- Question et correction --------------------------------------------------------------------------------
@@ -264,7 +264,7 @@ test('tirage mémorisé : tant qu’elle n’est pas corrigée, c’est la même
   assert.deepEqual((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.question, seance.question);
 
   // Dix demandes en même temps : une seule question est tirée, tout le monde reçoit celle-là.
-  const autre = await serveur.appel('POST', '/api/identification', { corps: { ...CAMILLE, matricule: '2498765' } });
+  const autre = await serveur.appel('POST', '/api/creation', { corps: { ...CAMILLE, matricule: '2498765' } });
   const tirages = await Promise.all(Array.from({ length: 10 }, () => serveur.appel('POST', '/api/question', { jeton: autre.corps.jeton, corps: { exercice: M10 } })));
   const memorisee = (await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton: autre.corps.jeton })).corps.seance.question;
   for (const tirage of tirages) assert.deepEqual(tirage.corps.seance.question, memorisee);
@@ -375,12 +375,12 @@ test('complétion : 15 bonnes réponses au M10 → réussite datée, plus de que
   serveur.avancer(MINUTE);
   assert.deepEqual((await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } })).corps.seance, finale);
   assert.deepEqual(await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: {} } }), { status: 409, corps: { erreur: "Aucune question n'attend de correction." } });
-  assert.deepEqual((await serveur.appel('POST', '/api/identification', { corps: CAMILLE })).corps.seance, finale); // une réussite se retrouve de n'importe quel appareil
+  assert.deepEqual((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).corps.seance, finale); // une réussite se retrouve de n'importe quel appareil
 });
 
 test('correction sans question tirée → 409', async () => {
   const serveur = serveurDeTest();
-  const { corps } = await serveur.appel('POST', '/api/identification', { corps: CAMILLE });
+  const { corps } = await serveur.appel('POST', '/api/creation', { corps: CAMILLE });
   assert.equal((await serveur.appel('POST', '/api/correction', { jeton: corps.jeton, corps: { exercice: M10, saisies: { vc: '400' } } })).status, 409);
 });
 
@@ -430,4 +430,112 @@ test('exercice allégé au point d’être déjà réussi : la réussite est con
   assert.equal(corps.seance.reussite_le, serveur.maintenant.toISOString());
   assert.equal(corps.seance.progression.outils_termines, 1);
   assert.deepEqual([serveur.seance().version_exercice_reussite, serveur.seance().question_courante], ['r2', null]);
+});
+
+// --- Identification en deux temps et correction d'identité (D23) ------------------------------------------------
+
+test('consultation : « aucune séance », puis « séance trouvée » avec le prénom et l’initiale du nom — rien d’autre', async () => {
+  const serveur = serveurDeTest();
+  const demande = { exercice: M10, matricule: ' 2412345 ' };
+  assert.deepEqual(await serveur.appel('POST', '/api/consultation', { corps: demande }), { status: 200, corps: { trouvee: false } });
+  await commencer(serveur, { ...CAMILLE, nom: 'élise-Tremblay' });
+  assert.deepEqual(await serveur.appel('POST', '/api/consultation', { corps: demande }), { status: 200, corps: { trouvee: true, prenom: 'Camille', initiale: 'É' } });
+  assert.deepEqual((await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '2498765' } })).corps, { trouvee: false });
+
+  assert.deepEqual(await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '24123' } }), { status: 400, corps: { erreur: 'Le matricule doit avoir exactement 7 chiffres.' } });
+  assert.equal((await serveur.appel('POST', '/api/consultation', { corps: { exercice: 'inconnu', matricule: '2412345' } })).status, 400);
+});
+
+test('le serveur ne devine plus : créer une séance qui existe → 409 ; reprendre une séance qui n’existe pas → 404', async () => {
+  const serveur = serveurDeTest();
+  assert.deepEqual(await serveur.appel('POST', '/api/reprise', { corps: CAMILLE }), { status: 404, corps: { erreur: 'Aucune séance pour ce matricule dans cet exercice.' } });
+  await commencer(serveur);
+  const avant = serveur.seance();
+  assert.deepEqual(await serveur.appel('POST', '/api/creation', { corps: { ...CAMILLE, prenom: 'Intrus', nip: '000000' } }), { status: 409, corps: { erreur: 'Ce matricule a déjà une séance pour cet exercice.' } });
+  assert.deepEqual(serveur.seance(), avant); // ni le NIP, ni le jeton, ni le prénom n'ont bougé
+
+  // Trois créations en même temps pour un même matricule : une seule séance, un seul gagnant.
+  const ensemble = await Promise.all([1, 2, 3].map((n) => serveur.appel('POST', '/api/creation', { corps: { ...CAMILLE, matricule: '2498765', nip: `111${n}` } })));
+  assert.deepEqual(ensemble.map((reponse) => reponse.status).sort(), [200, 409, 409]);
+});
+
+test('reprise : requête mal formée → 400, sans compter d’essai de NIP', async () => {
+  const serveur = serveurDeTest();
+  await commencer(serveur);
+  assert.deepEqual(await serveur.appel('POST', '/api/reprise', { corps: { exercice: M10, matricule: '2412345', nip: '12' } }), { status: 400, corps: { erreur: 'Le NIP doit avoir de 4 à 6 chiffres.' } });
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { exercice: M10, matricule: '2412345' } })).status, 400);
+  assert.equal(serveur.seance().essais_nip, 0);
+});
+
+const identites = (serveur) => serveur.db.sqlite.prepare('SELECT * FROM corrections_identite ORDER BY id').all().map((row) => ({ ...row }));
+
+test('corriger mon identité : prénom, nom et matricule changent, la séance est déplacée — jamais copiée — et la correction est journalisée', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await commencer(serveur, { ...CAMILLE, prenom: 'Camile', matricule: '2412354' });
+  assert.equal((await repondre(serveur, jeton, true, M10, '2412354')).status, 200);
+  const avant = serveur.seance('2412354');
+
+  serveur.avancer(MINUTE);
+  const { status, corps } = await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: ' Camille ' } });
+  assert.equal(status, 200, JSON.stringify(corps));
+  assert.deepEqual(corps.seance.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
+  assert.equal(corps.seance.progression.total_reussies, 1);
+
+  // Même ligne, même journal des corrections, même question en attente ; l'ancien matricule est libre.
+  const apres = serveur.seance('2412345');
+  assert.deepEqual([apres.id, apres.compteurs, apres.question_courante, apres.debut, apres.jeton_hache], [avant.id, avant.compteurs, avant.question_courante, avant.debut, avant.jeton_hache]);
+  assert.equal(serveur.db.sqlite.prepare('SELECT COUNT(*) AS n FROM seances').get().n, 1);
+  assert.equal(serveur.journal()[0].seance_id, apres.id);
+  assert.deepEqual((await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '2412354' } })).corps, { trouvee: false });
+
+  assert.deepEqual(identites(serveur), [{
+    id: 1, seance_id: apres.id, ancien_prenom: 'Camile', ancien_nom: 'Tremblay', ancien_matricule: '2412354',
+    nouveau_prenom: 'Camille', nouveau_nom: 'Tremblay', nouveau_matricule: '2412345', horodatage: serveur.maintenant.toISOString(),
+  }]);
+
+  // Le jeton reste valide, et le NIP — haché avec le matricule — vaut toujours, sous le nouveau matricule.
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, matricule: '2412354' } })).status, 404);
+});
+
+test('corriger mon identité : NIP exigé (401, essais comptés, verrou) ; sans jeton → 401 ; rien ne change', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await commencer(serveur);
+  const avant = serveur.seance();
+  assert.equal((await serveur.appel('POST', '/api/identite', { corps: { ...CAMILLE, prenom: 'Autre' } })).status, 401); // sans jeton
+  assert.deepEqual(await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Autre', nip: '0000' } }), { status: 401, corps: { erreur: 'NIP incorrect.' } });
+  assert.equal(serveur.seance().essais_nip, 1);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, matricule: '123' } })).status, 400);
+  for (let essai = 2; essai <= 5; essai += 1) await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Autre', nip: '0000' } });
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Autre' } })).status, 429); // verrouillé, même avec le bon NIP
+  assert.deepEqual([serveur.seance().prenom, serveur.seance().matricule, serveur.seance().nip_hache], [avant.prenom, avant.matricule, avant.nip_hache]);
+  assert.deepEqual(identites(serveur), []);
+});
+
+test('corriger mon identité : un matricule qui a déjà une séance pour cet exercice → 409, rien n’est déplacé ni journalisé', async () => {
+  const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
+  const { jeton } = await commencer(serveur);
+  await commencer(serveur, { ...CAMILLE, prenom: 'Alex', matricule: '2498765' });
+  await commencer(serveur, { ...CAMILLE, exercice: ESSAI.id, matricule: '2455555' });
+
+  assert.deepEqual(await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, matricule: '2498765' } }), { status: 409, corps: { erreur: 'Ce matricule a déjà une séance pour cet exercice.' } });
+  assert.equal(serveur.seance('2412345').prenom, 'Camille');
+  assert.equal(serveur.seance('2498765').prenom, 'Alex');
+  assert.deepEqual(identites(serveur), []);
+
+  // Un matricule pris dans un AUTRE exercice est libre dans celui-ci.
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, matricule: '2455555' } })).status, 200);
+  assert.equal(serveur.seance('2455555', M10).prenom, 'Camille');
+});
+
+test('corriger mon identité : sans changement, rien n’est journalisé ; purger la séance efface aussi ses corrections d’identité', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await commencer(serveur);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: CAMILLE })).status, 200);
+  assert.deepEqual(identites(serveur), []);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, nom: 'Tremblay-Roy' } })).status, 200);
+  assert.equal(identites(serveur).length, 1);
+  serveur.db.sqlite.exec('DELETE FROM seances');
+  assert.deepEqual(identites(serveur), []);
 });
