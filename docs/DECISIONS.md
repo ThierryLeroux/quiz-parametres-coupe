@@ -422,3 +422,50 @@ s'ajoutent à la table `seances` demandée : `essais_nip_debut` (sans elle,
 donc à chaque exercice : l'étudiant en choisit un par exercice (il peut
 reprendre le même). Le jeton d'API Cloudflare de GitHub doit aussi avoir le
 droit **D1 : Edit** pour appliquer les migrations.
+
+## D23 — Identification en deux temps, et réparation sans enseignant (2026-09-20, décidée)
+
+**Contexte.** L'essai en production l'a montré : le formulaire demandait tout
+d'un coup, puis le serveur décidait **en silence** de créer ou de reprendre ; un
+nom différent tapé à la reprise était ignoré sans un mot ; un matricule mal saisi
+à la création rendait le travail irrécupérable sans un enseignant. Plusieurs
+enseignants utiliseront le site : rien ne doit se réparer à la main, au cas par
+cas.
+
+**Décision.**
+
+1. **Écran 1/2 : le matricule seul.** Une route de **consultation** répond, pour
+   un exercice et un matricule, soit « séance trouvée » avec le prénom et
+   l'initiale du nom, soit « aucune séance ». Rien d'autre ne sort.
+2. **Écran 2/2, séance trouvée** : « Séance de Romain L. trouvée. Entre ton NIP
+   pour la reprendre. », un champ NIP, bouton **Reprendre**, lien « Ce n'est pas
+   moi » qui ramène au 1/2. Aucun champ prénom ni nom.
+3. **Écran 2/2, aucune séance** : le matricule en gros caractères, « Nouvelle
+   séance pour le matricule 7654321. Vérifie-le : il figurera sur ton rapport et
+   te servira à reprendre l'exercice sur un autre appareil. », puis prénom, nom,
+   « Choisis un NIP (4 à 6 chiffres) », bouton **Commencer**, lien « Mauvais
+   matricule » qui ramène au 1/2.
+4. **« Corriger mon identité »**, dans l'en-tête de la séance, à côté de
+   Quitter : prénom, nom et matricule modifiables, **NIP exigé**. Un nouveau
+   matricule n'est accepté que s'il n'a pas de séance pour cet exercice (sinon
+   409, « Ce matricule a déjà une séance »). La séance est **déplacée, jamais
+   copiée**. Chaque correction est **journalisée** (anciennes et nouvelles
+   valeurs, horodatage), pour la page de vérification du jalon 5.
+5. Le serveur ne devine plus : **créer** et **reprendre** sont deux appels
+   distincts. Créer une séance qui existe → 409 ; reprendre une séance qui
+   n'existe pas → 404. Les règles d'`identification.js` restent (matricule à
+   7 chiffres, NIP de 4 à 6 chiffres), ainsi que le verrou après 5 essais — qui
+   vaut aussi pour le NIP exigé par « Corriger mon identité ».
+
+**Conséquences.** Remplace, dans D19 et D21, le formulaire unique et la phrase
+« le prénom et le nom tapés à la reprise sont ignorés » : à la reprise, on ne les
+tape plus. `POST /api/identification` disparaît au profit de
+`/api/consultation`, `/api/creation`, `/api/reprise` et `/api/identite` ;
+migration `0002` (journal des corrections d'identité). La consultation révèle,
+à qui connaît un matricule, un prénom et une initiale : c'est voulu, et rien
+d'autre ne sort. **Risques acceptés** (réponses au rapport du jalon 3) : une
+séance ouverte par un autre au matricule d'un étudiant est une farce visible aux
+horodatages ; la page d'administration du jalon 5 devra remettre un NIP à zéro
+**et supprimer une séance**, avec **une clé par enseignant**. Un NIP par
+exercice est accepté pour la v1 ; une table `etudiants` (un NIP par matricule,
+alimentée par une liste de classe) est la piste si cela gêne.

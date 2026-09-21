@@ -247,6 +247,8 @@ stockage vide, illisible ou en panne → l'étudiant s'identifie, sans erreur.
   de hachage lent : un NIP de 4 à 6 chiffres est trop court pour qu'il serve ;
   la protection vient du secret, que la base ne contient pas. Le NIP appartient
   à la séance, donc à l'exercice : l'étudiant en choisit un par exercice.
+  Accepté pour la v1 ; si cela gêne, la piste est une table `etudiants` — un
+  NIP par matricule, alimentée par une liste de classe (D23).
 - **Jeton de séance** : 32 octets aléatoires en base64url (43 caractères),
   envoyé une seule fois, à l'identification ; la base n'en garde que le
   SHA-256. Il expire **2 h après la dernière activité** ; chaque appel accepté
@@ -311,8 +313,12 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 ```
 
 Un champ non évalué arrive avec sa valeur théorique mise en forme (§5, §10).
-**Rien de ce qui est à trouver ne part vers le navigateur** : ni la valeur
-attendue d'un champ évalué, ni les vitesses de coupe du matériau.
+
+**Règle : rien de ce qui est à trouver ne part au navigateur.** Ni la valeur
+attendue d'un champ évalué, ni les vitesses de coupe du matériau, ni rien qui
+permette de les déduire sans faire le travail. Les valeurs attendues n'arrivent
+qu'avec la correction, une fois la réponse donnée. Toute nouvelle donnée ajoutée
+à `seance.question` se juge à cette règle.
 
 `correction` : `{ reussie, outil: { id, nom, avant, apres }, champs: [ { champ,
 evalue, ok, saisie, attendu } ] }` — `attendu` est la valeur théorique mise en

@@ -67,7 +67,8 @@ L'écran Question fonctionne déjà (jalon 3) ; reste sa présentation.
 - [ ] `GET /api/rapport` : rapport de réussite tiré du journal des corrections, et **attestation signée** (HMAC, sous-clé « attestation » de `CLE_SECRETE`)
 - [ ] Page rapport imprimable (UI §3.6) + QR code de l'attestation (bibliothèque vendorisée)
 - [ ] **Page de vérification** publique : lit l'attestation du QR, interroge le serveur ; montre la durée totale et le temps médian par question (journal)
-- [ ] **Page d'administration** à clé (`CLE_ADMIN`) : liste des réussites, remise à zéro d'un NIP (`nip_hache` nul : déjà compris par l'identification), purge de fin de session
+- [ ] **Page d'administration**, avec **une clé par enseignant** (D23 : plusieurs enseignants, rien ne se répare à la main) : liste des réussites, **remise à zéro d'un NIP** (`nip_hache` nul : déjà compris par la reprise), **suppression d'une séance** (séance ouverte par un autre au matricule d'un étudiant : farce visible aux horodatages), purge de fin de session
+- [ ] Page de vérification : montre aussi les **corrections d'identité** de la séance (journal `corrections_identite`, D23)
 - [ ] Essai avec un groupe d'étudiants ; correctifs
 
 ## Jalon 6 — Éditeur web du catalogue et des exercices (décision D11)
