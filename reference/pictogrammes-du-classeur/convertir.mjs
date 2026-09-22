@@ -13,8 +13,8 @@ import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const WORKBOOK_DIR = 'legacy'; // le classeur est le seul .xlsm du dossier (son nom de fichier a des accents abîmés sur disque)
-const WORKBOOK_TITLE = 'Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm';
+const WORKBOOK = 'legacy/Exercice_M10_tournage_vc_version_etudiant_r0.xlsm'; // le classeur d'origine, renommé sans accent ni espace
+const WORKBOOK_TITLE = 'Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm'; // son titre d'origine, pour le commentaire des SVG
 const DRAWING = 'xl/drawings/drawing3.xml'; // dessins de la feuille « Avances d'usinage »
 const THEME = 'xl/theme/theme1.xml';
 const SHEET_NAME = "Avances d'usinage";
@@ -452,9 +452,8 @@ function toSvg(items, comment) {
 // --- 8. Programme -----------------------------------------------------------------------------------------------
 
 function main() {
-  const workbooks = fs.readdirSync(path.join(ROOT, WORKBOOK_DIR)).filter((f) => f.endsWith('.xlsm'));
-  if (workbooks.length !== 1) fail(`Un seul classeur .xlsm attendu dans ${WORKBOOK_DIR}/, trouvé : ${workbooks.length}`);
-  const readEntry = openZip(path.join(ROOT, WORKBOOK_DIR, workbooks[0]));
+  if (!fs.existsSync(path.join(ROOT, WORKBOOK))) fail(`Classeur introuvable : ${WORKBOOK}`);
+  const readEntry = openZip(path.join(ROOT, WORKBOOK));
   const theme = readTheme(readEntry(THEME));
   const outer = descendants(parseXml(readEntry(DRAWING)), 'xdr:grpSp').find((g) => shapeName(g) === OUTER_GROUP) || fail(`Groupe introuvable : ${OUTER_GROUP}`);
   const subGroups = outer.children.filter((c) => c.name === 'xdr:grpSp');

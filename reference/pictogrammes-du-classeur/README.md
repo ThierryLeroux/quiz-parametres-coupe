@@ -1,7 +1,7 @@
 # Pictogrammes des opérations — conversion du classeur en SVG
 
 Les 19 pictogrammes d'opérations d'usinage sont dessinés **en vectoriel dans le classeur Excel**
-d'origine (`legacy/…version étudiant_r0.xlsm`, feuille « Avances d'usinage ») : des formes
+d'origine (`legacy/Exercice_M10_tournage_vc_version_etudiant_r0.xlsm`, feuille « Avances d'usinage ») : des formes
 DrawingML rangées dans le groupe « Group 4 » de `xl/drawings/drawing3.xml`, un sous-groupe par
 opération. `convertir.mjs` les convertit en SVG **sans redessin** : géométrie, couleurs et
 épaisseurs de trait viennent du classeur.
@@ -13,7 +13,7 @@ node reference/pictogrammes-du-classeur/convertir.mjs
 ```
 
 Depuis la racine du dépôt, Node seul, aucune dépendance. Le script lit directement le `.xlsm`
-(le seul du dossier `legacy/`) et réécrit les 19 fichiers `site/img/pictos/operations/<slug>.svg`.
+(chemin explicite en tête du script) et réécrit les 19 fichiers `site/img/pictos/operations/<slug>.svg`.
 Il est déterministe : relancé, il réécrit des fichiers identiques octet pour octet. **Ne pas
 retoucher les SVG à la main** : corriger le script, puis relancer.
 
