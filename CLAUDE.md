@@ -27,6 +27,7 @@ la lisibilité priment sur l'élégance technique.**
 - `worker/` — le **serveur de correction** (décisions D19 à D22, API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles (pur, testé), `base.js` tout le SQL, `crypto.js` le NIP et le jeton, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
 - `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js`) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
 - `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté.
+- `docs/rapports/<jalon>-<sujet>.md` — les rapports de fin de session, tels qu'écrits à Thierry (règle 8 ci-dessous) : ce qui a été fait, vérifié, et les points douteux à trancher.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
 
 ## Pile et structure (décisions D3, D19, D20, D22)
@@ -58,7 +59,7 @@ worker/            le Worker : API /api/… du serveur de correction (décisions
 migrations/        schéma de la base D1, un fichier SQL numéroté par changement
 wrangler.jsonc     configuration du Worker (nom, ressources statiques, base D1)
 tests/             tests du moteur et du serveur (node --test) ; api-locale.mjs = npm run test:api
-docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN
+docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN ; rapports/ = un rapport de fin de session par jalon
 legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
 ```
 
@@ -82,6 +83,7 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 5. **Ne pas modifier `site/data/*.json`** pour faire passer un test : si une donnée semble fausse, le signaler à Thierry (c'est lui qui connaît le métier).
 6. Quand la SPEC est ambiguë : proposer une interprétation, l'écrire en commentaire `// ❓` et le signaler en fin de session — ne pas décider en silence.
 7. Vérifier que `node --test` passe et que `site/index.html`, servi par `npm run dev`, s'ouvre sans erreur console avant de conclure une tâche.
+8. **Chaque rapport de fin de session écrit à Thierry est aussi enregistré dans `docs/rapports/<jalon>-<sujet>.md`** (ex. `jalon-5-attestation.md`) et commité avec le travail, points douteux compris : la conversation s'oublie, le dépôt reste.
 
 ## Commandes
 

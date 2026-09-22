@@ -469,3 +469,156 @@ horodatages ; la page d'administration du jalon 5 devra remettre un NIP à zéro
 **et supprimer une séance**, avec **une clé par enseignant**. Un NIP par
 exercice est accepté pour la v1 ; une table `etudiants` (un NIP par matricule,
 alimentée par une liste de classe) est la piste si cela gêne.
+
+*Les numéros D24 à D30 sont réservés aux décisions prises dans le Projet Claude entre les jalons 4 et 5 ; elles seront reportées ici par Thierry.*
+
+## D31 — L'attestation de réussite est un enregistrement figé à la réussite (2026-09-21, décidée)
+
+**Contexte.** Jusqu'au jalon 4, l'écran « Exercice réussi » relisait le
+catalogue et l'exercice au moment de l'affichage : renommer un outil, changer
+ses dimensions ou retitrer l'exercice aurait fait *suivre* une attestation
+déjà remise. Une preuve de réussite doit dire ce qui était vrai à l'instant de
+la réussite, et ne plus jamais changer.
+
+**Décision.** Quand la dernière réussite exigée est obtenue, le serveur écrit
+un **enregistrement d'attestation** (table `attestations`, migration `0003`)
+qui ne change plus : prénom, nom, matricule ; identifiant et titre de
+l'exercice ; révision (la version de l'exercice à la réussite) ; début et
+réussite (horodatage serveur) ; nombre de questions réussies ; la liste des
+outils **dans l'ordre de l'exercice**, chacun avec son nom générique, sa
+**plage de dimensions**, son opération et ses réussites obtenues / exigées.
+Plage, opération et nom sont **copiés du catalogue à cet instant** et plus
+jamais relus. Une correction d'identité postérieure ne touche pas
+l'attestation.
+
+Les séances réussies avant cette version reçoivent leur enregistrement **à la
+première ouverture** de l'attestation, à partir de la progression enregistrée
+(compteurs, total, date de réussite, version à la réussite) et de l'exercice
+tel qu'il est alors.
+
+**Conséquences.** Une séance peut avoir plusieurs attestations dans le temps
+(D35) : la table est séparée de `seances`, une ligne par attestation, avec sa
+date d'annulation éventuelle. `worker/attestation.js` compose l'enregistrement
+(pur, testé) ; `GET /api/attestation` le rend, avec le code et l'adresse de
+vérification. L'écran « Exercice réussi » provisoire et sa bannière
+disparaissent au profit de la page de l'attestation (`UI.md` §3.6).
+
+## D32 — Code court et signature de l'attestation (2026-09-21, décidée)
+
+**Décision.** Chaque attestation reçoit :
+
+- un **code court** de 10 caractères tirés au hasard (sans biais) dans
+  l'alphabet base32 de Crockford **sans 0, O, 1, I** (ni L, ni U) :
+  `23456789ABCDEFGHJKMNPQRSTVWXYZ`, présenté `XXXXX-XXXXX`. Unique en base ;
+  environ 6 × 10¹⁴ codes possibles. La saisie tolère minuscules, espaces et
+  tirets, et ne « corrige » jamais un O ou un I ;
+- une **signature HMAC-SHA-256** sous la sous-clé « attestation » dérivée de
+  `CLE_SECRETE` (D22), calculée sur une **sérialisation canonique** de
+  l'enregistrement (JSON, clés triées à tous les niveaux, sans espace). Le code
+  fait partie de l'enregistrement signé.
+
+Toute comparaison de signature — et de la clé d'administration — se fait **en
+temps constant** (`sameText`, après hachage pour la clé).
+
+**Conséquences.** La signature est stockée avec l'enregistrement ; la
+vérification la **recompose** à partir de ce que le serveur détient : un
+enregistrement retouché en base ne passe plus. Changer `CLE_SECRETE`
+invaliderait toutes les attestations remises (rappel dans `DEMARRAGE.md`).
+
+## D33 — Contenu du QR et vérification publique (2026-09-21, décidée)
+
+**Décision.** Le QR de l'attestation porte une **adresse de vérification
+absolue** — `<site>/verifier?…` — dont la requête contient **l'essentiel de
+l'attestation en clair**, puis la signature : exercice, matricule, nom, prénom,
+date de réussite, révision, questions réussies, code, signature. Un lecteur de
+QR quelconque montre donc ces données sans le site ; le site, lui, vérifie.
+L'adresse du site est celle de la requête, jamais figée dans l'enregistrement.
+
+La page **`/verifier`**, publique et sans connexion, a deux entrées : l'adresse
+du QR, ou la saisie du code court. Le serveur (`POST /api/verification`)
+retrouve l'enregistrement par le code, recompose la signature, et compare le
+contenu de l'adresse à l'enregistrement. Issues : **valide** (avec
+l'enregistrement complet tel que le serveur le détient, tableau des outils
+compris) ; **aucune** attestation ne correspond ; **invalide** (signature
+invalide ou contenu modifié) ; **annulée** par l'enseignant, avec la date
+(D35). Une attestation ne se vérifie pas à moitié : si l'adresse porte autre
+chose que le code, tout doit correspondre.
+
+La page ne divulgue **rien de plus que l'attestation imprimée** : ni journal
+des corrections, ni corrections d'identité (elles vont dans l'espace
+professeur, D34), ni durées. Elle est soumise aux limites de débit (D36).
+
+**Conséquences.** Bibliothèque QR vendorisée (D3) : `qrcode-generator` 2.0.4,
+MIT, module ES copié dans `site/vendor/`, rendue en SVG par le DOM (jamais
+`innerHTML`). Les tâches « durée totale et temps médian » et « corrections
+d'identité sur la page de vérification » du `PLAN.md` sont abandonnées pour
+cette page.
+
+## D34 — Espace professeur : une clé, un cookie signé, un journal (2026-09-21, décidée)
+
+**Contexte.** D23 prévoyait « une clé par enseignant ». Au jalon 5 il n'y a
+qu'un enseignant ; la table des enseignants viendra avec les devoirs (jalon 6).
+
+**Décision.**
+
+- **Une seule clé** au jalon 5 : `CLE_ADMIN`, le secret existant (D22). La
+  séance professeur porte un **identifiant d'enseignant**, « admin » pour
+  l'instant, que le journal des actions note ; ajouter des enseignants sera un
+  ajout de données, pas une refonte.
+- **Connexion** sur `/prof` : saisie de la clé, comparaison en temps constant
+  (D32), puis **cookie de séance signé** (sous-clé « prof » de `CLE_SECRETE`,
+  sans état sur le serveur) : `HttpOnly`, `Secure`, `SameSite=Strict`, chemin
+  `/api/prof`, **12 h**. « Se déconnecter » efface le cookie.
+- **Cinq essais ratés par adresse**, puis délai croissant (1, 2, 4… minutes,
+  plafonné à une heure), chaque refus et chaque connexion **journalisés**
+  (table `journal_enseignant`).
+- **Aucune route `/api/prof/*` ne répond sans cookie valide** ; le client ne
+  contient aucun secret. Routes : liste des séances, remise à zéro (D35),
+  journal des corrections d'identité (D23).
+- Le tableau des réussites (nom, prénom, matricule, début, dernière activité,
+  réussi ou en cours, questions réussies, code de l'attestation), le filtre par
+  exercice, le tri par colonne, la recherche par matricule ou par nom et
+  l'**export CSV** (UTF-8 avec BOM, séparateur `;`, dates ISO, pour Excel en
+  français) se font **dans le navigateur** : une classe, pas une base de
+  données.
+
+**Conséquences.** Remplace « une clé par enseignant » de D23 pour ce jalon.
+La remise à zéro d'un NIP, la suppression d'une séance et la purge de fin de
+session (D19, D23) restent à faire (`PLAN.md`).
+
+## D35 — Remise à zéro d'une séance et annulation de l'attestation (2026-09-21, décidée)
+
+**Décision.** Depuis l'espace professeur, **remettre une séance à zéro** :
+la progression revient à zéro (compteurs, question en attente, dates de
+réussite et de dernière correction, version à la réussite), la séance **reste
+la même** (identifiant, matricule, NIP, jeton, date de début) et son journal
+des corrections est conservé. Si une attestation existait, elle est **marquée
+annulée** avec la date ; la vérification (D33) le dit. Une nouvelle réussite
+crée une **nouvelle attestation**, avec un autre code ; l'ancien code reste
+vérifiable et répond « annulée ». L'action est **journalisée** : date,
+enseignant, séance, action.
+
+## D36 — Limites de débit par adresse, compteurs en D1 (2026-09-21, décidée)
+
+**Contexte.** La consultation d'un matricule (D23) révèle un prénom et une
+initiale ; la vérification d'un code (D33) révèle une attestation. Ni l'une ni
+l'autre n'exige de connexion : il faut empêcher d'énumérer. Mais tous les
+postes du cégep sortent par **une seule adresse IP** : une limite sur le nombre
+de requêtes bloquerait une classe entière.
+
+**Décision.** Consultation et vérification : au plus **100 matricules ou codes
+distincts par adresse et par heure**, aucune limite sur le nombre de requêtes.
+La 101ᵉ valeur est refusée (429) et **verrouille l'adresse 10 minutes** ; une
+valeur déjà vue passe toujours ; une valeur refusée n'est pas comptée comme
+vue. Les compteurs vivent **en D1** (table `debit` : une ligne par valeur
+distincte, par adresse et par tranche horaire UTC ; table `verrous` pour les
+délais), pas dans le service de limitation de Cloudflare : celui-ci compte des
+requêtes, pas des valeurs distinctes, ne se règle pas par valeur, et ne se
+teste pas sous `node --test` avec une horloge réglable. Les tranches passées
+sont effacées au fil de l'eau. L'adresse est `cf-connecting-ip`, qu'un client
+ne peut pas forger ; sans cet en-tête (tests), une seule adresse « inconnue ».
+
+**Conséquences.** `worker/acces.js` porte les règles (pur, testé), `base.js`
+le SQL. La connexion professeur a son propre verrou (D34). Une classe entière
+peut consulter ses matricules à volonté ; un robot qui en essaie des milliers
+est arrêté à cent.
