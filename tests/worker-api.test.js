@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MINUTE, SECONDE, serveurDeTest } from './aide-serveur.js';
 import { readFile } from 'node:fs/promises';
+import { canonical } from '../worker/attestation.js';
+import { signAttestation } from '../worker/crypto.js';
 import { lireFichier } from './aide.js';
 
 const M10 = 'm10-tournage-vc';
@@ -715,6 +717,9 @@ test('réussite : l’attestation est figée à l’instant de la dernière réu
   assert.equal(ligne.enregistrement.debut, seance.debut);
   assert.deepEqual(ligne.enregistrement.outils.map((o) => [o.id, o.reussites, o.requises]), m10.outils.map((o) => [o.id, o.reussites_requises, o.reussites_requises]));
   assert.deepEqual(ligne.enregistrement.outils[0], { id: 'mclnr', nom: 'MCLNR', plage: '10 mm à 20 mm', operation: 'Chariotage ébauche', reussites: 1, requises: 1 });
+  // La liste des questions réussies (D41) : les 15, dans l'ordre, numérotées par leur rang dans la séance.
+  assert.equal(ligne.enregistrement.questions.length, 15);
+  assert.deepEqual(ligne.enregistrement.questions.map((q) => q.numero), Array.from({ length: 15 }, (_, i) => i + 1));
 
   const { status, corps } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
   assert.equal(status, 200);
@@ -756,6 +761,67 @@ test('figée : ni le catalogue ni l’exercice ne changent l’attestation ; l�
   assert.equal(apres.attestation.revision_tables.materiaux, materiaux.revision);
 });
 
+test('liste des questions réussies (D41) : la série finale de chaque outil, tirée du journal ; les échecs et les séries rompues n’y sont pas ; chaque ligne dit ce qui a été posé et répondu', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await commencer(serveur);
+  // Un échec toutes les quatre questions : les séries rompues sortent de la liste, pas du total.
+  let etat;
+  let n = 0;
+  do {
+    n += 1;
+    etat = (await repondre(serveur, jeton, n % 4 !== 0)).corps.seance;
+  } while (etat.reussite_le === null);
+  const journal = serveur.journal();
+  assert.equal(journal.length, n);
+  assert.ok(n > 15);
+
+  const { corps } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  const record = corps.attestation;
+  const { questions } = record;
+  assert.equal(questions.length, 15); // une par réussite exigée
+  assert.equal(record.questions_reussies, journal.filter((c) => c.reussie).length); // le total, lui, compte tout
+  assert.ok(record.questions_reussies >= 15);
+  assert.deepEqual(questions.map((q) => q.numero), [...questions.map((q) => q.numero)].sort((x, y) => x - y)); // chronologique
+  for (const outil of record.outils) {
+    const siennes = questions.filter((q) => q.outil_id === outil.id);
+    assert.equal(siennes.length, outil.reussites, outil.id);
+    const dernierEchec = journal.map((c, i) => (c.outil_id === outil.id && !c.reussie ? i + 1 : 0)).reduce((a, b) => Math.max(a, b), 0);
+    assert.ok(siennes.every((q) => q.numero > dernierEchec), `${outil.id} : après son dernier échec`);
+  }
+  // Chaque ligne : ce que le journal a enregistré de la question posée et de la réponse.
+  for (const q of questions) {
+    const ligne = journal[q.numero - 1];
+    const question = JSON.parse(ligne.question);
+    assert.equal(ligne.reussie, 1);
+    assert.equal(q.outil, question.displayId);
+    assert.equal(q.materiau_outil, question.toolMaterial.label);
+    assert.deepEqual(q.materiau, { classe: question.material.iso, groupe: question.material.groupe, materiau: question.material.materiau, etat: question.material.etat });
+    assert.deepEqual(q.reponses, { vc: JSON.parse(ligne.reponses).vc }); // le M10 n'évalue que Vc
+    assert.equal(q.horodatage, ligne.horodatage);
+  }
+  assert.ok(questions.some((q) => /^Barre à aléser Ø .+ - Ø alésé: /.test(q.outil)), 'la barre à aléser est nommée avec sa barre');
+  // La liste est dans ce que le QR fait vérifier : un enregistrement retouché sur une question ne passe plus.
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: corps.code } })).corps.resultat, 'valide');
+  serveur.db.sqlite.exec(`UPDATE attestations SET enregistrement = replace(enregistrement, '"numero":${questions[0].numero},', '"numero":99,')`);
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: corps.code } })).corps.resultat, 'invalide');
+});
+
+test('attestation figée avant cette version, sans liste : elle reste telle quelle, se vérifie, et GET /api/attestation la rend sans y toucher', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await reussir(serveur);
+  // On remplace l'attestation créée par une « ancienne » : même enregistrement sans « questions », signée par le serveur d'alors.
+  const [ligne] = serveur.attestations();
+  const { questions: _q, ...ancien } = ligne.enregistrement;
+  const signature = await signAttestation('secret-de-test', canonical(ancien));
+  serveur.db.sqlite.prepare('UPDATE attestations SET enregistrement = ?, signature = ? WHERE id = ?').run(JSON.stringify(ancien), signature, ligne.id);
+
+  const { corps } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  assert.deepEqual(corps.attestation, ancien);
+  assert.equal('questions' in corps.attestation, false);
+  assert.deepEqual((await serveur.appel('POST', '/api/verification', { corps: { code: corps.code } })).corps, { resultat: 'valide', attestation: ancien });
+  assert.equal(serveur.attestations().length, 1);
+});
+
 test('corriger mon identité après la réussite (D37) : l’attestation est annulée « identité corrigée » et réémise — mêmes résultats, mêmes dates, nouvelle identité, nouveau code ; le journal note les codes', async () => {
   const serveur = serveurDeTest();
   const { jeton } = await reussir(serveur);
@@ -777,6 +843,7 @@ test('corriger mon identité après la réussite (D37) : l’attestation est ann
   assert.deepEqual(apres.attestation.etudiant, { prenom: 'Camila', nom: 'Tremblay', matricule: '2412346' });
   const { code: _c1, etudiant: _e1, ...resteAvant } = avant.attestation;
   const { code: _c2, etudiant: _e2, ...resteApres } = apres.attestation;
+  assert.equal(apres.attestation.questions.length, 15); // la liste des questions suit, telle quelle
   assert.deepEqual(resteApres, resteAvant); // dates, révisions, questions, outils : identiques
   assert.deepEqual(claimsDe(apres.url_verification).matricule, '2412346');
 
@@ -823,6 +890,7 @@ test('séance réussie avant cette version : l’attestation est créée à la p
   assert.equal(attestation.questions_reussies, 15);
   assert.equal(serveur.attestations()[0].creee_le, serveur.maintenant.toISOString());
   assert.deepEqual(attestation.outils.map((o) => o.reussites), m10.outils.map((o) => o.reussites_requises));
+  assert.equal(attestation.questions.length, 15); // la liste vient du journal, qui existe depuis le jalon 3
 });
 
 test('la réussite constatée sans correction (exercice allégé, D21) crée aussi l’attestation', async () => {

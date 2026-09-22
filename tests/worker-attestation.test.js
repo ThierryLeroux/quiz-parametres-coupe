@@ -4,11 +4,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CODE_ALPHABET, CODE_LENGTH, buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, parseCode, readClaims,
-  verificationUrl,
+  successfulQuestions, verificationUrl,
 } from '../worker/attestation.js';
-import { sessionView } from '../worker/seance.js';
+import { cleanAnswers, gradeQuestion, sessionView } from '../worker/seance.js';
+import { computeParameters } from '../site/js/calcul.js';
+import { formatParameters } from '../site/js/format.js';
 import { loadApp } from '../site/js/app.js';
-import { lireFichier } from './aide.js';
+import { lireFichier, questionPour } from './aide.js';
 
 const { data, exercise: m10 } = await loadApp('?exercice=m10-tournage-vc', lireFichier);
 
@@ -82,7 +84,8 @@ test('canonical : clés triées à tous les niveaux, sans espace ; l’ordre d�
 
 test('buildAttestation : tout est copié à cet instant — identité, exercice, révisions, dates, outils dans l’ordre de l’exercice', () => {
   const record = buildAttestation(SEANCE, m10, data, 'ABCDEFGHJK');
-  assert.deepEqual(Object.keys(record), ['code', 'exercice', 'revision', 'revision_tables', 'etudiant', 'debut', 'reussite_le', 'questions_reussies', 'outils']);
+  assert.deepEqual(Object.keys(record), ['code', 'exercice', 'revision', 'revision_tables', 'etudiant', 'debut', 'reussite_le', 'questions_reussies', 'outils', 'questions']);
+  assert.deepEqual(record.questions, []); // sans journal : aucune question listée
   assert.equal(record.code, 'ABCDEFGHJK');
   assert.deepEqual(record.exercice, { id: 'm10-tournage-vc', titre: 'M10 — Tournage : vitesse de coupe' });
   assert.equal(record.revision, 'r0');
@@ -109,6 +112,85 @@ test('buildAttestation : la révision est celle de la réussite ; sinon celle de
   // Les outils de l'attestation sont exactement ceux de progression.outils que le serveur montre à l'écran.
   const { progression } = sessionView(SEANCE, m10, data);
   assert.deepEqual(buildAttestation(SEANCE, m10, data, 'ABCDEFGHJK').outils, progression.outils);
+});
+
+// --- Les questions réussies qui comptent (D41) ------------------------------------------------------------
+
+// Une ligne du journal, telle que listCorrections la rend, pour une question du M10 corrigée avec ces saisies.
+function correction(question, saisies, horodatage) {
+  const reponses = cleanAnswers(saisies);
+  const { success, result } = gradeQuestion(question, reponses, { reussites: {}, totalReussies: 0 }, m10, data);
+  return { seance_id: 7, outil_id: question.tool.id, question, reponses, resultat: result, reussie: success ? 1 : 0, horodatage };
+}
+const bonneVc = (question) => formatParameters(computeParameters(question, data)).vc;
+const MVLNR = questionPour({ outil: 'mvlnr', dimension: '2.000"', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
+const MCLNR = questionPour({ outil: 'mclnr', dimension: '10 mm', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 39 });
+const BARRE = questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1, barre: '1 po' });
+const heure = (n) => `2026-09-21T13:${String(n).padStart(2, '0')}:00.000Z`;
+
+test('successfulQuestions : la série finale de réussites de chaque outil, dans l’ordre chronologique, numérotée par le rang dans la séance', () => {
+  // MVLNR : réussi, réussi, raté, puis trois de suite ; MCLNR : raté, puis réussi ; barre : réussie.
+  const journal = [
+    correction(MVLNR, { vc: bonneVc(MVLNR) }, heure(1)), // 1
+    correction(MVLNR, { vc: bonneVc(MVLNR) }, heure(2)), // 2
+    correction(MCLNR, { vc: '1' }, heure(3)), // 3 : raté
+    correction(MVLNR, { vc: '1' }, heure(4)), // 4 : raté, compteur à zéro
+    correction(MVLNR, { vc: bonneVc(MVLNR) }, heure(5)), // 5
+    correction(MCLNR, { vc: bonneVc(MCLNR) }, heure(6)), // 6
+    correction(MVLNR, { vc: `${bonneVc(MVLNR)},0` }, heure(7)), // 7 : la saisie telle quelle, virgule comprise
+    correction(BARRE, { vc: bonneVc(BARRE) }, heure(8)), // 8
+    correction(MVLNR, { vc: bonneVc(MVLNR) }, heure(9)), // 9
+  ];
+  const outils = [
+    { id: 'mclnr', nom: 'MCLNR', plage: '10 mm à 20 mm', operation: 'Chariotage ébauche', reussites: 1, requises: 1 },
+    { id: 'mvlnr', nom: 'MVLNR', plage: '1.000" à 4.000"', operation: 'Chariotage finition', reussites: 3, requises: 3 },
+    { id: 'barre_a_aleser', nom: 'Barre à aléser', plage: '1.000" à 4.000"', operation: 'Alésage à la barre', reussites: 1, requises: 1 },
+  ];
+  const questions = successfulQuestions(journal, outils);
+  assert.deepEqual(questions.map((q) => q.numero), [5, 6, 7, 8, 9]); // ni 1 ni 2 (série rompue), ni 3 ni 4 (ratées)
+  assert.deepEqual(questions[0], {
+    numero: 5,
+    outil_id: 'mvlnr',
+    outil: 'MVLNR - Ø charioté: 2.000"',
+    materiau_outil: 'Insert de carbure de tungstène',
+    materiau: { classe: 'P', groupe: 1, materiau: 'Acier non allié', etat: 'Recuit' },
+    reponses: { vc: '400' }, // les champs évalués seulement : le M10 n'évalue que Vc
+    horodatage: heure(5),
+  });
+  assert.deepEqual(questions[1].materiau, { classe: 'H', groupe: 39, materiau: 'Acier durci', etat: 'Durci et revenu' });
+  assert.equal(questions[1].outil, 'MCLNR - Ø charioté: 10 mm');
+  assert.deepEqual(questions[2].reponses, { vc: '400,0' }); // la réponse de l'étudiant, pas la valeur théorique
+  assert.equal(questions[3].outil, 'Barre à aléser Ø 1 po - Ø alésé: 2.000"'); // gabarit résolu : la barre et le Ø alésé
+  // Chaque outil : exactement ses réussites, et toutes après son dernier échec.
+  for (const outil of outils) {
+    const siennes = questions.filter((q) => q.outil_id === outil.id);
+    assert.equal(siennes.length, outil.reussites, outil.id);
+    const dernierEchec = journal.map((c, i) => (c.outil_id === outil.id && !c.reussie ? i + 1 : 0)).reduce((a, b) => Math.max(a, b), 0);
+    assert.ok(siennes.every((q) => q.numero > dernierEchec), outil.id);
+  }
+  // Un outil jamais joué (reussites 0), ou un journal vide : rien.
+  assert.deepEqual(successfulQuestions(journal, [{ id: 'sdtmr', reussites: 0 }]), []);
+  assert.deepEqual(successfulQuestions([], outils), []);
+  // Exercice allégé (D21) : le compteur dépasse les réussites exigées → les dernières seulement.
+  assert.deepEqual(successfulQuestions(journal, [{ id: 'mvlnr', reussites: 2 }]).map((q) => q.numero), [7, 9]);
+});
+
+test('successfulQuestions : les réponses listées sont celles des grandeurs évaluées de l’exercice, sous les noms du moteur', () => {
+  const complet = { ...m10, champs_evalues: ['vc', 'fz', 'n', 'f', 'vf'] };
+  const reponses = cleanAnswers(formatParameters(computeParameters(MVLNR, data)));
+  const { result } = gradeQuestion(MVLNR, reponses, { reussites: {}, totalReussies: 0 }, complet, data);
+  const [q] = successfulQuestions([{ outil_id: 'mvlnr', question: MVLNR, reponses, resultat: result, reussie: 1, horodatage: heure(1) }], [{ id: 'mvlnr', reussites: 1 }]);
+  assert.deepEqual(Object.keys(q.reponses), ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate']);
+  assert.deepEqual(q.reponses, reponses);
+});
+
+test('buildAttestation : avec le journal, l’enregistrement liste les questions réussies ; la liste entre dans la sérialisation signée', () => {
+  const journal = [correction(MCLNR, { vc: bonneVc(MCLNR) }, heure(1))];
+  const record = buildAttestation(SEANCE, m10, data, 'ABCDEFGHJK', journal);
+  assert.equal(record.questions.length, 1);
+  assert.deepEqual(record.questions[0].reponses, { vc: '40' });
+  assert.ok(canonical(record).includes('"questions":[{"horodatage"'));
+  assert.notEqual(canonical(record), canonical(buildAttestation(SEANCE, m10, data, 'ABCDEFGHJK', [])));
 });
 
 // --- Adresse de vérification et champs prétendus ------------------------------------------------------------

@@ -51,6 +51,31 @@ export function canonical(value) {
   return JSON.stringify(value);
 }
 
+// --- Les questions réussies qui comptent (D41) ------------------------------------------------------------
+// Pour chaque outil de l'attestation, ses `reussites` dernières questions réussies : la série finale
+// de réussites consécutives. Comme un échec remet le compteur à zéro (D12), les n dernières réussites
+// d'un outil sont toujours postérieures à son dernier échec — et à une remise à zéro (D35). Chaque
+// question est copiée du journal telle qu'elle a été posée : le nom affiché (gabarit résolu, avec
+// dimension, barre et dents quand le gabarit les porte), la matière de l'outil, le matériau usiné,
+// les réponses de l'étudiant aux grandeurs évaluées, l'heure. Le numéro est le rang de la question
+// dans la séance (réussies ou non). Liste dans l'ordre chronologique.
+//   corrections : le journal de la séance, dans l'ordre (base.js listCorrections)
+//   outils      : les outils de l'attestation, avec leurs `reussites`
+export function successfulQuestions(corrections, outils) {
+  const numbered = corrections.map((correction, i) => ({ ...correction, numero: i + 1 }));
+  const kept = outils.flatMap((outil) => numbered.filter((c) => c.outil_id === outil.id && c.reussie).slice(-outil.reussites));
+  return kept.sort((x, y) => x.numero - y.numero).map(({ numero, outil_id, question, reponses, resultat, horodatage }) => ({
+    numero,
+    outil_id,
+    outil: question.displayId,
+    materiau_outil: question.toolMaterial.label,
+    materiau: { classe: question.material.iso, groupe: question.material.groupe, materiau: question.material.materiau, etat: question.material.etat },
+    // Les champs évalués sont ceux que la correction a bornés ; les autres étaient fournis.
+    reponses: Object.fromEntries(Object.entries(resultat.fields).filter(([, field]) => field.min !== null).map(([name]) => [name, reponses[name]])),
+    horodatage,
+  }));
+}
+
 // --- L'enregistrement figé (D31) ------------------------------------------------------------------------
 
 // Compose l'attestation d'une séance réussie. Tout est COPIÉ à cet instant : le nom, la plage et
@@ -61,9 +86,11 @@ export function canonical(value) {
 //   session  : la ligne de la table seances (colonnes JSON décodées), réussie (reussite_le non nul)
 //   exercise : l'exercice tel qu'il est au moment de composer
 //   data     : le catalogue (loadData, avec ses révisions)
-//   code     : le code court, sans tiret
-export function buildAttestation(session, exercise, data, code) {
+//   code        : le code court, sans tiret
+//   corrections : le journal de la séance (listCorrections), pour la liste des questions réussies (D41)
+export function buildAttestation(session, exercise, data, code, corrections = []) {
   const { progression } = sessionView(session, exercise, data);
+  const outils = progression.outils.map(({ id, nom, plage, operation, reussites, requises }) => ({ id, nom, plage, operation, reussites, requises }));
   return {
     code,
     exercice: { id: exercise.id, titre: exercise.titre },
@@ -73,7 +100,8 @@ export function buildAttestation(session, exercise, data, code) {
     debut: session.debut,
     reussite_le: session.reussite_le,
     questions_reussies: progression.total_reussies,
-    outils: progression.outils.map(({ id, nom, plage, operation, reussites, requises }) => ({ id, nom, plage, operation, reussites, requises })),
+    outils,
+    questions: successfulQuestions(corrections, outils),
   };
 }
 

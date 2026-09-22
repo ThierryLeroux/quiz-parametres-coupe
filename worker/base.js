@@ -147,6 +147,13 @@ export async function findSessionById(db, id) {
   return decode(await db.prepare('SELECT * FROM seances WHERE id = ?').bind(id).first());
 }
 
+// Le journal des corrections d'une séance, dans l'ordre chronologique, colonnes JSON décodées : de
+// quoi composer la liste des questions réussies de l'attestation (D41).
+export async function listCorrections(db, seanceId) {
+  const { results } = await db.prepare('SELECT * FROM corrections WHERE seance_id = ? ORDER BY id').bind(seanceId).all();
+  return results.map((row) => ({ ...row, question: JSON.parse(row.question), reponses: JSON.parse(row.reponses), resultat: JSON.parse(row.resultat) }));
+}
+
 // --- Attestations (D31, D35) -------------------------------------------------------------------------------
 
 function decodeAttestation(row) {

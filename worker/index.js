@@ -98,12 +98,13 @@ async function limitRate(request, env, portee, valeur, now) {
 
 // L'attestation en cours d'une séance réussie, créée si elle n'existe pas encore : à la réussite,
 // ou à la première ouverture d'une séance réussie avant cette version. L'enregistrement est figé
-// à cet instant et signé (sous-clé « attestation » de CLE_SECRETE).
+// à cet instant et signé (sous-clé « attestation » de CLE_SECRETE) ; il liste les questions
+// réussies qui comptent, lues dans le journal des corrections (D41).
 //   session : la ligne de la séance, à jour (reussite_le non nul)
 async function ensureAttestation(env, session, exercise, data, now) {
   let current = await base.findCurrentAttestation(env.DB, session.id);
   for (let attempt = 0; current === null && attempt < 5; attempt += 1) {
-    const record = buildAttestation(session, exercise, data, newCode());
+    const record = buildAttestation(session, exercise, data, newCode(), await base.listCorrections(env.DB, session.id));
     await base.createAttestation(env.DB, {
       seance_id: session.id,
       code: record.code,
