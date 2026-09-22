@@ -65,10 +65,10 @@ Le moteur (jalons 1 et 1b) passe derrière l'API ; les règles d'une séance son
 - [x] Corrections après le premier essai de Thierry (D24 à D29) : gabarit de nomenclature validé et jetons `[Dia]`, `[Pas]`, `[IdBarre]` ; **deux diamètres de la barre à aléser** ; feuilles comme le classeur (traits de famille `debut_famille`, bande grise des avances proportionnelles, révision des tables au pied, formule exacte de N à titre indicatif, colonnes figées sur téléphone) ; département sur trois lignes et « TGM-TMI » ; rouge K éclairci sur fond nuit
 - [x] **Mode test** local (D26 : `MODE_TEST=1` dans `.dev.vars`, décidé par le serveur, jamais en production) et exercice `test-complet` (tous les outils, les cinq grandeurs)
 - [x] Écran « Exercice réussi » : « Voir mon attestation » → attestation **provisoire, non signée** (la version signée : jalon 5, en tête)
-- [ ] **À confirmer par Thierry** : barres de la barre à aléser (1/2, 5/8, 3/4, 1, 1 1/4 po) et rapport 0,75 (D25) ; un N calculé avec 12/π puis arrondi à l'entier est refusé sous ~90 rév/min (SPEC §5, test `todo`)
-- [ ] Attente imposée par la cadence montrée à l'écran (compte à rebours ; le serveur donne déjà `attendre_s`) — aujourd'hui, un message sous le formulaire
-- [ ] Sur téléphone, replier les outils terminés de la progression (UI §3.3 : « peuvent être repliés »)
-- [ ] Impression des feuilles vérifiée sur papier par Thierry (une page lettre chacune)
+- [x] Second rapport (D30) : barres confirmées ; N tolérée à ±5 % et ±1 rév/min (D13) ; **barre à rainurer** à deux diamètres (D25) ; `"liste": false` pour les exercices d'essai ; note des avances sur la bande (maquette `05b`) ; pied « TGM-TMI — TLP — 2026 » ; coquille « Ø 45/64 po » ; classeur renommé ; attestation provisoire avec bannière et **liste des opérations effectuées** (servie par le serveur : `operation`, `plage`)
+- [x] Attente imposée par la cadence montrée à l'écran : compte à rebours sur le bouton Vérifier (`seance.attendre_s`, ou celui d'un refus 429), à la place du message
+- [x] Sur téléphone, les outils terminés de la progression sont repliés sous « n outils terminés » (UI §3.3)
+- [x] Impression des feuilles vérifiée sur papier par Thierry (2026-09-21)
 
 ## Jalon 5 — Attestation signée, page de vérification, connexion professeur et administration (décisions D16, D19)
 **En tête : l'attestation de réussite signée** — c'est la sortie du parcours étudiant (D29). L'écran et le bouton « Voir mon attestation » existent déjà (jalon 4), en version provisoire non signée.

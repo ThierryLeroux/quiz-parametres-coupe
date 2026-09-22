@@ -172,7 +172,7 @@ test('reprise : matricule + NIP suffisent ; prénom et nom de la création ; la 
   const reprise = await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, prenom: 'Cam', nom: 'T.' } });
   assert.equal(reprise.status, 200);
   assert.notEqual(reprise.corps.jeton, jeton);
-  assert.deepEqual(reprise.corps.seance, enCours);
+  assert.deepEqual(reprise.corps.seance, { ...enCours, attendre_s: 0 }); // 5 minutes plus tard : plus rien à attendre
   assert.deepEqual(reprise.corps.seance.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
   assert.equal(reprise.corps.seance.progression.total_reussies, 1);
   assert.notEqual(reprise.corps.seance.question, null);
@@ -326,6 +326,18 @@ test('tirage mémorisé : tant qu’elle n’est pas corrigée, c’est la même
   for (const tirage of tirages) assert.deepEqual(tirage.corps.seance.question, memorisee);
 });
 
+test('attendre_s : la séance renvoyée avec la correction dit combien attendre ; GET /api/seance aussi ; 0 après 10 s', async () => {
+  const serveur = serveurDeTest();
+  const { jeton, seance } = await commencer(serveur);
+  assert.equal(seance.attendre_s, 0);
+  const { corps } = await repondre(serveur, jeton, true);
+  assert.equal(corps.seance.attendre_s, 10);
+  serveur.avancer(4 * SECONDE);
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.attendre_s, 6);
+  serveur.avancer(6 * SECONDE);
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.attendre_s, 0);
+});
+
 test('correction juste : compteur de l’outil, total, journal, question suivante', async () => {
   const serveur = serveurDeTest();
   const { jeton, seance } = await commencer(serveur);
@@ -429,9 +441,9 @@ test('complétion : 15 bonnes réponses au M10 → réussite datée, plus de que
   assert.equal(serveur.journal().length, 15);
 
   serveur.avancer(MINUTE);
-  assert.deepEqual((await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } })).corps.seance, finale);
+  assert.deepEqual((await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } })).corps.seance, { ...finale, attendre_s: 0 });
   assert.deepEqual(await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: {} } }), { status: 409, corps: { erreur: "Aucune question n'attend de correction." } });
-  assert.deepEqual((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).corps.seance, finale); // une réussite se retrouve de n'importe quel appareil
+  assert.deepEqual((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).corps.seance, { ...finale, attendre_s: 0 }); // une réussite se retrouve de n'importe quel appareil
 });
 
 test('correction sans question tirée → 409', async () => {
@@ -460,7 +472,7 @@ test('exercice modifié : la séance continue — outil retiré (et sa question)
   assert.equal(suite.exercice.version, 'r1');
   assert.notEqual(suite.question.outil.id, enAttente);
   assert.equal(suite.progression.outils.some((outil) => outil.id === enAttente), false);
-  assert.deepEqual(suite.progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', reussites: 0, requises: 1 });
+  assert.deepEqual(suite.progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', operation: 'Perçage', plage: 'Ø 1/64 po à Ø 1 po', reussites: 0, requises: 1 });
   assert.equal(suite.progression.total_reussies, 1); // ce qui est acquis le reste
   if (reussi !== enAttente) assert.equal(suite.progression.outils.find((outil) => outil.id === reussi).reussites, 1);
 

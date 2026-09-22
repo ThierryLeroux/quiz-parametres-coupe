@@ -5,7 +5,7 @@
 
 import { el } from './dom.js';
 import { feedSheet, vcSheet } from './sheets-data.js';
-import { DEPARTMENT_LINES, DEPARTMENT_SHORT } from './text.js';
+import { DEPARTMENT_LINES, localDate, sheetSignature } from './text.js';
 
 const TABS = [
   { id: 'vc', label: 'Vitesses de coupe' },
@@ -18,7 +18,7 @@ function picto(name) {
   return el('span', { class: 'picto picto--sheet', 'aria-hidden': 'true', style: `-webkit-mask-image: ${url}; mask-image: ${url};` });
 }
 
-// La page lettre : en-tête (logo, titre, bloc du département), contenu, pied (date, sigle, révision
+// La page lettre : en-tête (logo, titre, bloc du département), contenu, pied (date, signature, révision
 // de la table — D28 ; la feuille des formules, qui n'a pas de données, n'en porte pas — et page).
 function page(content, revision = null) {
   return el('article', { class: 'print-page sheet' }, [
@@ -29,8 +29,8 @@ function page(content, revision = null) {
     ]),
     el('div', { class: 'sheet-body' }, content),
     el('footer', { class: 'sheet-footer' }, [
-      el('span', {}, new Date().toISOString().slice(0, 10)),
-      el('span', {}, `${DEPARTMENT_SHORT} — profil fabrication`),
+      el('span', {}, localDate()),
+      el('span', {}, sheetSignature()),
       el('span', {}, revision === null ? 'Page 1 de 1' : `révision ${revision} · Page 1 de 1`),
     ]),
   ]);

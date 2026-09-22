@@ -41,6 +41,32 @@
 .attestation-info dt { color: var(--color-page-muted); }
 .attestation-info dd { margin: 0; font-weight: 700; }
 
+/* Bannière « PROVISOIRE » (D30), à l'écran et à l'impression, jusqu'à l'attestation signée du jalon 5. */
+.attestation-stamp {
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border: 3px solid #c00000;
+  color: #c00000;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Les opérations effectuées : un rang par outil de l'exercice. */
+.attestation-tools {
+  width: 100%;
+  margin-top: 22px;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.attestation-tools caption { padding-bottom: 6px; font-weight: 700; text-align: left; }
+.attestation-tools th, .attestation-tools td { padding: 3px 8px; border-bottom: 1px solid #ccc; text-align: left; }
+.attestation-tools th { border-bottom: 1.5px solid #000; }
+.attestation-tools td:last-child, .attestation-tools th:last-child { text-align: center; white-space: nowrap; }
+
 /* L'emplacement du code QR : un carré en pointillé tant que l'attestation n'est pas signée. */
 .attestation-qr {
   display: grid;
@@ -65,6 +91,7 @@
 
 @media print {
   .attestation { min-height: 10in; } /* @page laisse 0.5 po de marge : il reste 10 po de haut */
+  .attestation-stamp { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* Le titre reçoit le focus à l'ouverture (lecteurs d'écran) : sans cadre, il ne s'imprimerait pas mieux. */

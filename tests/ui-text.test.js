@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, attestationFileName, attestationLines, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
-  serverErrorMessage, studentLine,
+  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, attestationFileName, attestationLines, attestationTools, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
+  localDate, serverErrorMessage, sheetSignature, studentLine,
 } from '../site/js/ui/text.js';
 import { loadApp } from '../site/js/app.js';
 import { ApiError } from '../site/js/api.js';
@@ -45,6 +45,29 @@ test('attestationLines et attestationFileName : ce que porte l’attestation, ti
   assert.equal(lignes['Champ évalué'], 'vitesse de coupe');
   assert.equal(Object.fromEntries(attestationLines(seance, CINQ_CHAMPS))['Champs évalués'].split(', ').length, 5);
   assert.equal(attestationFileName(seance), 'Attestation-m10-tournage-vc-Tremblay-Cote-Camille');
+});
+
+test('sheetSignature : « TGM-TMI — TLP — <année> » au pied des feuilles et de l’attestation (D30)', () => {
+  assert.equal(sheetSignature(new Date('2026-09-21T12:00:00')), 'TGM-TMI — TLP — 2026');
+  assert.match(sheetSignature(), /^TGM-TMI — TLP — \d{4}$/);
+});
+
+test('localDate : la date du poste, « AAAA-MM-JJ », jamais celle d’UTC', () => {
+  assert.equal(localDate(new Date(2026, 8, 21, 23, 30)), '2026-09-21');
+  assert.equal(localDate(new Date(2026, 0, 5, 0, 5)), '2026-01-05');
+});
+
+test('attestationTools : un rang par outil de l’exercice, dans l’ordre — nom avec plage, opération, réussites sur exigées (D30)', () => {
+  const seance = { progression: { outils: [
+    { id: 'mclnr', nom: 'MCLNR', operation: 'Chariotage ébauche', plage: '10 mm à 20 mm', reussites: 1, requises: 1 },
+    { id: 'mvlnr', nom: 'MVLNR', operation: 'Chariotage finition', plage: '1.000" à 4.000"', reussites: 2, requises: 3 },
+  ] } };
+  assert.deepEqual(attestationTools(seance), [
+    { outil: 'MCLNR (10 mm à 20 mm)', operation: 'Chariotage ébauche', reussites: '1 / 1' },
+    { outil: 'MVLNR (1.000" à 4.000")', operation: 'Chariotage finition', reussites: '2 / 3' },
+  ]);
+  // Séance servie par un serveur d'avant D30 : le nom seul, sans planter.
+  assert.deepEqual(attestationTools({ progression: { outils: [{ id: 'mvlnr', nom: 'MVLNR', reussites: 3, requises: 3 }] } }), [{ outil: 'MVLNR', operation: '', reussites: '3 / 3' }]);
 });
 
 test('exerciseMeta : version, nombre d’outils, champs évalués', () => {

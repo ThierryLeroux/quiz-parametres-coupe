@@ -268,6 +268,11 @@
 
 .progress-row--reset .dot { border-color: var(--color-wrong); }
 
+/* Sur téléphone, les outils terminés sont repliés sous un résumé (UI §3.3). */
+.progress-done { margin: 0 0 var(--space-3); }
+.progress-done summary { padding: var(--space-1) var(--space-2); color: var(--color-text-muted); font-size: var(--text-xs); cursor: pointer; }
+.progress-done .progress-rows { margin-top: var(--space-2); border-bottom: none; padding-bottom: 0; }
+
 /* --- Tablette et ordinateur ---------------------------------------------------------------------------------------- */
 
 @media (min-width: 640px) {

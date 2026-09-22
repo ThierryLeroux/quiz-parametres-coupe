@@ -1,6 +1,6 @@
 # Spécification fonctionnelle — Quiz de paramètres de coupe (version web)
 
-Statut : **brouillon v0.3** (2026-09-21). Rédigée à partir de l'analyse du classeur
+Statut : **brouillon v0.4** (2026-09-21). Rédigée à partir de l'analyse du classeur
 `Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm` et de son VBA
 (voir `legacy/vba/`). Un point marqué ❓ est à confirmer avec Thierry ; il n'y en a aucun en ce moment.
 
@@ -57,15 +57,18 @@ matériau restent ensemble ; plastiques et graphite, groupes 42 à 47, forment u
 seule famille). Booléen facultatif, **donnée et non calcul** : l'éditeur peut le
 changer. Il ne sert qu'à la feuille ; il n'entre pas dans la question tirée.
 
-**Outil à deux diamètres (décision D25).** Pour la barre à aléser, `dimensions`
-est le **Ø alésé** (le trou), qui sert à N, et `dimensions_barre` (libellé +
-Ø en pouces) le **Ø de la barre**, qui sert à l'avance proportionnelle (§5).
+**Outil à deux diamètres (décision D25).** Pour la barre à aléser et la barre
+à rainurer, `dimensions` est le **Ø usiné** (le trou : alésé, rainuré), qui sert
+à N, et `dimensions_barre` (libellé + Ø en pouces) le **Ø de la barre**, qui
+sert à l'avance proportionnelle (§5).
 `rapport_barre_max` (> 0 et ≤ 1, ex. 0,75) dit quelles barres entrent dans un
 trou : Ø barre ≤ rapport × Ø alésé. Les deux clés vont ensemble, ne sont permises
 que sur une opération à avance proportionnelle au Ø, et le catalogue est refusé
-si une dimension n'a aucune barre qui y entre. Valeurs de départ (barres de 1/2,
-5/8, 3/4, 1 et 1 1/4 po ; rapport 0,75) : **proposées, à confirmer par Thierry**.
-Aucun autre outil n'a aujourd'hui deux diamètres à distinguer (D25).
+si une dimension n'a aucune barre qui y entre. Valeurs : barres de 1/2, 5/8,
+3/4, 1 et 1 1/4 po, rapport 0,75 (confirmées, D30). Le rainurage interne est
+une avance proportionnelle (0,003 × Ø barre, plafond 0,003 po/tour), comme
+l'alésage à la barre (D25, extension). Aucun autre outil n'a deux diamètres à
+distinguer.
 
 Le champ `note` des opérations a été supprimé (D29) : il contredisait la table
 (« .008 × Ø 1/4 = .002 ») et n'était plus affiché ; l'encadré de la feuille des
@@ -124,17 +127,15 @@ vitesse d'avance       Vf = N × f                                        (po/mi
 
 `D` est le Ø de la dimension tirée. `D_outil` est le même, sauf pour un outil à
 deux diamètres (décision D25) : pour la barre à aléser, **N se calcule avec le Ø
-alésé et l'avance avec le Ø de la barre** (0,006 × Ø barre, plafonnée à
-0,006 po/tour).
+usiné et l'avance avec le Ø de la barre** (alésage : 0,006 × Ø barre, plafonnée
+à 0,006 po/tour ; rainurage interne : 0,003 × Ø barre, plafonnée à 0,003).
 
 La feuille des formules montre aussi, **à titre indicatif**, la formule exacte
 `N = Vc × 12 / (π × Ø)` (D29) ; la correction reste sur `Vc × 4 / Ø`. Un N calculé
 avec 12/π est plus bas de 4,5 % : il tient dans la tolérance de N (§6) pour
-toutes les combinaisons du catalogue **s'il n'est pas arrondi**
-(`tests/chaine.test.js`).
-❓ Arrondi à l'entier, il est refusé pour 122 combinaisons sur 40 733 (0,3 %),
-toutes sous 90 rév/min, où l'arrondi s'ajoute aux 4,5 % : à trancher par Thierry
-(test `todo`).
+toutes les combinaisons du catalogue, arrondi à l'entier ou non
+(`tests/chaine.test.js`) : c'est pour lui que la tolérance de N est élargie de
+±1 rév/min (§6, D13 complément).
 
 **Arrondis (décisions D9, D14).** Aucun arrondi sur les valeurs théoriques,
 comme dans le VBA (arrondis commentés) : les tolérances du §6 absorbent les
@@ -163,7 +164,7 @@ commande CNC et dans les libellés ; la saisie accepte le point et la virgule
 |---|---|---|---|
 | Vc | exact | exact | exact |
 | Avance par dent | ±0,1 % | exact | ±25 %, borné à ±0,001 po |
-| N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 % | ±5 % |
+| N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 %, élargie de ±1 rév/min | ±5 %, élargie de ±1 rév/min |
 | Avance par révolution | ±0,1 % | ±0,1 % | ±20 % |
 | Vitesse d'avance | ±0,5 % de *N_saisi × f_saisi* (cohérence interne, D15) | idem | idem |
 
@@ -178,6 +179,10 @@ Précisions :
   telle qu'affichée est toujours acceptée. Ex. : N théorique = 84,67 rév/min en
   filetage → 84 et 85 sont acceptés ; lame à tronçonner à 4,375 rév/min → 4 est
   accepté.
+- **N, hors filetage (D13, complément)** : ±5 % **puis** ±1 rév/min de chaque
+  côté (1600 → [1519 ; 1681] ; 4,375 → [3,156 ; 5,594]), pour qu'un N calculé
+  avec la formule exacte 12/π (§5) et arrondi à l'entier passe toujours. La ligne
+  de correction l'écrit : « ±5 % et ±1 rév/min ».
 - « ±25 %, borné à ±0,001 po » : l'intervalle du tableau est **le plus étroit**
   de ±25 % et de ±0,001 po. Ex. fz = 0,0015 → [0,001125 ; 0,001875] (±25 %) ;
   fz = 0,006 → [0,005 ; 0,007] (±0,001 po). La demi-unité de D13 s'y ajoute
@@ -345,8 +350,9 @@ l'identification, chaque appel porte le jeton dans l'en-tête
   "exercice": { "id": "m10-tournage-vc", "titre": "M10 — …", "version": "r0" },
   "debut": "2026-09-21T13:05:00.000Z",
   "reussite_le": null,
+  "attendre_s": 0,
   "progression": {
-    "outils": [ { "id": "mvlnr", "nom": "MVLNR", "reussites": 2, "requises": 3 } ],
+    "outils": [ { "id": "mvlnr", "nom": "MVLNR", "operation": "Chariotage finition", "plage": "1.000\" à 4.000\"", "reussites": 2, "requises": 3 } ],
     "outils_termines": 4,
     "total_reussies": 9
   },
@@ -362,6 +368,13 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 ```
 
 Un champ non évalué arrive avec sa valeur théorique mise en forme (§5, §10).
+`attendre_s` : secondes avant que la prochaine correction soit acceptée
+(cadence ; 0 en mode test) — le navigateur en fait un **compte à rebours** sur le
+bouton Vérifier (« Vérifier dans 7 s »), à la place d'un message ; un refus 429
+le relance avec son `attendre_s`. Chaque outil de `progression.outils` porte
+son `operation` et sa `plage` de dimensions dans l'exercice (« Ø 1/64 po à
+Ø 1 po », un seul libellé s'il n'y en a qu'une) : c'est ce que l'attestation
+liste (§8), et qui fera partie du contenu signé (jalon 5).
 `identifiant` est le gabarit de nom résolu (§4.6). `outil.barre` est le libellé
 de la barre tirée pour un outil à deux diamètres (`dimension` est alors le Ø
 alésé), sinon `null`. En mode test seulement, `question` porte aussi
@@ -386,7 +399,7 @@ Pour chaque champ :
   la saisie en % (`null` si elle est vide ou illisible) ; `calcul`, le calcul en
   une ligne (« Vf = N × f = 2500 × 0.0050 », facteur de vitesse et plafond du
   RPM compris ; pour un outil à deux diamètres, il nomme celui qui sert :
-  « N = Vc × 4 / Ø alésé = … », « fz = avance × Ø barre = 0.006 × 0.75 » ; `null` pour Vc et pour une avance fixe, qui se lisent dans une
+  « N = Vc × 4 / Ø usiné = … », « fz = avance × Ø barre = 0.006 × 0.75 » ; `null` pour Vc et pour une avance fixe, qui se lisent dans une
   table). Pour un champ fourni, ces trois valeurs sont `null`.
 
 | Code | Sens |
@@ -473,11 +486,15 @@ silence (présentation : `UI.md` §3.2) :
 remet sur Léa (décision D16). Le QR code sert à l'enseignant pour vérifier un
 rapport en cas de doute.
 
-**Attestation provisoire (D29).** Depuis l'écran « Exercice réussi », « Voir mon
-attestation » ouvre une page lettre imprimable tirée de la séance (exercice et
-version, identité, début, réussite, questions réussies, champs évalués), avec
-l'emplacement du code QR. Tant que le serveur ne la signe pas (jalon 5, en tête),
-elle se dit **provisoire, non signée**, et ne vaut pas preuve.
+**Attestation provisoire (D29, D30).** Depuis l'écran « Exercice réussi », « Voir
+mon attestation » ouvre une page lettre imprimable tirée de la séance : exercice
+et version, identité, début, réussite, questions réussies, champs évalués,
+l'emplacement du code QR, et **la liste des opérations effectuées** — pour
+chaque outil de l'exercice, dans l'ordre : nom générique avec sa plage de
+dimensions, opération, réussites obtenues sur réussites exigées
+(`progression.outils`, §7). Tant que le serveur ne la signe pas (jalon 5, en
+tête), une bannière « PROVISOIRE — non signée, ne vaut pas preuve de
+réussite » l'accompagne, à l'écran et à l'impression.
 
 Rapport de réussite (présentation : `UI.md` §3.6) :
 - exercice et sa version, prénom, nom, matricule, date/heure de début,
@@ -560,6 +577,7 @@ dans le catalogue ce qui est évalué. Un exercice = un fichier
 | `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
 | `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
 | `outils` | oui | au moins un ; chaque `id` une seule fois |
+| `liste` | non | `false` retire l'exercice de la liste de l'accueil (D18) ; il reste joignable par `?exercice=<id>`. Pour les exercices d'essai (D30). Absent = listé |
 | `outils[].id` | oui | `id` d'un outil du catalogue |
 | `outils[].reussites_requises` | oui | entier ≥ 1 (réussites consécutives, §7) |
 | `outils[].dimensions` | non | restreint le tirage à ces **libellés** de dimension ; chacun doit exister sur l'outil |
@@ -593,12 +611,14 @@ Précisions :
   la même liste. Chaque
   `id` a son fichier `<id>.json` et le même `titre` (vérifié par les tests) ;
   « index » est un identifiant réservé. Un fichier d'exercice absent de
-  l'index n'est pas offert.
+  l'index n'est pas offert. Pour composer la liste, la page lit les fichiers des
+  exercices de l'index et écarte ceux qui portent `"liste": false`.
 - **`test-complet`** (décision D26) : exercice de test pour l'enseignant — tous
   les outils du catalogue, les cinq grandeurs, une réussite par outil, aucune
-  restriction. Un test vérifie qu'un outil ajouté au catalogue y figure. Il est
-  dans l'index, donc offert aussi en production ; il n'y donne aucune réponse
-  (le mode test n'existe qu'en local, §7).
+  restriction, `"liste": false`. Un test vérifie qu'un outil ajouté au catalogue
+  y figure. Il est dans l'index (le serveur ne connaît que l'index) mais pas
+  dans la liste de l'accueil ; joignable par `?exercice=test-complet`, il ne
+  donne aucune réponse en production (le mode test n'existe qu'en local, §7).
 - Reporté : seuils du graphique de progression (finition).
 
 ## 11. Questions ouvertes (résumé)
@@ -609,5 +629,5 @@ Précisions :
 4. ~~Sécurité du payload QR (§8 / D6).~~ Tranché : attestation signée par le serveur de correction (D19).
 5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ? (D7)
 6. ~~Serveur de correction : cinq points du §7.~~ Tranchés : D21.
-7. ❓ Un N calculé avec 12/π **puis arrondi à l'entier** est refusé sous ~90 rév/min (§5) : élargir la tolérance de N, ou ne rien changer ?
-8. ❓ Barres de la barre à aléser et rapport 0,75 (§3, D25) : valeurs proposées, à confirmer.
+7. ~~Un N calculé avec 12/π puis arrondi à l'entier (§5).~~ Tranché : tolérance de N élargie de ±1 rév/min (D13, complément).
+8. ~~Barres de la barre à aléser et rapport 0,75 (§3, D25).~~ Confirmés (D30).

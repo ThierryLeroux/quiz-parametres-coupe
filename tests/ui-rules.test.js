@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { diameterLines, factorLines, feedFamily, materialCard, gapExplanation, helpLine, progressRows, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
 import { feedSheet, inches, operationPicto, operationSlug, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
@@ -50,6 +50,25 @@ test('helpLine, outil à deux diamètres : N avec le Ø usiné, avance avec le �
   const texte = (aide) => aide.parts.map((part) => part.text).join('');
   assert.equal(texte(helpLine('rpm', BARRE, 'proportional')), 'RPM → N = Vc × 4 / Ø usiné (le trou, pas la barre), plafonnée au RPM max de la machine.');
   assert.match(texte(helpLine('feedPerTooth', BARRE, 'proportional')), /avance × Ø de la barre \(pas le Ø usiné\)/);
+});
+
+test('checkButtonLabel et remainingWait : le compte à rebours de la cadence sur le bouton Vérifier', () => {
+  assert.equal(checkButtonLabel(0), 'Vérifier');
+  assert.equal(checkButtonLabel(7), 'Vérifier dans 7 s');
+  assert.equal(remainingWait(10, 0), 10);
+  assert.equal(remainingWait(10, 3400), 7); // arrondi vers le haut : on n'annonce jamais moins que le serveur n'exige
+  assert.equal(remainingWait(10, 12000), 0);
+  assert.equal(remainingWait(undefined, 0), 0); // séance servie par un serveur d'avant le compte à rebours
+});
+
+test('foldDoneRows : les outils terminés se replient, dans l’ordre ; l’outil en cours et celui remis à zéro restent visibles', () => {
+  const rows = [
+    { id: 'a', state: 'done' }, { id: 'b', state: 'current' }, { id: 'c', state: 'todo' }, { id: 'd', state: 'done' }, { id: 'e', state: 'reset' },
+  ];
+  const { shown, folded } = foldDoneRows(rows);
+  assert.deepEqual(shown.map((row) => row.id), ['b', 'c', 'e']);
+  assert.deepEqual(folded.map((row) => row.id), ['a', 'd']);
+  assert.deepEqual(foldDoneRows([]), { shown: [], folded: [] });
 });
 
 test('testAnswers : le bouton « Remplir » n’existe que si le serveur a joint les réponses (D26)', () => {

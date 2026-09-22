@@ -216,22 +216,39 @@ export function correctionView(question, answers, result, before, counters, data
   };
 }
 
+// La plage de dimensions d'un outil dans l'exercice : « Ø 1/64 po à Ø 1 po » — celles que l'exercice
+// permet, si l'entrée en restreint. Une seule dimension : son libellé.
+function dimensionRange(tool, entry) {
+  const labels = tool.dimensions.map((d) => d.libelle).filter((label) => !entry.dimensions || entry.dimensions.includes(label));
+  return labels.length === 1 ? labels[0] : `${labels[0]} à ${labels.at(-1)}`;
+}
+
 // L'état de la séance : qui, quel exercice, où il en est, la question en attente.
 // Le prénom et le nom sont ceux de la première visite (D21).
-//   options : { testMode } — transmis à questionView (D26)
+//   options : { testMode, now } — testMode est transmis à questionView (D26) ; now sert à attendre_s
+// Chaque outil de la progression porte aussi son opération et sa plage de dimensions : c'est ce que
+// l'attestation liste (D30), et qui fera partie du contenu signé au jalon 5.
+// attendre_s : secondes avant que la prochaine correction soit acceptée (cadence, SPEC §7) — le
+// navigateur en fait un compte à rebours ; 0 sans horloge, ou en mode test.
 export function sessionView(session, exercise, data, options = {}) {
   const question = isQuestionValid(session.question_courante, session.compteurs, exercise, data) ? session.question_courante : null;
-  const tools = exercise.outils.map((entry) => ({
-    id: entry.id,
-    nom: data.outils.find((tool) => tool.id === entry.id).nom,
-    reussites: Math.min(session.compteurs.reussites[entry.id] ?? 0, entry.reussites_requises),
-    requises: entry.reussites_requises,
-  }));
+  const tools = exercise.outils.map((entry) => {
+    const tool = data.outils.find((candidate) => candidate.id === entry.id);
+    return {
+      id: entry.id,
+      nom: tool.nom,
+      operation: tool.operation,
+      plage: dimensionRange(tool, entry),
+      reussites: Math.min(session.compteurs.reussites[entry.id] ?? 0, entry.reussites_requises),
+      requises: entry.reussites_requises,
+    };
+  });
   return {
     etudiant: { prenom: session.prenom, nom: session.nom, matricule: session.matricule },
     exercice: { id: exercise.id, titre: exercise.titre, version: exercise.version },
     debut: session.debut,
     reussite_le: session.reussite_le,
+    attendre_s: options.now ? cadenceWait(session, options.now, options) : 0,
     progression: {
       outils: tools,
       outils_termines: tools.filter((tool) => tool.reussites >= tool.requises).length,

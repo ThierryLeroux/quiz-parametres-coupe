@@ -109,7 +109,7 @@ test('exercice modifié : un outil retiré disparaît, un outil ajouté part à 
   assert.equal(vue.exercice.version, 'r1');
 
   const avecForet = { ...m10, outils: [...m10.outils, { id: 'foret_fractionnaire', reussites_requises: 2 }] };
-  assert.deepEqual(sessionView(seance({ compteurs }), avecForet, data).progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', reussites: 0, requises: 2 });
+  assert.deepEqual(sessionView(seance({ compteurs }), avecForet, data).progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', operation: 'Perçage', plage: 'Ø 1/64 po à Ø 1 po', reussites: 0, requises: 2 });
 
   const toutReussi = { reussites: Object.fromEntries(m10.outils.map((entry) => [entry.id, entry.reussites_requises])), totalReussies: 15 };
   assert.equal(isExerciseComplete(toutReussi, avecForet), false); // l'outil ajouté reste à faire
@@ -300,6 +300,22 @@ test('correctionView : facteur de vitesse, plafond du RPM, pas d’un filet, ré
   assert.deepEqual([champs.feedPerTooth.calcul, champs.feedPerTooth.tolerance, champs.rpm.tolerance], ['fz = pas du filet = 0.05000', '±0.1 %', 'de −90 % à +0.1 %']);
 });
 
+test('sessionView : chaque outil porte son opération et sa plage de dimensions (attestation, D30) ; attendre_s suit la cadence', () => {
+  const vue = sessionView(seance({ compteurs: { reussites: { mvlnr: 2 }, totalReussies: 2 } }), m10, data);
+  const mvlnr = vue.progression.outils.find((outil) => outil.id === 'mvlnr');
+  assert.deepEqual(mvlnr, { id: 'mvlnr', nom: 'MVLNR', operation: 'Chariotage finition', plage: '1.000" à 4.000"', reussites: 2, requises: 3 });
+  assert.equal(vue.progression.outils.find((outil) => outil.id === 'sdtmr_2').plage, 'M4 x 0.7 à M68 x 6');
+  // Une restriction de l'exercice réduit la plage ; une seule dimension : son libellé.
+  const restreint = { ...m10, outils: [{ id: 'foret_fractionnaire', reussites_requises: 1, dimensions: ['Ø 1/4 po', 'Ø 1/2 po'] }, { id: 'mvlnr', reussites_requises: 1, dimensions: ['2.000"'] }] };
+  assert.deepEqual(sessionView(seance(), restreint, data).progression.outils.map((outil) => outil.plage), ['Ø 1/4 po à Ø 1/2 po', '2.000"']);
+  // attendre_s : 0 sans horloge ; sinon la cadence, levée en mode test.
+  const corrigee = seance({ derniere_correction: MAINTENANT.toISOString() });
+  assert.equal(sessionView(corrigee, m10, data).attendre_s, 0);
+  assert.equal(sessionView(corrigee, m10, data, { now: apres(3000) }).attendre_s, 7);
+  assert.equal(sessionView(corrigee, m10, data, { now: apres(3000), testMode: true }).attendre_s, 0);
+  assert.equal(sessionView(corrigee, m10, data, { now: apres(11000) }).attendre_s, 0);
+});
+
 test('sessionView : étudiant de la première visite, exercice, progression par outil, question en attente', () => {
   const question = drawQuestion(emptyCounters(), m10, data, aleaAGraine(1));
   const vue = sessionView(seance({ compteurs: { reussites: { mvlnr: 2, mclnr: 1, sdtmr: 7 }, totalReussies: 9 }, question_courante: question }), m10, data);
@@ -307,7 +323,7 @@ test('sessionView : étudiant de la première visite, exercice, progression par 
   assert.deepEqual(vue.exercice, { id: 'm10-tournage-vc', titre: m10.titre, version: 'r0' });
   assert.equal(vue.reussite_le, null);
   assert.equal(vue.progression.outils.length, 9);
-  assert.deepEqual(vue.progression.outils.find((outil) => outil.id === 'mvlnr'), { id: 'mvlnr', nom: 'MVLNR', reussites: 2, requises: 3 });
+  assert.deepEqual(vue.progression.outils.find((outil) => outil.id === 'mvlnr'), { id: 'mvlnr', nom: 'MVLNR', operation: 'Chariotage finition', plage: '1.000" à 4.000"', reussites: 2, requises: 3 });
   assert.deepEqual(vue.progression.outils.find((outil) => outil.id === 'sdtmr').reussites, 1); // jamais plus que le requis
   assert.equal(vue.progression.outils_termines, 2);
   assert.equal(vue.progression.total_reussies, 9);

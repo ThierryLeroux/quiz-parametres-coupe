@@ -120,7 +120,7 @@ function showSession(jeton, seance) {
           const message = await openQuestion(jeton);
           return message === null ? null : { message };
         }
-        return { message: serverErrorMessage(error) };
+        return { message: serverErrorMessage(error), attendre_s: error.details?.attendre_s };
       }
     },
   });

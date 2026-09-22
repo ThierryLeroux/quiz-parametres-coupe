@@ -169,6 +169,29 @@ export function testAnswers(question) {
   return answers !== null && typeof answers === 'object' && Object.keys(answers).length > 0 ? answers : null;
 }
 
+// --- Cadence (SPEC §7) : compte à rebours sur le bouton Vérifier -------------------------------------------------
+// Le serveur dit combien de secondes attendre (seance.attendre_s, ou attendre_s d'un refus 429) ;
+// le navigateur décompte. Le libellé du bouton pendant l'attente, puis « Vérifier ».
+export function checkButtonLabel(seconds) {
+  return seconds > 0 ? `Vérifier dans ${seconds} s` : 'Vérifier';
+}
+
+// Ce qu'il reste à attendre quand `elapsedMs` se sont écoulées depuis que le serveur a dit `seconds`
+// (la question suivante arrive avec la correction, mais l'étudiant lit d'abord le corrigé).
+export function remainingWait(seconds, elapsedMs) {
+  return Math.max(0, Math.ceil((seconds ?? 0) - elapsedMs / 1000));
+}
+
+// --- Repli des outils terminés sur téléphone (UI §3.3) ---------------------------------------------------------
+// Les rangs terminés (« done ») sortent de la liste, dans l'ordre, pour être repliés sous un résumé ;
+// l'outil en cours et celui qui vient d'être remis à zéro ne sont jamais repliés (leur état diffère).
+export function foldDoneRows(rows) {
+  return {
+    shown: rows.filter((row) => row.state !== 'done'),
+    folded: rows.filter((row) => row.state === 'done'),
+  };
+}
+
 // Rappel sous le formulaire : « Sur cet outil : 2 réussites de suite sur 3 ».
 export function toolStreak(progression, toolId) {
   const outil = progression.outils.find((entry) => entry.id === toolId);
