@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Espace professeur — Quiz paramètres de coupe</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/prof.css">
+</head>
+<body>
+  <!-- Espace professeur (décisions D34, D35 ; UI §3.8) : js/ui/prof.js. Aucun secret ici : le serveur
+       ne répond qu'avec le cookie de séance posé à la connexion. -->
+  <header class="app-header no-print">
+    <div class="app-brand">
+      <img class="app-logo" src="img/logo-cvm.png" alt="Cégep du Vieux Montréal">
+      <div class="app-title" id="header-title">Espace professeur</div>
+    </div>
+    <div class="app-aside" id="header-aside">Techniques de génie mécanique</div>
+  </header>
+
+  <main class="app-main" id="app">
+    <p class="muted">Chargement…</p>
+  </main>
+
+  <footer class="app-footer no-print">
+    TGM — profil fabrication · Les données des étudiants sont effacées à la fin de la session.
+  </footer>
+
+  <noscript><p class="app-noscript">Cette page a besoin de JavaScript pour fonctionner.</p></noscript>
+  <script type="module" src="js/ui/prof.js"></script>
+</body>
+</html>

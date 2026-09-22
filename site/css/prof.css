@@ -1,0 +1,124 @@
+/* Espace professeur (docs/UI.md §3.8) : connexion, barre d'outils, tableau des séances, journal des
+   corrections d'identité. Ordinateur d'abord ; à 390 px, la barre s'empile et le tableau défile
+   dans son cadre. Les composants (panneau, champ, bouton) sont dans base.css. */
+
+.app-main:has(.prof) { align-items: flex-start; }
+.prof { max-width: 1400px; }
+
+.prof-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+}
+
+.prof-toolbar .field { flex: 1 1 200px; max-width: 320px; }
+.prof-toolbar .field-note { display: none; }
+
+.prof-toolbar select {
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: var(--border) solid var(--color-accent);
+  border-radius: 0;
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  font-family: var(--font-text);
+  font-size: var(--text-md);
+}
+
+.prof-toolbar select:focus { outline: none; border-color: var(--color-accent-light); box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-light) 55%, transparent); }
+
+.prof-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin-left: auto;
+}
+
+/* Onglets « Réussites » / « Corrections d'identité » : les mêmes que les feuilles de référence. */
+.prof-tabs { display: flex; gap: var(--space-2); }
+
+.prof-tabs .tab {
+  min-height: 38px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-text-muted);
+  background: none;
+  color: var(--color-text);
+  font-family: var(--font-text);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.prof-tabs .tab[aria-selected='true'] { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-bg); font-weight: 600; }
+
+/* Le tableau défile dans son cadre sur téléphone ; la page, elle, ne s'élargit pas. */
+.table-wrap { overflow-x: auto; margin-top: var(--space-4); }
+
+.prof-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.prof-table th,
+.prof-table td {
+  padding: 8px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text-muted) 35%, transparent);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.prof-table th { border-bottom: 2px solid var(--color-accent); color: var(--color-accent-light); font-weight: 600; }
+.prof-table .num { text-align: right; }
+/* Nombres, matricules, codes, dates : sur une ligne ; les titres d'exercice et l'état peuvent se replier. */
+.prof-table .mono, .prof-table .num, .prof-table .date, .prof-table td:last-child { white-space: nowrap; }
+.prof-table .mono { font-family: var(--font-number); }
+.prof-table tbody tr:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.prof-table .state--done { color: var(--color-correct); font-weight: 500; }
+.prof-table .state--running { color: var(--color-text-muted); }
+
+/* En-tête triable : un bouton qui a l'air d'un titre de colonne, avec la flèche du tri en cours. */
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sort-button:hover { color: var(--color-link-hover); }
+th[aria-sort='ascending'] .sort-button::after { content: '▲'; font-size: 0.7em; }
+th[aria-sort='descending'] .sort-button::after { content: '▼'; font-size: 0.7em; }
+
+.prof-count { margin-top: var(--space-3); }
+
+.button-small {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--color-wrong);
+  background: none;
+  color: var(--color-wrong);
+  font-family: var(--font-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button-small:hover { background: var(--color-wrong-bg); }
+.button-small:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.identity-arrow { color: var(--color-text-muted); padding: 0 6px; }
+
+@media (max-width: 640px) {
+  .prof-toolbar .field { max-width: none; }
+  .prof-actions { margin-left: 0; }
+}
