@@ -1,6 +1,6 @@
 # Spécification fonctionnelle — Quiz de paramètres de coupe (version web)
 
-Statut : **brouillon v0.2** (2026-09-20). Rédigée à partir de l'analyse du classeur
+Statut : **brouillon v0.3** (2026-09-21). Rédigée à partir de l'analyse du classeur
 `Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm` et de son VBA
 (voir `legacy/vba/`). Un point marqué ❓ est à confirmer avec Thierry ; il n'y en a aucun en ce moment.
 
@@ -8,11 +8,11 @@ Statut : **brouillon v0.2** (2026-09-20). Rédigée à partir de l'analyse du cl
 
 Exerciseur auto-corrigé où l'étudiant calcule les paramètres de coupe d'une
 opération d'usinage tirée au hasard (outil × dimension × matériau brut), jusqu'à
-démontrer la maîtrise de chaque type d'outil. À la réussite, un **rapport** est
-produit, que l'étudiant enregistre en PDF et remet sur Léa ; il porte un
-**QR code** de vérification pour l'enseignant (décision D16). Les questions
-sont tirées et corrigées par un **serveur de correction**, qui signe la
-réussite (décision D19, §7).
+démontrer la maîtrise de chaque type d'outil. À la réussite, une
+**attestation** est produite, que l'étudiant enregistre en PDF et remet sur
+Léa ; elle porte un **QR code** de vérification pour l'enseignant (décisions
+D16, D31 à D33). Les questions sont tirées et corrigées par un **serveur de
+correction**, qui fige et signe la réussite (décision D19, §7).
 
 Public : étudiants du Cégep du Vieux Montréal, Techniques de génie mécanique
 (profil fabrication) et Techniques de génie de la maintenance industrielle.
@@ -200,8 +200,8 @@ qui détient la clé secrète. Le navigateur **affiche** ; le serveur :
   les compteurs ni sur la question en cours ;
 - ne corrige une question **qu'une seule fois** : la correction tire aussitôt
   la question suivante, ou constate la réussite ;
-- **signe l'attestation de réussite** (HMAC) que le rapport porte en QR (§8,
-  jalon 5).
+- **fige et signe l'attestation de réussite** (HMAC) que la page de
+  l'attestation porte en QR (§8, décisions D31 à D33).
 
 Une **séance** = un couple (exercice, matricule) : il n'y en a qu'une. Une
 séance interrompue se reprend **de n'importe quel appareil**, en s'identifiant
@@ -223,6 +223,9 @@ ne reste rien à tirer. La séance note la version de l'exercice **au début** e
 | `seances` | une ligne par couple (exercice, matricule) : prénom et nom **de la première visite**, NIP haché, jeton haché et son expiration, début, dernière activité, dernière correction, version de l'exercice au début et à la réussite, compteurs (JSON), question en attente (JSON), date de réussite, essais de NIP et verrou |
 | `corrections_identite` | le journal des corrections d'identité (D23) : séance, anciens et nouveaux prénom, nom et matricule, horodatage — pour la page de vérification |
 | `corrections` | le journal : séance, outil, question (JSON), réponses (JSON), résultat champ par champ et valeurs attendues (JSON), réussie ou non, horodatage |
+| `attestations` | une ligne par attestation (D31, D35) : séance, code court, enregistrement figé (JSON), signature, date de création, date d'annulation éventuelle |
+| `journal_enseignant` | les actions d'enseignant (D34, D35) : horodatage, enseignant (« admin »), séance, action (`connexion`, `connexion_refusee`, `remise_a_zero`), détails |
+| `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
 
 Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **purge le
 tout en fin de session** (page d'administration, §8) ; purger une séance efface
@@ -243,7 +246,8 @@ stockage vide, illisible ou en panne → l'étudiant s'identifie, sans erreur.
   `CLE_SECRETE`, le serveur refuse de travailler (500) plutôt que de hacher
   sans secret.
 - Une **sous-clé par usage** est dérivée de `CLE_SECRETE` par HKDF-SHA-256
-  (`worker/crypto.js`) : « nip » aujourd'hui, « attestation » au jalon 5.
+  (`worker/crypto.js`) : « nip », « attestation » (signature des
+  attestations, D32), « prof » (cookie de séance professeur, D34).
 - **NIP** : la base garde HMAC-SHA-256(sous-clé « nip », matricule + NIP). Pas
   de hachage lent : un NIP de 4 à 6 chiffres est trop court pour qu'il serve ;
   la protection vient du secret, que la base ne contient pas. Le matricule fait partie du haché : « Corriger mon identité » vers un autre
@@ -289,6 +293,15 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | `POST /api/question` | jeton, `{ exercice }` | `{ seance }` — avec la question mémorisée, tirée au besoin ; `question` vaut `null` si l'exercice est réussi |
 | `POST /api/correction` | jeton, `{ exercice, saisies }` | `{ correction, seance }` — `seance` porte déjà la question suivante, ou la réussite |
 | `POST /api/deconnexion` | jeton, `{ exercice }` | `{ deconnecte: true }` — « Changer d'étudiant » : le jeton ne vaut plus rien |
+| `GET /api/attestation?exercice=<id>` | jeton | `{ attestation, code, signature, url_verification, annulee_le }` — l'attestation de la séance réussie (§8), créée à la première ouverture pour une séance réussie avant le jalon 5 ; 409 si l'exercice n'est pas réussi |
+| `POST /api/verification` | `{ code }`, ou tous les champs de l'adresse du QR | `{ resultat: "valide", attestation }`, `{ resultat: "annulee", attestation, annulee_le }`, `{ resultat: "aucune" }` ou `{ resultat: "invalide" }` — public, sans jeton (§8) |
+| `POST /api/prof/connexion` | `{ cle }` | `{ enseignant, expire_le }` + cookie `prof` (HttpOnly, Secure, SameSite=Strict, chemin `/api/prof`, 12 h) ; 401 clé incorrecte ; 429 après cinq échecs par adresse, délai croissant |
+| `POST /api/prof/deconnexion` | — | `{ deconnecte: true }` + cookie effacé |
+| `GET /api/prof/seances` | cookie | `{ enseignant, exercices, seances: [ { id, exercice: { id, titre }, prenom, nom, matricule, debut, derniere_activite, reussite_le, questions_reussies, code } ] }` — toutes les séances ; ni NIP, ni jeton, ni question |
+| `POST /api/prof/remise-a-zero` | cookie, `{ seance }` | `{ remise_a_zero: true, seance }` — D35 ; 404 séance inconnue |
+| `GET /api/prof/identites` | cookie | `{ corrections }` — le journal des corrections d'identité (D23), la plus récente en premier, avec l'exercice et le matricule actuel de la séance |
+
+Aucune route `/api/prof/*` ne répond sans cookie valide (401 « Connexion requise. »).
 
 `saisies` : les champs évalués, en texte, sous les noms du moteur —
 `{ vc, feedPerTooth, rpm, feedPerRev, feedRate }`. Tout le reste est ignoré.
@@ -343,10 +356,10 @@ Pour chaque champ :
 | Code | Sens |
 |---|---|
 | 400 | requête invalide : JSON illisible, exercice inconnu, identification mal formée (le message dit quoi) |
-| 401 | NIP incorrect (reprise, correction d'identité) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau |
+| 401 | NIP incorrect (reprise, correction d'identité) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau ; espace professeur : clé incorrecte, ou cookie absent, forgé ou expiré |
 | 404 | adresse inconnue sous `/api/` ; reprise : aucune séance pour ce matricule dans cet exercice |
-| 409 | création ou correction d'identité : ce matricule a déjà une séance pour cet exercice ; correction : aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question |
-| 429 | reprise et correction d'identité : 5 essais de NIP en 10 minutes → verrou de 10 minutes, même pour le bon NIP ; correction : moins de 10 s depuis la précédente (`attendre_s` dit combien) |
+| 409 | création ou correction d'identité : ce matricule a déjà une séance pour cet exercice ; correction : aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question ; attestation : l'exercice n'est pas encore réussi |
+| 429 | reprise et correction d'identité : 5 essais de NIP en 10 minutes → verrou de 10 minutes, même pour le bon NIP ; correction : moins de 10 s depuis la précédente (`attendre_s` dit combien) ; consultation et vérification : limite de débit par adresse (§8) ; connexion professeur : cinq échecs par adresse, puis délai croissant |
 | 500 | erreur du serveur ; le détail reste dans ses journaux |
 
 **Essais de NIP.** Ils se comptent à la reprise **et** à la correction d'identité, qui exige le NIP : ce n'est pas un moyen de le deviner sans limite. Chaque essai est compté avant d'être examiné. Le 5ᵉ essai
@@ -360,7 +373,7 @@ présenté pour ce matricule devient le nouveau.
 réglable (`tests/worker-api.test.js`). `npm run test:api` rejoue un scénario par
 HTTP sur `wrangler dev` et une vraie D1 locale.
 
-## 8. Identification de l'étudiant et rapport
+## 8. Identification de l'étudiant, attestation, vérification, espace professeur
 
 Identification (décisions D19, D21, D23) : prénom, nom, **matricule à 7 chiffres**
 (espaces autour tolérés, conservé en texte) et un **NIP de 4 à 6 chiffres**.
@@ -394,31 +407,143 @@ silence (présentation : `UI.md` §3.2) :
 - Le navigateur vérifie la forme des champs avant l'envoi
   (`site/js/identification.js`) ; le serveur revérifie tout.
 
-**La preuve de réussite est le rapport**, que l'étudiant enregistre en PDF et
-remet sur Léa (décision D16). Le QR code sert à l'enseignant pour vérifier un
-rapport en cas de doute.
-
-Rapport de réussite (présentation : `UI.md` §3.6) :
-- exercice et sa version, prénom, nom, matricule, date/heure de début,
-  date/heure de réussite, nombre de questions réussies ;
-- tableau des questions réussies groupées par opération (outil, matériau,
-  paramètres) ;
-- **QR code** vers la page de vérification.
+**La preuve de réussite est l'attestation**, que l'étudiant enregistre en PDF
+et remet sur Léa (décision D16). Le QR code sert à l'enseignant pour vérifier
+une attestation en cas de doute.
 
 Moodle est abandonné (D16) : ni numéro Moodle, ni code de réussite. La formule
 du classeur (`calcCodeM`) reste dans `legacy/vba/` pour mémoire.
 
-### QR code, page de vérification et page d'administration (décision D19)
+### Attestation de réussite (décisions D31 à D33)
 
-- Le QR du rapport porte une **attestation de réussite signée par le serveur**
-  (HMAC, clé secrète détenue par le serveur seulement). Un rapport fabriqué ou
-  retouché ne passe pas la vérification.
-- Une **page de vérification publique** lit l'attestation du QR et demande au
-  serveur si elle est authentique.
-- Une **page d'administration, à clé**, interroge le même serveur : liste des
-  réussites, remise à zéro d'un NIP, purge des données en fin de session.
-- Contenu exact de l'attestation, adresse de la page de vérification et forme
-  de la clé d'administration : jalon 5 (`PLAN.md`).
+**Enregistrement figé (D31).** Quand la dernière réussite exigée est obtenue —
+par une correction, ou constatée à la demande de question quand l'exercice a
+été allégé (D21) —, le serveur écrit un enregistrement qui **ne change plus** :
+
+```json
+{
+  "code": "ABCDEFGHJK",
+  "exercice": { "id": "m10-tournage-vc", "titre": "M10 — Tournage : vitesse de coupe" },
+  "revision": "r0",
+  "etudiant": { "prenom": "Camille", "nom": "Tremblay", "matricule": "2412345" },
+  "debut": "2026-09-21T13:05:00.000Z",
+  "reussite_le": "2026-09-21T13:48:10.000Z",
+  "questions_reussies": 15,
+  "outils": [ { "id": "mclnr", "nom": "MCLNR", "plage": "10 mm à 20 mm", "operation": "Chariotage ébauche", "reussites": 1, "requises": 1 } ]
+}
+```
+
+- `revision` : la version de l'exercice à la réussite (`version_exercice_reussite`) ;
+- `outils` : dans l'ordre de l'exercice ; `nom`, `plage` (de la première à la
+  dernière dimension du catalogue) et `operation` sont **copiés du catalogue
+  à cet instant** et plus jamais relus ; `reussites` est le compteur de
+  l'outil, `requises` ce que l'exercice exigeait ;
+- une correction d'identité postérieure ne touche pas l'attestation.
+
+Une séance réussie **avant le jalon 5** reçoit son enregistrement à la
+première ouverture de l'attestation (`GET /api/attestation`), à partir de la
+progression enregistrée et de l'exercice tel qu'il est alors. Plusieurs
+requêtes qui constatent la réussite en même temps n'en créent qu'une.
+
+**Code et signature (D32).** Le code est tiré au hasard, sans biais, dans
+`23456789ABCDEFGHJKMNPQRSTVWXYZ` (30 caractères : ni 0, O, 1, I, L ni U),
+10 caractères, unique, présenté `XXXXX-XXXXX` ; la saisie tolère minuscules,
+espaces et tirets. La signature est HMAC-SHA-256(sous-clé « attestation »,
+sérialisation canonique de l'enregistrement) en base64url ; la sérialisation
+canonique est le JSON de l'enregistrement, clés triées à tous les niveaux, sans
+espace (`worker/attestation.js`). Toute comparaison de signature se fait en
+temps constant.
+
+**La page de l'attestation** (`UI.md` §3.6) : format lettre, en-tête du
+département sur trois lignes, identité, exercice et révision, dates, tableau
+des opérations effectuées (opération, outil, plage, réussites obtenues /
+exigées), code QR avec le code court dessous, mention « Vérification :
+<adresse du site>/verifier — code XXXXX-XXXXX », pied « TGM-TMI — TLP —
+<année> ». Bouton **Enregistrer en PDF** : l'impression du navigateur (le PDF
+vient du navigateur, jamais du serveur), nom de fichier proposé
+`Attestation-<exercice>-<Nom>-<Prenom>.pdf`. Un étudiant retrouve son
+attestation par la reprise de séance quand l'exercice est réussi.
+
+**Contenu du QR (D33).** L'adresse de vérification, absolue, sur l'origine de
+la requête (le site peut déménager : l'adresse n'est pas dans
+l'enregistrement) :
+
+```
+https://<site>/verifier?exercice=…&matricule=…&nom=…&prenom=…&reussite=<ISO>&revision=…&questions=15&code=XXXXX-XXXXX&signature=<base64url>
+```
+
+Un lecteur de QR quelconque montre ces données sans le site ; le site, lui,
+vérifie. L'adresse fait environ 240 caractères : un QR de version 12
+(65 modules), lisible à 1,7 po sur une attestation imprimée.
+
+### Vérification publique (`/verifier`, décision D33)
+
+Sans connexion. Deux entrées : l'adresse du QR (la page vérifie d'elle-même),
+ou la saisie du code court (ou d'une adresse collée entière). Le serveur
+(`POST /api/verification`) :
+
+1. retrouve l'enregistrement par le code → sinon **aucune** attestation ne
+   correspond ;
+2. **recompose la signature** à partir de l'enregistrement qu'il détient ; elle
+   doit être celle qu'il a stockée et, si l'adresse en porte une, celle de
+   l'adresse ; et chaque champ de l'adresse doit être égal à celui de
+   l'enregistrement — sinon **invalide** (signature invalide ou contenu
+   modifié). Une attestation ne se vérifie pas à moitié : une adresse qui porte
+   autre chose que le code doit tout porter ;
+3. si l'attestation a été annulée par l'enseignant (D35) → **annulée**, avec la
+   date ;
+4. sinon **valide**, avec l'enregistrement complet tel que le serveur le
+   détient, tableau des opérations compris.
+
+La page ne divulgue rien de plus que l'attestation imprimée : ni journal, ni
+corrections d'identité, ni durées. Elle est soumise aux limites de débit
+(ci-dessous).
+
+### Espace professeur (`/prof`, décisions D34, D35)
+
+- **Une seule clé** au jalon 5 : `CLE_ADMIN`. La séance professeur porte un
+  identifiant d'enseignant, « admin », que le journal des actions note.
+- **Connexion** : saisie de la clé, comparée en temps constant après hachage ;
+  puis un **cookie de séance signé** (sous-clé « prof », charge = enseignant et
+  expiration ; `HttpOnly`, `Secure`, `SameSite=Strict`, chemin `/api/prof`,
+  12 h). **Se déconnecter** efface le cookie. **Cinq essais ratés par
+  adresse**, puis un délai qui double à chaque échec (1, 2, 4… minutes,
+  plafonné à une heure) ; chaque refus et chaque connexion sont journalisés.
+- **Réussites par exercice** : le tableau des séances (nom, prénom, matricule,
+  exercice, début, dernière activité, réussi le … ou en cours, questions
+  réussies, code de l'attestation), filtre par exercice, tri par colonne,
+  recherche par matricule ou par nom (sans casse ni accents). Tout se fait dans
+  le navigateur (`site/js/ui/prof-data.js`).
+- **Export CSV** de la liste affichée : UTF-8 avec BOM, séparateur `;`, CRLF,
+  dates ISO 8601 à l'heure du poste avec un espace entre la date et l'heure
+  (`2026-09-21 13:48:10` : Excel en français le reconnaît, pas le « T »).
+- **Remise à zéro** d'une séance, avec confirmation : la progression revient à
+  zéro (compteurs, question en attente, dates de réussite et de dernière
+  correction, version à la réussite), la séance reste (identifiant, matricule,
+  NIP, jeton, début, journal des corrections) ; l'attestation en cours est
+  **marquée annulée** avec la date ; l'action est journalisée (date,
+  enseignant, séance, action). Une nouvelle réussite crée une nouvelle
+  attestation, avec un autre code.
+- **Journal des corrections d'identité** (D23) : la plus récente en premier,
+  avec l'exercice, le matricule actuel, avant → après, et la séance.
+- Aucune route `/api/prof/*` ne répond sans cookie valide ; le client ne
+  contient aucun secret. Ordinateur d'abord, lisible à 390 px.
+- Restent à faire (`PLAN.md`) : remise à zéro d'un NIP, suppression d'une
+  séance, purge de fin de session.
+
+### Limites de débit par adresse (décision D36)
+
+Consultation d'un matricule (`/api/consultation`) et vérification d'un code
+(`/api/verification`) : au plus **100 valeurs distinctes par adresse IP et par
+heure** (tranche horaire UTC), aucune limite sur le nombre de requêtes (tous les
+postes du cégep sortent par une seule adresse). La 101ᵉ valeur est refusée
+(429, `attendre_s`) et **verrouille l'adresse 10 minutes** ; une valeur déjà
+vue passe toujours ; une valeur refusée n'est pas comptée comme vue. Les
+compteurs vivent en D1 (tables `debit` et `verrous`), pas dans le service de
+limitation de Cloudflare : il compte des requêtes, pas des valeurs distinctes,
+et ne se teste pas sous `node --test` avec une horloge réglable. L'adresse est
+`cf-connecting-ip` ; sans cet en-tête (tests sous Node), une seule adresse
+« inconnue ». La connexion professeur a son propre verrou (ci-dessus).
 
 L'ancien QR du classeur (`https://thierryleroux.github.io/tgm-fab/?data=…` :
 champs `;`-séparés, décalage César +4, base64, décodé par `legacy/index.htm`)
@@ -429,15 +554,17 @@ ferme D6.
 
 - **Un site sans étape de construction et un serveur de correction**
   (décisions D19, D20, D22) : un seul Worker Cloudflare sert `site/`
-  (HTML/CSS/JS, JSON) tel quel et expose l'API `/api/` ; base D1 pour les
-  séances et le journal des corrections. Publié par GitHub Actions à chaque push
+  (HTML/CSS/JS, JSON ; trois pages : le quiz, `/verifier`, `/prof`) tel quel
+  et expose l'API `/api/` ; base D1 pour les séances, le journal des
+  corrections, les attestations et le journal d'enseignant. Publié par GitHub Actions à chaque push
   sur `main` : `npm test`, puis les migrations de la base, puis
   `wrangler deploy`.
 - Fonctionne dans les navigateurs récents du laboratoire et sur téléphone.
 - Interface en **français**.
 - **Durable** : sans étape de compilation obligatoire, dépendances minimales et
-  épinglées (QR code à l'exécution, `wrangler` pour développer et publier),
-  données modifiables par l'enseignant en éditant les JSON.
+  épinglées (`qrcode-generator` 2.0.4 copié dans `site/vendor/` pour le QR,
+  `wrangler` pour développer et publier), données modifiables par l'enseignant
+  en éditant les JSON.
 - Le **moteur de calcul et de correction est testé unitairement** (cas tirés du
   classeur), tout comme le serveur (§7, « Tests »). Node ≥ 22.13 pour
   développer ; rien à installer pour l'étudiant.

@@ -24,7 +24,8 @@ la lisibilité priment sur l'élégance technique.**
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
 - `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
 - `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions.
-- `worker/` — le **serveur de correction** (décisions D19 à D22, API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles (pur, testé), `base.js` tout le SQL, `crypto.js` le NIP et le jeton, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
+- `worker/` — le **serveur de correction** (décisions D19 à D22, D31 à D36 ; API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles d'une séance (pur, testé), `attestation.js` celles de l'attestation (code, enregistrement figé, adresse du QR), `acces.js` celles de l'accès (limites de débit, verrous, cookie professeur), `base.js` tout le SQL, `crypto.js` le NIP, le jeton, les signatures, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
+- `site/verifier.html` et `site/prof.html` — la page publique de vérification d'une attestation et l'espace professeur (SPEC §8) ; leurs écrans sont `site/js/ui/verifier.js` et `prof.js`, leurs règles `attestation-data.js` et `prof-data.js` (pures, testées).
 - `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js`) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
 - `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté.
 - `docs/rapports/<jalon>-<sujet>.md` — les rapports de fin de session, tels qu'écrits à Thierry (règle 8 ci-dessous) : ce qui a été fait, vérifié, et les points douteux à trancher.
@@ -50,7 +51,7 @@ la lisibilité priment sur l'élégance technique.**
   `site/fonts/` : aucune requête vers un domaine externe.
 
 ```
-site/              page publiée (index.html, css/, js/, fonts/, vendor/)
+site/              pages publiées : index.html (le quiz), verifier.html, prof.html ; css/, js/, fonts/, vendor/ (bibliothèque QR)
 site/data/         catalogue : JSON de référence, unique exemplaire (décisions D8, D11)
 site/exercices/    un JSON par exercice configurable (décision D11, SPEC §10)
 site/img/outils/   images des outils
@@ -89,7 +90,7 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 
 ```
 npm test                 # tests unitaires, dont l'API du serveur sur une base SQLite en mémoire
-npm run test:api         # l'API par HTTP sur wrangler dev et une vraie D1 locale jetable (~30 s)
+npm run test:api         # l'API par HTTP sur wrangler dev et une vraie D1 locale jetable (~3 min : le cycle complet à la cadence réelle)
 npm run dev              # migrations locales, puis wrangler dev : le site et l'API (http://localhost:8787)
 npm run deploy           # migrations de production puis wrangler deploy — normalement fait par GitHub Actions, pas à la main
 ```

@@ -127,11 +127,11 @@ faire une seule fois, dans PowerShell, à la racine du dépôt (après
    npx wrangler secret put CLE_SECRETE
    npx wrangler secret put CLE_ADMIN
    ```
-   - `CLE_SECRETE` sert à toute la cryptographie du serveur (NIP, et plus tard
-     la signature des rapports). **Ne jamais la changer en cours de session** :
-     plus aucun NIP ne serait reconnu, et les rapports déjà remis ne se
-     vérifieraient plus.
-   - `CLE_ADMIN` ouvrira la page d'administration (jalon 5).
+   - `CLE_SECRETE` sert à toute la cryptographie du serveur (NIP, signature
+     des attestations, cookie de l'espace professeur). **Ne jamais la
+     changer** : plus aucun NIP ne serait reconnu, et les attestations déjà
+     remises répondraient « signature invalide » à la vérification.
+   - `CLE_ADMIN` ouvre l'espace professeur (étape 7).
 5. **Donner le droit D1 au jeton d'API de GitHub.** `deploy.yml` applique les
    migrations de la base avant chaque déploiement : le jeton de l'étape 4 doit
    pouvoir écrire dans D1. Tableau de bord → *My Profile* → *API Tokens* →
@@ -153,7 +153,27 @@ Pour regarder la base de production (lecture seule, sans risque) :
 npx wrangler d1 execute quiz-parametres-coupe --remote --command "SELECT exercice_id, matricule, prenom, nom, debut, reussite_le FROM seances ORDER BY debut DESC LIMIT 20"
 ```
 
-## 6. Ouvrir dans VS Code et lancer Claude Code
+## 7. Ouvrir l'espace professeur (décision D34)
+
+L'espace professeur est à `https://quiz-parametres-coupe.<sous-domaine>.workers.dev/prof`
+(en local : http://localhost:8787/prof). Il demande **la clé d'administration**,
+c'est-à-dire la valeur de `CLE_ADMIN` posée à l'étape 5.4 (en local : celle de
+`.dev.vars`). Une fois la clé acceptée, le navigateur garde une séance de
+**12 h** (cookie) ; le bouton **Se déconnecter** l'efface — à faire sur un poste
+partagé. Cinq clés fausses depuis une même adresse verrouillent la connexion
+1 minute, puis 2, 4… jusqu'à une heure ; chaque refus est noté dans la table
+`journal_enseignant`.
+
+On y trouve les réussites par exercice (filtre, tri, recherche, export CSV pour
+Excel), la remise à zéro d'une séance (la progression repart de zéro, le
+matricule et le NIP restent, l'attestation est annulée) et le journal des
+corrections d'identité. La page publique de vérification d'une attestation est
+à `…/verifier` : scanner le QR de l'attestation l'ouvre directement.
+
+Pour changer la clé : `npx wrangler secret put CLE_ADMIN` de nouveau ; les
+séances professeur en cours restent valables jusqu'à leur expiration.
+
+## 8. Ouvrir dans VS Code et lancer Claude Code
 
 ```powershell
 code C:\Projets\quiz-parametres-coupe
@@ -168,7 +188,7 @@ Dans VS Code, ouvrir le panneau Claude Code (icône dans la barre latérale ou
 > jalon 1 (site/js/data.js : chargement et validation des JSON) sans rien
 > modifier.
 
-## 7. Boucle de travail
+## 9. Boucle de travail
 
 1. Une tâche de `PLAN.md` à la fois dans Claude Code ; relire le diff ; `npm test`
    (et `npm run test:api` quand le serveur change).

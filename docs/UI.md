@@ -12,7 +12,7 @@ de contradiction, `DECISIONS.md` gagne, puis `SPEC.md`, puis ce cahier.
 
 Deux univers, volontairement distincts :
 
-| | Exercice (accueil, identification, question, correction, progression) | Documents (tables de référence, rapport de réussite) |
+| | Exercice (accueil, identification, question, correction, progression, vérification, espace professeur) | Documents (tables de référence, attestation de réussite) |
 |---|---|---|
 | Fond | bleu nuit `#05091a`, panneaux `#0b1430` | blanc, page lettre |
 | Panneaux | coins biseautés (18 px en haut-gauche et bas-droite), contour 2 px coloré, halo `drop-shadow` de la même couleur | aucun effet |
@@ -43,7 +43,8 @@ avant style**.
 
 `?exercice=<id>` (lien diffusé sur Léa) → **Accueil** → **Identification** (1 / 2 le matricule, 2 / 2 reprendre ou commencer : D23) →
 **Question** ⇄ **Tables de référence** → (Vérifier) → **Question corrigée** →
-Question suivante… → **Réussite** (rapport). L'état de la séance vit sur le
+Question suivante… → **Réussite** (attestation, §3.6). À côté : la page publique
+**`/verifier`** (§3.7) et l'**espace professeur `/prof`** (§3.8). L'état de la séance vit sur le
 serveur de correction (D19, SPEC §7) : une séance interrompue se reprend de
 n'importe quel appareil, en s'identifiant ; sur le même appareil, l'accueil
 offre « Reprendre, <prénom> » tant que le jeton local est valide.
@@ -137,17 +138,39 @@ Même écran après **Vérifier** avec au moins un champ faux (choix de Thierry 
 - **Avances** : colonnes Machine-outil et direction d'avance (texte vertical, **centré sur la hauteur du groupe**), opération, **pictogramme** (§5), barre orangée `#FFC000 → blanc` dont la **longueur est proportionnelle à l'avance** (calculée depuis `operations.json`), « pas du filetage » pour les filetages ; les **opérations proportionnelles au Ø** sont ceinturées par un encadré gris à liseré orangé qui porte la note (« Avances pour un outil Ø1'' — ajuster l'avance ↔ Ø outil », exemple « .006''/dent × Ø1/4'' = .0015''/dent », « Ne pas dépasser .010''/dent ») ; l'alésage à la barre a son propre encadré (« Av. MAX. .006''/tour »). Tout est généré depuis les données : ajouter une opération dans l'éditeur l'ajoute à la feuille.
 - **Formules** (nouvelle feuille) : deux parties séparées par un bandeau — *1re partie — Vitesse de rotation (rév/min)* (bleu `#C1EFFF`) : Vc relevée, N = Vc × 4 / Ø ; *2e partie — Vitesse d'avance (po/min)* (orangé `#FFF1C5`) : fz relevée, pas d'un filet (deux lignes : `pas = 1 / filets par pouce`, `pas = mm / 25.4`), f = fz × dents, Vf = N × f. Chaque ligne : pictogramme, nom et unité, formule **sur une seule ligne**, note. Les deux relevés dans les tables sont illustrés par une **miniature schématique** de la feuille (flèche sur la ligne et la colonne pour Vc, sur l'opération pour fz). Exemples de filetage sur trois lignes. Exemple complet surligné des deux couleurs. Rappel de la règle de saisie.
 
-### 3.6 Réussite — rapport (`06-rapport-reussite.html`)
+### 3.6 Réussite — attestation (décisions D31 à D33 ; la maquette `06-rapport-reussite.html` montre l'intention, le tableau des questions n'est pas repris)
 
-- Barre HUD : « Exercice réussi — rapport », consigne « Enregistre le PDF, puis remets-le sur Léa », bouton **Enregistrer en PDF** (impression du navigateur, nom de fichier proposé `Rapport-<exercice>-<Nom>-<Prenom>.pdf`), Terminer.
-- La page est **claire, en format lettre, identique à l'écran et à l'impression** : logo et bloc TGM, titre « Rapport de réussite — calcul de paramètres d'usinage », bloc d'informations sur deux colonnes (Exercice avec version, Prénom, Nom, Matricule, Début, Réussite, Questions réussies, Champs évalués) et le **QR code à droite de ce bloc**, dans l'en-tête.
-- Tableau des questions réussies groupées par opération : Opération, Outil, Matériau brut précédé d'une **pastille de classe** (« P2 » sur `#00B0F0`, etc.), puis **les cinq valeurs** Vc, fz, N, f, Vf avec unités, toujours toutes listées même si l'exercice n'en évaluait qu'une partie. Seules les séries qui comptent sont listées (SPEC §8).
-- **Pagination** : si la liste déborde, pages suivantes avec en-tête répété (nom, matricule, exercice) et « Page n de m » en pied. Aucun nombre d'échecs.
-- Rien sur Moodle (D16).
+- Barre du haut : « Exercice réussi — attestation », « Prénom Nom · matricule », Quitter. Sous elle, une ligne de consigne : « **Exercice réussi.** Remettez ce PDF sur Léa. », bouton doré **Enregistrer en PDF** (impression du navigateur ; le titre de la page devient le nom de fichier proposé, `Attestation-<exercice>-<Nom>-<Prenom>`), lien Terminer. **Pas de « Corriger mon identité »** ici : l'attestation est figée.
+- La page est **claire, en format lettre, identique à l'écran et à l'impression** (univers « documents », police Carlito) : logo à gauche, **en-tête du département sur trois lignes** à droite (« Techniques de génie mécanique / Technique du génie de la maintenance industrielle / (fiabilité des systèmes de production) »), titre « Attestation de réussite — calcul de paramètres d'usinage », bloc d'informations sur deux colonnes (Exercice, Révision, Prénom, Nom, Matricule en chasse fixe, Début de l'exercice, Réussite de l'exercice, Questions réussies ; dates `AAAA-MM-JJ HH:MM` à l'heure du poste), et le **QR code à droite**, avec le **code court dessous** (`XXXXX-XXXXX`, chasse fixe).
+- Ligne « Vérification : <adresse du site>/verifier — code XXXXX-XXXXX » sous le bloc.
+- **Tableau des opérations effectuées** : Opération, Outil, Plage de dimensions, Réussites de suite (« 3 / 3 ») — une ligne par outil de l'exercice, dans son ordre, tel que **figé** dans l'enregistrement (SPEC §8). Puis une note d'une ligne sur la règle des réussites de suite.
+- Pied : nom du fichier PDF « · remis sur Léa par l'étudiant », **« TGM-TMI — TLP — <année> »**, « Page 1 de 1 ». Une seule page lettre. Aucun nombre d'échecs, rien sur Moodle (D16).
+- Sur téléphone, la page garde sa taille et défile dans les deux sens, comme les feuilles de référence.
+- Si l'attestation ne peut pas être chargée (serveur injoignable), un panneau vert « Exercice réussi » le dit, avec **Réessayer**.
+
+### 3.7 Vérification d'une attestation (`/verifier`, décision D33)
+
+Page publique, univers « exercice » (fond nuit), sans connexion ; en-tête « Vérification d'une attestation », pied « Cette page ne montre rien de plus que l'attestation imprimée. »
+
+- Un panneau : « Vérifier une attestation », une phrase d'explication, un champ **Code de vérification** (chasse fixe, majuscules, `XXXXX-XXXXX`, note « 10 caractères, sans O, I, 0 ni 1 — ou l'adresse complète du QR »), bouton **Vérifier**. Entrée = Vérifier. Un champ vide ou un code mal formé : message sous le formulaire.
+- Ouverte par le QR (adresse avec `?code=…`), la page **vérifie d'elle-même** et remplit le champ.
+- Le résultat, dans un second panneau : **vert** « Attestation valide » avec l'enregistrement complet (le même bloc d'informations et le même tableau des opérations que l'attestation) ; **doré** « Attestation annulée » avec la date et l'enregistrement tel qu'il était ; **rouge** « Aucune attestation ne correspond » ; **rouge** « Signature invalide ou contenu modifié ». Le vert, le doré et le rouge sont doublés par le titre (§7).
+- Limite de débit : « Trop de demandes depuis cette adresse. Réessaie dans quelques minutes. »
+
+### 3.8 Espace professeur (`/prof`, décisions D34, D35)
+
+Univers « exercice », en-tête « Espace professeur ». Ordinateur d'abord, lisible à 390 px (la barre d'outils s'empile, les tableaux défilent dans leur cadre).
+
+- **Connexion** : panneau étroit, champ **Clé d'administration** (texte masqué par CSS, jamais `type="password"`, `autocomplete="off"` : rien à enregistrer sur un poste partagé, D21), note « Cinq essais, puis un délai croissant. », bouton **Se connecter**. Erreurs sous le formulaire : « Clé incorrecte. », « Trop d'essais. Attends avant de réessayer. (n s) ».
+- Une fois connecté, l'en-tête montre l'enseignant (« admin ») et **Se déconnecter**. Deux onglets : **Réussites** et **Corrections d'identité**.
+- **Réussites par exercice** : filtre **Exercice** (liste déroulante, « Tous les exercices »), champ **Recherche** (« Matricule ou nom », filtre à la frappe), boutons **Exporter en CSV** et Rafraîchir. Tableau : Nom, Prénom, Matricule, Exercice, Début, Dernière activité, État (« Réussi le … » en vert, « En cours » atténué), Questions réussies, Attestation (le code), Action (**Remettre à zéro**, bouton rouge au contour). Chaque en-tête est un bouton de tri (flèche ▲ ▼, `aria-sort`) ; tri par défaut : dernière activité, la plus récente en premier. Sous le tableau : « n séances sur m. »
+- **Remettre à zéro** : boîte de confirmation du navigateur qui nomme l'étudiant, l'exercice, et prévient de l'annulation de l'attestation ; puis la liste est rechargée.
+- **Corrections d'identité** : tableau Date, Exercice, Matricule actuel, Avant, Après (« Prénom Nom · matricule »), Séance ; la plus récente en premier.
+- Une séance professeur expirée (12 h) ramène à la connexion avec « Ta séance a expiré : connecte-toi de nouveau. ».
 
 ## 4. Composants réutilisables
 
-`panel(couleur)` (biseau + contour + halo), `field` (libellé, pictogramme, case, note, états *à répondre / fourni / juste / faux*), `helpLine`, `progression`, `toolCard`, `materialCard`, `printPage` (page lettre avec en-tête et pied), `dataTable` (feuilles). CSS natif avec variables ; pas de framework (D3).
+`panel(couleur)` (biseau + contour + halo), `field` (libellé, pictogramme, case, note, états *à répondre / fourni / juste / faux*), `helpLine`, `progression`, `toolCard`, `materialCard`, `printPage` (page lettre avec en-tête et pied), `dataTable` (feuilles), `factsGrid` et `operationsTable` (bloc d'informations et tableau des opérations d'une attestation, partagés par l'attestation et la vérification), `qrSvg` (QR rendu en SVG par le DOM). CSS natif avec variables ; pas de framework (D3).
 
 ## 5. Pictogrammes (SVG, dans le dépôt, modifiables)
 
@@ -165,7 +188,7 @@ Tous en SVG trait/aplat, dans `site/img/pictos/`, référencés par les données
 
 ## 6. Impression
 
-- `@page { size: letter; margin: 0.5in }` ; feuilles de référence et rapport conçus pour **lettre 8½ × 11** uniquement ; l'affiche de l'atelier est le même PDF imprimé à l'échelle.
+- `@page { size: letter; margin: 0.5in }` ; feuilles de référence et attestation conçues pour **lettre 8½ × 11** uniquement ; l'affiche de l'atelier est le même PDF imprimé à l'échelle.
 - Chaque feuille de référence tient sur **une page** avec les données actuelles ; si le catalogue grossit au point de déborder, passer à deux pages avec en-tête répété plutôt que de réduire jusqu'à l'illisible.
 - En impression, masquer la barre HUD et tout ce qui n'est pas la page ; `print-color-adjust: exact` pour conserver les couleurs de classe et les barres.
 
@@ -179,5 +202,4 @@ Tous en SVG trait/aplat, dans `site/img/pictos/`, référencés par les données
 ## 8. Ce que la maquette ne tranche pas (à traiter au fil des jalons)
 
 - Le rendu final des 19 pictogrammes d'opérations, encore provisoires (§5) ; les 6 grandeurs sont celles des maquettes.
-- Le contenu exact du QR signé, la page de vérification et la page d'administration (D19, jalon 5).
 - L'éditeur (jalon 6) : protégé par la **clé d'administration** du serveur (D21), la même que la page d'administration — jamais dans le code, jamais dans les docs. Son mode de sauvegarde (JSON à télécharger, ou autre) se décide au jalon 6.

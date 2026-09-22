@@ -66,13 +66,22 @@ Le moteur (jalons 1 et 1b) passe derrière l'API ; les règles d'une séance son
 - [ ] Sur téléphone, replier les outils terminés de la progression (UI §3.3 : « peuvent être repliés »)
 - [ ] Impression des feuilles vérifiée sur papier par Thierry (une page lettre chacune)
 
-## Jalon 5 — Rapport signé, page de vérification, administration (décisions D16, D19)
-- [ ] `GET /api/rapport` : rapport de réussite tiré du journal des corrections, et **attestation signée** (HMAC, sous-clé « attestation » de `CLE_SECRETE`)
-- [ ] Page rapport imprimable (UI §3.6) + QR code de l'attestation (bibliothèque vendorisée)
-- [ ] **Page de vérification** publique : lit l'attestation du QR, interroge le serveur ; montre la durée totale et le temps médian par question (journal)
-- [ ] **Page d'administration**, avec **une clé par enseignant** (D23 : plusieurs enseignants, rien ne se répare à la main) : liste des réussites, **remise à zéro d'un NIP** (`nip_hache` nul : déjà compris par la reprise), **suppression d'une séance** (séance ouverte par un autre au matricule d'un étudiant : farce visible aux horodatages), purge de fin de session
-- [ ] Page de vérification : montre aussi les **corrections d'identité** de la séance (journal `corrections_identite`, D23)
+## Jalon 5 — Attestation signée, vérification publique, espace professeur, limites de débit (décisions D31 à D36)
+Rapport de session : `docs/rapports/jalon-5-attestation.md`.
+
+- [x] Migration `0003` : `attestations`, `journal_enseignant`, `debit`, `verrous`
+- [x] **Enregistrement figé** à la réussite (D31 ; `worker/attestation.js`), reconstitué à la première ouverture pour les séances réussies avant cette version ; `GET /api/attestation`
+- [x] **Code court** sans ambiguïté et **signature** HMAC sur la sérialisation canonique (D32) ; comparaisons en temps constant
+- [x] **Page de l'attestation** (UI §3.6) : page lettre, tableau des opérations, QR (bibliothèque `qrcode-generator` 2.0.4 vendorisée, rendu SVG), « Enregistrer en PDF » par l'impression du navigateur ; remplace l'écran provisoire
+- [x] **QR** = adresse de vérification absolue avec l'essentiel en clair puis la signature (D33)
+- [x] **`/verifier`** public : par l'adresse du QR ou par le code ; valide / annulée / aucune / invalide (`POST /api/verification`)
+- [x] **`/prof`** (D34) : connexion par `CLE_ADMIN` (temps constant, cookie signé 12 h, cinq essais par adresse puis délai croissant, journalisés), tableau des séances (filtre, tri, recherche), export CSV, **remise à zéro** avec annulation de l'attestation (D35), journal des corrections d'identité ; aucune route `/api/prof/*` sans cookie
+- [x] **Limites de débit** (D36) : 100 matricules ou codes distincts par adresse et par heure, compteurs en D1, verrou de 10 minutes après refus
+- [x] Tests : signature et vérification (valide, falsifiée, inconnue, annulée), figeage et reconstitution, CSV, connexion (temps constant, verrou), routes sans cookie, remise à zéro, limites ; `test:api` étendu au cycle complet ; Chrome à 1280 et 390 px, média print (une page lettre), captures dans `captures/jalon-5/`
+- [ ] **Remise à zéro d'un NIP** (`nip_hache` nul : déjà compris par la reprise), **suppression d'une séance** (farce visible aux horodatages), **purge de fin de session** — depuis l'espace professeur
+- [ ] Une **clé par enseignant** et la table des enseignants (D34 : avec les devoirs, jalon 6)
 - [ ] Essai avec un groupe d'étudiants ; correctifs
+- ~~Page de vérification : durée totale, temps médian, corrections d'identité~~ — abandonné (D33 : rien de plus que l'attestation imprimée ; les corrections d'identité sont dans l'espace professeur)
 
 ## Jalon 6 — Éditeur web du catalogue et des exercices (décision D11)
 - [ ] `site/editeur/` : éditer un exercice (outils, réussites, champs évalués, restrictions), validé par `exercice.js`
