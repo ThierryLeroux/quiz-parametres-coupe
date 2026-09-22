@@ -149,6 +149,9 @@ faire une seule fois, dans PowerShell, à la racine du dépôt (après
    Pour en sortir : retirer la ligne. Cette variable ne va **jamais** dans
    `wrangler.jsonc` ni sur le Worker de production — et même là, le serveur la
    refuserait : il n'accepte le mode que pour une requête adressée à `localhost`.
+   Même règle pour `CADENCE_S=<secondes>` (décision D39), qui règle la cadence
+   entre deux corrections sur le poste seulement ; `npm run test:api` se la
+   passe lui-même (`CADENCE_S:1`).
 
 Ensuite, rien à faire à la main : le schéma de la base est dans `migrations/`
 (un fichier SQL numéroté par changement, jamais modifié une fois appliqué).
@@ -174,8 +177,9 @@ partagé. Cinq clés fausses depuis une même adresse verrouillent la connexion
 
 On y trouve les réussites par exercice (filtre, tri, recherche, export CSV pour
 Excel), la remise à zéro d'une séance (la progression repart de zéro, le
-matricule et le NIP restent, l'attestation est annulée) et le journal des
-corrections d'identité. La page publique de vérification d'une attestation est
+matricule et le NIP restent, l'attestation est annulée), la réinitialisation du
+NIP d'un étudiant qui l'a oublié (le verrou tombe, il en choisit un nouveau à sa
+prochaine reprise) et le journal des corrections d'identité. La page publique de vérification d'une attestation est
 à `…/verifier` : scanner le QR de l'attestation l'ouvre directement.
 
 Pour changer la clé : `npx wrangler secret put CLE_ADMIN` de nouveau ; les

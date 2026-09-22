@@ -276,10 +276,10 @@ ne reste rien à tirer. La séance note la version de l'exercice **au début** e
 | Table | Contenu |
 |---|---|
 | `seances` | une ligne par couple (exercice, matricule) : prénom et nom **de la première visite**, NIP haché, jeton haché et son expiration, début, dernière activité, dernière correction, version de l'exercice au début et à la réussite, compteurs (JSON), question en attente (JSON), date de réussite, essais de NIP et verrou |
-| `corrections_identite` | le journal des corrections d'identité (D23) : séance, anciens et nouveaux prénom, nom et matricule, horodatage — pour la page de vérification |
+| `corrections_identite` | le journal des corrections d'identité (D23) : séance, anciens et nouveaux prénom, nom et matricule, horodatage ; après la réussite, les codes de l'attestation annulée et de la nouvelle (D37) — pour l'espace professeur |
 | `corrections` | le journal : séance, outil, question (JSON), réponses (JSON), résultat champ par champ et valeurs attendues (JSON), réussie ou non, horodatage |
-| `attestations` | une ligne par attestation (D31, D35) : séance, code court, enregistrement figé (JSON), signature, date de création, date d'annulation éventuelle |
-| `journal_enseignant` | les actions d'enseignant (D34, D35) : horodatage, enseignant (« admin »), séance, action (`connexion`, `connexion_refusee`, `remise_a_zero`), détails |
+| `attestations` | une ligne par attestation (D31, D35, D37) : séance, code court, enregistrement figé (JSON), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`) |
+| `journal_enseignant` | les actions d'enseignant (D34, D35, D38) : horodatage, enseignant (« admin »), séance, action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`), détails |
 | `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
 
 Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **purge le
@@ -343,17 +343,18 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | `POST /api/consultation` | `{ exercice, matricule }` | `{ trouvee: false }`, ou `{ trouvee: true, prenom, initiale }` — **rien d'autre ne sort** |
 | `POST /api/creation` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, seance }` — crée la séance ; ne reprend **jamais** une séance existante (409) |
 | `POST /api/reprise` | `{ exercice, matricule, nip }` | `{ jeton, seance }` — ni prénom ni nom ; 404 s'il n'y a pas de séance |
-| `POST /api/identite` | jeton, `{ exercice, prenom, nom, matricule, nip }` | `{ seance }` — « Corriger mon identité » : NIP exigé, séance **déplacée, jamais copiée**, correction journalisée ; le jeton ne change pas |
+| `POST /api/identite` | jeton, `{ exercice, prenom, nom, matricule, nip }` | `{ seance }` — « Corriger mon identité » : NIP exigé, séance **déplacée, jamais copiée**, correction journalisée ; le jeton ne change pas ; après la réussite, l'attestation est annulée et réémise (D37, §8) |
 | `GET /api/seance?exercice=<id>` | jeton | `{ seance }` — l'état, sans rien tirer |
 | `POST /api/question` | jeton, `{ exercice }` | `{ seance }` — avec la question mémorisée, tirée au besoin ; `question` vaut `null` si l'exercice est réussi |
 | `POST /api/correction` | jeton, `{ exercice, saisies }` | `{ correction, seance }` — `seance` porte déjà la question suivante, ou la réussite |
 | `POST /api/deconnexion` | jeton, `{ exercice }` | `{ deconnecte: true }` — « Changer d'étudiant » : le jeton ne vaut plus rien |
 | `GET /api/attestation?exercice=<id>` | jeton | `{ attestation, code, signature, url_verification, annulee_le }` — l'attestation de la séance réussie (§8), créée à la première ouverture pour une séance réussie avant le jalon 5 ; 409 si l'exercice n'est pas réussi |
-| `POST /api/verification` | `{ code }`, ou tous les champs de l'adresse du QR | `{ resultat: "valide", attestation }`, `{ resultat: "annulee", attestation, annulee_le }`, `{ resultat: "aucune" }` ou `{ resultat: "invalide" }` — public, sans jeton (§8) |
+| `POST /api/verification` | `{ code }`, ou tous les champs de l'adresse du QR | `{ resultat: "valide", attestation }`, `{ resultat: "annulee", attestation, annulee_le, motif }`, `{ resultat: "aucune" }` ou `{ resultat: "invalide" }` — public, sans jeton (§8) |
 | `POST /api/prof/connexion` | `{ cle }` | `{ enseignant, expire_le }` + cookie `prof` (HttpOnly, Secure, SameSite=Strict, chemin `/api/prof`, 12 h) ; 401 clé incorrecte ; 429 après cinq échecs par adresse, délai croissant |
 | `POST /api/prof/deconnexion` | — | `{ deconnecte: true }` + cookie effacé |
 | `GET /api/prof/seances` | cookie | `{ enseignant, exercices, seances: [ { id, exercice: { id, titre }, prenom, nom, matricule, debut, derniere_activite, reussite_le, questions_reussies, code } ] }` — toutes les séances ; ni NIP, ni jeton, ni question |
 | `POST /api/prof/remise-a-zero` | cookie, `{ seance }` | `{ remise_a_zero: true, seance }` — D35 ; 404 séance inconnue |
+| `POST /api/prof/reinitialisation-nip` | cookie, `{ seance }` | `{ nip_reinitialise: true, seance }` — D38 : NIP effacé, verrou levé, progression intacte ; 404 séance inconnue |
 | `GET /api/prof/identites` | cookie | `{ corrections }` — le journal des corrections d'identité (D23), la plus récente en premier, avec l'exercice et le matricule actuel de la séance |
 
 Aucune route `/api/prof/*` ne répond sans cookie valide (401 « Connexion requise. »).
@@ -457,6 +458,13 @@ puis Question suivante. **Sans porte à la tricherie** :
   si la question porte `reponses_test` ; il n'a aucun interrupteur ;
 - dans ce mode, la cadence de 10 s est levée.
 
+**Cadence réglable (D39).** La variable `CADENCE_S` (secondes entières) règle la
+cadence entre deux corrections, sous les mêmes verrous que `MODE_TEST` : jamais
+dans `wrangler.jsonc` ni dans le déploiement, et honorée seulement pour une
+requête adressée au poste lui-même (`cadenceFor`, `worker/seance.js`) ; ailleurs
+la cadence reste 10 s. `npm run test:api` s'en sert (`CADENCE_S:1`) pour le
+cycle complet, après avoir vérifié la cadence réelle.
+
 L'exercice `test-complet` (§10) sert à cet essai. Plus tard, le mode pourra
 s'ouvrir aux séances d'un **professeur connecté** (jalon 5 ou 6) ; pour toute
 séance d'étudiant, la règle « rien de ce qui est à trouver ne part au
@@ -519,6 +527,7 @@ par une correction, ou constatée à la demande de question quand l'exercice a
   "code": "ABCDEFGHJK",
   "exercice": { "id": "m10-tournage-vc", "titre": "M10 — Tournage : vitesse de coupe" },
   "revision": "r0",
+  "revision_tables": { "materiaux": "A2026_r0", "operations": "A2026_r0" },
   "etudiant": { "prenom": "Camille", "nom": "Tremblay", "matricule": "2412345" },
   "debut": "2026-09-21T13:05:00.000Z",
   "reussite_le": "2026-09-21T13:48:10.000Z",
@@ -528,11 +537,14 @@ par une correction, ou constatée à la demande de question quand l'exercice a
 ```
 
 - `revision` : la version de l'exercice à la réussite (`version_exercice_reussite`) ;
-- `outils` : dans l'ordre de l'exercice ; `nom`, `plage` (de la première à la
-  dernière dimension du catalogue) et `operation` sont **copiés du catalogue
-  à cet instant** et plus jamais relus ; `reussites` est le compteur de
-  l'outil, `requises` ce que l'exercice exigeait ;
-- une correction d'identité postérieure ne touche pas l'attestation.
+  `revision_tables` : la révision de chaque table de référence (clé `revision`
+  de `materiaux.json` et `operations.json`, D28) ;
+- `outils` : exactement `progression.outils` tel que le serveur le montre à
+  l'écran (§7) — `nom`, `operation` et `plage` (celle que l'exercice permet,
+  D30) **copiés à cet instant** et plus jamais relus ; `reussites` est le
+  compteur de l'outil, `requises` ce que l'exercice exigeait ;
+- une correction d'identité postérieure **annule et réémet** l'attestation
+  (D37, ci-dessous) : les résultats et les dates sont repris tels quels.
 
 Une séance réussie **avant le jalon 5** reçoit son enregistrement à la
 première ouverture de l'attestation (`GET /api/attestation`), à partir de la
@@ -548,8 +560,17 @@ canonique est le JSON de l'enregistrement, clés triées à tous les niveaux, sa
 espace (`worker/attestation.js`). Toute comparaison de signature se fait en
 temps constant.
 
+**Correction d'identité après la réussite (D37).** « Corriger mon identité »
+est offert sur la page de l'attestation, NIP exigé. Si l'identité change, le
+même lot déplace la séance, marque l'attestation en cours annulée (motif
+`identite_corrigee`) et en insère une nouvelle : l'enregistrement est repris
+tel quel avec la nouvelle identité et un nouveau code, puis signé. L'ancien code
+répond « annulée » avec le motif ; le journal des corrections d'identité note
+`ancien_code` et `nouveau_code`. Sans changement, rien n'est réémis.
+
 **La page de l'attestation** (`UI.md` §3.6) : format lettre, en-tête du
-département sur trois lignes, identité, exercice et révision, dates, tableau
+département sur trois lignes, identité, exercice, version et révision des
+tables, dates, tableau
 des opérations effectuées (opération, outil, plage, réussites obtenues /
 exigées), code QR avec le code court dessous, mention « Vérification :
 <adresse du site>/verifier — code XXXXX-XXXXX », pied « TGM-TMI — TLP —
@@ -584,8 +605,8 @@ ou la saisie du code court (ou d'une adresse collée entière). Le serveur
    l'enregistrement — sinon **invalide** (signature invalide ou contenu
    modifié). Une attestation ne se vérifie pas à moitié : une adresse qui porte
    autre chose que le code doit tout porter ;
-3. si l'attestation a été annulée par l'enseignant (D35) → **annulée**, avec la
-   date ;
+3. si l'attestation a été annulée — remise à zéro (D35) ou identité corrigée
+   (D37) → **annulée**, avec la date et le motif ;
 4. sinon **valide**, avec l'enregistrement complet tel que le serveur le
    détient, tableau des opérations compris.
 
@@ -618,12 +639,16 @@ corrections d'identité, ni durées. Elle est soumise aux limites de débit
   **marquée annulée** avec la date ; l'action est journalisée (date,
   enseignant, séance, action). Une nouvelle réussite crée une nouvelle
   attestation, avec un autre code.
+- **Réinitialisation du NIP** (D38), avec confirmation : NIP effacé, essais et
+  verrou levés, progression et jeton intacts ; l'étudiant choisit un nouveau NIP
+  à sa prochaine reprise. Journalisée.
 - **Journal des corrections d'identité** (D23) : la plus récente en premier,
-  avec l'exercice, le matricule actuel, avant → après, et la séance.
+  avec l'exercice, le matricule actuel, avant → après, l'attestation réémise
+  s'il y en a une (D37), et la séance.
 - Aucune route `/api/prof/*` ne répond sans cookie valide ; le client ne
   contient aucun secret. Ordinateur d'abord, lisible à 390 px.
-- Restent à faire (`PLAN.md`) : remise à zéro d'un NIP, suppression d'une
-  séance, purge de fin de session.
+- Restent à faire (`PLAN.md`, jalon 6) : suppression d'une séance, purge de
+  fin de session, clé par enseignant avec une table des séances professeur.
 
 ### Limites de débit par adresse (décision D36)
 

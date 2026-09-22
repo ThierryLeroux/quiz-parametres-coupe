@@ -823,3 +823,57 @@ ne peut pas forger ; sans cet en-tête (tests), une seule adresse « inconnue »
 le SQL. La connexion professeur a son propre verrou (D34). Une classe entière
 peut consulter ses matricules à volonté ; un robot qui en essaie des milliers
 est arrêté à cent.
+
+## D37 — Correction d'identité après la réussite : l'attestation est annulée et réémise (2026-09-21, décidée)
+
+**Contexte.** D31 figeait l'attestation, et le jalon 5 avait retiré « Corriger
+mon identité » de sa page : une faute de frappe dans le nom, découverte après
+la réussite, ne se réparait plus que par une remise à zéro — tout refaire pour
+une coquille, à l'inverse du sens de D23 (rien ne se répare à la main, et
+l'étudiant se répare seul).
+
+**Décision.** « Corriger mon identité » revient sur la page de l'attestation,
+avec le NIP exigé comme dans D23. Quand la séance est réussie, la correction
+**annule l'attestation en cours** (motif « identité corrigée ») et **en émet
+une nouvelle** dans le même lot : nouveau code, nouvelle signature, nouvelle
+identité, **mêmes résultats, mêmes dates**. L'ancien code répond « annulée »
+avec le motif ; le journal des corrections d'identité note les deux codes.
+Une correction sans changement ne réémet rien.
+
+**Conséquences.** Précise D31 : ce qui est figé, ce sont les résultats et les
+dates ; l'identité suit la correction, mais jamais en silence — l'ancienne
+attestation reste vérifiable et dit pourquoi elle ne vaut plus. Migration
+`0003` : `attestations.annulation_motif`, `corrections_identite.ancien_code`
+et `nouveau_code`. La vérification (D33) donne le motif d'une annulation.
+
+## D38 — Réinitialisation du NIP depuis l'espace professeur (2026-09-21, décidée)
+
+**Décision.** Dans le tableau des séances, un bouton **Réinitialiser le NIP**,
+avec confirmation : le NIP est effacé (`nip_hache` nul), les essais et le
+verrou tombent, la progression et le jeton restent. À sa prochaine reprise,
+l'étudiant choisit un nouveau NIP : celui qu'il présente devient le sien, comme
+à la création (mécanisme déjà prévu par D21). L'action est journalisée
+(`reinitialisation_nip`). Le message « Si tu l'as oublié, demande à ton
+enseignant de le remettre à zéro » a ainsi son bouton.
+
+**Conséquences.** `POST /api/prof/reinitialisation-nip`. Complète D34 :
+restent pour le jalon 6 la suppression d'une séance, la purge et la clé par
+enseignant, avec une table des séances professeur qui permette de révoquer
+(le cookie sans état du jalon 5 ne se révoque qu'à son expiration).
+
+## D39 — Cadence réglable en local, pour les tests (2026-09-21, décidée)
+
+**Contexte.** `npm run test:api` rejoue la réussite complète du M10 sur
+`wrangler dev` : quinze corrections à la cadence réelle de 10 s, soit près de
+trois minutes.
+
+**Décision.** Une variable `CADENCE_S` (secondes entières, 1 à 999) règle la
+cadence entre deux corrections. Même règle que `MODE_TEST` (D26) : absente de
+`wrangler.jsonc` et du déploiement (un test le vérifie), en commentaire dans
+`.dev.vars.exemple`, et **honorée seulement pour une requête adressée au poste
+lui-même** — partout ailleurs, la cadence reste 10 s. `test:api` garde ses
+étapes à la cadence réelle, puis relance `wrangler dev` avec `CADENCE_S:1` sur
+la même base pour le cycle complet : une minute au lieu de trois.
+
+**Conséquences.** `cadenceFor` dans `worker/seance.js` ; `cadenceWait` reçoit
+la cadence en option. Rien ne change pour l'étudiant.

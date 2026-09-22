@@ -91,7 +91,7 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 
 ```
 npm test                 # tests unitaires, dont l'API du serveur sur une base SQLite en mémoire
-npm run test:api         # l'API par HTTP sur wrangler dev et une vraie D1 locale jetable (~3 min : le cycle complet à la cadence réelle)
+npm run test:api         # l'API par HTTP sur wrangler dev et une vraie D1 locale jetable (~1 min : cadence réelle, puis CADENCE_S:1 pour le cycle complet)
 npm run dev              # migrations locales, puis wrangler dev : le site et l'API (http://localhost:8787)
                          # avec MODE_TEST=1 dans .dev.vars : mode test (D26), réponses jointes par le serveur — local seulement
 npm run deploy           # migrations de production puis wrangler deploy — normalement fait par GitHub Actions, pas à la main

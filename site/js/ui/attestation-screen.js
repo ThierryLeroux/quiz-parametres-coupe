@@ -72,7 +72,7 @@ export function renderAttestation(main, { seance, attestation }, actions) {
 
   const screen = el('div', { class: 'screen screen--document' }, [
     el('div', { class: 'attestation-bar no-print' }, [
-      el('div', {}, [el('strong', {}, 'Exercice réussi. '), 'Remettez ce PDF sur Léa.']),
+      el('div', {}, [el('strong', {}, 'Exercice réussi. '), 'Remets ce PDF sur Léa.']),
       el('div', { class: 'attestation-bar-actions' }, [printButton, el('button', { class: 'button-link', type: 'button', onclick: actions.onQuit }, 'Terminer')]),
     ]),
     el('div', { class: 'print-stage attestation-stage' }, attestationPage(attestation, location.host)),
