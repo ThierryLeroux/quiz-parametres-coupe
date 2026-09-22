@@ -4,8 +4,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CODE_ALPHABET, CODE_LENGTH, buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, parseCode, readClaims,
-  toolRange, verificationUrl,
+  verificationUrl,
 } from '../worker/attestation.js';
+import { sessionView } from '../worker/seance.js';
 import { loadApp } from '../site/js/app.js';
 import { lireFichier } from './aide.js';
 
@@ -22,6 +23,7 @@ const SEANCE = {
   reussite_le: '2026-09-21T13:48:10.000Z',
   version_exercice: 'r0',
   version_exercice_reussite: 'r0',
+  question_courante: null,
   compteurs: { reussites: { mclnr: 1, mvlnr: 3, lame_a_tronconner: 3, barre_a_fileter: 1, barre_a_fileter_2: 1, barre_a_rainurer: 3, barre_a_aleser: 1, sdtmr: 1, sdtmr_2: 1 }, totalReussies: 17 },
 };
 
@@ -78,18 +80,14 @@ test('canonical : clés triées à tous les niveaux, sans espace ; l’ordre d�
 
 // --- Enregistrement figé --------------------------------------------------------------------------------------
 
-test('toolRange : de la première à la dernière dimension du catalogue', () => {
-  assert.equal(toolRange(data.outils.find((tool) => tool.id === 'foret_fractionnaire')), 'Ø 1/64 po à Ø 1 po');
-  assert.equal(toolRange(data.outils.find((tool) => tool.id === 'sdtmr_2')), 'M4 x 0.7 à M68 x 6');
-  assert.equal(toolRange({ dimensions: [{ libelle: '1/4 po' }] }), '1/4 po');
-});
-
-test('buildAttestation : tout est copié à cet instant — identité, exercice, révision, dates, outils dans l’ordre de l’exercice', () => {
+test('buildAttestation : tout est copié à cet instant — identité, exercice, révisions, dates, outils dans l’ordre de l’exercice', () => {
   const record = buildAttestation(SEANCE, m10, data, 'ABCDEFGHJK');
-  assert.deepEqual(Object.keys(record), ['code', 'exercice', 'revision', 'etudiant', 'debut', 'reussite_le', 'questions_reussies', 'outils']);
+  assert.deepEqual(Object.keys(record), ['code', 'exercice', 'revision', 'revision_tables', 'etudiant', 'debut', 'reussite_le', 'questions_reussies', 'outils']);
   assert.equal(record.code, 'ABCDEFGHJK');
   assert.deepEqual(record.exercice, { id: 'm10-tournage-vc', titre: 'M10 — Tournage : vitesse de coupe' });
   assert.equal(record.revision, 'r0');
+  assert.deepEqual(record.revision_tables, { materiaux: data.revisions.materiaux, operations: data.revisions.operations });
+  assert.match(record.revision_tables.materiaux, /^[A-Z]\d{4}_r\d+$/);
   assert.deepEqual(record.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
   assert.equal(record.debut, SEANCE.debut);
   assert.equal(record.reussite_le, SEANCE.reussite_le);
@@ -102,12 +100,15 @@ test('buildAttestation : tout est copié à cet instant — identité, exercice,
   assert.equal(JSON.stringify(record).includes('vc_pi_min'), false);
 });
 
-test('buildAttestation : la révision est celle de la réussite ; sinon celle de l’exercice ; un outil jamais réussi vaut 0', () => {
-  const r1 = { ...m10, version: 'r1', outils: [...m10.outils, { id: 'foret_fractionnaire', reussites_requises: 2 }] };
+test('buildAttestation : la révision est celle de la réussite ; sinon celle de l’exercice ; un outil jamais réussi vaut 0 ; la plage est celle que l’exercice permet', () => {
+  const r1 = { ...m10, version: 'r1', outils: [...m10.outils, { id: 'foret_fractionnaire', reussites_requises: 2, dimensions: ['Ø 1/4 po', 'Ø 3/8 po', 'Ø 1/2 po'] }] };
   const ancienne = buildAttestation({ ...SEANCE, version_exercice_reussite: null }, r1, data, 'ABCDEFGHJK');
   assert.equal(ancienne.revision, 'r1');
-  assert.deepEqual(ancienne.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', plage: 'Ø 1/64 po à Ø 1 po', operation: 'Perçage', reussites: 0, requises: 2 });
+  assert.deepEqual(ancienne.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', plage: 'Ø 1/4 po à Ø 1/2 po', operation: 'Perçage', reussites: 0, requises: 2 });
   assert.equal(buildAttestation({ ...SEANCE, version_exercice_reussite: 'r0' }, r1, data, 'ABCDEFGHJK').revision, 'r0');
+  // Les outils de l'attestation sont exactement ceux de progression.outils que le serveur montre à l'écran.
+  const { progression } = sessionView(SEANCE, m10, data);
+  assert.deepEqual(buildAttestation(SEANCE, m10, data, 'ABCDEFGHJK').outils, progression.outils);
 });
 
 // --- Adresse de vérification et champs prétendus ------------------------------------------------------------

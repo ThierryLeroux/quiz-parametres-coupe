@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  attestationFacts, attestationFileName, attestationFooter, attestationRows, verificationMention, verificationOutcome,
+  attestationFacts, attestationFileName, attestationFooter, attestationRows, tablesRevision, verificationMention, verificationOutcome,
 } from '../site/js/ui/attestation-data.js';
 import { qrModules } from '../site/js/ui/qr.js';
 import { formatDateStamp } from '../site/js/ui/text.js';
@@ -17,6 +17,7 @@ const RECORD = {
   code: 'ABCDEFGHJK',
   exercice: { id: 'm10-tournage-vc', titre: 'M10 — Tournage : vitesse de coupe' },
   revision: 'r0',
+  revision_tables: { materiaux: 'A2026_r0', operations: 'A2026_r0' },
   etudiant: { prenom: 'Zoé', nom: "D'Amours Lévesque", matricule: '2412345' },
   debut: DEBUT.toISOString(),
   reussite_le: REUSSITE.toISOString(),
@@ -36,7 +37,8 @@ test('formatDateStamp : « 2026-09-21 13:05 », avec ou sans secondes, à l’he
 test('attestationFacts : le bloc d’informations, dans l’ordre, dates mises en forme, matricule en chasse fixe', () => {
   assert.deepEqual(attestationFacts(RECORD), [
     { label: 'Exercice', value: 'M10 — Tournage : vitesse de coupe' },
-    { label: 'Révision', value: 'r0' },
+    { label: "Version de l'exercice", value: 'r0' },
+    { label: 'Révision des tables', value: 'A2026_r0' },
     { label: 'Prénom', value: 'Zoé' },
     { label: 'Nom', value: "D'Amours Lévesque" },
     { label: 'Matricule', value: '2412345', mono: true },
@@ -44,6 +46,12 @@ test('attestationFacts : le bloc d’informations, dans l’ordre, dates mises e
     { label: "Réussite de l'exercice", value: '2026-09-21 13:48' },
     { label: 'Questions réussies', value: '15' },
   ]);
+});
+
+test('tablesRevision : une seule révision si les deux tables ont la même, les deux sinon, « — » sans révision (ancien enregistrement)', () => {
+  assert.equal(tablesRevision(RECORD), 'A2026_r0');
+  assert.equal(tablesRevision({ revision_tables: { materiaux: 'A2026_r0', operations: 'A2026_r1' } }), 'vitesses A2026_r0 · avances A2026_r1');
+  assert.equal(tablesRevision({}), '—');
 });
 
 test('attestationRows : une ligne par outil, dans l’ordre de l’enregistrement, réussites « obtenues / exigées »', () => {

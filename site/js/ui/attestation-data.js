@@ -4,12 +4,20 @@
 
 import { formatDateStamp } from './text.js';
 
+// La révision des tables (D28) : « A2026_r0 », ou les deux si elles diffèrent.
+export function tablesRevision(record) {
+  const { materiaux, operations } = record.revision_tables ?? {};
+  if (!materiaux && !operations) return '—';
+  return materiaux === operations ? materiaux : `vitesses ${materiaux} · avances ${operations}`;
+}
+
 // Lignes du bloc d'informations, dans l'ordre d'affichage : [libellé, valeur].
 //   mono : la valeur s'écrit en chasse fixe (matricule, code)
 export function attestationFacts(record) {
   return [
     { label: 'Exercice', value: record.exercice.titre },
-    { label: 'Révision', value: record.revision },
+    { label: "Version de l'exercice", value: record.revision },
+    { label: 'Révision des tables', value: tablesRevision(record) },
     { label: 'Prénom', value: record.etudiant.prenom },
     { label: 'Nom', value: record.etudiant.nom },
     { label: 'Matricule', value: record.etudiant.matricule, mono: true },

@@ -4,6 +4,8 @@
 //
 // Fonctions PURES : ni base, ni réseau, ni horloge cachée. La cryptographie est dans crypto.js.
 
+import { sessionView } from './seance.js';
+
 // --- Code court (D32) ----------------------------------------------------------------------------------
 // Alphabet base32 de Crockford sans 0/O/1/I (ni L, ni U) : 30 caractères, aucun ne se confond avec
 // un autre à l'écrit. 10 caractères → 30^10 ≈ 6 × 10^14 codes : deviner un code est sans espoir.
@@ -51,41 +53,27 @@ export function canonical(value) {
 
 // --- L'enregistrement figé (D31) ------------------------------------------------------------------------
 
-// La plage de dimensions d'un outil du catalogue : « Ø 1/64 po à Ø 1 po », ou la seule dimension.
-export function toolRange(tool) {
-  const first = tool.dimensions[0].libelle;
-  const last = tool.dimensions.at(-1).libelle;
-  return first === last ? first : `${first} à ${last}`;
-}
-
 // Compose l'attestation d'une séance réussie. Tout est COPIÉ à cet instant : le nom, la plage et
-// l'opération des outils viennent du catalogue d'aujourd'hui et ne seront plus jamais relus ; le
-// titre et la révision de l'exercice non plus. L'ordre des outils est celui de l'exercice.
+// l'opération des outils sont ceux que le serveur montre dans progression.outils (sessionView :
+// la plage est celle que l'exercice permet, D30) et ne seront plus jamais relus ; le titre et la
+// révision de l'exercice non plus, ni la révision des tables (D28 : materiaux.json et
+// operations.json). L'ordre des outils est celui de l'exercice.
 //   session  : la ligne de la table seances (colonnes JSON décodées), réussie (reussite_le non nul)
 //   exercise : l'exercice tel qu'il est au moment de composer
-//   data     : le catalogue
+//   data     : le catalogue (loadData, avec ses révisions)
 //   code     : le code court, sans tiret
 export function buildAttestation(session, exercise, data, code) {
-  const counters = session.compteurs.reussites;
+  const { progression } = sessionView(session, exercise, data);
   return {
     code,
     exercice: { id: exercise.id, titre: exercise.titre },
     revision: session.version_exercice_reussite ?? exercise.version,
+    revision_tables: { materiaux: data.revisions.materiaux, operations: data.revisions.operations },
     etudiant: { prenom: session.prenom, nom: session.nom, matricule: session.matricule },
     debut: session.debut,
     reussite_le: session.reussite_le,
-    questions_reussies: session.compteurs.totalReussies,
-    outils: exercise.outils.map((entry) => {
-      const tool = data.outils.find((candidate) => candidate.id === entry.id);
-      return {
-        id: entry.id,
-        nom: tool.nom,
-        plage: toolRange(tool),
-        operation: tool.operation,
-        reussites: counters[entry.id] ?? 0,
-        requises: entry.reussites_requises,
-      };
-    }),
+    questions_reussies: progression.total_reussies,
+    outils: progression.outils.map(({ id, nom, plage, operation, reussites, requises }) => ({ id, nom, plage, operation, reussites, requises })),
   };
 }
 
