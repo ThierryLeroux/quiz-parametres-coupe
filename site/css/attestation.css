@@ -135,28 +135,29 @@
 
 .attestation-note { font-size: 10px; color: var(--color-page-muted); }
 
-/* La liste des questions réussies (D41) : une ligne par question, sans repli, pour que la coupe
-   entre les pages se décide par un compte de lignes (attestation-data.js). Un texte trop long est
-   tronqué avec des points de suspension ; le titre de la cellule le garde entier. */
+/* La liste des questions réussies (D41, D43) : rien n'est tronqué, un texte long se replie dans sa
+   cellule et le rang prend deux lignes ; la pagination l'estime (PAGE_LAYOUT, attestation-data.js :
+   police Carlito 9,5 px, 13 px par ligne, 3 px de marge en haut et en bas, 1 px de trait). */
 .attestation-questions {
   table-layout: fixed;
   font-size: 9.5px;
 }
 
-/* Hauteur de ligne fixe : 13 + 2 × 3 + 1 de trait = 20 px (PAGE_LAYOUT.questionRow). */
 .attestation-questions th,
 .attestation-questions td {
   padding: 3px 4px;
   line-height: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
-/* Largeurs sur 720 px : le matériau usiné prend ce qui reste (les libellés les plus longs sont tronqués). */
+.attestation-questions th,
+.attestation-questions td.num,
+.attestation-questions td.stamp { white-space: nowrap; }
+
+/* Largeurs sur 720 px (PAGE_LAYOUT.columns) : le matériau usiné prend ce qui reste. */
 .attestation-questions th:nth-child(1) { width: 22px; }
 .attestation-questions th:nth-child(2) { width: 180px; }
-.attestation-questions th:nth-child(3) { width: 78px; }
+.attestation-questions th:nth-child(3) { width: 90px; }
 .attestation-questions th.num:not(:first-child) { width: 60px; }
 .attestation-questions th:last-child { width: 110px; }
 .attestation-questions td.stamp { font-family: var(--font-number); font-size: 8.5px; }
@@ -190,7 +191,7 @@
 /* Sur la page de vérification, la liste complète : les lignes peuvent se replier, rien n'est tronqué. */
 .verify-result .attestation-questions { table-layout: auto; font-size: var(--text-sm); }
 .verify-result .attestation-questions th,
-.verify-result .attestation-questions td { white-space: normal; overflow: visible; line-height: 1.35; padding: 4px 6px; }
+.verify-result .attestation-questions td { white-space: normal; line-height: 1.35; padding: 4px 6px; }
 .verify-result .attestation-questions th:nth-child(n) { width: auto; }
 .verify-result .attestation-questions td.stamp { white-space: nowrap; font-size: var(--text-sm); }
 .verify-result p + .attestation-facts { margin-top: var(--space-4); }

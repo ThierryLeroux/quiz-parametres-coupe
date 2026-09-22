@@ -48,7 +48,7 @@ export function questionColumns(record) {
   return ANSWER_FIELDS.filter((field) => present.has(field)).map((field) => ({ key: field, label: `${FIELD_PARTS[field].symbol} (${FIELD_PARTS[field].unit})` }));
 }
 
-// La matière de l'outil, en court, pour tenir sur une ligne du tableau.
+// La matière de l'outil, en court (l'enregistrement garde le nom complet).
 const TOOL_MATERIAL_SHORT = { 'Acier rapide': 'Acier rapide', 'Carbure de tungstène solide': 'Carbure solide', 'Insert de carbure de tungstène': 'Insert de carbure' };
 
 // « P 1 — Acier non allié, Recuit » : classe, no de groupe, nom, état (sans état : pas de virgule).
@@ -57,38 +57,72 @@ export function materialText(materiau) {
   return `${materiau.classe} ${materiau.groupe} — ${materiau.materiau}${state}`;
 }
 
-// Les lignes du tableau des questions réussies, dans l'ordre de l'enregistrement (chronologique).
-//   reponses : une valeur par colonne de questionColumns, « — » si la question n'évaluait pas cette grandeur
-export function questionRows(record) {
-  const columns = questionColumns(record);
-  return (record.questions ?? []).map((q) => ({
-    numero: String(q.numero),
-    outil: q.outil,
-    materiau_outil: TOOL_MATERIAL_SHORT[q.materiau_outil] ?? q.materiau_outil,
-    materiau: materialText(q.materiau),
-    reponses: columns.map((column) => q.reponses[column.key] ?? '—'),
-    horodatage: formatDateStamp(q.horodatage, { seconds: true }),
-  }));
-}
-
 // Mise en page sur une ou plusieurs pages lettre (UI §3.6). La première page porte l'en-tête, le bloc
 // d'informations, le QR et le tableau par outil : il lui reste d'autant moins de place pour les
 // questions qu'il y a d'outils. Les pages suivantes n'ont que l'en-tête et la suite du tableau.
-// Les lignes ont toutes une hauteur fixe (une ligne, sans repli : attestation.css) : la coupe se
-// décide par un compte de pixels, mesurés dans Chrome sur la page lettre (10 po utiles, soit 960 px).
+// Rien n'est tronqué (D43) : un texte long se replie dans sa cellule, et un rang peut prendre deux
+// lignes. La coupe entre les pages se décide donc par un compte de pixels, à partir d'une estimation
+// du nombre de lignes de chaque rang. Tout est mesuré dans Chrome sur la page lettre (10 po utiles,
+// soit 960 px ; 720 px de large) avec la police d'impression, Carlito 9,5 px (UI §3.6) : si la
+// police ou la CSS de la page change, recalibrer ici.
 export const PAGE_LAYOUT = {
   firstPageFree: 460, // px libres sur la page 1 pour le tableau par outil et les questions, une fois tout le reste posé
+  nextPageFree: 740, // px libres sur une page de suite (en-tête, rappel, titre et pied posés)
   toolRow: 24, // px par ligne du tableau par outil
-  questionRow: 20, // px par ligne de question
-  nextPageRows: 36, // questions par page de suite (en-tête, rappel, titre et pied posés)
+  rowBase: 7, // px d'un rang de question sans ses lignes de texte (marges et trait)
+  line: 13, // px par ligne de texte d'un rang
+  charWidth: 4.6, // px par caractère, avec de la marge (mesuré : 4,0), pour ne jamais sous-estimer le repli
+  cellPadding: 8, // px de marges dans une cellule
+  columns: { numero: 22, outil: 180, materiau_outil: 90, answer: 60, stamp: 110, page: 720 }, // largeurs de attestation.css
 };
 
+// Nombre de lignes qu'un texte occupe dans une colonne de cette largeur (au moins une).
+const linesIn = (text, width, layout) => Math.max(1, Math.ceil(text.length * layout.charWidth / (width - layout.cellPadding)));
+
+// Largeur de la colonne « Matériau usiné » : ce qui reste, une fois les autres colonnes posées.
+export function materialColumnWidth(answerColumns, layout = PAGE_LAYOUT) {
+  const { numero, outil, materiau_outil: material, answer, stamp, page } = layout.columns;
+  return page - numero - outil - material - answer * answerColumns - stamp;
+}
+
+// Les lignes du tableau des questions réussies, dans l'ordre de l'enregistrement (chronologique),
+// chacune avec le nombre de lignes de texte qu'elle occupe (`lines`, pour la pagination).
+//   reponses : une valeur par colonne de questionColumns, « — » si la question n'évaluait pas cette grandeur
+export function questionRows(record, layout = PAGE_LAYOUT) {
+  const columns = questionColumns(record);
+  const materialWidth = materialColumnWidth(columns.length, layout);
+  return (record.questions ?? []).map((q) => {
+    const outil = q.outil;
+    const materiauOutil = TOOL_MATERIAL_SHORT[q.materiau_outil] ?? q.materiau_outil;
+    const materiau = materialText(q.materiau);
+    return {
+      numero: String(q.numero),
+      outil,
+      materiau_outil: materiauOutil,
+      materiau,
+      reponses: columns.map((column) => q.reponses[column.key] ?? '—'),
+      horodatage: formatDateStamp(q.horodatage, { seconds: true }),
+      lines: Math.max(linesIn(outil, layout.columns.outil, layout), linesIn(materiauOutil, layout.columns.materiau_outil, layout), linesIn(materiau, materialWidth, layout)),
+    };
+  });
+}
+
+// Hauteur d'un rang, en px : ses marges et son trait, plus ses lignes de texte.
+export const rowHeight = (row, layout = PAGE_LAYOUT) => layout.rowBase + layout.line * (row.lines ?? 1);
+
 // Répartit les lignes de questions en pages : [ [lignes de la page 1], [page 2], … ]. La première
-// page est toujours là, même vide. Une page suivante n'existe que s'il reste des lignes.
+// page est toujours là, même vide. Une page suivante n'existe que s'il reste des lignes ; un rang
+// ne se coupe jamais entre deux pages.
 export function paginateQuestions(rows, toolCount, layout = PAGE_LAYOUT) {
-  const first = Math.max(0, Math.floor((layout.firstPageFree - layout.toolRow * toolCount) / layout.questionRow));
-  const pages = [rows.slice(0, first)];
-  for (let i = pages[0].length; i < rows.length; i += layout.nextPageRows) pages.push(rows.slice(i, i + layout.nextPageRows));
+  const pages = [[]];
+  let free = layout.firstPageFree - layout.toolRow * toolCount;
+  for (const row of rows) {
+    const height = rowHeight(row, layout);
+    if (height > free && pages.at(-1).length > 0) { pages.push([]); free = layout.nextPageFree; }
+    if (height > free && pages.length === 1) { pages.push([]); free = layout.nextPageFree; } // page 1 pleine avant la première question
+    pages.at(-1).push(row);
+    free -= height;
+  }
   return pages;
 }
 
