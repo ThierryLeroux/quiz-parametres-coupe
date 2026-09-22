@@ -5,6 +5,9 @@
 // mémoire avec une horloge réglable. Ici l'horloge est la vraie : on vérifie que le Worker se
 // construit, que les migrations s'appliquent avec wrangler et que le SQL passe sur D1. Ce qui
 // demande d'attendre 10 minutes ou 2 heures (verrou levé, jeton expiré) n'est testé que là-bas.
+// Le cycle complet du jalon 5 (réussite du M10, attestation, vérification par l'adresse du QR et par
+// le code, connexion professeur, remise à zéro, attestation annulée) prend environ 2,5 minutes de
+// plus : la cadence de 10 s entre deux corrections est la vraie.
 //
 // Ce fichier ne finit pas par .test.js : « npm test » ne le lance pas.
 import assert from 'node:assert/strict';
@@ -26,10 +29,14 @@ const CAMILLE = { exercice: M10, prenom: 'Camille', nom: 'Tremblay', matricule: 
 const data = await loadData('data/', async (path) => JSON.parse(await readFile(join(ROOT, 'site', path), 'utf8')));
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
-async function appel(methode, chemin, { jeton, corps } = {}) {
+let derniersEntetes = null; // les en-têtes de la dernière réponse (Set-Cookie de l'espace professeur)
+
+async function appel(methode, chemin, { jeton, corps, cookie } = {}) {
   const headers = { 'content-type': 'application/json' };
   if (jeton) headers.authorization = `Bearer ${jeton}`;
+  if (cookie) headers.cookie = cookie;
   const response = await fetch(ORIGIN + chemin, { method: methode, headers, body: corps === undefined ? undefined : JSON.stringify(corps) });
+  derniersEntetes = response.headers;
   return { status: response.status, corps: await response.json() };
 }
 
@@ -62,7 +69,7 @@ try {
   assert.equal(migrations.status, 0, `migrations : ${migrations.stdout}\n${migrations.stderr}`);
   console.log('# migrations appliquées sur une D1 locale jetable');
 
-  serveur = spawn(process.execPath, [WRANGLER, 'dev', '--port', String(PORT), '--persist-to', dossier, '--var', 'CLE_SECRETE:secret-du-test-api-locale'], { cwd: ROOT, stdio: 'ignore' });
+  serveur = spawn(process.execPath, [WRANGLER, 'dev', '--port', String(PORT), '--persist-to', dossier, '--var', 'CLE_SECRETE:secret-du-test-api-locale', '--var', 'CLE_ADMIN:cle-admin-du-test-api-locale'], { cwd: ROOT, stdio: 'ignore' });
   for (let essai = 0; ; essai += 1) {
     assert.ok(essai < 60, 'wrangler dev ne répond pas après 60 s');
     await sleep(1000);
@@ -77,10 +84,13 @@ try {
     assert.equal((await appel('GET', '/api/rien')).status, 404);
   });
 
-  await etape('le site est servi à côté de l’API', async () => {
+  await etape('le site est servi à côté de l’API, avec /verifier et /prof', async () => {
     const page = await fetch(`${ORIGIN}/`);
     assert.equal(page.status, 200);
     assert.match(await page.text(), /<title>Quiz — paramètres de coupe<\/title>/);
+    assert.match(await (await fetch(`${ORIGIN}/verifier`)).text(), /Vérification d'une attestation/);
+    assert.match(await (await fetch(`${ORIGIN}/prof`)).text(), /Espace professeur/);
+    assert.equal((await fetch(`${ORIGIN}/vendor/qrcode-generator-2.0.4.mjs`)).status, 200);
   });
 
   await etape('consultation « aucune séance », création, consultation « séance trouvée » (D23)', async () => {
@@ -166,6 +176,96 @@ try {
       assert.equal((await appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: `999${essai}` } })).status, 401, `essai ${essai}`);
     }
     assert.equal((await appel('POST', '/api/reprise', { corps: CAMILLE })).status, 429);
+  });
+
+  // --- Jalon 5 : le cycle complet, avec une troisième étudiante ------------------------------------------------
+  const ZOE = { exercice: M10, prenom: 'Zoé', nom: 'Lévesque', matricule: '2455555', nip: '2468' };
+  let attestation;
+  let cookie;
+  let seanceZoe;
+
+  await etape('réussite du M10 (15 bonnes réponses, cadence de 10 s) : l’attestation est créée à la dernière', async () => {
+    const creation = await appel('POST', '/api/creation', { corps: ZOE });
+    assert.equal(creation.status, 200, JSON.stringify(creation.corps));
+    const jetonZoe = creation.corps.jeton;
+    assert.equal((await appel('GET', `/api/attestation?exercice=${M10}`, { jeton: jetonZoe })).status, 409);
+    let etat = (await appel('POST', '/api/question', { jeton: jetonZoe, corps: { exercice: M10 } })).corps.seance;
+    for (let n = 1; etat.reussite_le === null; n += 1) {
+      assert.ok(n <= 15, 'plus de 15 questions');
+      await sleep(10200);
+      const correction = await appel('POST', '/api/correction', { jeton: jetonZoe, corps: { exercice: M10, saisies: { vc: bonneVc(etat.question) } } });
+      assert.equal(correction.status, 200, JSON.stringify(correction.corps));
+      assert.equal(correction.corps.correction.reussie, true, `question ${n}`);
+      etat = correction.corps.seance;
+      process.stdout.write(`\r  questions réussies : ${n}   `);
+    }
+    process.stdout.write('\r');
+    const reponse = await appel('GET', `/api/attestation?exercice=${M10}`, { jeton: jetonZoe });
+    assert.equal(reponse.status, 200, JSON.stringify(reponse.corps));
+    attestation = reponse.corps;
+    assert.match(attestation.code, /^[23456789ABCDEFGHJKMNPQRSTVWXYZ]{5}-[23456789ABCDEFGHJKMNPQRSTVWXYZ]{5}$/);
+    assert.match(attestation.signature, /^[A-Za-z0-9_-]{43}$/);
+    assert.ok(attestation.url_verification.startsWith(`${ORIGIN}/verifier?`), attestation.url_verification);
+    assert.deepEqual(attestation.attestation.etudiant, { prenom: 'Zoé', nom: 'Lévesque', matricule: '2455555' });
+    assert.equal(attestation.attestation.questions_reussies, 15);
+    assert.equal(attestation.attestation.reussite_le, etat.reussite_le);
+    assert.equal(attestation.attestation.outils.length, 9);
+  });
+
+  await etape('vérification : par l’adresse du QR et par le code → valide ; adresse retouchée → invalide ; code inconnu → aucune', async () => {
+    const claims = Object.fromEntries(new URL(attestation.url_verification).searchParams);
+    const parUrl = await appel('POST', '/api/verification', { corps: claims });
+    assert.deepEqual(parUrl, { status: 200, corps: { resultat: 'valide', attestation: attestation.attestation } });
+    assert.deepEqual((await appel('POST', '/api/verification', { corps: { code: attestation.code.toLowerCase() } })).corps, parUrl.corps);
+    assert.deepEqual((await appel('POST', '/api/verification', { corps: { ...claims, questions: '16' } })).corps, { resultat: 'invalide' });
+    assert.deepEqual((await appel('POST', '/api/verification', { corps: { ...claims, signature: 'x'.repeat(43) } })).corps, { resultat: 'invalide' });
+    assert.deepEqual((await appel('POST', '/api/verification', { corps: { code: 'ABCDE-FGHJK' } })).corps, { resultat: 'aucune' });
+    assert.equal((await appel('POST', '/api/verification', { corps: { code: 'ABC' } })).status, 400);
+  });
+
+  await etape('connexion professeur : clé fausse → 401 ; sans cookie → 401 ; bonne clé → cookie de séance', async () => {
+    assert.equal((await appel('POST', '/api/prof/connexion', { corps: { cle: 'mauvaise' } })).status, 401);
+    assert.equal((await appel('GET', '/api/prof/seances')).status, 401);
+    const connexion = await appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-admin-du-test-api-locale' } });
+    assert.equal(connexion.status, 200, JSON.stringify(connexion.corps));
+    assert.equal(connexion.corps.enseignant, 'admin');
+    const setCookie = derniersEntetes.get('set-cookie');
+    assert.match(setCookie, /^prof=[^;]+; Path=\/api\/prof; HttpOnly; Secure; SameSite=Strict; Max-Age=43200$/);
+    cookie = setCookie.split(';')[0];
+  });
+
+  await etape('liste des séances : Zoé réussie avec son code, les autres en cours ; corrections d’identité de Camille', async () => {
+    const { status, corps } = await appel('GET', '/api/prof/seances', { cookie });
+    assert.equal(status, 200, JSON.stringify(corps));
+    seanceZoe = corps.seances.find((s) => s.matricule === '2455555');
+    assert.deepEqual([seanceZoe.prenom, seanceZoe.nom, seanceZoe.questions_reussies, seanceZoe.code, seanceZoe.exercice.id], ['Zoé', 'Lévesque', 15, attestation.code, M10]);
+    assert.notEqual(seanceZoe.reussite_le, null);
+    assert.equal(corps.seances.find((s) => s.matricule === CAMILLE.matricule).reussite_le, null);
+    const identites = await appel('GET', '/api/prof/identites', { cookie });
+    assert.equal(identites.status, 200);
+    assert.ok(identites.corps.corrections.length >= 2);
+    assert.deepEqual([identites.corps.corrections[0].nouveau_matricule, identites.corps.corrections.at(-1).ancien_matricule], [CAMILLE.matricule, CAMILLE.matricule]);
+  });
+
+  await etape('remise à zéro de Zoé : progression à zéro, attestation annulée avec la date, vérification « annulée » ; Zoé reprend au début', async () => {
+    assert.deepEqual((await appel('POST', '/api/prof/remise-a-zero', { corps: { seance: seanceZoe.id }, cookie })).corps, { remise_a_zero: true, seance: seanceZoe.id });
+    const apres = (await appel('GET', '/api/prof/seances', { cookie })).corps.seances.find((s) => s.id === seanceZoe.id);
+    assert.deepEqual([apres.reussite_le, apres.questions_reussies, apres.code], [null, 0, null]);
+    const verification = await appel('POST', '/api/verification', { corps: { code: attestation.code } });
+    assert.equal(verification.corps.resultat, 'annulee');
+    assert.match(verification.corps.annulee_le, /^20\d\d-/);
+    assert.deepEqual(verification.corps.attestation, attestation.attestation);
+    const reprise = await appel('POST', '/api/reprise', { corps: ZOE });
+    assert.equal(reprise.status, 200);
+    assert.equal(reprise.corps.seance.progression.total_reussies, 0);
+    assert.equal(reprise.corps.seance.reussite_le, null);
+    assert.equal((await appel('POST', '/api/question', { jeton: reprise.corps.jeton, corps: { exercice: M10 } })).corps.seance.question === null, false);
+  });
+
+  await etape('déconnexion professeur : le cookie est effacé', async () => {
+    const deconnexion = await appel('POST', '/api/prof/deconnexion', { cookie });
+    assert.deepEqual(deconnexion.corps, { deconnecte: true });
+    assert.match(derniersEntetes.get('set-cookie'), /Max-Age=0/);
   });
 
   console.log(`\n# ${etapes} étapes réussies sur wrangler dev et une vraie D1 locale`);
