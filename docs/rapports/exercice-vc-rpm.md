@@ -1,8 +1,11 @@
-# Rapport — exercice « M10 - tournage - Vc et RPM » et liste des questions sur l'attestation
+# Rapport — exercice « M10 — Tournage : Vc et RPM » et liste des questions sur l'attestation
 
-Session du 2026-09-22, après la mise en production du jalon 5. Branche `exercice-vc-rpm` à partir
-de `main` à jour, huit commits (un par point), rien de poussé. `npm test` : 441 tests, `fail 0` ;
-`npm run test:api` : 18 étapes, une minute. Décisions D40 à D42.
+Session du 2026-09-22, après la mise en production du jalon 5, en deux temps : le travail (huit
+commits, un par point), puis les réponses de Thierry aux points douteux (six commits). Branche
+`exercice-vc-rpm` à partir de `main` à jour, rien de poussé. `npm test` : 443 tests, `fail 0` ;
+`npm run test:api` : 18 étapes, une minute. Décisions D40 à D43.
+
+## Première partie — ce qui a été fait
 
 ## A. Nouvel exercice « M10 - tournage - Vc et RPM »
 
@@ -87,7 +90,7 @@ de `main` à jour, huit commits (un par point), rien de poussé. `npm test` : 44
   (1280 et 390), reprise sur téléphone depuis un second contexte. 197 requêtes, **aucune
   externe**, aucune exception, aucune erreur console.
 
-## Commits (branche `exercice-vc-rpm`, dans l'ordre)
+## Commits de la première partie (branche `exercice-vc-rpm`, dans l'ordre)
 
 1. Restriction de matière d'outil pour tout l'exercice (materiaux_outil, D40)
 2. Nouvel exercice « M10 - tournage - Vc et RPM » (D40)
@@ -98,29 +101,61 @@ de `main` à jour, huit commits (un par point), rien de poussé. `npm test` : 44
 7. Docs : décisions D40 à D42, SPEC (v0.6), UI, PLAN, CLAUDE.md
 8. Rapport de session
 
-## Points douteux, à trancher
+## Points douteux de la première partie (tranchés : D43)
 
-1. **Le numéro** est le rang de la question dans la séance, ratées comprises (« 1, 2, 4, 5… ») :
-   c'est ce qui rend la copie unique, mais on en déduit le nombre d'échecs, que l'écran ne
-   montre jamais (UI §3.4). L'autre lecture — numéroter la liste 1..n — n'apporte rien.
-2. **Titre** pris tel quel, « M10 - tournage - Vc et RPM » (tirets simples, minuscules), alors que
-   le M10 s'appelle « M10 — Tournage : vitesse de coupe ». À harmoniser si tu veux.
-3. **« À partir de cette version »** : la liste s'ajoute à toute attestation composée désormais,
-   y compris la reconstitution d'une séance réussie avant le jalon 5 (son journal existe). Les
-   attestations déjà figées ne bougent pas.
-4. **Libellés tronqués** sur la page lettre : le matériau usiné le plus long (« Cuivre et
-   alliages de cuivre, Haute résistance en traction, Ampco », 72 caractères) est coupé avec des
-   points de suspension au-delà d'environ 50 caractères (4 matériaux sur 47) ; `/verifier` montre
-   tout. Matière de l'outil en court (« Insert de carbure », « Carbure solide ») ;
-   l'enregistrement garde le nom complet.
-5. **`test-complet`** (29 outils, cinq grandeurs) : le tableau par outil remplit la page 1, la
-   liste commence en page 2, et les cinq colonnes de réponses écrasent le matériau usiné. C'est
-   l'exercice d'essai ; je n'ai rien fait pour lui.
-6. **Pagination par constantes** mesurées dans Chrome avec Carlito auto-hébergée, pas par mesure
-   du DOM à l'exécution : si la police ou la CSS de la page change, recalibrer `PAGE_LAYOUT` (une
-   marge d'une ligne environ reste sur chaque page).
-7. **Réponses telles que saisies** (« 400,0 » avec sa virgule, « 1 600 » avec son espace) : j'ai
-   lu « valeurs acceptées » comme « les réponses de l'étudiant ». La valeur théorique est dans le
-   journal si tu la veux à côté.
-8. **Impression papier** non faite ; le PDF de deux pages vient de Chrome (`printToPDF`).
-9. Le fichier parasite `witch main` du dernier rapport n'était plus là.
+1. Le numéro était le rang de la question dans la séance, ratées comprises → **rang dans la liste**.
+2. Titre « M10 - tournage - Vc et RPM » → **aligné sur le M10**.
+3. « À partir de cette version » : la liste s'ajoute à toute attestation composée désormais, y
+   compris la reconstitution d'une séance réussie avant le jalon 5 — conservé.
+4. Libellés tronqués sur la page lettre → **plus jamais de troncature**, repli.
+5. `test-complet` (29 outils, cinq grandeurs) : liste en page 2, colonne du matériau écrasée — avec
+   le repli, elle n'est plus écrasée mais très haute (jusqu'à 6 lignes par rang) ; exercice d'essai.
+6. Pagination par constantes → **acceptée**, constantes et police dans UI §3.6.
+7. Réponses telles que saisies → **normalisées**.
+8. Impression papier non faite ; PDF de deux pages par Chrome — inchangé.
+9. `witch main` n'était plus là.
+
+## Seconde partie — réponses appliquées (D43)
+
+1. *Numéro* : la liste est numérotée de 1 à n, dans l'ordre chronologique ; le rang dans la séance
+   ne sort plus (tests : pure, API — « sans trou », chronologie par l'heure).
+2. *Titre* : « M10 — Tournage : Vc et RPM » (fichier, index, tests, docs ; D40 conserve l'ancien
+   titre, D43 le remplace).
+3. *Repli* : plus de `text-overflow`, `overflow-wrap: anywhere` dans les cellules d'outil, de matière
+   et de matériau ; un rang de deux lignes fait 33 px (7 + 2 × 13). La pagination estime les lignes
+   de chaque rang (`questionRows` calcule `lines` à partir des largeurs de colonnes et d'une
+   largeur de caractère prise avec marge, 4,6 px pour 4,0 mesurés) et `paginateQuestions` compte
+   en pixels, sans jamais couper un rang. Colonne « Matière d'outil » élargie à 90 px (« Insert de
+   carbure » tenait à un pixel près). Vérifié dans Chrome sur le M10 et sur « Vc et RPM » : rangs de
+   20 et 33 px, `scrollHeight` = `clientHeight` sur toutes les pages, « Cuivre et alliages de
+   cuivre, Haute résistance en traction, Ampco » entier sur deux lignes (capture
+   `1280-08-attestation-deux-pages`, rangs 7, 8, 12, 14, 21, 22).
+4. *Constantes et police* consignées dans UI §3.6 : page lettre 720 × 960 px utiles, Carlito
+   9,5 px, 460 px libres en page 1, 740 px en page de suite, 24 px par ligne d'outil, 7 + 13 px par
+   ligne de question, largeurs des colonnes, 4,6 px par caractère ; consigne de recalibrer
+   (mesurer, puis vérifier qu'aucune page ne déborde) si la police d'impression change.
+5. *Réponses normalisées* au figeage (`normalizedAnswers`) : le nombre lu par `parseAnswer` (point
+   ou virgule, espaces ignorés), écrit par `formatParameters` pour la grandeur — « 400,0 » → « 400 »,
+   « 1 600 » → « 1600 », « ,004 » → « 0.0040 », « .0769 » en filetage → « 0.07690 », « 6,4 » →
+   « 6.400 » ; une saisie illisible (impossible sur une question réussie) resterait telle quelle.
+6. *Tests* (+2, dont un réécrit) : numérotation 1 à n (pure et API), repli (`lines`, largeur de
+   colonne du matériau selon le nombre de grandeurs, rang de deux lignes, nom d'outil long,
+   pagination en pixels avec rangs doubles), réponses normalisées (les cinq grandeurs, filetage,
+   illisible). `npm test` : 443, `fail 0`. `test:api` : 18 étapes. **Chrome** relancé : mêmes
+   14 captures et le PDF refaits dans `captures/exercice-vc-rpm/` — accueil avec le nouveau
+   titre, parcours en mode test, attestation sur deux pages (7 rangs en page 1 dont deux repliés,
+   15 en page 2), média print, PDF de deux pages, 390 px, `/verifier` ; 197 requêtes, aucune
+   externe, aucune erreur console.
+
+## Commits de la seconde partie (dans l'ordre)
+
+9. Liste des questions : numérotée de 1 à n, plus par le rang dans la séance (D43)
+10. Titre de l'exercice aligné sur le style du M10 : « M10 — Tournage : Vc et RPM » (D43)
+11. Attestation : plus de troncature, repli dans la cellule et pagination en pixels par rang (D43)
+12. Liste des questions : réponses normalisées au figeage (D43)
+13. Docs des réponses au rapport : D43, SPEC, UI (constantes de pagination et police), PLAN
+14. Rapport mis à jour
+
+## Reste
+
+Rien à trancher. Avant de fusionner : relire D43 et UI §3.6.
