@@ -8,7 +8,8 @@
 // Deux phases : d'abord la cadence réelle de 10 s (étapes 6 et 7), puis wrangler est relancé avec
 // CADENCE_S:1 (D39, honorée en local seulement) pour le cycle complet du jalon 5 — réussite du M10,
 // attestation, vérification par l'adresse du QR et par le code, connexion professeur, remise à
-// zéro, attestation annulée — en une vingtaine de secondes au lieu de 2,5 minutes.
+// zéro, attestation annulée — puis l'exercice « Vc et RPM » (D40) jusqu'à son attestation à deux
+// pages de questions (D41) — en une minute au lieu de trois.
 //
 // Ce fichier ne finit pas par .test.js : « npm test » ne le lance pas.
 import assert from 'node:assert/strict';
@@ -18,7 +19,7 @@ import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TOOL_MATERIAL_KEYS, loadData } from '../site/js/data.js';
+import { TOOL_MATERIAL_KEYS, loadData, parseThread } from '../site/js/data.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const WRANGLER = join(ROOT, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
@@ -45,6 +46,17 @@ async function appel(methode, chemin, { jeton, corps, cookie } = {}) {
 function bonneVc(question) {
   const materiau = data.materiaux.find((m) => m.groupe === question.materiau.groupe);
   return String(materiau.vc_pi_min[TOOL_MATERIAL_KEYS[question.outil.materiau]]);
+}
+
+// Le bon N, calculé comme le fait l'étudiant : N = Vc × 4 / Ø (le Ø usiné, jamais la barre), facteur
+// de vitesse compris, plafonné au RPM max de la machine ; arrondi à l'entier (tolérance ±5 %, ±1 rév/min ; filetage : −90 % à +0,1 %).
+function bonN(question) {
+  const outil = data.outils.find((o) => o.id === question.outil.id);
+  const dimension = outil.dimensions.find((d) => d.libelle === question.dimension);
+  const filetage = data.operationByName.get(outil.operation).avance_egale_pas_filetage;
+  const diametre = filetage ? parseThread(dimension.valeur).diameter : dimension.valeur;
+  const n = Math.min((Number(bonneVc(question)) * 4 / diametre) * question.outil.fact_vc, question.outil.limite_rpm);
+  return String(Math.round(n));
 }
 
 let etapes = 0;
@@ -273,6 +285,44 @@ try {
     assert.equal(reprise.corps.seance.progression.total_reussies, 0);
     assert.equal(reprise.corps.seance.reussite_le, null);
     assert.equal((await appel('POST', '/api/question', { jeton: reprise.corps.jeton, corps: { exercice: M10 } })).corps.seance.question === null, false);
+  });
+
+  await etape('exercice « Vc et RPM » (D40) : 22 réponses Vc et N, jamais de carbure solide ; attestation avec ses 22 questions listées (D41), vérifiable par le code', async () => {
+    const VC_RPM = 'm10-tournage-vc-rpm';
+    const ALEX = { exercice: VC_RPM, prenom: 'Alex', nom: 'Roy', matricule: '2466666', nip: '1357' };
+    const creation = await appel('POST', '/api/creation', { corps: ALEX });
+    assert.equal(creation.status, 200, JSON.stringify(creation.corps));
+    const jetonAlex = creation.corps.jeton;
+    let etat = (await appel('POST', '/api/question', { jeton: jetonAlex, corps: { exercice: VC_RPM } })).corps.seance;
+    assert.equal(etat.progression.outils.length, 11);
+    assert.deepEqual(etat.question.champs.map((c) => c.evalue), [true, false, true, false, false]);
+    const matieres = new Set();
+    let barre = null;
+    for (let n = 1; etat.reussite_le === null; n += 1) {
+      assert.ok(n <= 22, 'plus de 22 questions');
+      matieres.add(etat.question.outil.materiau);
+      if (etat.question.outil.id === 'barre_a_aleser') barre = etat.question.identifiant;
+      await sleep(1200);
+      const correction = await appel('POST', '/api/correction', { jeton: jetonAlex, corps: { exercice: VC_RPM, saisies: { vc: bonneVc(etat.question), rpm: bonN(etat.question) } } });
+      assert.equal(correction.status, 200, JSON.stringify(correction.corps));
+      assert.equal(correction.corps.correction.reussie, true, `question ${n} : ${JSON.stringify(correction.corps.correction.champs)}`);
+      etat = correction.corps.seance;
+      process.stdout.write(`\r  questions réussies : ${n}   `);
+    }
+    process.stdout.write('\r');
+    assert.equal(etat.progression.total_reussies, 22);
+    assert.deepEqual([...matieres].sort(), ['Acier rapide', 'Insert de carbure de tungstène']);
+    assert.match(barre, /^Barre à aléser Ø .+ - Ø alésé: /);
+    const { status, corps } = await appel('GET', `/api/attestation?exercice=${VC_RPM}`, { jeton: jetonAlex });
+    assert.equal(status, 200, JSON.stringify(corps));
+    assert.equal(corps.attestation.exercice.titre, 'M10 - tournage - Vc et RPM');
+    assert.deepEqual(corps.attestation.outils.map((o) => `${o.reussites}/${o.requises}`), Array(11).fill('2/2'));
+    assert.equal(corps.attestation.questions.length, 22);
+    assert.deepEqual(corps.attestation.questions.map((q) => q.numero), Array.from({ length: 22 }, (_, i) => i + 1));
+    assert.deepEqual(Object.keys(corps.attestation.questions[0].reponses), ['vc', 'rpm']);
+    assert.ok(corps.attestation.questions.some((q) => q.outil === barre));
+    const verification = await appel('POST', '/api/verification', { corps: { code: corps.code } });
+    assert.deepEqual(verification.corps, { resultat: 'valide', attestation: corps.attestation });
   });
 
   await etape('déconnexion professeur : le cookie est effacé', async () => {
