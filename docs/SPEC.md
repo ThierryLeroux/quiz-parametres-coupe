@@ -70,6 +70,12 @@ une avance proportionnelle (0,003 × Ø barre, plafond 0,003 po/tour), comme
 l'alésage à la barre (D25, extension). Aucun autre outil n'a deux diamètres à
 distinguer.
 
+**Corrections apportées aux données du classeur** (chacune confirmée par
+Thierry, dans un commit « Corrige une donnée : … ») : pas du taraud M2 x 0.4
+(0,04 → 0,4 mm) ; Ø du taraud #6-32 UNC (0,136 → 0,138 po) ; groupe
+« N - Aluminium de corroyage » répété 8 fois sur `foret_fractionnaire_2` ;
+libellé « Ø v45/64 po » → « Ø 45/64 po » sur le foret fractionnaire (D30).
+
 Le champ `note` des opérations a été supprimé (D29) : il contredisait la table
 (« .008 × Ø 1/4 = .002 ») et n'était plus affiché ; l'encadré de la feuille des
 avances est calculé depuis les avances.
