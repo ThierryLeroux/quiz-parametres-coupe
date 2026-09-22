@@ -155,7 +155,9 @@ export function renderIdentity(main, { exercise, seance }, actions) {
   formScreen(main, exercise, {
     eyebrow: 'Ta séance',
     title: 'Corriger mon identité',
-    intro: [el('p', { class: 'muted small' }, 'Ton prénom, ton nom et ton matricule figureront sur ton rapport. Ta progression ne change pas. Entre ton NIP pour confirmer.')],
+    intro: [el('p', { class: 'muted small' }, seance.reussite_le === null
+      ? 'Ton prénom, ton nom et ton matricule figureront sur ton attestation. Ta progression ne change pas. Entre ton NIP pour confirmer.'
+      : 'Ton attestation sera réémise avec la nouvelle identité et un nouveau code ; ses résultats et ses dates ne changent pas, et l’ancien code répondra « annulée ». Entre ton NIP pour confirmer.')],
     fields: ['prenom', 'nom', 'matricule', 'nip'],
     values: seance.etudiant,
     submitLabel: 'Enregistrer',

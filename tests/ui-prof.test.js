@@ -77,12 +77,13 @@ test('csvOf : UTF-8 avec BOM, séparateur « ; », CRLF, dates ISO à la seconde
   assert.equal(csvFileName('', new Date(2026, 8, 21, 15, 0)), 'reussites-tous-2026-09-21.csv');
 });
 
-test('identityRows : lisible, avant → après, matricule actuel, séance', () => {
-  const rows = identityRows([{
+test('identityRows : lisible, avant → après, matricule actuel, séance, attestation réémise (D37)', () => {
+  const base = {
     id: 2, seance_id: 7, horodatage: at(2026, 9, 21, 13, 7), ancien_prenom: 'Camile', ancien_nom: 'Tremblay', ancien_matricule: '2412354',
     nouveau_prenom: 'Camille', nouveau_nom: 'Tremblay', nouveau_matricule: '2412345', exercice_id: 'm10-tournage-vc', matricule: '2412345',
-  }]);
-  assert.deepEqual(rows, [{ id: 2, horodatage: '2026-09-21 13:07', exercice: 'm10-tournage-vc', matricule: '2412345', avant: 'Camile Tremblay · 2412354', apres: 'Camille Tremblay · 2412345', seance: 7 }]);
+  };
+  assert.deepEqual(identityRows([{ ...base, ancien_code: null, nouveau_code: null }]), [{ id: 2, horodatage: '2026-09-21 13:07', exercice: 'm10-tournage-vc', matricule: '2412345', avant: 'Camile Tremblay · 2412354', apres: 'Camille Tremblay · 2412345', attestation: '', seance: 7 }]);
+  assert.equal(identityRows([{ ...base, ancien_code: 'ABCDEFGHJK', nouveau_code: 'ZZZZZYYYYY' }])[0].attestation, 'ABCDE-FGHJK → ZZZZZ-YYYYY');
 });
 
 test('resetConfirmation : nomme l’étudiant, l’exercice, et prévient de l’annulation s’il y a une attestation', () => {

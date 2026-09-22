@@ -219,6 +219,8 @@ async function reprise(request, env, { now }) {
 
 // --- POST /api/identite — « Corriger mon identité » : prénom, nom, matricule ; NIP exigé.
 // La séance est déplacée, jamais copiée ; la correction est journalisée. Le jeton reste le même.
+// Après la réussite (D37) : l'attestation en cours est annulée (« identité corrigée ») et une
+// nouvelle est émise — mêmes résultats, mêmes dates, nouvelle identité, nouveau code — dans le même lot.
 async function identite(request, env, { now }) {
   const body = await readBody(request);
   const { data, exercise } = await findExercise(env, body.exercice);
@@ -230,8 +232,14 @@ async function identite(request, env, { now }) {
 
   const changed = ['prenom', 'nom', 'matricule'].some((key) => identity[key] !== session[key]);
   if (changed) {
+    let reissue = null;
+    if (session.reussite_le !== null) {
+      const current = await ensureAttestation(env, session, exercise, data, now);
+      const record = { ...current.enregistrement, code: newCode(), etudiant: { prenom: identity.prenom, nom: identity.nom, matricule: identity.matricule } };
+      reissue = { ancienne: current, nouvelle: { code: record.code, enregistrement: record, signature: await signAttestation(env.CLE_SECRETE, canonical(record)) } };
+    }
     // Le NIP est haché avec le matricule (crypto.js) : nouveau matricule, nouveau haché du même NIP.
-    const moved = await base.moveSession(env.DB, session, { ...identity, nip_hache: await hashNip(env.CLE_SECRETE, identity.matricule, identity.nip) }, now.toISOString());
+    const moved = await base.moveSession(env.DB, session, { ...identity, nip_hache: await hashNip(env.CLE_SECRETE, identity.matricule, identity.nip) }, now.toISOString(), reissue);
     if (!moved) throw new HttpError(409, ALREADY_EXISTS);
   }
   return json({ seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env, now)) });
@@ -318,7 +326,7 @@ async function attestation(request, env, { now }) {
 
 // --- POST /api/verification — public, sans connexion (D33) -------------------------------------------------
 // Deux entrées : l'adresse du QR (tous les champs et la signature), ou le code seul. Quatre issues :
-// valide, annulee (par l'enseignant, avec la date), aucune (aucune attestation ne correspond),
+// valide, annulee (remise à zéro ou identité corrigée, avec la date et le motif), aucune (aucune attestation ne correspond),
 // invalide (signature invalide ou contenu modifié). Une attestation ne se vérifie pas à moitié : si
 // l'adresse porte autre chose que le code, tout doit correspondre. Rien ne sort de plus que
 // l'attestation imprimée. Limite de débit sur les codes distincts.
@@ -334,7 +342,7 @@ async function verification(request, env, { now }) {
   const expected = await signAttestation(env.CLE_SECRETE, canonical(row.enregistrement));
   const genuine = sameText(expected, row.signature) && (claimsOnlyCode(claims) || (sameText(expected, claims.signature) && claimsMatch(row.enregistrement, claims)));
   if (!genuine) return json({ resultat: 'invalide' });
-  if (row.annulee_le !== null) return json({ resultat: 'annulee', attestation: row.enregistrement, annulee_le: row.annulee_le });
+  if (row.annulee_le !== null) return json({ resultat: 'annulee', attestation: row.enregistrement, annulee_le: row.annulee_le, motif: row.annulation_motif });
   return json({ resultat: 'valide', attestation: row.enregistrement });
 }
 

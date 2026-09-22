@@ -104,20 +104,32 @@ export async function recordCorrection(db, session, c) {
 }
 
 // « Corriger mon identité » (D23) : la séance est DÉPLACÉE — même ligne, mêmes compteurs, même
-// journal — et la correction est notée, en un seul lot. Si le nouveau matricule a déjà une séance
-// pour cet exercice, la contrainte d'unicité refuse tout le lot : retourne false.
+// journal — et la correction est notée, en un seul lot. Après la réussite (D37), le même lot annule
+// l'attestation en cours (motif « identité corrigée ») et en insère une nouvelle. Si le nouveau
+// matricule a déjà une séance pour cet exercice, la contrainte d'unicité refuse tout le lot :
+// retourne false.
 //   identity : { prenom, nom, matricule, nip_hache } — le NIP est haché avec le matricule, donc à refaire
-export async function moveSession(db, session, identity, now) {
+//   reissue  : null, ou { ancienne: { id, code }, nouvelle: { code, enregistrement, signature } }
+export async function moveSession(db, session, identity, now, reissue = null) {
+  const statements = [
+    db.prepare('UPDATE seances SET prenom = ?, nom = ?, matricule = ?, nip_hache = ? WHERE id = ?')
+      .bind(identity.prenom, identity.nom, identity.matricule, identity.nip_hache, session.id),
+    db.prepare(`
+      INSERT INTO corrections_identite (seance_id, ancien_prenom, ancien_nom, ancien_matricule,
+                                        nouveau_prenom, nouveau_nom, nouveau_matricule, horodatage, ancien_code, nouveau_code)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(session.id, session.prenom, session.nom, session.matricule, identity.prenom, identity.nom, identity.matricule, now,
+        reissue?.ancienne.code ?? null, reissue?.nouvelle.code ?? null),
+  ];
+  if (reissue !== null) {
+    statements.push(
+      db.prepare("UPDATE attestations SET annulee_le = ?, annulation_motif = 'identite_corrigee' WHERE id = ? AND annulee_le IS NULL").bind(now, reissue.ancienne.id),
+      db.prepare('INSERT INTO attestations (seance_id, code, enregistrement, signature, creee_le) VALUES (?, ?, ?, ?, ?)')
+        .bind(session.id, reissue.nouvelle.code, JSON.stringify(reissue.nouvelle.enregistrement), reissue.nouvelle.signature, now),
+    );
+  }
   try {
-    await db.batch([
-      db.prepare('UPDATE seances SET prenom = ?, nom = ?, matricule = ?, nip_hache = ? WHERE id = ?')
-        .bind(identity.prenom, identity.nom, identity.matricule, identity.nip_hache, session.id),
-      db.prepare(`
-        INSERT INTO corrections_identite (seance_id, ancien_prenom, ancien_nom, ancien_matricule,
-                                          nouveau_prenom, nouveau_nom, nouveau_matricule, horodatage)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(session.id, session.prenom, session.nom, session.matricule, identity.prenom, identity.nom, identity.matricule, now),
-    ]);
+    await db.batch(statements);
     return true;
   } catch (error) {
     if (/UNIQUE/i.test(String(error?.message))) return false;
@@ -197,7 +209,7 @@ export async function resetSession(db, seanceId, compteurs, now, entry) {
       UPDATE seances SET compteurs = ?, question_courante = NULL, derniere_correction = NULL,
                          reussite_le = NULL, version_exercice_reussite = NULL
       WHERE id = ?`).bind(JSON.stringify(compteurs), seanceId),
-    db.prepare('UPDATE attestations SET annulee_le = ? WHERE seance_id = ? AND annulee_le IS NULL').bind(now, seanceId),
+    db.prepare("UPDATE attestations SET annulee_le = ?, annulation_motif = 'remise_a_zero' WHERE seance_id = ? AND annulee_le IS NULL").bind(now, seanceId),
     db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, ?, ?, ?)')
       .bind(entry.horodatage, entry.enseignant, seanceId, entry.action, entry.details ?? null),
   ]);
@@ -208,7 +220,7 @@ export async function resetSession(db, seanceId, compteurs, now, entry) {
 export async function listIdentityCorrections(db) {
   const { results } = await db.prepare(`
     SELECT c.id, c.seance_id, c.horodatage, c.ancien_prenom, c.ancien_nom, c.ancien_matricule,
-           c.nouveau_prenom, c.nouveau_nom, c.nouveau_matricule, s.exercice_id, s.matricule
+           c.nouveau_prenom, c.nouveau_nom, c.nouveau_matricule, c.ancien_code, c.nouveau_code, s.exercice_id, s.matricule
     FROM corrections_identite c JOIN seances s ON s.id = c.seance_id
     ORDER BY c.id DESC`).all();
   return results;

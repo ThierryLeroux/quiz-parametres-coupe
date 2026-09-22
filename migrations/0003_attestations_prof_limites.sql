@@ -2,23 +2,29 @@
 -- Un fichier de migration appliqué n'est JAMAIS modifié : un changement = un nouveau fichier.
 
 -- Attestation de réussite (D31, D32) : un enregistrement FIGÉ à la réussite, qui ne change plus
--- jamais — ni avec le catalogue, ni avec l'exercice, ni avec une correction d'identité. Une séance
--- peut en avoir plusieurs dans le temps : une remise à zéro par l'enseignant (D35) annule
--- l'attestation en cours (annulee_le), et une nouvelle réussite en crée une autre, avec un autre
--- code. L'ancien code reste vérifiable et répond « annulée ».
+-- jamais — ni avec le catalogue, ni avec l'exercice. Une séance peut en avoir plusieurs dans le
+-- temps : une remise à zéro par l'enseignant (D35) annule l'attestation en cours (annulee_le) et une
+-- nouvelle réussite en crée une autre ; une correction d'identité après la réussite (D37) annule
+-- l'attestation et en émet une nouvelle, mêmes résultats, autre code. L'ancien code reste
+-- vérifiable et répond « annulée », avec le motif.
 CREATE TABLE attestations (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  seance_id      INTEGER NOT NULL REFERENCES seances (id) ON DELETE CASCADE,
-  code           TEXT NOT NULL UNIQUE,  -- 10 caractères de l'alphabet sans ambiguïté (D32), sans tiret
-  enregistrement TEXT NOT NULL,         -- JSON : l'attestation figée (SPEC §8)
-  signature      TEXT NOT NULL,         -- HMAC-SHA-256 de la sérialisation canonique, base64url
-  creee_le       TEXT NOT NULL,
-  annulee_le     TEXT                   -- remise à zéro par l'enseignant ; NULL = en cours
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  seance_id        INTEGER NOT NULL REFERENCES seances (id) ON DELETE CASCADE,
+  code             TEXT NOT NULL UNIQUE,  -- 10 caractères de l'alphabet sans ambiguïté (D32), sans tiret
+  enregistrement   TEXT NOT NULL,         -- JSON : l'attestation figée (SPEC §8)
+  signature        TEXT NOT NULL,         -- HMAC-SHA-256 de la sérialisation canonique, base64url
+  creee_le         TEXT NOT NULL,
+  annulee_le       TEXT,                  -- NULL = en cours
+  annulation_motif TEXT                   -- 'remise_a_zero' (D35) ou 'identite_corrigee' (D37)
 );
+
+-- Une correction d'identité après la réussite réémet l'attestation (D37) : le journal note les codes.
+ALTER TABLE corrections_identite ADD COLUMN ancien_code TEXT;
+ALTER TABLE corrections_identite ADD COLUMN nouveau_code TEXT;
 
 CREATE INDEX attestations_par_seance ON attestations (seance_id, creee_le);
 
--- Journal des actions d'enseignant (D34, D35) : connexions, refus, remises à zéro. L'identifiant
+-- Journal des actions d'enseignant (D34, D35, D38) : connexions, refus, remises à zéro, NIP réinitialisés. L'identifiant
 -- d'enseignant est « admin » au jalon 5 ; une table des enseignants s'y raccordera au jalon 6.
 -- Une ligne par action, jamais modifiée ; la séance peut disparaître, la ligne reste.
 CREATE TABLE journal_enseignant (
@@ -26,7 +32,7 @@ CREATE TABLE journal_enseignant (
   horodatage TEXT NOT NULL,
   enseignant TEXT,                      -- NULL pour une connexion refusée (on ne sait pas qui)
   seance_id  INTEGER REFERENCES seances (id) ON DELETE SET NULL,
-  action     TEXT NOT NULL,             -- 'connexion', 'connexion_refusee', 'remise_a_zero'
+  action     TEXT NOT NULL,             -- 'connexion', 'connexion_refusee', 'remise_a_zero', 'reinitialisation_nip'
   details    TEXT                       -- texte libre : adresse, matricule et exercice…
 );
 

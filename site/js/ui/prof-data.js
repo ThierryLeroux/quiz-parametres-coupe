@@ -111,7 +111,9 @@ export function csvFileName(exercice, now) {
 // --- Journal des corrections d'identité (D23) : lisible, la plus récente en premier ---------------------------------
 
 const identity = (prenom, nom, matricule) => `${prenom} ${nom} · ${matricule}`;
+const shortCode = (code) => `${code.slice(0, 5)}-${code.slice(5)}`;
 
+// Une correction après la réussite a réémis l'attestation (D37) : « ABCDE-FGHJK → ZZZZZ-YYYYY ».
 export function identityRows(corrections) {
   return corrections.map((c) => ({
     id: c.id,
@@ -120,6 +122,7 @@ export function identityRows(corrections) {
     matricule: c.matricule,
     avant: identity(c.ancien_prenom, c.ancien_nom, c.ancien_matricule),
     apres: identity(c.nouveau_prenom, c.nouveau_nom, c.nouveau_matricule),
+    attestation: c.ancien_code && c.nouveau_code ? `${shortCode(c.ancien_code)} → ${shortCode(c.nouveau_code)}` : '',
     seance: c.seance_id,
   }));
 }

@@ -71,11 +71,22 @@ export function claimsFromInput(text) {
   return { code: typed };
 }
 
+// « Cette attestation a été annulée le … : identité corrigée, une nouvelle attestation a été émise. »
+function cancellationText(result) {
+  const reasons = {
+    remise_a_zero: "séance remise à zéro par l'enseignant",
+    identite_corrigee: "identité corrigée par l'étudiant, une nouvelle attestation a été émise avec un autre code",
+  };
+  const reason = reasons[result.motif] ?? 'motif inconnu';
+  const when = result.annulee_le ? ` le ${formatDateStamp(result.annulee_le)}` : '';
+  return `Cette attestation a été annulée${when} : ${reason}. Voici l'enregistrement tel qu'il était.`;
+}
+
 // Titre et explication de chaque issue de la vérification (SPEC §8, D33).
 export function verificationOutcome(result) {
   const outcomes = {
     valide: { tone: 'correct', title: 'Attestation valide', text: "Le serveur de correction détient cette attestation, et sa signature est authentique. Voici l'enregistrement tel qu'il le détient." },
-    annulee: { tone: 'gold', title: 'Attestation annulée', text: result.annulee_le ? `Cette attestation a été annulée par l'enseignant le ${formatDateStamp(result.annulee_le)} (séance remise à zéro). Voici l'enregistrement tel qu'il était.` : "Cette attestation a été annulée par l'enseignant." },
+    annulee: { tone: 'gold', title: 'Attestation annulée', text: cancellationText(result) },
     aucune: { tone: 'wrong', title: 'Aucune attestation ne correspond', text: 'Aucune attestation ne porte ce code. Vérifie le code sur le document ; un O ou un I ne peuvent pas y figurer.' },
     invalide: { tone: 'wrong', title: 'Signature invalide ou contenu modifié', text: "Ce que l'adresse du QR prétend ne correspond pas à ce que le serveur détient : le document a été fabriqué ou retouché." },
   };

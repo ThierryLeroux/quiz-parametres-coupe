@@ -559,6 +559,7 @@ test('corriger mon identité : prénom, nom et matricule changent, la séance es
   assert.deepEqual(identites(serveur), [{
     id: 1, seance_id: apres.id, ancien_prenom: 'Camile', ancien_nom: 'Tremblay', ancien_matricule: '2412354',
     nouveau_prenom: 'Camille', nouveau_nom: 'Tremblay', nouveau_matricule: '2412345', horodatage: serveur.maintenant.toISOString(),
+    ancien_code: null, nouveau_code: null,
   }]);
 
   // Le jeton reste valide, et le NIP — haché avec le matricule — vaut toujours, sous le nouveau matricule.
@@ -673,29 +674,78 @@ test('réussite : l’attestation est figée à l’instant de la dernière réu
   assert.equal(serveur.attestations('2412346').length, 1);
 });
 
-test('figée : ni le catalogue, ni l’exercice, ni une correction d’identité ne changent l’attestation ; l’écran, lui, suit', async () => {
+test('figée : ni le catalogue ni l’exercice ne changent l’attestation ; l’écran, lui, suit', async () => {
   const serveur = serveurDeTest();
   const { jeton } = await reussir(serveur);
   const { corps: avant } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
 
-  // L'enseignant renomme un outil, change ses dimensions, retitre l'exercice ; l'étudiant corrige son prénom.
+  // L'enseignant renomme un outil, change ses dimensions, retitre l'exercice et change la révision des tables.
   const outils = await lireFichier('data/outils.json');
+  const materiaux = await lireFichier('data/materiaux.json');
   const mvlnr = outils.outils.find((o) => o.id === 'mvlnr');
   mvlnr.nom = 'MVLNR (nouveau)';
   mvlnr.dimensions = mvlnr.dimensions.slice(0, 2);
-  serveur.publier({ 'data/outils.json': outils, 'exercices/m10-tournage-vc.json': { ...m10, titre: 'M10 — nouveau titre', version: 'r9' } });
+  serveur.publier({ 'data/outils.json': outils, 'data/materiaux.json': { ...materiaux, revision: 'A2027_r0' }, 'exercices/m10-tournage-vc.json': { ...m10, titre: 'M10 — nouveau titre', version: 'r9' } });
   serveur.avancer(MINUTE);
-  const corrige = await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camila' } });
-  assert.equal(corrige.status, 200);
-  assert.equal(corrige.corps.seance.etudiant.prenom, 'Camila');
-  assert.equal(corrige.corps.seance.exercice.titre, 'M10 — nouveau titre');
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.exercice.titre, 'M10 — nouveau titre');
 
   const { corps: apres } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
   assert.deepEqual(apres, avant);
-  assert.equal(apres.attestation.etudiant.prenom, 'Camille');
   assert.equal(apres.attestation.outils[1].nom, 'MVLNR');
   assert.equal(apres.attestation.outils[1].plage, '1.000" à 4.000"');
   assert.equal(apres.attestation.exercice.titre, m10.titre);
+  assert.equal(apres.attestation.revision_tables.materiaux, materiaux.revision);
+});
+
+test('corriger mon identité après la réussite (D37) : l’attestation est annulée « identité corrigée » et réémise — mêmes résultats, mêmes dates, nouvelle identité, nouveau code ; le journal note les codes', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await reussir(serveur);
+  const { corps: avant } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  serveur.avancer(MINUTE);
+
+  // Sans changement : rien n'est réémis.
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: CAMILLE })).status, 200);
+  assert.equal(serveur.attestations().length, 1);
+
+  const corrige = await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camila', matricule: '2412346' } });
+  assert.equal(corrige.status, 200, JSON.stringify(corrige.corps));
+  assert.deepEqual(corrige.corps.seance.etudiant, { prenom: 'Camila', nom: 'Tremblay', matricule: '2412346' });
+
+  const { corps: apres } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  assert.notEqual(apres.code, avant.code);
+  assert.notEqual(apres.signature, avant.signature);
+  assert.equal(apres.annulee_le, null);
+  assert.deepEqual(apres.attestation.etudiant, { prenom: 'Camila', nom: 'Tremblay', matricule: '2412346' });
+  const { code: _c1, etudiant: _e1, ...resteAvant } = avant.attestation;
+  const { code: _c2, etudiant: _e2, ...resteApres } = apres.attestation;
+  assert.deepEqual(resteApres, resteAvant); // dates, révisions, questions, outils : identiques
+  assert.deepEqual(claimsDe(apres.url_verification).matricule, '2412346');
+
+  // L'ancienne répond « annulée », avec le motif ; la nouvelle est valide.
+  const ancienne = await serveur.appel('POST', '/api/verification', { corps: claimsDe(avant.url_verification) });
+  assert.deepEqual(ancienne.corps, { resultat: 'annulee', attestation: avant.attestation, annulee_le: serveur.maintenant.toISOString(), motif: 'identite_corrigee' });
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: claimsDe(apres.url_verification) })).corps.resultat, 'valide');
+  const lignes = serveur.attestations('2412346');
+  assert.equal(lignes.length, 2);
+  assert.deepEqual([lignes[0].annulation_motif, lignes[1].annulation_motif, lignes[1].creee_le], ['identite_corrigee', null, serveur.maintenant.toISOString()]);
+
+  // Le journal des corrections d'identité note les deux codes.
+  const [correction] = identites(serveur);
+  assert.deepEqual([correction.ancien_code, correction.nouveau_code, correction.nouveau_matricule], [lignes[0].code, lignes[1].code, '2412346']);
+
+  // Un matricule déjà pris : rien n'est déplacé, ni réémis.
+  await commencer(serveur, { ...CAMILLE, prenom: 'Alex', matricule: '2498765' });
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, matricule: '2498765' } })).status, 409);
+  assert.equal(serveur.attestations('2412346').length, 2);
+  assert.equal(identites(serveur).length, 1);
+});
+
+test('corriger mon identité avant la réussite : aucune attestation n’est touchée, le journal n’a pas de codes', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await commencer(serveur);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, nom: 'Roy' } })).status, 200);
+  assert.deepEqual(serveur.attestations(), []);
+  assert.deepEqual([identites(serveur)[0].ancien_code, identites(serveur)[0].nouveau_code], [null, null]);
 });
 
 test('séance réussie avant cette version : l’attestation est créée à la première ouverture, à partir de la progression ; une seule, même à plusieurs', async () => {
@@ -885,7 +935,7 @@ test('remise à zéro : progression à zéro, la séance reste (matricule, NIP, 
   // L'attestation est annulée, la vérification le dit avec la date.
   assert.equal(serveur.attestations()[0].annulee_le, serveur.maintenant.toISOString());
   const verification = await serveur.appel('POST', '/api/verification', { corps: claimsDe(attestation.url_verification) });
-  assert.deepEqual(verification.corps, { resultat: 'annulee', attestation: attestation.attestation, annulee_le: serveur.maintenant.toISOString() });
+  assert.deepEqual(verification.corps, { resultat: 'annulee', attestation: attestation.attestation, annulee_le: serveur.maintenant.toISOString(), motif: 'remise_a_zero' });
   assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: attestation.code } })).corps.resultat, 'annulee');
   assert.equal((await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton })).status, 409); // plus réussie
 

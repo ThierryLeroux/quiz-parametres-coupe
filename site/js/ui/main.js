@@ -97,12 +97,12 @@ function sessionExpired() {
   return null;
 }
 
-// Exercice réussi : l'attestation, figée par le serveur (D31). Pas de « Corriger mon identité »
-// ici : l'attestation ne changerait pas.
+// Exercice réussi : l'attestation, figée par le serveur (D31). « Corriger mon identité » (D37) la
+// fait annuler et réémettre par le serveur ; on la recharge ensuite.
 async function showAttestation(jeton, seance) {
   try {
     const attestation = await getAttestation(jeton, exercise.id);
-    renderAttestation(main, { seance, attestation }, { onQuit: showHome });
+    renderAttestation(main, { seance, attestation }, { onQuit: showHome, onIdentity: () => showIdentity(jeton, seance) });
   } catch (error) {
     if (error.status === 401) { sessionExpired(); return; }
     renderAttestationError(main, { seance, message: serverErrorMessage(error) }, { onRetry: () => showAttestation(jeton, seance), onQuit: showHome });

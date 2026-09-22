@@ -118,10 +118,10 @@ function identitiesTable() {
   const rows = identityRows(state.identites ?? []);
   return [
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table' }, [
-      el('thead', {}, el('tr', {}, [el('th', {}, 'Date'), el('th', {}, 'Exercice'), el('th', {}, 'Matricule actuel'), el('th', {}, 'Avant'), el('th', {}, 'Après'), el('th', { class: 'num' }, 'Séance')])),
+      el('thead', {}, el('tr', {}, [el('th', {}, 'Date'), el('th', {}, 'Exercice'), el('th', {}, 'Matricule actuel'), el('th', {}, 'Avant'), el('th', {}, 'Après'), el('th', {}, 'Attestation réémise'), el('th', { class: 'num' }, 'Séance')])),
       el('tbody', {}, rows.map((row) => el('tr', {}, [
         el('td', {}, row.horodatage), el('td', {}, row.exercice), el('td', { class: 'mono' }, row.matricule),
-        el('td', {}, row.avant), el('td', {}, row.apres), el('td', { class: 'num mono' }, String(row.seance)),
+        el('td', {}, row.avant), el('td', {}, row.apres), el('td', { class: 'mono' }, row.attestation), el('td', { class: 'num mono' }, String(row.seance)),
       ]))),
     ])),
     el('p', { class: 'muted smaller prof-count' }, rows.length === 0 ? "Aucune correction d'identité." : `${rows.length} correction${rows.length > 1 ? 's' : ''}, la plus récente en premier.`),

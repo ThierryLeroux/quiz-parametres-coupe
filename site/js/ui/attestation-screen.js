@@ -1,4 +1,4 @@
-// Page de l'attestation de réussite (UI §3.6 ; décisions D31 à D33) : une page lettre blanche,
+// Page de l'attestation de réussite (UI §3.6 ; décisions D31 à D33, D37) : une page lettre blanche,
 // identique à l'écran et à l'impression, avec le QR de vérification. Elle remplace l'écran
 // « Exercice réussi » et l'attestation provisoire du jalon 4. Le PDF vient de l'impression du navigateur, pas du serveur.
 // Tout vient de l'enregistrement figé rendu par le serveur ; ce qu'on en montre est décidé par
@@ -57,7 +57,7 @@ export function attestationPage({ attestation: record, code, url_verification: u
 // L'écran : barre de consigne, puis la page sur son fond gris.
 //   seance      : l'état de la séance (pour l'en-tête)
 //   attestation : ce que rend GET /api/attestation
-//   actions     : { onQuit }
+//   actions     : { onIdentity, onQuit } — « Corriger mon identité » (D37) annule et réémet l'attestation
 export function renderAttestation(main, { seance, attestation }, actions) {
   const fileName = attestationFileName(attestation.attestation);
   const print = () => {
@@ -80,7 +80,11 @@ export function renderAttestation(main, { seance, attestation }, actions) {
 
   showScreen(main, screen, {
     title: 'Exercice réussi — attestation',
-    aside: [el('span', {}, studentLine(seance)), el('button', { class: 'button-link', type: 'button', onclick: actions.onQuit }, 'Quitter')],
+    aside: [
+      el('span', {}, studentLine(seance)),
+      el('button', { class: 'button-link', type: 'button', onclick: actions.onIdentity }, 'Corriger mon identité'),
+      el('button', { class: 'button-link', type: 'button', onclick: actions.onQuit }, 'Quitter'),
+    ],
   }, '.attestation-title');
 }
 

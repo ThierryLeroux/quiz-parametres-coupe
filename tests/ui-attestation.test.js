@@ -73,9 +73,11 @@ test('verificationOutcome : quatre issues, ton et texte ; l’annulation donne l
   assert.equal(verificationOutcome({ resultat: 'aucune' }).title, 'Aucune attestation ne correspond');
   assert.equal(verificationOutcome({ resultat: 'invalide' }).title, 'Signature invalide ou contenu modifié');
   assert.equal(verificationOutcome({ resultat: 'invalide' }).tone, 'wrong');
-  const annulee = verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString() });
+  const annulee = verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'remise_a_zero' });
   assert.equal(annulee.title, 'Attestation annulée');
-  assert.match(annulee.text, /le 2026-09-21 13:48/);
+  assert.match(annulee.text, /le 2026-09-21 13:48 : séance remise à zéro/);
+  assert.match(verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'identite_corrigee' }).text, /identité corrigée .* autre code/);
+  assert.match(verificationOutcome({ resultat: 'annulee' }).text, /motif inconnu/);
   assert.equal(verificationOutcome({ resultat: 'autre' }).tone, 'wrong');
 });
 

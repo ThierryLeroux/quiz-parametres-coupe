@@ -30,7 +30,8 @@ test('table corrections : les colonnes attendues', () => {
 
 test('tables du jalon 5 : attestations, journal_enseignant, debit, verrous', () => {
   const db = fausseD1();
-  assert.deepEqual(colonnes(db, 'attestations'), ['id', 'seance_id', 'code', 'enregistrement', 'signature', 'creee_le', 'annulee_le']);
+  assert.deepEqual(colonnes(db, 'attestations'), ['id', 'seance_id', 'code', 'enregistrement', 'signature', 'creee_le', 'annulee_le', 'annulation_motif']);
+  assert.deepEqual(colonnes(db, 'corrections_identite').slice(-2), ['ancien_code', 'nouveau_code']);
   assert.deepEqual(colonnes(db, 'journal_enseignant'), ['id', 'horodatage', 'enseignant', 'seance_id', 'action', 'details']);
   assert.deepEqual(colonnes(db, 'debit'), ['portee', 'adresse', 'tranche', 'valeur']);
   assert.deepEqual(colonnes(db, 'verrous'), ['portee', 'adresse', 'echecs', 'jusqua']);
