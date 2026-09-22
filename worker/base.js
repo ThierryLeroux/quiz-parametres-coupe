@@ -134,3 +134,117 @@ export async function clearNipAttempts(db, id, cleared) {
 export async function findSessionById(db, id) {
   return decode(await db.prepare('SELECT * FROM seances WHERE id = ?').bind(id).first());
 }
+
+// --- Attestations (D31, D35) -------------------------------------------------------------------------------
+
+function decodeAttestation(row) {
+  return row === null ? null : { ...row, enregistrement: JSON.parse(row.enregistrement) };
+}
+
+// L'attestation en cours d'une séance (la plus récente non annulée), ou null.
+export async function findCurrentAttestation(db, seanceId) {
+  return decodeAttestation(await db.prepare('SELECT * FROM attestations WHERE seance_id = ? AND annulee_le IS NULL ORDER BY id DESC LIMIT 1').bind(seanceId).first());
+}
+
+export async function findAttestationByCode(db, code) {
+  return decodeAttestation(await db.prepare('SELECT * FROM attestations WHERE code = ?').bind(code).first());
+}
+
+// Crée l'attestation d'une séance, seulement si elle n'en a pas déjà une en cours : deux requêtes
+// qui constatent la réussite en même temps n'en créent qu'une. Retourne false si rien n'a été
+// écrit — attestation déjà là, ou code déjà pris (l'appelant en tire un autre).
+//   a : { seance_id, code, enregistrement (objet), signature, creee_le }
+export async function createAttestation(db, a) {
+  try {
+    const { meta } = await db.prepare(`
+      INSERT INTO attestations (seance_id, code, enregistrement, signature, creee_le)
+      SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM attestations WHERE seance_id = ? AND annulee_le IS NULL)`)
+      .bind(a.seance_id, a.code, JSON.stringify(a.enregistrement), a.signature, a.creee_le, a.seance_id)
+      .run();
+    return meta.changes === 1;
+  } catch (error) {
+    if (/UNIQUE/i.test(String(error?.message))) return false;
+    throw error;
+  }
+}
+
+// --- Espace professeur (D34, D35) ------------------------------------------------------------------------------
+
+// Une ligne au journal des actions d'enseignant.
+//   entry : { horodatage, enseignant (ou null), seance_id (ou null), action, details (ou null) }
+export async function addTeacherLog(db, entry) {
+  await db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, ?, ?, ?)')
+    .bind(entry.horodatage, entry.enseignant ?? null, entry.seance_id ?? null, entry.action, entry.details ?? null).run();
+}
+
+// Toutes les séances, pour le tableau des réussites : qui, quel exercice, quand, réussie ou en
+// cours, questions réussies, code de l'attestation en cours. Ni NIP, ni jeton, ni question.
+export async function listSessions(db) {
+  const { results } = await db.prepare(`
+    SELECT s.id, s.exercice_id, s.prenom, s.nom, s.matricule, s.debut, s.derniere_activite, s.reussite_le,
+           json_extract(s.compteurs, '$.totalReussies') AS total_reussies,
+           (SELECT code FROM attestations a WHERE a.seance_id = s.id AND a.annulee_le IS NULL ORDER BY a.id DESC LIMIT 1) AS code
+    FROM seances s ORDER BY s.derniere_activite DESC`).all();
+  return results;
+}
+
+// Remise à zéro d'une séance (D35) : la progression repart de zéro, la séance reste (matricule, NIP,
+// jeton), l'attestation en cours est annulée, l'action est journalisée — en un seul lot.
+//   compteurs : les compteurs vides (seance.js) ; entry : la ligne du journal (addTeacherLog)
+export async function resetSession(db, seanceId, compteurs, now, entry) {
+  await db.batch([
+    db.prepare(`
+      UPDATE seances SET compteurs = ?, question_courante = NULL, derniere_correction = NULL,
+                         reussite_le = NULL, version_exercice_reussite = NULL
+      WHERE id = ?`).bind(JSON.stringify(compteurs), seanceId),
+    db.prepare('UPDATE attestations SET annulee_le = ? WHERE seance_id = ? AND annulee_le IS NULL').bind(now, seanceId),
+    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, ?, ?, ?)')
+      .bind(entry.horodatage, entry.enseignant, seanceId, entry.action, entry.details ?? null),
+  ]);
+}
+
+// Le journal des corrections d'identité, la plus récente en premier, avec la séance telle qu'elle
+// est aujourd'hui (exercice, matricule actuel).
+export async function listIdentityCorrections(db) {
+  const { results } = await db.prepare(`
+    SELECT c.id, c.seance_id, c.horodatage, c.ancien_prenom, c.ancien_nom, c.ancien_matricule,
+           c.nouveau_prenom, c.nouveau_nom, c.nouveau_matricule, s.exercice_id, s.matricule
+    FROM corrections_identite c JOIN seances s ON s.id = c.seance_id
+    ORDER BY c.id DESC`).all();
+  return results;
+}
+
+// --- Limites de débit et verrous par adresse (D34, D36) ------------------------------------------------------
+
+export async function findLock(db, portee, adresse) {
+  return db.prepare('SELECT * FROM verrous WHERE portee = ? AND adresse = ?').bind(portee, adresse).first();
+}
+
+//   lock : { echecs, jusqua }
+export async function setLock(db, portee, adresse, lock) {
+  await db.prepare(`
+    INSERT INTO verrous (portee, adresse, echecs, jusqua) VALUES (?, ?, ?, ?)
+    ON CONFLICT (portee, adresse) DO UPDATE SET echecs = excluded.echecs, jusqua = excluded.jusqua`)
+    .bind(portee, adresse, lock.echecs, lock.jusqua).run();
+}
+
+export async function clearLock(db, portee, adresse) {
+  await db.prepare('DELETE FROM verrous WHERE portee = ? AND adresse = ?').bind(portee, adresse).run();
+}
+
+// Note une valeur vue par une adresse dans une tranche horaire, efface les tranches passées, et
+// retourne { nouvelle, distinctes } : la valeur était-elle inconnue de cette tranche, et combien de
+// valeurs distinctes la tranche compte maintenant pour cette adresse.
+export async function countDistinct(db, portee, adresse, tranche, valeur) {
+  const [, insert, count] = await db.batch([
+    db.prepare('DELETE FROM debit WHERE tranche < ?').bind(tranche),
+    db.prepare('INSERT OR IGNORE INTO debit (portee, adresse, tranche, valeur) VALUES (?, ?, ?, ?)').bind(portee, adresse, tranche, valeur),
+    db.prepare('SELECT COUNT(*) AS n FROM debit WHERE portee = ? AND adresse = ? AND tranche = ?').bind(portee, adresse, tranche),
+  ]);
+  return { nouvelle: insert.meta.changes === 1, distinctes: count.results[0].n };
+}
+
+// Oublie une valeur refusée : elle ne compte pas parmi les valeurs vues, et sera refusée de nouveau.
+export async function forgetDistinct(db, portee, adresse, tranche, valeur) {
+  await db.prepare('DELETE FROM debit WHERE portee = ? AND adresse = ? AND tranche = ? AND valeur = ?').bind(portee, adresse, tranche, valeur).run();
+}

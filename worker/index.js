@@ -1,26 +1,33 @@
-// Serveur du quiz : un Worker Cloudflare (décisions D19 à D23 ; API décrite dans SPEC §7).
-//   /api/…  → le serveur de correction, en JSON
-//   le reste → les fichiers de site/, servis tels quels (liaison ASSETS de wrangler.jsonc)
+// Serveur du quiz : un Worker Cloudflare (décisions D19 à D23, D31 à D36 ; API décrite dans SPEC §7).
+//   /api/…       → le serveur de correction, en JSON
+//   /api/prof/…  → l'espace professeur, derrière un cookie de séance signé
+//   le reste     → les fichiers de site/, servis tels quels (liaison ASSETS de wrangler.jsonc)
 //
 // Ce fichier ne fait que recevoir les requêtes et enchaîner les étapes. Les règles du quiz sont
-// dans seance.js, le SQL dans base.js, la cryptographie dans crypto.js, la lecture des JSON de
-// site/ dans catalogue.js.
+// dans seance.js, celles de l'attestation dans attestation.js, celles de l'accès (limites de débit,
+// verrous, cookie professeur) dans acces.js, le SQL dans base.js, la cryptographie dans crypto.js,
+// la lecture des JSON de site/ dans catalogue.js.
 
 import pkg from '../package.json' with { type: 'json' };
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
+import {
+  DISTINCT_PER_HOUR, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload, readCookie,
+  readProfSessionPayload, refusalLock,
+} from './acces.js';
+import { buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, readClaims, verificationUrl } from './attestation.js';
 import * as base from './base.js';
 import { loadCatalogue } from './catalogue.js';
-import { hashNip, hashToken, newToken, sameText } from './crypto.js';
+import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
   gradeQuestion, isNipLocked, isQuestionValid, later, sessionView,
 } from './seance.js';
 
 // Réponse JSON, jamais mise en cache : une réponse de l'API ne vaut que pour l'instant présent.
-function json(body, status = 200) {
+function json(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers },
   });
 }
 
@@ -67,6 +74,62 @@ async function authenticate(request, env, exercise, now) {
   return session;
 }
 
+// --- Limites de débit par adresse (D36) ---------------------------------------------------------------
+// Consultation d'un matricule, vérification d'un code : au plus 100 valeurs DISTINCTES par adresse
+// et par heure, jamais de limite sur le nombre de requêtes (tout le cégep sort par une adresse).
+// La 101e valeur est refusée et verrouille l'adresse 10 minutes ; une valeur déjà vue passe toujours.
+
+const TOO_MANY_REQUESTS = 'Trop de demandes depuis cette adresse. Réessaie dans quelques minutes.';
+
+async function limitRate(request, env, portee, valeur, now) {
+  const adresse = clientAddress(request);
+  const lock = await base.findLock(env.DB, portee, adresse);
+  if (isLocked(lock, now)) throw new HttpError(429, TOO_MANY_REQUESTS, { attendre_s: lockWait(lock, now) });
+  const { nouvelle, distinctes } = await base.countDistinct(env.DB, portee, adresse, hourSlot(now), valeur);
+  if (nouvelle && distinctes > DISTINCT_PER_HOUR) {
+    const refusal = refusalLock(now);
+    await base.forgetDistinct(env.DB, portee, adresse, hourSlot(now), valeur); // une valeur refusée n'est pas « vue »
+    await base.setLock(env.DB, portee, adresse, refusal);
+    throw new HttpError(429, TOO_MANY_REQUESTS, { attendre_s: lockWait(refusal, now) });
+  }
+}
+
+// --- Attestation (D31 à D33) ----------------------------------------------------------------------------
+
+// L'attestation en cours d'une séance réussie, créée si elle n'existe pas encore : à la réussite,
+// ou à la première ouverture d'une séance réussie avant cette version. L'enregistrement est figé
+// à cet instant et signé (sous-clé « attestation » de CLE_SECRETE).
+//   session : la ligne de la séance, à jour (reussite_le non nul)
+async function ensureAttestation(env, session, exercise, data, now) {
+  let current = await base.findCurrentAttestation(env.DB, session.id);
+  for (let attempt = 0; current === null && attempt < 5; attempt += 1) {
+    const record = buildAttestation(session, exercise, data, newCode());
+    await base.createAttestation(env.DB, {
+      seance_id: session.id,
+      code: record.code,
+      enregistrement: record,
+      signature: await signAttestation(env.CLE_SECRETE, canonical(record)),
+      creee_le: now.toISOString(),
+    });
+    current = await base.findCurrentAttestation(env.DB, session.id); // la nôtre, ou celle d'une requête plus rapide
+  }
+  if (current === null) throw new Error("impossible d'enregistrer l'attestation (codes en conflit)");
+  return current;
+}
+
+// Ce que le navigateur reçoit d'une attestation : l'enregistrement, le code présenté 5-5, la
+// signature et l'adresse de vérification que porte le QR (D33). L'adresse du site est celle de la
+// requête : elle n'est pas dans l'enregistrement, le site peut déménager.
+function attestationView(request, row) {
+  return {
+    attestation: row.enregistrement,
+    code: formatCode(row.code),
+    signature: row.signature,
+    url_verification: verificationUrl(new URL(request.url).origin, row.enregistrement, row.signature),
+    annulee_le: row.annulee_le,
+  };
+}
+
 // --- Identification en deux temps (D23) ------------------------------------------------------------------
 
 const ALREADY_EXISTS = 'Ce matricule a déjà une séance pour cet exercice.';
@@ -96,11 +159,13 @@ async function freshToken(now) {
 
 // --- POST /api/consultation — écran 1/2 : ce matricule a-t-il une séance pour cet exercice ?
 // Répond le prénom et l'initiale du nom, pour que l'étudiant se reconnaisse. Rien d'autre ne sort.
-async function consultation(request, env) {
+async function consultation(request, env, { now }) {
   const body = await readBody(request);
   const { exercise } = await findExercise(env, body.exercice);
   requireValid(matriculeError(body.matricule));
-  const session = await base.findSession(env.DB, exercise.id, body.matricule.trim());
+  const matricule = body.matricule.trim();
+  await limitRate(request, env, 'consultation', matricule, now);
+  const session = await base.findSession(env.DB, exercise.id, matricule);
   if (session === null) return json({ trouvee: false });
   return json({ trouvee: true, prenom: session.prenom, initiale: [...session.nom][0].toUpperCase() });
 }
@@ -189,6 +254,7 @@ async function question(request, env, { now, random }) {
     const completion = drawn === null ? { reussite_le: now.toISOString(), version_exercice_reussite: exercise.version } : null;
     await base.saveQuestion(env.DB, session, drawn, completion); // si une autre requête a tiré avant nous, c'est sa question qui vaut
     session = await base.findSessionById(env.DB, session.id);
+    if (session.reussite_le !== null) await ensureAttestation(env, session, exercise, data, now);
   }
   return json({ seance: sessionView(session, exercise, data) });
 }
@@ -227,10 +293,130 @@ async function correction(request, env, { now, random }) {
   if (!recorded) throw new HttpError(429, 'Une correction de cette question est déjà en cours.', { attendre_s: 1 });
 
   const updated = await base.findSessionById(env.DB, session.id);
+  // La dernière réussite exigée vient d'être obtenue : l'attestation est figée tout de suite (D31).
+  if (updated.reussite_le !== null) await ensureAttestation(env, updated, exercise, data, now);
   return json({
     correction: correctionView(asked, answers, graded.result, before, graded.counters, data),
     seance: sessionView(updated, exercise, data),
   });
+}
+
+// --- GET /api/attestation?exercice=<id> ------------------------------------------------------------------
+// L'attestation de la séance, une fois l'exercice réussi ; un étudiant la retrouve par la reprise
+// de séance. Une séance réussie avant cette version reçoit la sienne ici, à la première ouverture.
+async function attestation(request, env, { now }) {
+  const { data, exercise } = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
+  const session = await authenticate(request, env, exercise, now);
+  if (session.reussite_le === null) throw new HttpError(409, "L'exercice n'est pas encore réussi.");
+  return json(attestationView(request, await ensureAttestation(env, session, exercise, data, now)));
+}
+
+// --- POST /api/verification — public, sans connexion (D33) -------------------------------------------------
+// Deux entrées : l'adresse du QR (tous les champs et la signature), ou le code seul. Quatre issues :
+// valide, annulee (par l'enseignant, avec la date), aucune (aucune attestation ne correspond),
+// invalide (signature invalide ou contenu modifié). Une attestation ne se vérifie pas à moitié : si
+// l'adresse porte autre chose que le code, tout doit correspondre. Rien ne sort de plus que
+// l'attestation imprimée. Limite de débit sur les codes distincts.
+async function verification(request, env, { now }) {
+  const claims = readClaims(await readBody(request));
+  if (claims === null) throw new HttpError(400, 'Le code doit avoir 10 caractères (lettres et chiffres, sans O, I, 0 ni 1).');
+  await limitRate(request, env, 'verification', claims.code, now);
+
+  const row = await base.findAttestationByCode(env.DB, claims.code);
+  if (row === null) return json({ resultat: 'aucune' });
+  // La signature est recomposée à partir de l'enregistrement que le serveur détient : elle doit
+  // être celle qu'il a stockée, et celle que l'adresse présente.
+  const expected = await signAttestation(env.CLE_SECRETE, canonical(row.enregistrement));
+  const genuine = sameText(expected, row.signature) && (claimsOnlyCode(claims) || (sameText(expected, claims.signature) && claimsMatch(row.enregistrement, claims)));
+  if (!genuine) return json({ resultat: 'invalide' });
+  if (row.annulee_le !== null) return json({ resultat: 'annulee', attestation: row.enregistrement, annulee_le: row.annulee_le });
+  return json({ resultat: 'valide', attestation: row.enregistrement });
+}
+
+// --- Espace professeur : /api/prof/… (D34, D35) -----------------------------------------------------------
+// Une seule clé au jalon 5, CLE_ADMIN ; l'enseignant s'appelle « admin ». La séance est un cookie
+// signé (acces.js), que chaque route vérifie : aucune ne répond sans lui.
+
+const TEACHER = 'admin';
+
+async function requireTeacher(request, env, now) {
+  const [payload, signature] = (readCookie(request.headers.get('cookie')) ?? '').split('.');
+  const session = payload && signature ? readProfSessionPayload(payload, now) : null;
+  if (session === null || !sameText(await signProfSession(env.CLE_SECRETE, payload), signature)) {
+    throw new HttpError(401, 'Connexion requise.');
+  }
+  return session.teacher;
+}
+
+// POST /api/prof/connexion — { cle }. Comparaison en temps constant ; cinq essais ratés par adresse,
+// puis délai croissant ; chaque refus et chaque connexion sont journalisés.
+async function profConnexion(request, env, { now }) {
+  const body = await readBody(request);
+  const adresse = clientAddress(request);
+  const lock = await base.findLock(env.DB, 'prof', adresse);
+  if (isLocked(lock, now)) throw new HttpError(429, "Trop d'essais. Attends avant de réessayer.", { attendre_s: lockWait(lock, now) });
+  if (!await sameSecret(body.cle, env.CLE_ADMIN)) {
+    const next = profFailureLock(lock, now);
+    await base.setLock(env.DB, 'prof', adresse, next);
+    await base.addTeacherLog(env.DB, { horodatage: now.toISOString(), enseignant: null, action: 'connexion_refusee', details: `adresse ${adresse}, échec ${next.echecs}` });
+    throw new HttpError(401, 'Clé incorrecte.');
+  }
+  await base.clearLock(env.DB, 'prof', adresse);
+  await base.addTeacherLog(env.DB, { horodatage: now.toISOString(), enseignant: TEACHER, action: 'connexion', details: `adresse ${adresse}` });
+  const { payload, expires } = profSessionPayload(TEACHER, now);
+  const cookie = `${payload}.${await signProfSession(env.CLE_SECRETE, payload)}`;
+  return json({ enseignant: TEACHER, expire_le: expires }, 200, { 'set-cookie': profCookieHeader(cookie) });
+}
+
+// POST /api/prof/deconnexion — le cookie est effacé.
+async function profDeconnexion() {
+  return json({ deconnecte: true }, 200, { 'set-cookie': profCookieHeader(null) });
+}
+
+// GET /api/prof/seances — toutes les séances, pour le tableau des réussites ; le tri, le filtre et
+// la recherche se font dans le navigateur (une classe, pas une base de données).
+async function profSeances(request, env, { now }) {
+  const teacher = await requireTeacher(request, env, now);
+  const { exercises } = await loadCatalogue(env.ASSETS);
+  const rows = await base.listSessions(env.DB);
+  return json({
+    enseignant: teacher,
+    exercices: [...exercises.values()].map((exercise) => ({ id: exercise.id, titre: exercise.titre })),
+    seances: rows.map((row) => ({
+      id: row.id,
+      exercice: { id: row.exercice_id, titre: exercises.get(row.exercice_id)?.titre ?? row.exercice_id },
+      prenom: row.prenom,
+      nom: row.nom,
+      matricule: row.matricule,
+      debut: row.debut,
+      derniere_activite: row.derniere_activite,
+      reussite_le: row.reussite_le,
+      questions_reussies: row.total_reussies,
+      code: row.code === null ? null : formatCode(row.code),
+    })),
+  });
+}
+
+// POST /api/prof/remise-a-zero — { seance } : la progression repart de zéro, la séance reste
+// (matricule, NIP) ; l'attestation en cours est annulée avec la date ; l'action est journalisée.
+async function profRemiseAZero(request, env, { now }) {
+  const teacher = await requireTeacher(request, env, now);
+  const body = await readBody(request);
+  const session = Number.isInteger(body.seance) ? await base.findSessionById(env.DB, body.seance) : null;
+  if (session === null) throw new HttpError(404, "Cette séance n'existe pas.");
+  await base.resetSession(env.DB, session.id, emptyCounters(), now.toISOString(), {
+    horodatage: now.toISOString(),
+    enseignant: teacher,
+    action: 'remise_a_zero',
+    details: `${session.exercice_id} · ${session.matricule} · ${session.prenom} ${session.nom}`,
+  });
+  return json({ remise_a_zero: true, seance: session.id });
+}
+
+// GET /api/prof/identites — le journal des corrections d'identité, la plus récente en premier.
+async function profIdentites(request, env, { now }) {
+  await requireTeacher(request, env, now);
+  return json({ corrections: await base.listIdentityCorrections(env.DB) });
 }
 
 // --- POST /api/deconnexion -------------------------------------------------------------------------------
@@ -252,6 +438,13 @@ const ROUTES = {
   'POST /api/question': question,
   'POST /api/correction': correction,
   'POST /api/deconnexion': deconnexion,
+  'GET /api/attestation': attestation,
+  'POST /api/verification': verification,
+  'POST /api/prof/connexion': profConnexion,
+  'POST /api/prof/deconnexion': profDeconnexion,
+  'GET /api/prof/seances': profSeances,
+  'POST /api/prof/remise-a-zero': profRemiseAZero,
+  'GET /api/prof/identites': profIdentites,
 };
 
 // Traite une requête. `tools` porte l'horloge et l'aléa, que les tests remplacent.

@@ -23,6 +23,8 @@ export function fausseD1() {
     const rows = () => { check(); return sqlite.prepare(sql).all(...values).map((row) => ({ ...row })); };
     const execute = () => {
       check();
+      // Comme D1, une requête qui lit (SELECT) rend ses lignes, même dans un lot.
+      if (/^\s*(SELECT|WITH)\b/i.test(sql)) return { success: true, results: rows(), meta: { changes: 0, last_row_id: 0 } };
       const { changes, lastInsertRowid } = sqlite.prepare(sql).run(...values);
       return { success: true, results: [], meta: { changes: Number(changes), last_row_id: Number(lastInsertRowid) } };
     };

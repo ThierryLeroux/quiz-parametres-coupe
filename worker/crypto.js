@@ -1,7 +1,7 @@
 // Cryptographie du serveur (décision D22), avec l'API Web Crypto — la même dans un Worker
 // Cloudflare et sous Node : rien à installer.
 //
-//   CLE_SECRETE ──HKDF──► une sous-clé par usage (« nip », plus tard « attestation »)
+//   CLE_SECRETE ──HKDF──► une sous-clé par usage : « nip », « attestation », « prof »
 //   NIP    : stocké comme HMAC-SHA-256(sous-clé « nip », matricule + NIP). Pas de hachage lent :
 //            un NIP de 4 à 6 chiffres est trop court pour qu'il serve ; la protection vient du
 //            secret, que la base ne contient pas.
@@ -35,6 +35,27 @@ async function subKey(secret, usage) {
 export async function hashNip(secret, matricule, nip) {
   const key = await subKey(secret, 'nip');
   return base64url(await crypto.subtle.sign('HMAC', key, encoder.encode(`${matricule}:${nip}`)));
+}
+
+// HMAC-SHA-256 d'un texte sous la sous-clé d'un usage, en base64url (43 caractères).
+async function sign(secret, usage, text) {
+  const key = await subKey(secret, usage);
+  return base64url(await crypto.subtle.sign('HMAC', key, encoder.encode(text)));
+}
+
+// Signature d'une attestation (D32) : sur sa sérialisation canonique (attestation.js). Vérifier une
+// signature = la recalculer et comparer en temps constant (sameText).
+export const signAttestation = (secret, canonicalText) => sign(secret, 'attestation', canonicalText);
+
+// Signature de la charge du cookie de séance professeur (D34, acces.js).
+export const signProfSession = (secret, payload) => sign(secret, 'prof', payload);
+
+// La clé d'administration présentée est-elle la bonne ? Les deux sont hachées avant la comparaison
+// en temps constant : la durée ne dit rien, pas même la longueur de la clé.
+export async function sameSecret(presented, expected) {
+  if (typeof expected !== 'string' || expected === '') throw new Error("CLE_ADMIN n'est pas configurée sur le serveur");
+  if (typeof presented !== 'string') return false;
+  return sameText(await hashToken(presented), await hashToken(expected));
 }
 
 // Nouveau jeton de séance : 32 octets aléatoires (43 caractères).

@@ -28,6 +28,27 @@ test('table corrections : les colonnes attendues', () => {
   assert.deepEqual(colonnes(fausseD1(), 'corrections'), ['id', 'seance_id', 'outil_id', 'question', 'reponses', 'resultat', 'reussie', 'horodatage']);
 });
 
+test('tables du jalon 5 : attestations, journal_enseignant, debit, verrous', () => {
+  const db = fausseD1();
+  assert.deepEqual(colonnes(db, 'attestations'), ['id', 'seance_id', 'code', 'enregistrement', 'signature', 'creee_le', 'annulee_le']);
+  assert.deepEqual(colonnes(db, 'journal_enseignant'), ['id', 'horodatage', 'enseignant', 'seance_id', 'action', 'details']);
+  assert.deepEqual(colonnes(db, 'debit'), ['portee', 'adresse', 'tranche', 'valeur']);
+  assert.deepEqual(colonnes(db, 'verrous'), ['portee', 'adresse', 'echecs', 'jusqua']);
+});
+
+test('attestations : un code unique ; purger la séance efface ses attestations, mais pas le journal d’enseignant (séance mise à NULL)', async () => {
+  const db = fausseD1();
+  const { meta } = await db.prepare(INSERER).bind(...SEANCE).run();
+  const attestation = 'INSERT INTO attestations (seance_id, code, enregistrement, signature, creee_le) VALUES (?, ?, ?, ?, ?)';
+  await db.prepare(attestation).bind(meta.last_row_id, 'ABCDEFGHJK', '{}', 'sig', '2026-09-21T13:06:00.000Z').run();
+  await assert.rejects(db.prepare(attestation).bind(meta.last_row_id, 'ABCDEFGHJK', '{}', 'sig', '2026-09-21T13:07:00.000Z').run(), /UNIQUE/);
+  await db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action) VALUES (?, ?, ?, ?)').bind('2026-09-21T13:08:00.000Z', 'admin', meta.last_row_id, 'remise_a_zero').run();
+
+  await db.prepare('DELETE FROM seances WHERE id = ?').bind(meta.last_row_id).run();
+  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM attestations').first()).n, 0);
+  assert.deepEqual(await db.prepare('SELECT enseignant, seance_id, action FROM journal_enseignant').first(), { enseignant: 'admin', seance_id: null, action: 'remise_a_zero' });
+});
+
 test('une seule séance par couple (exercice, matricule)', async () => {
   const db = fausseD1();
   await db.prepare(INSERER).bind(...SEANCE).run();

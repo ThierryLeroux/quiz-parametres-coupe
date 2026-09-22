@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac, hkdfSync } from 'node:crypto';
-import { hashNip, hashToken, newToken, sameText } from '../worker/crypto.js';
+import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from '../worker/crypto.js';
 
 const SECRET = 'secret-de-test-0123456789';
 
@@ -47,4 +47,31 @@ test('sameText : égalité stricte de deux textes', () => {
   assert.equal(sameText('', ''), true);
   assert.equal(sameText(null, null), false);
   assert.equal(sameText('abc', undefined), false);
+});
+
+// --- Jalon 5 : signature des attestations, cookie professeur, clé d'administration ---------------------------
+
+test('signAttestation : HMAC-SHA-256 sous la sous-clé « attestation », vérifié avec node:crypto ; une autre sous-clé donne autre chose', async () => {
+  const sousCle = Buffer.from(hkdfSync('sha256', SECRET, 'quiz-parametres-coupe', 'attestation', 32));
+  const texte = '{"code":"ABCDEFGHJK","etudiant":{"nom":"Tremblay"}}';
+  assert.equal(await signAttestation(SECRET, texte), createHmac('sha256', sousCle).update(texte).digest('base64url'));
+  assert.notEqual(await signAttestation(SECRET, texte), await signAttestation(SECRET, texte.replace('Tremblay', 'Tremblai')));
+  assert.notEqual(await signAttestation(SECRET, texte), await signProfSession(SECRET, texte));
+  assert.notEqual(await signAttestation('autre-secret', texte), await signAttestation(SECRET, texte));
+  await assert.rejects(signAttestation('', texte), /CLE_SECRETE/);
+});
+
+test('signProfSession : sous-clé « prof »', async () => {
+  const sousCle = Buffer.from(hkdfSync('sha256', SECRET, 'quiz-parametres-coupe', 'prof', 32));
+  assert.equal(await signProfSession(SECRET, 'charge'), createHmac('sha256', sousCle).update('charge').digest('base64url'));
+});
+
+test('sameSecret : la clé d’administration, comparée après hachage (la longueur ne fuit pas) ; sans CLE_ADMIN, une erreur claire', async () => {
+  assert.equal(await sameSecret('cle-admin', 'cle-admin'), true);
+  assert.equal(await sameSecret('cle-admin ', 'cle-admin'), false);
+  assert.equal(await sameSecret('cle', 'cle-admin'), false);
+  assert.equal(await sameSecret(undefined, 'cle-admin'), false);
+  assert.equal(await sameSecret(null, 'cle-admin'), false);
+  await assert.rejects(sameSecret('cle-admin', undefined), /CLE_ADMIN/);
+  await assert.rejects(sameSecret('cle-admin', ''), /CLE_ADMIN/);
 });

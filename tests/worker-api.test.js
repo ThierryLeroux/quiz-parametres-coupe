@@ -539,3 +539,355 @@ test('corriger mon identité : sans changement, rien n’est journalisé ; purge
   serveur.db.sqlite.exec('DELETE FROM seances');
   assert.deepEqual(identites(serveur), []);
 });
+
+// =====================================================================================================
+// Jalon 5 — attestation signée (D31 à D33), vérification publique, espace professeur (D34, D35),
+// limites de débit (D36)
+// =====================================================================================================
+
+// Mène la séance d'un étudiant jusqu'à la réussite ; retourne { jeton, seance } avec l'état final.
+async function reussir(serveur, etudiant = CAMILLE) {
+  const { jeton } = await commencer(serveur, etudiant);
+  let etat;
+  do {
+    etat = (await repondre(serveur, jeton, true, etudiant.exercice, etudiant.matricule)).corps.seance;
+  } while (etat.reussite_le === null);
+  return { jeton, seance: etat };
+}
+
+// Ouvre une séance professeur ; retourne l'en-tête Cookie à renvoyer.
+async function seConnecter(serveur, cle = 'cle-admin-de-test', adresse = '203.0.113.7') {
+  const { status, corps } = await serveur.appel('POST', '/api/prof/connexion', { corps: { cle }, entetes: { 'cf-connecting-ip': adresse } });
+  assert.equal(status, 200, JSON.stringify(corps));
+  return { cookie: serveur.derniersEntetes.get('set-cookie').match(/^prof=([^;]+)/)[1], corps };
+}
+
+const claimsDe = (url) => Object.fromEntries(new URL(url).searchParams);
+
+// --- Attestation ---------------------------------------------------------------------------------------------
+
+test('réussite : l’attestation est figée à l’instant de la dernière réussite exigée — code, signature, enregistrement ; GET /api/attestation la rend', async () => {
+  const serveur = serveurDeTest();
+  const { jeton: pasEncore } = await commencer(serveur);
+  assert.equal((await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton: pasEncore })).status, 409);
+  assert.deepEqual(serveur.attestations(), []);
+
+  const { jeton, seance } = await reussir(serveur, { ...CAMILLE, matricule: '2412346' });
+  const [ligne] = serveur.attestations('2412346');
+  assert.equal(serveur.attestations('2412346').length, 1);
+  assert.equal(ligne.creee_le, seance.reussite_le);
+  assert.equal(ligne.annulee_le, null);
+  assert.match(ligne.code, /^[23456789ABCDEFGHJKMNPQRSTVWXYZ]{10}$/);
+  assert.match(ligne.signature, /^[A-Za-z0-9_-]{43}$/);
+  assert.deepEqual(ligne.enregistrement.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412346' });
+  assert.deepEqual(ligne.enregistrement.exercice, { id: M10, titre: m10.titre });
+  assert.equal(ligne.enregistrement.revision, 'r0');
+  assert.equal(ligne.enregistrement.questions_reussies, 15);
+  assert.equal(ligne.enregistrement.reussite_le, seance.reussite_le);
+  assert.equal(ligne.enregistrement.debut, seance.debut);
+  assert.deepEqual(ligne.enregistrement.outils.map((o) => [o.id, o.reussites, o.requises]), m10.outils.map((o) => [o.id, o.reussites_requises, o.reussites_requises]));
+  assert.deepEqual(ligne.enregistrement.outils[0], { id: 'mclnr', nom: 'MCLNR', plage: '10 mm à 20 mm', operation: 'Chariotage ébauche', reussites: 1, requises: 1 });
+
+  const { status, corps } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  assert.equal(status, 200);
+  assert.deepEqual(corps.attestation, ligne.enregistrement);
+  assert.equal(corps.code, `${ligne.code.slice(0, 5)}-${ligne.code.slice(5)}`);
+  assert.equal(corps.signature, ligne.signature);
+  assert.equal(corps.annulee_le, null);
+  // Le QR : l'adresse de vérification, absolue, sur l'origine de la requête, l'essentiel en clair.
+  assert.ok(corps.url_verification.startsWith('https://quiz.example/verifier?'), corps.url_verification);
+  assert.deepEqual(claimsDe(corps.url_verification), {
+    exercice: M10, matricule: '2412346', nom: 'Tremblay', prenom: 'Camille', reussite: seance.reussite_le, revision: 'r0',
+    questions: '15', code: corps.code, signature: ligne.signature,
+  });
+  // Une seconde ouverture rend la même attestation, sans en créer une autre.
+  assert.deepEqual((await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton })).corps, corps);
+  assert.equal(serveur.attestations('2412346').length, 1);
+});
+
+test('figée : ni le catalogue, ni l’exercice, ni une correction d’identité ne changent l’attestation ; l’écran, lui, suit', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await reussir(serveur);
+  const { corps: avant } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+
+  // L'enseignant renomme un outil, change ses dimensions, retitre l'exercice ; l'étudiant corrige son prénom.
+  const outils = await lireFichier('data/outils.json');
+  const mvlnr = outils.outils.find((o) => o.id === 'mvlnr');
+  mvlnr.nom = 'MVLNR (nouveau)';
+  mvlnr.dimensions = mvlnr.dimensions.slice(0, 2);
+  serveur.publier({ 'data/outils.json': outils, 'exercices/m10-tournage-vc.json': { ...m10, titre: 'M10 — nouveau titre', version: 'r9' } });
+  serveur.avancer(MINUTE);
+  const corrige = await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camila' } });
+  assert.equal(corrige.status, 200);
+  assert.equal(corrige.corps.seance.etudiant.prenom, 'Camila');
+  assert.equal(corrige.corps.seance.exercice.titre, 'M10 — nouveau titre');
+
+  const { corps: apres } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  assert.deepEqual(apres, avant);
+  assert.equal(apres.attestation.etudiant.prenom, 'Camille');
+  assert.equal(apres.attestation.outils[1].nom, 'MVLNR');
+  assert.equal(apres.attestation.outils[1].plage, '1.000" à 4.000"');
+  assert.equal(apres.attestation.exercice.titre, m10.titre);
+});
+
+test('séance réussie avant cette version : l’attestation est créée à la première ouverture, à partir de la progression ; une seule, même à plusieurs', async () => {
+  const serveur = serveurDeTest();
+  const { seance } = await reussir(serveur);
+  serveur.db.sqlite.exec('DELETE FROM attestations');
+  serveur.avancer(3 * 24 * 60 * MINUTE); // trois jours plus tard, la nouvelle version est publiée ; l'étudiant reprend sa séance
+  const { jeton } = (await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).corps;
+
+  const ouvertures = await Promise.all([1, 2, 3].map(() => serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton })));
+  assert.deepEqual(ouvertures.map((o) => o.status), [200, 200, 200]);
+  assert.equal(serveur.attestations().length, 1);
+  for (const ouverture of ouvertures) assert.deepEqual(ouverture.corps, ouvertures[0].corps);
+  const { attestation } = ouvertures[0].corps;
+  assert.equal(attestation.reussite_le, seance.reussite_le); // la date de réussite, pas celle de l'ouverture
+  assert.equal(attestation.questions_reussies, 15);
+  assert.equal(serveur.attestations()[0].creee_le, serveur.maintenant.toISOString());
+  assert.deepEqual(attestation.outils.map((o) => o.reussites), m10.outils.map((o) => o.reussites_requises));
+});
+
+test('la réussite constatée sans correction (exercice allégé, D21) crée aussi l’attestation', async () => {
+  const serveur = serveurDeTest();
+  const { jeton, seance } = await commencer(serveur);
+  assert.equal((await repondre(serveur, jeton, true)).status, 200);
+  const outil = m10.outils.find((entry) => entry.id === seance.question.outil.id);
+  serveur.publier({ 'exercices/m10-tournage-vc.json': { ...m10, version: 'r2', outils: [{ ...outil, reussites_requises: 1 }] } });
+  const { corps } = await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } });
+  assert.notEqual(corps.seance.reussite_le, null);
+  assert.equal(serveur.attestations().length, 1);
+  assert.equal(serveur.attestations()[0].enregistrement.revision, 'r2');
+  assert.deepEqual(serveur.attestations()[0].enregistrement.outils.map((o) => o.id), [outil.id]);
+});
+
+// --- Vérification publique ---------------------------------------------------------------------------------
+
+test('vérification : par l’adresse du QR → valide, avec l’enregistrement complet ; par le code seul → valide ; sans connexion', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await reussir(serveur);
+  const { corps: attestation } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+
+  const parUrl = await serveur.appel('POST', '/api/verification', { corps: claimsDe(attestation.url_verification) });
+  assert.deepEqual(parUrl, { status: 200, corps: { resultat: 'valide', attestation: attestation.attestation } });
+  const parCode = await serveur.appel('POST', '/api/verification', { corps: { code: attestation.code.toLowerCase() } });
+  assert.deepEqual(parCode, parUrl);
+  // Rien de plus que l'attestation imprimée : ni NIP, ni jeton, ni journal, ni identifiant de séance.
+  const texte = JSON.stringify(parUrl.corps);
+  for (const secret of ['nip', 'jeton', 'seance_id', 'corrections', 'derniere_activite']) assert.equal(texte.includes(secret), false, secret);
+});
+
+test('vérification : contenu modifié, signature fausse ou champ manquant → invalide ; enregistrement retouché en base → invalide même par le code ; code inconnu → aucune ; mal formé → 400', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await reussir(serveur);
+  const { corps: attestation } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  const claims = claimsDe(attestation.url_verification);
+  const verifier = async (corps) => (await serveur.appel('POST', '/api/verification', { corps })).corps;
+
+  assert.deepEqual(await verifier({ ...claims, nom: 'Tremblai' }), { resultat: 'invalide' });
+  assert.deepEqual(await verifier({ ...claims, questions: '99' }), { resultat: 'invalide' });
+  assert.deepEqual(await verifier({ ...claims, reussite: '2026-09-21T13:00:00.000Z' }), { resultat: 'invalide' });
+  // Le premier caractère est changé : le dernier d'une signature base64url ne peut valoir que A, Q, g ou w.
+  assert.deepEqual(await verifier({ ...claims, signature: `${claims.signature[0] === 'A' ? 'B' : 'A'}${claims.signature.slice(1)}` }), { resultat: 'invalide' });
+  assert.deepEqual(await verifier({ ...claims, signature: 'x'.repeat(43) }), { resultat: 'invalide' });
+  const { signature: _s, ...sansSignature } = claims;
+  assert.deepEqual(await verifier(sansSignature), { resultat: 'invalide' }); // des champs sans signature : pas « le code seul »
+  assert.deepEqual(await verifier({ code: claims.code, nom: 'Tremblay' }), { resultat: 'invalide' });
+
+  assert.deepEqual(await verifier({ code: 'ABCDE-FGHJK' }), { resultat: 'aucune' });
+  assert.deepEqual(await verifier({ ...claims, code: 'ABCDE-FGHJK' }), { resultat: 'aucune' });
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: 'ABC' } })).status, 400);
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: {} })).status, 400);
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: 'ABCDE-FGHJ0' } })).status, 400);
+
+  // Quelqu'un retouche l'enregistrement dans la base : la signature recomposée ne correspond plus.
+  serveur.db.sqlite.exec(`UPDATE attestations SET enregistrement = replace(enregistrement, '"questions_reussies":15', '"questions_reussies":16')`);
+  assert.deepEqual(await verifier({ code: claims.code }), { resultat: 'invalide' });
+  assert.deepEqual(await verifier(claims), { resultat: 'invalide' });
+});
+
+// --- Espace professeur ---------------------------------------------------------------------------------------
+
+test('connexion professeur : clé fausse → 401 ; cinq échecs par adresse, puis délai croissant (429) ; journalisés ; la bonne clé → cookie signé, verrou levé', async () => {
+  const serveur = serveurDeTest();
+  const adresse = { 'cf-connecting-ip': '203.0.113.7' };
+  const essai = (cle) => serveur.appel('POST', '/api/prof/connexion', { corps: { cle }, entetes: adresse });
+
+  for (let n = 1; n <= 5; n += 1) assert.deepEqual(await essai('mauvaise'), { status: 401, corps: { erreur: 'Clé incorrecte.' } }, `échec ${n}`);
+  assert.deepEqual(await essai('cle-admin-de-test'), { status: 429, corps: { erreur: "Trop d'essais. Attends avant de réessayer.", attendre_s: 60 } });
+  serveur.avancer(59 * SECONDE);
+  assert.equal((await essai('cle-admin-de-test')).status, 429);
+  serveur.avancer(SECONDE);
+  assert.equal((await essai('mauvaise')).status, 401); // 6e échec : 2 minutes
+  assert.equal((await essai('cle-admin-de-test')).corps.attendre_s, 120);
+  serveur.avancer(2 * MINUTE);
+  assert.equal((await essai('mauvaise')).status, 401); // 7e : 4 minutes
+  assert.equal((await essai('cle-admin-de-test')).corps.attendre_s, 240);
+  // Une autre adresse n'est pas touchée.
+  assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-admin-de-test' }, entetes: { 'cf-connecting-ip': '198.51.100.9' } })).status, 200);
+
+  serveur.avancer(4 * MINUTE);
+  const { status, corps } = await essai('cle-admin-de-test');
+  assert.equal(status, 200);
+  assert.deepEqual(corps, { enseignant: 'admin', expire_le: new Date(serveur.maintenant.getTime() + 12 * 60 * MINUTE).toISOString() });
+  const cookie = serveur.derniersEntetes.get('set-cookie');
+  assert.match(cookie, /^prof=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}; Path=\/api\/prof; HttpOnly; Secure; SameSite=Strict; Max-Age=43200$/);
+  assert.equal(await essai('mauvaise').then((r) => r.status), 401); // le compte repart : pas de verrou au premier échec
+  assert.equal((await essai('cle-admin-de-test')).status, 200);
+
+  const journal = serveur.journalEnseignant();
+  assert.deepEqual(journal.filter((l) => l.action === 'connexion_refusee').map((l) => [l.enseignant, l.details]).slice(0, 2), [[null, 'adresse 203.0.113.7, échec 1'], [null, 'adresse 203.0.113.7, échec 2']]);
+  assert.equal(journal.filter((l) => l.action === 'connexion_refusee').length, 8);
+  assert.deepEqual(journal.filter((l) => l.action === 'connexion').map((l) => [l.enseignant, l.details]), [['admin', 'adresse 198.51.100.9'], ['admin', 'adresse 203.0.113.7'], ['admin', 'adresse 203.0.113.7']]);
+  for (const ligne of journal) assert.match(ligne.horodatage, /^2026-/);
+});
+
+test('connexion professeur : clé mal formée ou absente → 401 comme une clé fausse ; sans CLE_ADMIN sur le serveur → 500', async () => {
+  const serveur = serveurDeTest();
+  assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: {} })).status, 401);
+  assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 42 } })).status, 401);
+  const sansCle = serveurDeTest({ cleAdmin: '' });
+  assert.equal((await sansCle.appel('POST', '/api/prof/connexion', { corps: { cle: '' } })).status, 500);
+});
+
+test('aucune route /api/prof/* ne répond sans cookie valide : absent, forgé, signé par un autre secret, expiré après 12 h ; la déconnexion efface le cookie', async () => {
+  const serveur = serveurDeTest();
+  const { cookie } = await seConnecter(serveur);
+  const autre = serveurDeTest({ secret: 'autre-secret' });
+  const { cookie: forge } = await seConnecter(autre);
+  const routes = [['GET', '/api/prof/seances'], ['POST', '/api/prof/remise-a-zero'], ['GET', '/api/prof/identites']];
+
+  for (const [methode, chemin] of routes) {
+    for (const valeur of [undefined, 'n.importe.quoi', `${cookie.split('.')[0]}.${'x'.repeat(43)}`, forge, cookie.split('.')[0]]) {
+      const entetes = valeur === undefined ? {} : { cookie: `prof=${valeur}` };
+      const { status, corps } = await serveur.appel(methode, chemin, { corps: methode === 'POST' ? { seance: 1 } : undefined, entetes });
+      assert.deepEqual([status, corps.erreur], [401, 'Connexion requise.'], `${chemin} avec ${valeur}`);
+    }
+    assert.notEqual((await serveur.appel(methode, chemin, { corps: methode === 'POST' ? { seance: 1 } : undefined, entetes: { cookie: `prof=${cookie}` } })).status, 401, chemin);
+  }
+
+  serveur.avancer(12 * 60 * MINUTE - SECONDE);
+  assert.equal((await serveur.appel('GET', '/api/prof/seances', { entetes: { cookie: `prof=${cookie}` } })).status, 200);
+  serveur.avancer(SECONDE);
+  assert.equal((await serveur.appel('GET', '/api/prof/seances', { entetes: { cookie: `prof=${cookie}` } })).status, 401);
+
+  assert.deepEqual((await serveur.appel('POST', '/api/prof/deconnexion', {})).corps, { deconnecte: true });
+  assert.equal(serveur.derniersEntetes.get('set-cookie'), 'prof=; Path=/api/prof; HttpOnly; Secure; SameSite=Strict; Max-Age=0');
+});
+
+test('liste des séances : qui, quel exercice, quand, réussie ou en cours, questions réussies, code ; ni NIP, ni jeton, ni question', async () => {
+  const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
+  const { seance: reussie } = await reussir(serveur);
+  serveur.avancer(MINUTE);
+  const { jeton: alex } = await commencer(serveur, { ...CAMILLE, prenom: 'Alex', nom: 'Roy', matricule: '2498765' });
+  assert.equal((await repondre(serveur, alex, true, M10, '2498765')).status, 200);
+  await commencer(serveur, { ...CAMILLE, exercice: ESSAI.id, nip: '777777' });
+  const { cookie } = await seConnecter(serveur);
+
+  const { status, corps } = await serveur.appel('GET', '/api/prof/seances', { entetes: { cookie: `prof=${cookie}` } });
+  assert.equal(status, 200);
+  assert.equal(corps.enseignant, 'admin');
+  assert.deepEqual(corps.exercices, [{ id: M10, titre: m10.titre }, { id: ESSAI.id, titre: ESSAI.titre }]);
+  assert.equal(corps.seances.length, 3);
+  const camille = corps.seances.find((s) => s.matricule === '2412345' && s.exercice.id === M10);
+  assert.deepEqual(Object.keys(camille).sort(), ['code', 'debut', 'derniere_activite', 'exercice', 'id', 'matricule', 'nom', 'prenom', 'questions_reussies', 'reussite_le']);
+  assert.deepEqual([camille.prenom, camille.nom, camille.exercice.titre, camille.reussite_le, camille.questions_reussies, camille.debut], ['Camille', 'Tremblay', m10.titre, reussie.reussite_le, 15, reussie.debut]);
+  assert.equal(camille.code, (await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton: (await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).corps.jeton })).corps.code);
+  const alexRow = corps.seances.find((s) => s.matricule === '2498765');
+  assert.deepEqual([alexRow.reussite_le, alexRow.questions_reussies, alexRow.code], [null, 1, null]);
+  assert.equal(corps.seances.find((s) => s.exercice.id === ESSAI.id).matricule, '2412345');
+  const texte = JSON.stringify(corps);
+  for (const secret of ['nip', 'jeton', 'question_courante', 'compteurs']) assert.equal(texte.includes(secret), false, secret);
+});
+
+test('remise à zéro : progression à zéro, la séance reste (matricule, NIP, jeton), l’attestation est annulée avec la date, la vérification le dit, l’action est journalisée ; une nouvelle réussite donne un autre code', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await reussir(serveur);
+  const { corps: attestation } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  const avant = serveur.seance();
+  const { cookie } = await seConnecter(serveur);
+  serveur.avancer(MINUTE);
+
+  assert.deepEqual(await serveur.appel('POST', '/api/prof/remise-a-zero', { corps: { seance: avant.id }, entetes: { cookie: `prof=${cookie}` } }), { status: 200, corps: { remise_a_zero: true, seance: avant.id } });
+  const apres = serveur.seance();
+  assert.deepEqual([apres.id, apres.matricule, apres.nip_hache, apres.jeton_hache, apres.debut], [avant.id, avant.matricule, avant.nip_hache, avant.jeton_hache, avant.debut]);
+  assert.deepEqual([JSON.parse(apres.compteurs), apres.question_courante, apres.reussite_le, apres.version_exercice_reussite, apres.derniere_correction], [{ reussites: {}, totalReussies: 0 }, null, null, null, null]);
+  assert.equal(serveur.journal().length, 15); // le journal des corrections reste : c'est de l'histoire
+
+  // L'attestation est annulée, la vérification le dit avec la date.
+  assert.equal(serveur.attestations()[0].annulee_le, serveur.maintenant.toISOString());
+  const verification = await serveur.appel('POST', '/api/verification', { corps: claimsDe(attestation.url_verification) });
+  assert.deepEqual(verification.corps, { resultat: 'annulee', attestation: attestation.attestation, annulee_le: serveur.maintenant.toISOString() });
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: attestation.code } })).corps.resultat, 'annulee');
+  assert.equal((await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton })).status, 409); // plus réussie
+
+  const [action] = serveur.journalEnseignant().filter((l) => l.action === 'remise_a_zero');
+  assert.deepEqual([action.enseignant, action.seance_id, action.details, action.horodatage], ['admin', avant.id, `${M10} · 2412345 · Camille Tremblay`, serveur.maintenant.toISOString()]);
+
+  // L'étudiant reprend avec le même jeton, depuis le début ; une nouvelle réussite donne une nouvelle attestation.
+  const question = await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } });
+  assert.equal(question.corps.seance.progression.total_reussies, 0);
+  assert.notEqual(question.corps.seance.question, null);
+  let etat;
+  do etat = (await repondre(serveur, jeton, true)).corps.seance; while (etat.reussite_le === null);
+  assert.equal(serveur.attestations().length, 2);
+  const { corps: nouvelle } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  assert.notEqual(nouvelle.code, attestation.code);
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: nouvelle.code } })).corps.resultat, 'valide');
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: attestation.code } })).corps.resultat, 'annulee');
+  assert.equal((await serveur.appel('POST', '/api/prof/remise-a-zero', { corps: { seance: 999 }, entetes: { cookie: `prof=${cookie}` } })).status, 404);
+  assert.equal((await serveur.appel('POST', '/api/prof/remise-a-zero', { corps: { seance: 'x' }, entetes: { cookie: `prof=${cookie}` } })).status, 404);
+});
+
+test('journal des corrections d’identité : la plus récente en premier, avant/après, matricule actuel et exercice de la séance', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await commencer(serveur, { ...CAMILLE, prenom: 'Camile', matricule: '2412354' });
+  serveur.avancer(MINUTE);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camille', matricule: '2412354' } })).status, 200);
+  serveur.avancer(MINUTE);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: CAMILLE })).status, 200);
+  const { cookie } = await seConnecter(serveur);
+
+  const { status, corps } = await serveur.appel('GET', '/api/prof/identites', { entetes: { cookie: `prof=${cookie}` } });
+  assert.equal(status, 200);
+  assert.equal(corps.corrections.length, 2);
+  const [derniere, premiere] = corps.corrections;
+  assert.deepEqual([derniere.ancien_matricule, derniere.nouveau_matricule, derniere.matricule, derniere.exercice_id, derniere.seance_id], ['2412354', '2412345', '2412345', M10, serveur.seance().id]);
+  assert.deepEqual([premiere.ancien_prenom, premiere.nouveau_prenom, premiere.ancien_matricule, premiere.nouveau_matricule], ['Camile', 'Camille', '2412354', '2412354']);
+  assert.ok(derniere.horodatage > premiere.horodatage);
+});
+
+// --- Limites de débit --------------------------------------------------------------------------------------------
+
+test('limite de débit, consultation : 100 matricules distincts par adresse et par heure ; le 101e est refusé et verrouille 10 minutes ; un matricule déjà vu passe ; une autre adresse n’est pas touchée ; l’heure suivante repart', async () => {
+  const serveur = serveurDeTest();
+  const consulter = (matricule, adresse = '203.0.113.7') => serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule }, entetes: { 'cf-connecting-ip': adresse } });
+  serveur.maintenant = new Date('2026-09-21T13:50:00.000Z');
+
+  for (let n = 0; n < 100; n += 1) assert.equal((await consulter(String(2400000 + n))).status, 200, `matricule ${n}`);
+  for (let n = 0; n < 100; n += 1) assert.equal((await consulter(String(2400000 + n))).status, 200); // déjà vus : autant de fois qu'on veut
+  assert.deepEqual(await consulter('2400100'), { status: 429, corps: { erreur: 'Trop de demandes depuis cette adresse. Réessaie dans quelques minutes.', attendre_s: 600 } });
+  assert.equal((await consulter('2400000')).status, 429); // verrouillé, même pour un matricule connu
+  assert.equal((await consulter('2400100', '198.51.100.9')).status, 200); // une autre adresse
+  assert.equal((await consulter('123')).status, 400); // un matricule mal formé n'est pas compté
+
+  serveur.avancer(10 * MINUTE); // 14:00 : nouvelle tranche horaire
+  assert.equal((await consulter('2400101')).status, 200);
+  for (let n = 0; n < 99; n += 1) assert.equal((await consulter(String(2500000 + n))).status, 200);
+  assert.equal((await consulter('2500099')).status, 429);
+  serveur.avancer(10 * MINUTE); // 14:10 : verrou levé, mais toujours 100 valeurs dans la tranche
+  assert.equal((await consulter('2400101')).status, 200); // déjà vu
+  assert.equal((await consulter('2500099')).status, 429); // nouveau → refusé et verrouillé de nouveau
+  assert.equal(serveur.db.sqlite.prepare("SELECT COUNT(*) AS n FROM debit WHERE tranche = '2026-09-21T13'").get().n, 0); // la tranche passée est effacée
+});
+
+test('limite de débit, vérification : 100 codes distincts par adresse et par heure, puis 429 ; un code déjà vérifié passe', async () => {
+  const serveur = serveurDeTest();
+  const verifier = (code) => serveur.appel('POST', '/api/verification', { corps: { code }, entetes: { 'cf-connecting-ip': '203.0.113.7' } });
+  const codes = Array.from({ length: 101 }, (_, n) => `AAAAA${String(n).padStart(3, '0').replace(/0/g, 'X').replace(/1/g, 'Y')}ZZ`);
+  for (const code of codes.slice(0, 100)) assert.equal((await verifier(code)).status, 200, code);
+  assert.equal((await verifier(codes[100])).status, 429);
+  serveur.avancer(10 * MINUTE);
+  assert.equal((await verifier(codes[0])).status, 200);
+  assert.equal((await verifier(codes[100])).status, 429);
+});

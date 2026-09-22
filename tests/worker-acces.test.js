@@ -1,0 +1,75 @@
+// Tests de worker/acces.js (décisions D34, D36) : adresse, limites de débit, verrou des connexions
+// professeur, cookie de séance professeur.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  DISTINCT_PER_HOUR, PROF_COOKIE_PATH, PROF_FREE_ATTEMPTS, PROF_SESSION_MS, REFUSAL_LOCK_MS, clientAddress, hourSlot, isLocked, lockWait,
+  profCookieHeader, profFailureLock, profSessionPayload, readCookie, readProfSessionPayload, refusalLock,
+} from '../worker/acces.js';
+
+const NOW = new Date('2026-09-21T13:05:00.000Z');
+const MINUTE = 60 * 1000;
+
+test('clientAddress : cf-connecting-ip, sinon « inconnue »', () => {
+  assert.equal(clientAddress(new Request('https://q.example/', { headers: { 'cf-connecting-ip': '203.0.113.7' } })), '203.0.113.7');
+  assert.equal(clientAddress(new Request('https://q.example/', { headers: { 'x-forwarded-for': '203.0.113.7' } })), 'inconnue'); // forgeable : ignoré
+});
+
+test('limites de débit : 100 valeurs distinctes par heure, tranche horaire UTC, verrou de 10 minutes après un refus', () => {
+  assert.equal(DISTINCT_PER_HOUR, 100);
+  assert.equal(REFUSAL_LOCK_MS, 10 * MINUTE);
+  assert.equal(hourSlot(NOW), '2026-09-21T13');
+  assert.equal(hourSlot(new Date('2026-09-21T13:59:59.999Z')), '2026-09-21T13');
+  assert.equal(hourSlot(new Date('2026-09-21T14:00:00.000Z')), '2026-09-21T14');
+  assert.deepEqual(refusalLock(NOW), { echecs: 0, jusqua: '2026-09-21T13:15:00.000Z' });
+});
+
+test('isLocked et lockWait : un verrou vaut jusqu’à sa date, secondes restantes arrondies vers le haut', () => {
+  const lock = refusalLock(NOW);
+  assert.equal(isLocked(null, NOW), false);
+  assert.equal(isLocked({ echecs: 3, jusqua: null }, NOW), false);
+  assert.equal(isLocked(lock, NOW), true);
+  assert.equal(lockWait(lock, NOW), 600);
+  assert.equal(lockWait(lock, new Date(NOW.getTime() + 599_500)), 1);
+  assert.equal(isLocked(lock, new Date('2026-09-21T13:15:00.000Z')), false);
+});
+
+test('connexion professeur : quatre échecs libres, puis 1, 2, 4… minutes, plafonné à une heure', () => {
+  assert.equal(PROF_FREE_ATTEMPTS, 5);
+  let lock = null;
+  for (let failures = 1; failures <= 4; failures += 1) {
+    lock = profFailureLock(lock, NOW);
+    assert.deepEqual(lock, { echecs: failures, jusqua: null });
+  }
+  lock = profFailureLock(lock, NOW);
+  assert.deepEqual(lock, { echecs: 5, jusqua: '2026-09-21T13:06:00.000Z' });
+  lock = profFailureLock(lock, NOW);
+  assert.deepEqual(lock, { echecs: 6, jusqua: '2026-09-21T13:07:00.000Z' });
+  lock = profFailureLock(lock, NOW);
+  assert.deepEqual(lock, { echecs: 7, jusqua: '2026-09-21T13:09:00.000Z' });
+  for (let i = 0; i < 20; i += 1) lock = profFailureLock(lock, NOW);
+  assert.equal(lock.jusqua, '2026-09-21T14:05:00.000Z'); // une heure, pas plus
+});
+
+test('cookie professeur : charge signable de 12 h, relue tant qu’elle n’est pas expirée', () => {
+  assert.equal(PROF_SESSION_MS, 12 * 60 * MINUTE);
+  const { payload, expires } = profSessionPayload('admin', NOW);
+  assert.equal(expires, '2026-09-22T01:05:00.000Z');
+  assert.match(payload, /^[A-Za-z0-9_-]+$/);
+  assert.deepEqual(readProfSessionPayload(payload, NOW), { teacher: 'admin', expires });
+  assert.deepEqual(readProfSessionPayload(payload, new Date('2026-09-22T01:04:59.999Z')), { teacher: 'admin', expires });
+  assert.equal(readProfSessionPayload(payload, new Date('2026-09-22T01:05:00.000Z')), null);
+  assert.equal(readProfSessionPayload('pas du base64 !', NOW), null);
+  assert.equal(readProfSessionPayload('', NOW), null);
+  assert.equal(readProfSessionPayload(btoa('admin'), NOW), null); // sans expiration
+});
+
+test('readCookie et profCookieHeader : HttpOnly, Secure, SameSite=Strict, chemin /api/prof, 12 h ; effacé avec Max-Age=0', () => {
+  assert.equal(readCookie('a=1; prof=abc.def; b=2'), 'abc.def');
+  assert.equal(readCookie('prof=abc=.def'), 'abc=.def');
+  assert.equal(readCookie('a=1'), null);
+  assert.equal(readCookie(null), null);
+  assert.equal(PROF_COOKIE_PATH, '/api/prof');
+  assert.equal(profCookieHeader('abc.def'), 'prof=abc.def; Path=/api/prof; HttpOnly; Secure; SameSite=Strict; Max-Age=43200');
+  assert.equal(profCookieHeader(null), 'prof=; Path=/api/prof; HttpOnly; Secure; SameSite=Strict; Max-Age=0');
+});

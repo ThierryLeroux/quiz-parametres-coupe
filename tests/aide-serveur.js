@@ -25,22 +25,33 @@ export function fauxSite(remplacements = {}) {
 }
 
 // Un serveur de test : sa base, son horloge, et `appel` pour lui parler.
-//   appel('POST', '/api/question', { jeton, corps }) → { status, corps }
-export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test' } = {}) {
+//   appel('POST', '/api/question', { jeton, corps, entetes }) → { status, corps }
+//   entetes : en-têtes de plus (cookie, cf-connecting-ip…) ; ceux de la dernière réponse sont dans serveur.derniersEntetes
+export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test' } = {}) {
   const serveur = {
     db: fausseD1(),
     env: null,
+    derniersEntetes: null,
     maintenant: new Date('2026-09-21T13:05:00.000Z'),
     random: aleaAGraine(graine),
     avancer(ms) { this.maintenant = new Date(this.maintenant.getTime() + ms); },
     // Republie le site avec d'autres JSON, sans toucher à la base : « l'enseignant modifie l'exercice ».
     publier(nouveaux) { this.env = { ...this.env, ASSETS: fauxSite(nouveaux) }; },
-    async appel(methode, chemin, { jeton, corps } = {}) {
-      const headers = {};
+    async appel(methode, chemin, { jeton, corps, entetes = {} } = {}) {
+      const headers = { ...entetes };
       if (jeton) headers.authorization = `Bearer ${jeton}`;
       const request = new Request(`https://quiz.example${chemin}`, { method: methode, headers, body: corps === undefined ? undefined : JSON.stringify(corps) });
       const response = await handle(request, this.env, { now: this.maintenant, random: this.random });
+      this.derniersEntetes = response.headers;
       return { status: response.status, corps: await response.json() };
+    },
+    // Les attestations d'une séance, telles qu'en base.
+    attestations(matricule = '2412345', exercice = 'm10-tournage-vc') {
+      return this.db.sqlite.prepare('SELECT a.* FROM attestations a JOIN seances s ON s.id = a.seance_id WHERE s.matricule = ? AND s.exercice_id = ? ORDER BY a.id')
+        .all(matricule, exercice).map((row) => ({ ...row, enregistrement: JSON.parse(row.enregistrement) }));
+    },
+    journalEnseignant() {
+      return this.db.sqlite.prepare('SELECT * FROM journal_enseignant ORDER BY id').all().map((row) => ({ ...row }));
     },
     // La ligne de la séance, telle qu'en base.
     seance(matricule = '2412345', exercice = 'm10-tournage-vc') {
@@ -54,7 +65,7 @@ export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'sec
       return formatParameters(computeParameters(JSON.parse(this.seance(matricule, exercice).question_courante), data));
     },
   };
-  serveur.env = { DB: serveur.db, ASSETS: fauxSite(remplacements), CLE_SECRETE: secret };
+  serveur.env = { DB: serveur.db, ASSETS: fauxSite(remplacements), CLE_SECRETE: secret, CLE_ADMIN: cleAdmin };
   return serveur;
 }
 
