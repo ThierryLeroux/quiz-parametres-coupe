@@ -99,12 +99,14 @@ async function limitRate(request, env, portee, valeur, now) {
 // L'attestation en cours d'une séance réussie, créée si elle n'existe pas encore : à la réussite,
 // ou à la première ouverture d'une séance réussie avant cette version. L'enregistrement est figé
 // à cet instant et signé (sous-clé « attestation » de CLE_SECRETE) ; il liste les questions
-// réussies qui comptent, lues dans le journal des corrections (D41).
+// réussies qui comptent, lues dans le journal des corrections (D41). Un code tiré qui serait déjà
+// pris fait échouer l'insertion (UNIQUE) : on en tire un autre (D42).
 //   session : la ligne de la séance, à jour (reussite_le non nul)
-async function ensureAttestation(env, session, exercise, data, now) {
+//   tools   : { randomBytes } — l'aléa des codes, que les tests remplacent
+async function ensureAttestation(env, session, exercise, data, now, tools) {
   let current = await base.findCurrentAttestation(env.DB, session.id);
   for (let attempt = 0; current === null && attempt < 5; attempt += 1) {
-    const record = buildAttestation(session, exercise, data, newCode(), await base.listCorrections(env.DB, session.id));
+    const record = buildAttestation(session, exercise, data, newCode(tools.randomBytes), await base.listCorrections(env.DB, session.id));
     await base.createAttestation(env.DB, {
       seance_id: session.id,
       code: record.code,
@@ -225,7 +227,8 @@ async function reprise(request, env, { now }) {
 // La séance est déplacée, jamais copiée ; la correction est journalisée. Le jeton reste le même.
 // Après la réussite (D37) : l'attestation en cours est annulée (« identité corrigée ») et une
 // nouvelle est émise — mêmes résultats, mêmes dates, nouvelle identité, nouveau code — dans le même lot.
-async function identite(request, env, { now }) {
+// Si le code tiré est déjà pris, on en tire un autre (D42).
+async function identite(request, env, { now, randomBytes }) {
   const body = await readBody(request);
   const { data, exercise } = await findExercise(env, body.exercice);
   const session = await authenticate(request, env, exercise, now);
@@ -236,15 +239,20 @@ async function identite(request, env, { now }) {
 
   const changed = ['prenom', 'nom', 'matricule'].some((key) => identity[key] !== session[key]);
   if (changed) {
-    let reissue = null;
-    if (session.reussite_le !== null) {
-      const current = await ensureAttestation(env, session, exercise, data, now);
-      const record = { ...current.enregistrement, code: newCode(), etudiant: { prenom: identity.prenom, nom: identity.nom, matricule: identity.matricule } };
-      reissue = { ancienne: current, nouvelle: { code: record.code, enregistrement: record, signature: await signAttestation(env.CLE_SECRETE, canonical(record)) } };
-    }
+    const current = session.reussite_le === null ? null : await ensureAttestation(env, session, exercise, data, now, { randomBytes });
     // Le NIP est haché avec le matricule (crypto.js) : nouveau matricule, nouveau haché du même NIP.
-    const moved = await base.moveSession(env.DB, session, { ...identity, nip_hache: await hashNip(env.CLE_SECRETE, identity.matricule, identity.nip) }, now.toISOString(), reissue);
-    if (!moved) throw new HttpError(409, ALREADY_EXISTS);
+    const moved = { ...identity, nip_hache: await hashNip(env.CLE_SECRETE, identity.matricule, identity.nip) };
+    let outcome = 'code';
+    for (let attempt = 0; outcome === 'code' && attempt < 5; attempt += 1) {
+      let reissue = null;
+      if (current !== null) {
+        const record = { ...current.enregistrement, code: newCode(randomBytes), etudiant: { prenom: identity.prenom, nom: identity.nom, matricule: identity.matricule } };
+        reissue = { ancienne: current, nouvelle: { code: record.code, enregistrement: record, signature: await signAttestation(env.CLE_SECRETE, canonical(record)) } };
+      }
+      outcome = await base.moveSession(env.DB, session, moved, now.toISOString(), reissue);
+    }
+    if (outcome === 'matricule') throw new HttpError(409, ALREADY_EXISTS);
+    if (outcome !== 'ok') throw new Error("impossible de réémettre l'attestation (codes en conflit)");
   }
   return json({ seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env, now)) });
 }
@@ -260,7 +268,7 @@ async function seance(request, env, { now }) {
 // --- POST /api/question ----------------------------------------------------------------------------------
 // La question à laquelle répondre. C'est le serveur qui la tire et la mémorise ; tant qu'elle n'est
 // pas corrigée, c'est toujours la même qui revient : on ne « passe » pas une question.
-async function question(request, env, { now, random }) {
+async function question(request, env, { now, random, randomBytes }) {
   const body = await readBody(request);
   const { data, exercise } = await findExercise(env, body.exercice);
   let session = await authenticate(request, env, exercise, now);
@@ -271,7 +279,7 @@ async function question(request, env, { now, random }) {
     const completion = drawn === null ? { reussite_le: now.toISOString(), version_exercice_reussite: exercise.version } : null;
     await base.saveQuestion(env.DB, session, drawn, completion); // si une autre requête a tiré avant nous, c'est sa question qui vaut
     session = await base.findSessionById(env.DB, session.id);
-    if (session.reussite_le !== null) await ensureAttestation(env, session, exercise, data, now);
+    if (session.reussite_le !== null) await ensureAttestation(env, session, exercise, data, now, { randomBytes });
   }
   return json({ seance: sessionView(session, exercise, data, viewOptions(request, env, now)) });
 }
@@ -279,7 +287,7 @@ async function question(request, env, { now, random }) {
 // --- POST /api/correction --------------------------------------------------------------------------------
 // Corrige la question mémorisée — jamais une question venue du navigateur —, met les compteurs à
 // jour, journalise, et tire la question suivante (ou constate la réussite).
-async function correction(request, env, { now, random }) {
+async function correction(request, env, { now, random, randomBytes }) {
   const body = await readBody(request);
   const { data, exercise } = await findExercise(env, body.exercice);
   const session = await authenticate(request, env, exercise, now);
@@ -311,7 +319,7 @@ async function correction(request, env, { now, random }) {
 
   const updated = await base.findSessionById(env.DB, session.id);
   // La dernière réussite exigée vient d'être obtenue : l'attestation est figée tout de suite (D31).
-  if (updated.reussite_le !== null) await ensureAttestation(env, updated, exercise, data, now);
+  if (updated.reussite_le !== null) await ensureAttestation(env, updated, exercise, data, now, { randomBytes });
   return json({
     correction: correctionView(asked, answers, graded.result, before, graded.counters, data),
     seance: sessionView(updated, exercise, data, viewOptions(request, env, now)),
@@ -321,11 +329,11 @@ async function correction(request, env, { now, random }) {
 // --- GET /api/attestation?exercice=<id> ------------------------------------------------------------------
 // L'attestation de la séance, une fois l'exercice réussi ; un étudiant la retrouve par la reprise
 // de séance. Une séance réussie avant cette version reçoit la sienne ici, à la première ouverture.
-async function attestation(request, env, { now }) {
+async function attestation(request, env, { now, randomBytes }) {
   const { data, exercise } = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
   const session = await authenticate(request, env, exercise, now);
   if (session.reussite_le === null) throw new HttpError(409, "L'exercice n'est pas encore réussi.");
-  return json(attestationView(request, await ensureAttestation(env, session, exercise, data, now)));
+  return json(attestationView(request, await ensureAttestation(env, session, exercise, data, now, { randomBytes })));
 }
 
 // --- POST /api/verification — public, sans connexion (D33) -------------------------------------------------
@@ -481,8 +489,11 @@ const ROUTES = {
   'GET /api/prof/identites': profIdentites,
 };
 
-// Traite une requête. `tools` porte l'horloge et l'aléa, que les tests remplacent.
-export async function handle(request, env, tools = { now: new Date(), random: Math.random }) {
+// Traite une requête. `tools` porte l'horloge et l'aléa — celui des tirages (random) et celui des
+// codes d'attestation (randomBytes, D32) —, que les tests remplacent.
+const REAL_TOOLS = () => ({ now: new Date(), random: Math.random, randomBytes: (n) => crypto.getRandomValues(new Uint8Array(n)) });
+
+export async function handle(request, env, tools = REAL_TOOLS()) {
   const { pathname } = new URL(request.url);
   if (pathname !== '/api' && !pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
 

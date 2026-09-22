@@ -866,6 +866,33 @@ test('corriger mon identité après la réussite (D37) : l’attestation est ann
   assert.equal(identites(serveur).length, 1);
 });
 
+test('collision de code (D42) : à la réussite comme à la réémission, un code déjà pris est retiré ; le matricule pris reste un 409', async () => {
+  const PRIS = 'ABCDEFGHJK';
+  const serveur = serveurDeTest({ codes: [PRIS, PRIS, 'BCDEFGHJKM', PRIS, 'CDEFGHJKMN'] });
+  // Alex réussit d'abord : le premier code tiré, ABCDEFGHJK, est le sien.
+  const alex = await reussir(serveur, { ...CAMILLE, prenom: 'Alex', matricule: '2498765' });
+  assert.equal(alex.seance.reussite_le !== null, true);
+  assert.equal(serveur.attestations('2498765')[0].code, PRIS);
+
+  // Camille réussit : le code tiré est déjà pris → un autre est tiré, sans erreur.
+  const { jeton } = await reussir(serveur);
+  assert.equal(serveur.attestations().length, 1);
+  assert.equal(serveur.attestations()[0].code, 'BCDEFGHJKM');
+
+  // Camille corrige son identité : le code tiré pour la réémission est pris → un autre est tiré ; l'ancienne est annulée.
+  const { status, corps } = await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camila' } });
+  assert.equal(status, 200, JSON.stringify(corps));
+  const lignes = serveur.attestations();
+  assert.deepEqual(lignes.map((l) => [l.code, l.annulee_le === null]), [['BCDEFGHJKM', false], ['CDEFGHJKMN', true]]);
+  assert.equal(lignes[1].enregistrement.etudiant.prenom, 'Camila');
+  assert.deepEqual(identites(serveur).map((c) => [c.ancien_code, c.nouveau_code]), [['BCDEFGHJKM', 'CDEFGHJKMN']]);
+  assert.equal(serveur.attestations('2498765').length, 1); // celle d'Alex n'a pas bougé
+
+  // Un matricule déjà pris, lui, reste refusé — et rien n'est réémis.
+  assert.deepEqual(await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, matricule: '2498765' } }), { status: 409, corps: { erreur: 'Ce matricule a déjà une séance pour cet exercice.' } });
+  assert.equal(serveur.attestations().length, 2);
+});
+
 test('corriger mon identité avant la réussite : aucune attestation n’est touchée, le journal n’a pas de codes', async () => {
   const serveur = serveurDeTest();
   const { jeton } = await commencer(serveur);

@@ -105,9 +105,10 @@ export async function recordCorrection(db, session, c) {
 
 // « Corriger mon identité » (D23) : la séance est DÉPLACÉE — même ligne, mêmes compteurs, même
 // journal — et la correction est notée, en un seul lot. Après la réussite (D37), le même lot annule
-// l'attestation en cours (motif « identité corrigée ») et en insère une nouvelle. Si le nouveau
-// matricule a déjà une séance pour cet exercice, la contrainte d'unicité refuse tout le lot :
-// retourne false.
+// l'attestation en cours (motif « identité corrigée ») et en insère une nouvelle. Une contrainte
+// d'unicité refuse tout le lot : retourne 'matricule' si le nouveau matricule a déjà une séance
+// pour cet exercice, 'code' si le code de la nouvelle attestation est déjà pris (l'appelant en
+// tire un autre, D42), 'ok' sinon.
 //   identity : { prenom, nom, matricule, nip_hache } — le NIP est haché avec le matricule, donc à refaire
 //   reissue  : null, ou { ancienne: { id, code }, nouvelle: { code, enregistrement, signature } }
 export async function moveSession(db, session, identity, now, reissue = null) {
@@ -130,9 +131,10 @@ export async function moveSession(db, session, identity, now, reissue = null) {
   }
   try {
     await db.batch(statements);
-    return true;
+    return 'ok';
   } catch (error) {
-    if (/UNIQUE/i.test(String(error?.message))) return false;
+    const message = String(error?.message);
+    if (/UNIQUE/i.test(message)) return /attestations\.code/.test(message) ? 'code' : 'matricule';
     throw error;
   }
 }

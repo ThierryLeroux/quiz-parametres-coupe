@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { handle } from '../worker/index.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
+import { CODE_ALPHABET } from '../worker/attestation.js';
 import { fausseD1 } from './aide-d1.js';
 import { aleaAGraine, data } from './aide.js';
 
@@ -29,13 +30,20 @@ export function fauxSite(remplacements = {}) {
 //   entetes   : en-têtes de plus (cookie, cf-connecting-ip…) ; ceux de la dernière réponse sont dans serveur.derniersEntetes
 //   hote      : l'adresse à laquelle les requêtes sont faites — le mode test (D26) et la cadence réglable n'existent que sur localhost
 //   variables : variables du Worker en plus des secrets, ex. { MODE_TEST: '1' }
-export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test', hote = 'https://quiz.example', variables = {} } = {}) {
+//   codes     : les codes d'attestation à tirer, dans l'ordre (10 caractères de l'alphabet, D32) ; au hasard ensuite
+export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test', hote = 'https://quiz.example', variables = {}, codes = [] } = {}) {
+  const prevus = [...codes];
   const serveur = {
     db: fausseD1(),
     env: null,
     derniersEntetes: null,
     maintenant: new Date('2026-09-21T13:05:00.000Z'),
     random: aleaAGraine(graine),
+    // L'aléa des codes : un code prévu est rendu octet par octet (son rang dans l'alphabet), sinon du vrai hasard.
+    randomBytes(n) {
+      const code = prevus.shift();
+      return code === undefined ? crypto.getRandomValues(new Uint8Array(n)) : Uint8Array.from(code, (c) => CODE_ALPHABET.indexOf(c));
+    },
     avancer(ms) { this.maintenant = new Date(this.maintenant.getTime() + ms); },
     // Republie le site avec d'autres JSON, sans toucher à la base : « l'enseignant modifie l'exercice ».
     publier(nouveaux) { this.env = { ...this.env, ASSETS: fauxSite(nouveaux) }; },
@@ -43,7 +51,7 @@ export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'sec
       const headers = { ...entetes };
       if (jeton) headers.authorization = `Bearer ${jeton}`;
       const request = new Request(`${hote}${chemin}`, { method: methode, headers, body: corps === undefined ? undefined : JSON.stringify(corps) });
-      const response = await handle(request, this.env, { now: this.maintenant, random: this.random });
+      const response = await handle(request, this.env, { now: this.maintenant, random: this.random, randomBytes: (n) => this.randomBytes(n) });
       this.derniersEntetes = response.headers;
       return { status: response.status, corps: await response.json() };
     },
