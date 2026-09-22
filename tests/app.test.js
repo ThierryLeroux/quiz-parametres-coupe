@@ -29,7 +29,7 @@ test('loadApp : charge le catalogue, l’index et l’exercice demandé par l’
   const lecteur = (url) => { demandes.push(url); return lireFichier(url); };
   const app = await loadApp('?exercice=m10-tournage-vc', lecteur);
   assert.equal(app.data.outils.length, 29);
-  assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc', 'test-complet']);
+  assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc', 'm10-tournage-vc-rpm', 'test-complet']);
   assert.equal(app.exercise.id, 'm10-tournage-vc');
   assert.equal(app.unknownId, null);
   assert.deepEqual(app.listed, []); // la liste n'est composée que lorsqu'elle sera montrée
@@ -43,9 +43,9 @@ test('loadApp : sans exercice reconnu, l’accueil montrera la liste (D18) — s
     const app = await loadApp(adresse, lecteur);
     assert.equal(app.exercise, null, adresse);
     assert.equal(app.unknownId, inconnu, adresse);
-    assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc', 'test-complet']);
-    assert.deepEqual(app.listed.map((e) => e.id), ['m10-tournage-vc']);
-    assert.deepEqual(demandes.sort(), ['data/materiaux.json', 'data/operations.json', 'data/outils.json', 'exercices/index.json', 'exercices/m10-tournage-vc.json', 'exercices/test-complet.json'], adresse);
+    assert.deepEqual(app.index.map((e) => e.id), ['m10-tournage-vc', 'm10-tournage-vc-rpm', 'test-complet']);
+    assert.deepEqual(app.listed.map((e) => e.id), ['m10-tournage-vc', 'm10-tournage-vc-rpm']);
+    assert.deepEqual(demandes.sort(), ['data/materiaux.json', 'data/operations.json', 'data/outils.json', 'exercices/index.json', 'exercices/m10-tournage-vc-rpm.json', 'exercices/m10-tournage-vc.json', 'exercices/test-complet.json'], adresse);
   }
 });
 

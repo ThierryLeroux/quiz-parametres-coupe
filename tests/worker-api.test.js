@@ -112,6 +112,46 @@ test('test-complet : l’exercice de test est servi par le serveur, avec ses 29 
   assert.deepEqual(seance.question.champs.map((champ) => champ.evalue), [true, true, true, true, true]);
 });
 
+test('exercice « M10 - tournage - Vc et RPM » (D40) en mode test : 22 questions Vc et N jusqu’à l’attestation, jamais de carbure solide, filetage et barre à aléser rencontrés', async () => {
+  const serveur = serveurDeTest(LOCAL);
+  const VC_RPM = 'm10-tournage-vc-rpm';
+  const { jeton, seance } = await commencer(serveur, { ...CAMILLE, exercice: VC_RPM });
+  assert.equal(seance.progression.outils.length, 11);
+  assert.deepEqual(seance.question.champs.map((champ) => champ.evalue), [true, false, true, false, false]); // Vc et N à saisir
+  assert.deepEqual(Object.keys(seance.question.reponses_test), ['vc', 'rpm']);
+
+  let etat = seance;
+  const vus = { materiaux: new Set(), outils: new Set(), filetage: 0, barre: 0 };
+  let n = 0;
+  while (etat.reussite_le === null) {
+    n += 1;
+    assert.ok(n <= 22, 'plus de 22 questions');
+    vus.materiaux.add(etat.question.outil.materiau);
+    vus.outils.add(etat.question.outil.id);
+    if (etat.question.outil.operation.startsWith('Filetage')) vus.filetage += 1;
+    if (etat.question.outil.id === 'barre_a_aleser') { vus.barre += 1; assert.match(etat.question.outil.barre, /po$/); }
+    // Les réponses jointes par le serveur en mode test : la Vc de la table, N calculée (plafond compris).
+    const { status, corps } = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: VC_RPM, saisies: etat.question.reponses_test } });
+    assert.equal(status, 200, JSON.stringify(corps));
+    assert.equal(corps.correction.reussie, true, `question ${n}`);
+    etat = corps.seance;
+  }
+  assert.equal(n, 22);
+  assert.deepEqual([...vus.materiaux].sort(), ['Acier rapide', 'Insert de carbure de tungstène']);
+  assert.equal(vus.outils.size, 11);
+  assert.equal(vus.filetage, 8); // quatre outils de filetage × deux réussites
+  assert.equal(vus.barre, 2);
+  assert.equal(etat.progression.total_reussies, 22);
+  assert.equal(etat.question, null);
+
+  const { status, corps } = await serveur.appel('GET', `/api/attestation?exercice=${VC_RPM}`, { jeton });
+  assert.equal(status, 200, JSON.stringify(corps));
+  assert.equal(corps.attestation.exercice.titre, 'M10 - tournage - Vc et RPM');
+  assert.equal(corps.attestation.questions_reussies, 22);
+  assert.deepEqual(corps.attestation.outils.map((o) => `${o.reussites}/${o.requises}`), Array(11).fill('2/2'));
+  assert.equal(serveur.journal().length, 22);
+});
+
 // --- Généralités ---------------------------------------------------------------------------------------
 
 test('GET /api/version, adresse inconnue (404, plus de 501), et le reste aux fichiers du site', async () => {

@@ -1,0 +1,21 @@
+{
+  "_source": "exercice ajouté après la mise en production du jalon 5 (décision D40) : Vc lue dans la table et N calculée, sur onze outils de pointage, perçage, alésage à la barre et filetage ; matière de l'outil restreinte à l'acier rapide et à l'insert de carbure (jamais le carbure solide) ; tous les groupes de matériaux permis par chaque outil ; deux réussites de suite par outil, soit 22 questions",
+  "id": "m10-tournage-vc-rpm",
+  "titre": "M10 - tournage - Vc et RPM",
+  "version": "r0",
+  "champs_evalues": ["vc", "n"],
+  "materiaux_outil": ["Acier rapide", "Insert de carbure de tungstène"],
+  "outils": [
+    { "id": "foret_a_pointer", "reussites_requises": 2 },
+    { "id": "foret_fractionnaire", "reussites_requises": 2 },
+    { "id": "foret_a_numero", "reussites_requises": 2 },
+    { "id": "foret_a_lettre", "reussites_requises": 2 },
+    { "id": "foret_metrique", "reussites_requises": 2 },
+    { "id": "foret_udrill", "reussites_requises": 2 },
+    { "id": "barre_a_aleser", "reussites_requises": 2 },
+    { "id": "sdtmr", "reussites_requises": 2 },
+    { "id": "sdtmr_2", "reussites_requises": 2 },
+    { "id": "barre_a_fileter", "reussites_requises": 2 },
+    { "id": "barre_a_fileter_2", "reussites_requises": 2 }
+  ]
+}
