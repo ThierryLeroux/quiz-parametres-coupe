@@ -1,6 +1,6 @@
 # Spécification fonctionnelle — Quiz de paramètres de coupe (version web)
 
-Statut : **brouillon v0.5** (2026-09-21). Rédigée à partir de l'analyse du classeur
+Statut : **brouillon v0.6** (2026-09-22). Rédigée à partir de l'analyse du classeur
 `Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm` et de son VBA
 (voir `legacy/vba/`). Un point marqué ❓ est à confirmer avec Thierry ; il n'y en a aucun en ce moment.
 
@@ -278,7 +278,7 @@ ne reste rien à tirer. La séance note la version de l'exercice **au début** e
 | `seances` | une ligne par couple (exercice, matricule) : prénom et nom **de la première visite**, NIP haché, jeton haché et son expiration, début, dernière activité, dernière correction, version de l'exercice au début et à la réussite, compteurs (JSON), question en attente (JSON), date de réussite, essais de NIP et verrou |
 | `corrections_identite` | le journal des corrections d'identité (D23) : séance, anciens et nouveaux prénom, nom et matricule, horodatage ; après la réussite, les codes de l'attestation annulée et de la nouvelle (D37) — pour l'espace professeur |
 | `corrections` | le journal : séance, outil, question (JSON), réponses (JSON), résultat champ par champ et valeurs attendues (JSON), réussie ou non, horodatage |
-| `attestations` | une ligne par attestation (D31, D35, D37) : séance, code court, enregistrement figé (JSON), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`) |
+| `attestations` | une ligne par attestation (D31, D35, D37) : séance, code court, enregistrement figé (JSON, avec la liste des questions réussies qui comptent, D41), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`) |
 | `journal_enseignant` | les actions d'enseignant (D34, D35, D38) : horodatage, enseignant (« admin »), séance, action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`), détails |
 | `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
 
@@ -516,7 +516,7 @@ une attestation en cas de doute.
 Moodle est abandonné (D16) : ni numéro Moodle, ni code de réussite. La formule
 du classeur (`calcCodeM`) reste dans `legacy/vba/` pour mémoire.
 
-### Attestation de réussite (décisions D31 à D33)
+### Attestation de réussite (décisions D31 à D33, D41)
 
 **Enregistrement figé (D31).** Quand la dernière réussite exigée est obtenue —
 par une correction, ou constatée à la demande de question quand l'exercice a
@@ -532,7 +532,10 @@ par une correction, ou constatée à la demande de question quand l'exercice a
   "debut": "2026-09-21T13:05:00.000Z",
   "reussite_le": "2026-09-21T13:48:10.000Z",
   "questions_reussies": 15,
-  "outils": [ { "id": "mclnr", "nom": "MCLNR", "plage": "10 mm à 20 mm", "operation": "Chariotage ébauche", "reussites": 1, "requises": 1 } ]
+  "outils": [ { "id": "mclnr", "nom": "MCLNR", "plage": "10 mm à 20 mm", "operation": "Chariotage ébauche", "reussites": 1, "requises": 1 } ],
+  "questions": [ { "numero": 3, "outil_id": "mclnr", "outil": "MCLNR - Ø charioté: 10 mm", "materiau_outil": "Insert de carbure de tungstène",
+                   "materiau": { "classe": "H", "groupe": 39, "materiau": "Acier durci", "etat": "Durci et revenu" },
+                   "reponses": { "vc": "40" }, "horodatage": "2026-09-21T13:12:05.000Z" } ]
 }
 ```
 
@@ -543,8 +546,16 @@ par une correction, ou constatée à la demande de question quand l'exercice a
   l'écran (§7) — `nom`, `operation` et `plage` (celle que l'exercice permet,
   D30) **copiés à cet instant** et plus jamais relus ; `reussites` est le
   compteur de l'outil, `requises` ce que l'exercice exigeait ;
+- `questions` (D41) : **les questions réussies qui comptent** — pour chaque outil, la série
+  finale de réussites consécutives (ses `reussites` dernières questions réussies, donc toutes
+  après son dernier échec), dans l'ordre chronologique. Chaque entrée est copiée du **journal des
+  corrections** : `numero` (rang de la question dans la séance, ratées comprises), `outil_id`,
+  `outil` (le nom tel qu'affiché à l'étudiant : gabarit résolu, §4.6), `materiau_outil`,
+  `materiau` (classe ISO, no de groupe, nom, état), `reponses` (les saisies de l'étudiant, telles
+  quelles, pour les grandeurs évaluées seulement, sous les noms du moteur), `horodatage`. Une
+  attestation figée avant cette liste n'en a pas, et reste valide telle quelle ;
 - une correction d'identité postérieure **annule et réémet** l'attestation
-  (D37, ci-dessous) : les résultats et les dates sont repris tels quels.
+  (D37, ci-dessous) : les résultats, les dates et la liste sont repris tels quels.
 
 Une séance réussie **avant le jalon 5** reçoit son enregistrement à la
 première ouverture de l'attestation (`GET /api/attestation`), à partir de la
@@ -566,15 +577,19 @@ même lot déplace la séance, marque l'attestation en cours annulée (motif
 `identite_corrigee`) et en insère une nouvelle : l'enregistrement est repris
 tel quel avec la nouvelle identité et un nouveau code, puis signé. L'ancien code
 répond « annulée » avec le motif ; le journal des corrections d'identité note
-`ancien_code` et `nouveau_code`. Sans changement, rien n'est réémis.
+`ancien_code` et `nouveau_code`. Sans changement, rien n'est réémis. Si le code tiré pour la
+réémission est déjà pris, un autre est tiré (D42).
 
 **La page de l'attestation** (`UI.md` §3.6) : format lettre, en-tête du
 département sur trois lignes, identité, exercice, version et révision des
 tables, dates, tableau
 des opérations effectuées (opération, outil, plage, réussites obtenues /
 exigées), code QR avec le code court dessous, mention « Vérification :
-<adresse du site>/verifier — code XXXXX-XXXXX », pied « TGM-TMI — TLP —
-<année> ». Bouton **Enregistrer en PDF** : l'impression du navigateur (le PDF
+<adresse du site>/verifier — code XXXXX-XXXXX », puis le **tableau des
+questions réussies qui comptent** (numéro, outil, matière de l'outil, matériau
+usiné, une colonne par grandeur évaluée, date et heure) — une page quand ça
+tient, sinon la suite sur une deuxième page avec l'en-tête (D41) —, pied
+« TGM-TMI — TLP — <année> », « Page n de N ». Bouton **Enregistrer en PDF** : l'impression du navigateur (le PDF
 vient du navigateur, jamais du serveur), nom de fichier proposé
 `Attestation-<exercice>-<Nom>-<Prenom>.pdf`. Un étudiant retrouve son
 attestation par la reprise de séance quand l'exercice est réussi.
@@ -608,7 +623,8 @@ ou la saisie du code court (ou d'une adresse collée entière). Le serveur
 3. si l'attestation a été annulée — remise à zéro (D35) ou identité corrigée
    (D37) → **annulée**, avec la date et le motif ;
 4. sinon **valide**, avec l'enregistrement complet tel que le serveur le
-   détient, tableau des opérations compris.
+   détient, tableau des opérations et liste des questions réussies (D41)
+   compris.
 
 La page ne divulgue rien de plus que l'attestation imprimée : ni journal, ni
 corrections d'identité, ni durées. Elle est soumise aux limites de débit
@@ -726,6 +742,7 @@ dans le catalogue ce qui est évalué. Un exercice = un fichier
 | `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
 | `outils` | oui | au moins un ; chaque `id` une seule fois |
 | `liste` | non | `false` retire l'exercice de la liste de l'accueil (D18) ; il reste joignable par `?exercice=<id>`. Pour les exercices d'essai (D30). Absent = listé |
+| `materiaux_outil` | non | restreint le tirage du matériau d'outil pour **tous** les outils de l'exercice (D40) ; chacun doit être un matériau d'outil du catalogue (§3). Se croise avec les matériaux de chaque outil et avec `outils[].materiaux_outil` ; un outil qui n'aurait plus aucune matière permise rend l'exercice invalide (le message nomme l'outil, ce qu'il offre et ce que l'exercice permet) |
 | `outils[].id` | oui | `id` d'un outil du catalogue |
 | `outils[].reussites_requises` | oui | entier ≥ 1 (réussites consécutives, §7) |
 | `outils[].dimensions` | non | restreint le tirage à ces **libellés** de dimension ; chacun doit exister sur l'outil |
@@ -743,7 +760,9 @@ Précisions :
 - **Restrictions absentes = aucune restriction** : toutes les dimensions, tous
   les matériaux d'outil, tous les groupes usinables de l'outil. Une liste de
   restriction vide, ou avec un doublon, est une erreur. C'est par `dimensions`
-  qu'un exercice écarte les micro-forets (D14).
+  qu'un exercice écarte les micro-forets (D14), et par `materiaux_outil` à la
+  racine qu'il écarte une matière d'outil partout (D40 : « jamais de carbure de
+  tungstène solide »).
 - **Clé inconnue = erreur.** Une faute de frappe (« dimension » pour
   « dimensions ») lèverait sinon une restriction en silence. Seules les clés
   commençant par `_` (commentaires, comme `_source`) sont ignorées.
@@ -761,6 +780,10 @@ Précisions :
   « index » est un identifiant réservé. Un fichier d'exercice absent de
   l'index n'est pas offert. Pour composer la liste, la page lit les fichiers des
   exercices de l'index et écarte ceux qui portent `"liste": false`.
+- **`m10-tournage-vc-rpm`** (décision D40) : « M10 - tournage - Vc et RPM »,
+  `champs_evalues` `["vc", "n"]`, acier rapide ou insert de carbure seulement,
+  onze outils de pointage, perçage, alésage à la barre et filetage, deux
+  réussites de suite chacun (22 questions), listé à l'accueil.
 - **`test-complet`** (décision D26) : exercice de test pour l'enseignant — tous
   les outils du catalogue, les cinq grandeurs, une réussite par outil, aucune
   restriction, `"liste": false`. Un test vérifie qu'un outil ajouté au catalogue

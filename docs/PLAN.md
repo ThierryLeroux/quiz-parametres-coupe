@@ -88,10 +88,19 @@ Rapport de session : `docs/rapports/jalon-5-attestation.md`.
 - [ ] Essai avec un groupe d'étudiants ; correctifs
 - ~~Page de vérification : durée totale, temps médian, corrections d'identité~~ — abandonné (D33 : rien de plus que l'attestation imprimée ; les corrections d'identité sont dans l'espace professeur)
 
+## Après le jalon 5 — exercice « Vc et RPM » et liste des questions sur l'attestation (décisions D40 à D42)
+Rapport de session : `docs/rapports/exercice-vc-rpm.md`.
+
+- [x] Restriction de matière d'outil pour tout l'exercice (`materiaux_outil` à la racine, D40) : validée au chargement, un outil sans matière permise refusé avec un message clair
+- [x] Exercice `m10-tournage-vc-rpm` : Vc et N, onze outils, acier rapide ou insert seulement, deux réussites de suite (22 questions), listé à l'accueil ; tolérance de N en filetage et barre à aléser vérifiées dans cet exercice
+- [x] **Liste des questions réussies qui comptent** dans l'enregistrement signé (D41), composée depuis le journal ; page de l'attestation sur une ou deux pages (QR en première page, en-tête répété, « Page n de N ») ; `/verifier` montre la liste complète ; les attestations déjà figées restent telles quelles
+- [x] Réémission : un code déjà pris est retiré (D42) ; aléa des codes injectable dans les tests
+- [x] Tests : restriction de matière, exercice complet en mode test, attestation avec liste et signature, deux pages, réémission, collision de code ; `test:api` étendu à l'exercice ; Chrome à 1280 et 390 px, média print (PDF de deux pages), captures dans `captures/exercice-vc-rpm/`, aucune requête externe
+
 ## Jalon 6 — Éditeur web du catalogue et des exercices (décision D11)
 Rien n'en existe encore. Protégé par la connexion professeur du jalon 5 (UI §8).
 
-- [ ] `site/editeur/` : **création de devoirs** — éditer un exercice (outils, réussites, champs évalués, restrictions), validé par `exercice.js` ; l'inscrire à l'index
+- [ ] `site/editeur/` : **création de devoirs** — éditer un exercice (outils, réussites, champs évalués, restrictions par outil et matière d'outil pour tout l'exercice, D40), validé par `exercice.js` ; l'inscrire à l'index
 - [ ] Éditer les **outils** (`outils.json`), validé par `data.js` : dimensions, **gabarit de nomenclature** avec la liste des jetons et un aperçu (D24), **barres** d'un outil à deux diamètres (D25)
 - [ ] Éditer les **tables de référence** : vitesses de coupe (`materiaux.json`, dont `debut_famille`, D27), avances (`operations.json`), **révision** de chaque table (D28)
 - [ ] **Images** : photo d'un outil (`site/img/outils/`), pictogramme d'une opération (`site/img/pictos/operations/`)

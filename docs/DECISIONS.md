@@ -877,3 +877,77 @@ la même base pour le cycle complet : une minute au lieu de trois.
 
 **Conséquences.** `cadenceFor` dans `worker/seance.js` ; `cadenceWait` reçoit
 la cadence en option. Rien ne change pour l'étudiant.
+
+## D40 — Exercice « M10 - tournage - Vc et RPM » et restriction de matière d'outil pour tout l'exercice (2026-09-22, décidée)
+
+**Contexte.** Après la mise en production du jalon 5, Thierry veut un second exercice : Vc lue
+dans la table, comme le M10, **et** N calculée, sur des outils de pointage, de perçage, d'alésage
+à la barre et de filetage ; jamais de carbure de tungstène solide. Le schéma d'exercice ne
+permettait la restriction de matière que **par outil** (`outils[].materiaux_outil`), à répéter
+sur onze entrées, sans pouvoir dire « pour tout l'exercice ».
+
+**Décision.**
+
+- Une clé facultative **à la racine de l'exercice**, `materiaux_outil` (liste de matériaux d'outil
+  du catalogue, non vide, sans doublon), restreint le tirage de la matière pour **tous** les
+  outils. Elle se croise avec la liste de l'outil et, s'il y en a une, avec celle de l'entrée
+  (`allowedToolMaterials`, `exercice.js`). Un outil qui n'aurait **plus aucune matière permise**
+  est refusé **au chargement**, avec un message qui dit ce que l'outil offre et ce que l'exercice
+  permet : jamais un tirage impossible en cours de séance.
+- L'exercice `site/exercices/m10-tournage-vc-rpm.json` : titre « M10 - tournage - Vc et RPM »,
+  `champs_evalues` `["vc", "n"]`, `materiaux_outil` `["Acier rapide", "Insert de carbure de
+  tungstène"]`, onze outils dans cet ordre — foret à pointer ; foret fractionnaire (jobber), foret
+  à numéro, foret à lettre, foret métrique (jobber), foret Udrill ; barre à aléser ; SDTMR impérial
+  et métrique, barre à fileter impériale et métrique —, **deux réussites de suite** chacun, soit
+  22 questions ; tous les groupes usinables de chaque outil, toutes les dimensions. Inscrit à
+  l'index, **listé** à l'accueil (D18).
+- Tout ce qui existe s'applique sans changement : aide contextuelle, feuilles, mode test,
+  attestation ; la tolérance de N en filetage (de −90 % à +0,1 %) et la barre à aléser à deux
+  diamètres (N avec le Ø alésé) sont vérifiées par des tests dans cet exercice.
+
+**Conséquences.** `validateExercise` et `eligibleTools` ; SPEC §10 ; `test-complet` et le M10
+ne changent pas. L'éditeur (jalon 6) offrira cette clé à côté des restrictions par outil.
+
+## D41 — L'attestation liste les questions réussies qui comptent (2026-09-22, décidée)
+
+**Contexte.** Le tableau par outil (réussites obtenues / exigées) rend toutes les attestations
+d'un même exercice identiques, à l'identité et aux dates près. Thierry veut que chaque copie soit
+**unique et comparable d'un étudiant à l'autre** : ce qui a été demandé et ce qui a été répondu.
+
+**Décision.**
+
+- L'enregistrement figé (D31) porte une liste `questions` : pour chaque outil, **la série finale
+  de réussites consécutives** (ses `reussites` dernières questions réussies — toujours après son
+  dernier échec, puisqu'un échec remet le compteur à zéro, D12), le tout dans l'**ordre
+  chronologique**. Chaque entrée : `numero` (le **rang de la question dans la séance**, réussies
+  et ratées confondues), `outil_id`, `outil` (le nom **tel qu'affiché** : gabarit résolu, avec
+  dimension, Ø de barre et nombre de dents quand le gabarit les porte), `materiau_outil`,
+  `materiau` (`classe`, `groupe`, `materiau`, `etat`), `reponses` (les **réponses de l'étudiant**,
+  telles que saisies, aux **grandeurs évaluées** seulement, sous les noms du moteur), `horodatage`.
+  Tout vient du **journal des corrections**, qui contenait déjà tout : aucune migration.
+- La liste fait partie de la sérialisation **signée** ; le QR garde son contenu essentiel (D33) ;
+  `/verifier` montre la liste complète, telle que le serveur la détient.
+- Sur la page de l'attestation, le tableau par outil reste au-dessus, comme résumé ; la liste
+  vient dessous. **Une page lettre quand ça tient, sinon la suite sur une deuxième page** avec
+  l'en-tête du département, un rappel (nom, matricule, code) et le pied « Page n de N » ; le QR
+  et le code restent en première page. Les lignes ont une hauteur fixe (une ligne, sans repli, un
+  libellé trop long est tronqué) : la coupe est un calcul pur, calibré sur la page lettre mesurée
+  dans Chrome (`PAGE_LAYOUT`, `attestation-data.js`).
+- Les attestations **figées avant cette version** restent telles quelles (sans liste, signature
+  intacte) ; la liste s'applique aux attestations composées à partir de cette version — y compris
+  la reconstitution d'une séance réussie avant le jalon 5, dont le journal existe. La réémission
+  (D37) reprend la liste telle quelle.
+
+**Conséquences.** `successfulQuestions` et `buildAttestation(…, corrections)`
+(`worker/attestation.js`), `listCorrections` (`base.js`) ; `questionsTable`, `attestationPages`
+(`attestation-screen.js`), `verifier.js` ; SPEC §7, §8 ; UI §3.6, §3.7.
+
+## D42 — Réémission : un code d'attestation déjà pris est retiré (2026-09-22, décidée)
+
+**Contexte.** Point 2 du rapport du jalon 5 : à la réémission (D37), un code tiré déjà pris
+faisait échouer le lot (UNIQUE) et répondait 409 « ce matricule a déjà une séance », message faux.
+
+**Décision.** `moveSession` distingue la contrainte violée (`seances` → « matricule »,
+`attestations.code` → « code ») ; sur « code », le serveur tire un autre code et recommence, comme
+il le faisait déjà à la réussite. L'aléa des codes est **injectable** (`tools.randomBytes`, à côté
+de `now` et `random`), pour forcer une collision dans les tests.
