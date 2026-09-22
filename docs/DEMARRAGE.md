@@ -141,6 +141,14 @@ faire une seule fois, dans PowerShell, à la racine du dépôt (après
 6. **Secrets locaux**, pour `npm run dev` : copier `.dev.vars.exemple` sous le
    nom `.dev.vars` et y mettre deux valeurs au hasard. Ce fichier est ignoré par
    git ; ses valeurs n'ont aucun rapport avec celles de production.
+7. **Mode test** (décision D26), pour essayer le parcours sans calculer : ajouter
+   la ligne `MODE_TEST=1` à `.dev.vars`, relancer `npm run dev`, puis ouvrir
+   <http://localhost:8787/?exercice=test-complet> (tous les outils, les cinq
+   grandeurs). Un bandeau « Mode test » apparaît : les cases arrivent remplies et
+   restent modifiables, « Remplir » les remet, et la cadence de 10 s est levée.
+   Pour en sortir : retirer la ligne. Cette variable ne va **jamais** dans
+   `wrangler.jsonc` ni sur le Worker de production — et même là, le serveur la
+   refuserait : il n'accepte le mode que pour une requête adressée à `localhost`.
 
 Ensuite, rien à faire à la main : le schéma de la base est dans `migrations/`
 (un fichier SQL numéroté par changement, jamais modifié une fois appliqué).

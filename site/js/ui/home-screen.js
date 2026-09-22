@@ -3,7 +3,7 @@
 // Et, quand l'adresse ne nomme aucun exercice de l'index, la liste des exercices offerts.
 
 import { el, showScreen } from './dom.js';
-import { exerciseMeta, exerciseSummary } from './text.js';
+import { DEPARTMENT_SHORT, exerciseMeta, exerciseSummary } from './text.js';
 
 // Accueil d'un exercice.
 //   local   : { matricule, prenom, jeton } gardé par ce navigateur (loadSession), ou null
@@ -45,7 +45,7 @@ export function renderHome(main, { exercise, local }, actions) {
     status,
   ]);
 
-  showScreen(main, screen, { title: 'Quiz — paramètres de coupe', aside: 'Techniques de génie mécanique' });
+  showScreen(main, screen, { title: 'Quiz — paramètres de coupe', aside: DEPARTMENT_SHORT });
 }
 
 // Liste des exercices offerts : seulement quand l'adresse n'a pas de « ?exercice= » valide (D18).
@@ -59,7 +59,7 @@ export function renderExerciseList(main, index, unknownId) {
     el('p', { class: 'muted small' }, "Choisis l'exercice indiqué sur Léa par ton enseignant."),
     el('ul', { class: 'exercise-list' }, index.map((entry) => el('li', {}, el('a', { href: `?exercice=${encodeURIComponent(entry.id)}` }, entry.titre)))),
   ]));
-  showScreen(main, screen, { title: 'Quiz — paramètres de coupe', aside: 'Techniques de génie mécanique' });
+  showScreen(main, screen, { title: 'Quiz — paramètres de coupe', aside: DEPARTMENT_SHORT });
 }
 
 // Le quiz n'a pas pu démarrer : catalogue ou exercice illisible ou invalide.

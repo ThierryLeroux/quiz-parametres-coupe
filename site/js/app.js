@@ -22,13 +22,20 @@ export function requestedExercise(search, index) {
 }
 
 // Charge tout ce qu'il faut à la page : catalogue, index, et l'exercice nommé par l'adresse.
-// Retourne { data, index, exercise, unknownId } — exercise vaut null si l'adresse n'en nomme
-// aucun de l'index (voir requestedExercise) : aucun fichier d'exercice n'est alors lu.
+// Retourne { data, index, exercise, unknownId, listed } — exercise vaut null si l'adresse n'en
+// nomme aucun de l'index (voir requestedExercise) ; l'accueil montre alors `listed`, les exercices
+// de l'index dont le fichier ne dit pas « liste »: false (exercices d'essai, D30). C'est le seul cas
+// où plusieurs fichiers d'exercice sont lus.
 //   readJson : lecteur injectable (fetch par défaut), comme dans loadData
 export async function loadApp(search, readJson = fetchJson) {
   const data = await loadData('data/', readJson);
   const index = await loadExerciseIndex('exercices/', readJson);
   const { exercise: entry, unknownId } = requestedExercise(search, index);
   const exercise = entry === null ? null : await loadExercise(entry.id, data, 'exercices/', readJson);
-  return { data, index, exercise, unknownId };
+  let listed = [];
+  if (exercise === null) {
+    const files = await Promise.all(index.map((item) => loadExercise(item.id, data, 'exercices/', readJson)));
+    listed = index.filter((_, i) => files[i].liste !== false);
+  }
+  return { data, index, exercise, unknownId, listed };
 }

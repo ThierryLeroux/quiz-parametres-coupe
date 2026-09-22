@@ -1,9 +1,10 @@
 // Tests de site/js/ui/text.js : textes des écrans composés à partir des données, sans DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
-  FIELD_LABELS, FIELD_PARTS, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
-  serverErrorMessage, studentLine,
+  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
+  localDate, serverErrorMessage, sheetSignature, studentLine,
 } from '../site/js/ui/text.js';
 import { loadApp } from '../site/js/app.js';
 import { ApiError } from '../site/js/api.js';
@@ -20,6 +21,25 @@ const CINQ_CHAMPS = {
 };
 
 const DEBUT = new Date(2026, 8, 19, 13, 5); // heure du poste : le texte affiché ne dépend pas du fuseau du test
+
+test('le département : trois lignes, les mêmes dans le pied de index.html ; le sigle TGM-TMI, et plus aucun « TGM » seul affiché (D29)', async () => {
+  assert.deepEqual(DEPARTMENT_LINES, ['Techniques de génie mécanique', 'Technique du génie de la maintenance industrielle', '(fiabilité des systèmes de production)']);
+  assert.equal(DEPARTMENT_SHORT, 'TGM-TMI');
+  const page = await readFile(new URL('../site/index.html', import.meta.url), 'utf8');
+  for (const line of DEPARTMENT_LINES) assert.ok(page.includes(`<div>${line}</div>`), line);
+  assert.ok(page.includes('TGM-TMI'));
+  assert.doesNotMatch(page.replaceAll('TGM-TMI', ''), /TGM/);
+});
+
+test('sheetSignature : « TGM-TMI — TLP — <année> » au pied des feuilles et de l’attestation (D30)', () => {
+  assert.equal(sheetSignature(new Date('2026-09-21T12:00:00')), 'TGM-TMI — TLP — 2026');
+  assert.match(sheetSignature(), /^TGM-TMI — TLP — \d{4}$/);
+});
+
+test('localDate : la date du poste, « AAAA-MM-JJ », jamais celle d’UTC', () => {
+  assert.equal(localDate(new Date(2026, 8, 21, 23, 30)), '2026-09-21');
+  assert.equal(localDate(new Date(2026, 0, 5, 0, 5)), '2026-01-05');
+});
 
 test('exerciseMeta : version, nombre d’outils, champs évalués', () => {
   assert.equal(exerciseMeta(m10), 'version r0 · 9 outils · champ évalué : vitesse de coupe');

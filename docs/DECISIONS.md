@@ -184,6 +184,15 @@ corrigé montré à l'étudiant) est toujours acceptée. `correction.js` dépend
 données ne changent pas : `fact_vc = 0,125` sur la lame à tronçonner est voulu,
 et la borne basse de N en filetage reste −90 % (et non les −90,1 % du VBA).
 
+**Complément (2026-09-21).** La feuille des formules montre aussi la formule
+exacte N = Vc × 12 / (π × Ø) (D29). Un N calculé avec elle est plus bas de
+4,5 % ; **arrondi à l'entier**, il sortait de ±5 % pour 122 combinaisons sous
+90 rév/min. La tolérance de N devient **±5 % élargie de ±1 rév/min de chaque
+côté** pour les avances fixes et proportionnelles ; le filetage reste de −90 %
+à +0,1 %. La ligne de correction l'écrit (« ±5 % et ±1 rév/min »). La
+demi-unité d'affichage de cette décision s'y ajoute toujours. Ferme le ❓ de
+SPEC §5.
+
 ## D14 — Avances : au moins 4 décimales et au moins 3 chiffres significatifs (2026-09-19, décidée)
 
 **Contexte.** À 4 décimales, l'avance d'un micro-foret s'affichait « 0.0000 »
@@ -470,7 +479,199 @@ horodatages ; la page d'administration du jalon 5 devra remettre un NIP à zéro
 exercice est accepté pour la v1 ; une table `etudiants` (un NIP par matricule,
 alimentée par une liste de classe) est la piste si cela gêne.
 
-*Les numéros D24 à D30 sont réservés aux décisions prises dans le Projet Claude entre les jalons 4 et 5 ; elles seront reportées ici par Thierry.*
+## D24 — Nomenclature des outils : le gabarit du classeur, avec ses jetons (2026-09-20, décidée)
+
+**Contexte.** Dans le classeur, chaque outil porte à la ligne 4 de « Liste
+d'outils » (`IdFormat`) un gabarit de nom dont les champs entre crochets sont
+remplacés par les valeurs tirées au sort (`clsOutil.instIdOutil`). Le catalogue
+le porte déjà (`format_identifiant`, SPEC §4.6), mais avec cinq jetons seulement,
+et l'écran Question retouchait le résultat pour distinguer les outils de même nom.
+
+**Décision.**
+
+- Le gabarit reste le champ `format_identifiant` de chaque outil, même syntaxe
+  que le classeur. Jetons reconnus : `[IdDia]`, `[Dia]`, `[Pas]`, `[NbDent]`,
+  `[NomOutil]`, `[Matoutil]`, `[Operation]`, et `[IdBarre]` (D25). Tout autre
+  jeton est une erreur **à la validation du catalogue**, plus seulement au tirage ;
+  `[Pas]` n'est permis que sur un outil de filetage, `[IdBarre]` que sur un outil
+  à deux diamètres.
+- Le **nom affiché dans la question** (titre du panneau de l'outil) est le
+  gabarit résolu, **tel quel**. La **progression** garde le nom générique
+  (`nom`), avec ce qui distingue les homonymes : l'unité, sinon la plage de
+  dimensions (réponse A.3 au rapport du jalon 4).
+- L'éditeur (jalon 6) permet de modifier le gabarit, avec la liste des jetons
+  et un aperçu.
+
+**Conséquences.** `validateData` vérifie les gabarits ; `labeledIdentifier`
+disparaît de `site/js/ui/rules.js` ; SPEC §4.6, UI §3.3, PLAN (jalon 6).
+
+## D25 — Barre à aléser : deux diamètres, le Ø alésé pour N, le Ø de la barre pour l'avance (2026-09-20, décidée)
+
+**Contexte.** L'alésage à la barre a une avance proportionnelle au Ø **de la
+barre** (0.006 × Ø barre), alors que N se calcule avec le Ø **alésé** (le trou).
+Dans le classeur, l'outil n'a qu'une dimension (Ø alésé), qui servait aux deux :
+l'avance était fausse.
+
+**Décision.**
+
+- Un outil peut porter une seconde liste, `dimensions_barre` (libellé + Ø en
+  pouces), et `rapport_barre_max`. La barre est tirée **avec** la dimension,
+  parmi celles qui entrent dans le trou : Ø barre ≤ `rapport_barre_max` × Ø alésé.
+- Valeurs de départ : barres de 1/2, 5/8, 3/4, 1 et 1 1/4 po ;
+  `rapport_barre_max` = 0,75 — **confirmées par Thierry le 2026-09-21**. Que le
+  plafond de 0,006 ne soit atteint qu'à partir de la barre de 1 po convient :
+  l'étudiant rencontre le cas proportionnel et le cas plafonné.
+- Moteur : N avec le Ø de la dimension, avance proportionnelle avec le Ø de la
+  barre. Question, panneau de l'outil, aide contextuelle et correction nomment
+  chacun des deux diamètres. Gabarit : « Barre à aléser Ø [IdBarre] - Ø alésé:
+  [IdDia] ».
+- Le catalogue est refusé si une dimension n'a aucune barre qui y entre.
+- Vérifié : **aucun autre outil** du catalogue n'a deux diamètres à distinguer
+  aujourd'hui — les autres outils de tournage intérieur (barre à rainurer, barre
+  à fileter) ont une avance fixe ou égale au pas ; forets, alésoirs et fraises
+  n'ont qu'un Ø. (Le foret à centrer a un Ø de corps et un Ø de pilote, mais une
+  avance fixe : seul le Ø de corps sert, pour N.)
+
+**Extension (2026-09-21) — barre à rainurer.** Le rainurage interne est traité
+de même : la barre à rainurer reçoit `dimensions_barre` (même liste) et
+`rapport_barre_max` 0,75 ; N se calcule avec le Ø rainuré (facteur de vitesse
+0,25 inchangé), l'avance avec le Ø de la barre. Dans `operations.json`,
+« Rainurage interne » passe en avance **proportionnelle** : 0,003 × Ø barre,
+plafonnée à 0,003 po/tour, sur le modèle de l'alésage à la barre. Gabarit :
+« Barre à rainurer Ø [IdBarre] - Ø rainuré: [IdDia] ». Feuille des avances :
+même représentation que l'alésage à la barre (bande grise, « × Ø outil »,
+note « Ajuster l'avance ↔ Ø outil, Av. MAX. : .003" / tour ») : neuf bandes.
+À l'écran, les deux outils partagent les mêmes textes, avec « Ø usiné » pour le
+trou (« Ø usiné (le trou, pas la barre) ») ; le titre garde le mot du gabarit
+(alésé, rainuré).
+
+**Conséquences.** Un tirage de plus pour ces outils seulement (le 7e) ; une
+question en attente tirée avant ce changement, sans barre, est retirée et
+remplacée. SPEC §3 à §5, UI §3.3, tests du moteur et du serveur.
+
+## D26 — Mode test : local seulement, et c'est le serveur qui décide (2026-09-20, décidée)
+
+**Contexte.** Pour essayer le parcours, Thierry veut que les réponses se
+remplissent d'elles-mêmes (modifiables, pour simuler des erreurs) et n'avoir
+qu'à cliquer Vérifier puis Question suivante. Cela ne doit ouvrir aucune porte
+à la tricherie.
+
+**Décision.**
+
+- Le mode n'existe que sur le poste de développement : variable `MODE_TEST=1`
+  dans `.dev.vars` (lu par `wrangler dev`), **jamais** dans `wrangler.jsonc` ni
+  en production. Second verrou : même avec la variable, le serveur ne l'accepte
+  que pour une requête adressée à `localhost` ou `127.0.0.1`.
+- **C'est le serveur qui joint les valeurs attendues** à la question
+  (`question.reponses_test`), et seulement dans ce mode. Aucun paramètre
+  d'adresse ni interrupteur du navigateur ne l'active ; le navigateur ne montre
+  le bandeau « Mode test » et le bouton « Remplir » **que** si la question porte
+  ces valeurs.
+- Dans ce mode, la cadence de 10 s entre deux corrections est levée.
+- Exercice `test-complet` : tous les outils du catalogue, les cinq grandeurs,
+  une réussite par outil — pour voir chaque écran et chaque aide.
+- Plus tard : l'ouvrir aux séances d'un professeur connecté (jalon 5 ou 6) ; la
+  règle « rien de ce qui est à trouver ne part au navigateur » (SPEC §7) reste
+  vraie pour toute séance d'étudiant.
+
+**Conséquences.** `worker/seance.js` (`isTestMode`, vues), tests de fuite dans
+`tests/worker-api.test.js`, un test qui refuse `MODE_TEST` dans
+`wrangler.jsonc` ; SPEC §7 et §10, `.dev.vars.exemple`, DEMARRAGE.
+
+## D27 — Table des vitesses de coupe : un trait par famille de matériau, marqué dans les données (2026-09-20, décidée)
+
+**Contexte.** La feuille du classeur sépare les matériaux usinés par un trait
+noir fin ; la version web l'avait remplacé par des lignes blanches.
+
+**Décision.** Plus aucune ligne blanche. Un trait noir fin (« hairline ») au-dessus
+du premier groupe de chaque **matériau usiné** — les compositions et états
+métallurgiques d'un même matériau restent ensemble ; plastiques et graphite
+(groupes 42 à 47) forment une seule famille —, plus le cadre du tableau et le
+trait sous l'en-tête. Le début d'une famille est un **indicateur dans les
+données**, `debut_famille: true` sur le matériau, et non un calcul : l'éditeur
+pourra le changer. Aujourd'hui : groupes 1, 6, 10, 12, 15, 17, 19, 21, 23, 26,
+31, 36, 38, 41 et 42. (Le « thème nuit » demandé pour les feuilles venait d'une
+confusion : elles restent des pages blanches, UI §1 — D30.)
+
+**Conséquences.** `materiaux.json`, `validateData` (booléen facultatif),
+`vcSheet`, `sheets.css` ; SPEC §3, UI §3.5.
+
+## D28 — Révision des tables de référence, dans les données (2026-09-20, décidée)
+
+**Contexte.** Les feuilles du classeur portent leur révision au pied de page
+(« révision H2025_r0 ») ; la version web n'en avait pas.
+
+**Décision.** `materiaux.json` et `operations.json` portent chacun une clé
+`revision` (texte ; aujourd'hui « A2026_r0 »), affichée au pied de la feuille
+correspondante ; la feuille des formules, qui n'a pas de données, n'en porte pas.
+Modifiable par l'éditeur (jalon 6). C'est la révision **des tables** ; la
+version d'un exercice reste dans l'exercice (SPEC §10).
+
+**Conséquences.** `validateData`, `loadData` (`revisions`), pied des feuilles ;
+SPEC §3, UI §3.5.
+
+## D29 — Réponses au rapport du jalon 4 (2026-09-20, décidée)
+
+Points tranchés par Thierry, sans décision propre :
+
+- **Pictogrammes d'opérations** : les formes d'origine du classeur (DrawingML,
+  `xl/drawings/drawing3.xml`) sont **converties** en SVG, sans redessin
+  (`reference/pictogrammes-du-classeur/`). Le pictogramme de l'opération reste
+  dans le panneau de l'outil.
+- **La table des avances fait foi** : le champ `note` d'`operations.json`, qui
+  la contredisait (.008 × Ø 1/4 = .002) et n'était plus affiché, est supprimé ;
+  l'encadré de la feuille est calculé depuis les données.
+- **Feuille des formules** : la formule exacte N = Vc × 12 / (π × Ø) est montrée
+  **à titre indicatif** à côté de la formule du cours ; la correction reste sur
+  Vc × 4 / Ø.
+- **Feuille des avances** : bande grise sur les opérations proportionnelles au Ø,
+  comme dans le classeur, à la place de l'en-tête de colonne.
+- **Sur téléphone**, les colonnes Classe et No de groupe de la table des Vc
+  restent figées pendant le défilement.
+- **Rouge de la classe K** : éclairci en thème nuit seulement (UI §1).
+- **« TGM-TMI »** partout où « TGM » était affiché ; nom du département sur trois
+  lignes dans toutes les pages. Dépôt, chemins et adresses ne changent pas.
+- **Consultation du matricule** (`/api/consultation`) : à limiter au jalon 5. Le
+  cégep sort par une seule adresse IP (NAT) : une limite par IP doit rester
+  large ; préférer un plafond de **matricules distincts par heure**.
+- **Attestation de réussite** signée, avec son code QR : **en tête du jalon 5** —
+  c'est la sortie du parcours étudiant. D'ici là, « Voir mon attestation » mène à
+  une attestation **provisoire, non signée**, qui le dit.
+
+## D30 — Réponses au second rapport du jalon 4 (2026-09-21, décidée)
+
+Points tranchés par Thierry :
+
+- **Planche-contact validée** : les 19 pictogrammes convertis sont adoptés,
+  fraises rondes (sans l'étirement de 14 % qu'Excel applique au groupe), pointes
+  de flèche telles quelles. L'essai d'impression des trois feuilles est réussi.
+- **Barres et rapport 0,75** : confirmés (D25).
+- **N avec 12/π arrondi** : tolérance de N élargie de ±1 rév/min (D13).
+- **Feuilles en thème nuit : non.** Elles restent des pages blanches (UI §1). Les
+  variables CSS `--sheet-rule` et `--sheet-band` restent, sans redéfinition.
+- **Cadence levée en mode test** : confirmé (D26).
+- **`test-complet` hors de la liste** : un exercice porte `"liste": false` dans
+  son fichier pour ne pas apparaître dans la liste de l'accueil (D18) ; il reste
+  joignable par `?exercice=<id>`. Le même indicateur servira aux futurs
+  exercices d'essai. Clé facultative, `true` par défaut (SPEC §10).
+- **Note des avances posée sur la bande**, sans encadré : adopté ; maquette
+  `05b` et UI §3.5 mises à jour.
+- **Pied des feuilles et de l'attestation** : « TGM-TMI — TLP — 2026 », sans
+  « profil fabrication ».
+- **Coquille « Ø v45/64 po »** corrigée en « Ø 45/64 po » (commit « Corrige une
+  donnée »).
+- **Classeur de `legacy/`** renommé `Exercice_M10_tournage_vc_version_etudiant_r0.xlsm`
+  (sans accent ni espace) ; le convertisseur pointe sur ce chemin.
+- **Attestation provisoire** : elle part en production avec la prochaine
+  fusion ; bannière « PROVISOIRE — non signée, ne vaut pas preuve de réussite »
+  à l'écran et à l'impression, jusqu'au jalon 5. Elle **liste les opérations
+  effectuées** : pour chaque outil de l'exercice, dans l'ordre, le nom générique
+  avec sa plage de dimensions, l'opération, les réussites obtenues sur les
+  réussites exigées. La liste vient de la séance côté serveur, pour faire partie
+  du contenu signé au jalon 5.
+- **Rainurage interne** à deux diamètres (D25, extension).
+- Pour clore le jalon 4 : compte à rebours de la cadence à la place du message,
+  repli des outils terminés sur téléphone.
 
 ## D31 — L'attestation de réussite est un enregistrement figé à la réussite (2026-09-21, décidée)
 

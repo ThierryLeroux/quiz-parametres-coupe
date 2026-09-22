@@ -22,6 +22,17 @@ export const NIP_MAX_ATTEMPTS = 5; // 5 échecs…
 export const NIP_WINDOW_MS = 10 * MINUTE; // … en 10 minutes…
 export const NIP_LOCK_MS = 10 * MINUTE; // … verrouillent l'identification 10 minutes
 
+// --- Mode test (décision D26) ---------------------------------------------------------------------------
+// Le serveur joint les valeurs attendues à la question, pour essayer le parcours sans calculer.
+// Deux verrous, tous deux côté serveur : la variable MODE_TEST=1, posée seulement dans .dev.vars
+// (jamais dans wrangler.jsonc ni en production), ET une requête adressée au poste lui-même.
+// Rien de ce qu'envoie le navigateur (adresse, en-tête, corps) ne l'active.
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+export function isTestMode(variable, hostname) {
+  return variable === '1' && LOCAL_HOSTS.includes(hostname);
+}
+
 // Date ISO décalée de `ms` millisecondes : later(now, TOKEN_LIFETIME_MS).
 export const later = (now, ms) => new Date(now.getTime() + ms).toISOString();
 
@@ -42,10 +53,13 @@ export function isExerciseComplete(counters, exercise) {
 
 // La question mémorisée peut-elle encore être posée ? Oui si son outil est toujours « à évaluer ».
 // Non si, depuis le tirage, l'exercice a été modifié (D21) et que l'outil l'a quitté, a quitté le
-// catalogue, ou se trouve déjà réussi parce qu'on exige maintenant moins de réussites.
+// catalogue, ou se trouve déjà réussi parce qu'on exige maintenant moins de réussites. Non plus si
+// l'outil a maintenant deux diamètres (D25) et que la question, tirée avant, n'a pas de barre.
 export function isQuestionValid(question, counters, exercise, data) {
   if (question === null) return false;
-  return eligibleTools(exercise, data, progressOf(counters, exercise)).some((tool) => tool.id === question.tool.id);
+  const tool = data.outils.find((entry) => entry.id === question.tool.id);
+  if (tool?.dimensions_barre && !question.bar) return false;
+  return eligibleTools(exercise, data, progressOf(counters, exercise)).some((eligible) => eligible.id === question.tool.id);
 }
 
 // Tire une question parmi les outils encore à évaluer ; null s'il n'en reste aucun (exercice complété).
@@ -78,9 +92,10 @@ export function gradeQuestion(question, answers, counters, exercise, data) {
   };
 }
 
-// Secondes à attendre avant la prochaine correction (0 = on peut corriger).
-export function cadenceWait(session, now) {
-  if (session.derniere_correction === null) return 0;
+// Secondes à attendre avant la prochaine correction (0 = on peut corriger). En mode test (D26),
+// la cadence est levée : on clique Vérifier, Question suivante, Vérifier…
+export function cadenceWait(session, now, { testMode = false } = {}) {
+  if (testMode || session.derniere_correction === null) return 0;
   const elapsed = now.getTime() - new Date(session.derniere_correction).getTime();
   return elapsed >= CADENCE_MS ? 0 : Math.ceil((CADENCE_MS - elapsed) / SECOND);
 }
@@ -111,7 +126,9 @@ export const NIP_CLEARED = { essais_nip: 0, essais_nip_debut: null, verrou_nip_j
 // La question, prête à afficher. Les champs évalués sont à saisir ; les autres sont fournis, avec
 // leur valeur théorique mise en forme (SPEC §10). Les Vc du matériau n'y sont pas : les trouver
 // dans la table, c'est l'exercice.
-export function questionView(question, exercise, data) {
+//   testMode : mode test (D26) — et alors seulement, les valeurs attendues des champs évalués
+//              accompagnent la question (reponses_test), pour le bouton « Remplir »
+export function questionView(question, exercise, data, { testMode = false } = {}) {
   const tool = data.outils.find((entry) => entry.id === question.tool.id);
   const graded = fieldsToGrade(exercise);
   const displayed = formatParameters(computeParameters(question, data));
@@ -128,12 +145,14 @@ export function questionView(question, exercise, data) {
       limite_rpm: tool.limite_rpm,
       fact_vc: tool.fact_vc,
       fact_av: tool.fact_av,
+      barre: question.bar?.label ?? null, // outil à deux diamètres (D25) : le Ø de la barre ; sinon null
     },
     dimension: question.dimension.label,
     materiau: material,
     champs: ANSWER_FIELDS.map((field) => (graded.includes(field)
       ? { champ: field, evalue: true, texte: '' }
       : { champ: field, evalue: false, texte: displayed[field] })),
+    ...(testMode ? { reponses_test: Object.fromEntries(graded.map((field) => [field, displayed[field]])) } : {}),
   };
 }
 
@@ -141,16 +160,20 @@ export function questionView(question, exercise, data) {
 // null quand il n'y a pas de calcul : Vc et l'avance fixe se lisent dans une table.
 //   shown : textes des valeurs à montrer — la saisie de l'étudiant quand elle est lisible, sinon la valeur théorique
 function calculationLine(field, question, expected, shown, tool, operation) {
-  const diameter = String(Number(question.dimension.diameter.toPrecision(5)));
+  const inches = (value) => String(Number(value.toPrecision(5)));
+  const diameter = inches(question.dimension.diameter);
+  // Outil à deux diamètres (D25) : on nomme celui qui sert — le Ø usiné (le trou) pour N, le Ø de la barre pour l'avance.
+  const twoDiameters = Boolean(question.bar);
   if (field === 'rpm') {
     const factor = tool.fact_vc === 1 ? '' : ` × ${tool.fact_vc}`;
     const capped = expected.rpmCapped ? ` → plafonné à ${tool.limite_rpm}` : '';
-    return `N = Vc × 4 / Ø = ${shown.vc} × 4 / ${diameter}${factor}${capped}`;
+    return `N = Vc × 4 / Ø${twoDiameters ? ' usiné' : ''} = ${shown.vc} × 4 / ${diameter}${factor}${capped}`;
   }
   if (field === 'feedPerTooth' && expected.feedType === 'thread') return `fz = pas du filet = ${shown.feedPerTooth}`;
   if (field === 'feedPerTooth' && expected.feedType === 'proportional') {
     const factor = tool.fact_av === 1 ? '' : ` × ${tool.fact_av}`;
     const capped = expected.feedPerToothCapped ? ` → plafonné à ${operation.avance_max_po_rev}` : '';
+    if (twoDiameters) return `fz = avance × Ø barre = ${operation.avance_po_rev} × ${inches(question.bar.diameter)}${factor}${capped}`;
     return `fz = avance × Ø = ${operation.avance_po_rev} × ${diameter}${factor}${capped}`;
   }
   if (field === 'feedPerRev') return `f = fz × dents = ${shown.feedPerTooth} × ${question.teeth}`;
@@ -193,26 +216,44 @@ export function correctionView(question, answers, result, before, counters, data
   };
 }
 
+// La plage de dimensions d'un outil dans l'exercice : « Ø 1/64 po à Ø 1 po » — celles que l'exercice
+// permet, si l'entrée en restreint. Une seule dimension : son libellé.
+function dimensionRange(tool, entry) {
+  const labels = tool.dimensions.map((d) => d.libelle).filter((label) => !entry.dimensions || entry.dimensions.includes(label));
+  return labels.length === 1 ? labels[0] : `${labels[0]} à ${labels.at(-1)}`;
+}
+
 // L'état de la séance : qui, quel exercice, où il en est, la question en attente.
 // Le prénom et le nom sont ceux de la première visite (D21).
-export function sessionView(session, exercise, data) {
+//   options : { testMode, now } — testMode est transmis à questionView (D26) ; now sert à attendre_s
+// Chaque outil de la progression porte aussi son opération et sa plage de dimensions : c'est ce que
+// l'attestation liste (D30), et qui fera partie du contenu signé au jalon 5.
+// attendre_s : secondes avant que la prochaine correction soit acceptée (cadence, SPEC §7) — le
+// navigateur en fait un compte à rebours ; 0 sans horloge, ou en mode test.
+export function sessionView(session, exercise, data, options = {}) {
   const question = isQuestionValid(session.question_courante, session.compteurs, exercise, data) ? session.question_courante : null;
-  const tools = exercise.outils.map((entry) => ({
-    id: entry.id,
-    nom: data.outils.find((tool) => tool.id === entry.id).nom,
-    reussites: Math.min(session.compteurs.reussites[entry.id] ?? 0, entry.reussites_requises),
-    requises: entry.reussites_requises,
-  }));
+  const tools = exercise.outils.map((entry) => {
+    const tool = data.outils.find((candidate) => candidate.id === entry.id);
+    return {
+      id: entry.id,
+      nom: tool.nom,
+      operation: tool.operation,
+      plage: dimensionRange(tool, entry),
+      reussites: Math.min(session.compteurs.reussites[entry.id] ?? 0, entry.reussites_requises),
+      requises: entry.reussites_requises,
+    };
+  });
   return {
     etudiant: { prenom: session.prenom, nom: session.nom, matricule: session.matricule },
     exercice: { id: exercise.id, titre: exercise.titre, version: exercise.version },
     debut: session.debut,
     reussite_le: session.reussite_le,
+    attendre_s: options.now ? cadenceWait(session, options.now, options) : 0,
     progression: {
       outils: tools,
       outils_termines: tools.filter((tool) => tool.reussites >= tool.requises).length,
       total_reussies: session.compteurs.totalReussies,
     },
-    question: question === null ? null : questionView(question, exercise, data),
+    question: question === null ? null : questionView(question, exercise, data, options),
   };
 }

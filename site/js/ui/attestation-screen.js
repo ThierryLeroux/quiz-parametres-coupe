@@ -1,15 +1,13 @@
 // Page de l'attestation de réussite (UI §3.6 ; décisions D31 à D33) : une page lettre blanche,
 // identique à l'écran et à l'impression, avec le QR de vérification. Elle remplace l'écran
-// « Exercice réussi » provisoire. Le PDF vient de l'impression du navigateur, pas du serveur.
+// « Exercice réussi » et l'attestation provisoire du jalon 4. Le PDF vient de l'impression du navigateur, pas du serveur.
 // Tout vient de l'enregistrement figé rendu par le serveur ; ce qu'on en montre est décidé par
 // attestation-data.js (pur, testé) : ici, on ne fait que construire le DOM.
 
 import { el, showScreen } from './dom.js';
 import { attestationFacts, attestationFileName, attestationFooter, attestationRows, verificationMention } from './attestation-data.js';
 import { qrSvg } from './qr.js';
-import { studentLine } from './text.js';
-
-const DEPARTMENT = ['Techniques de génie mécanique', 'Technique du génie de la maintenance industrielle', '(fiabilité des systèmes de production)'];
+import { DEPARTMENT_LINES, studentLine } from './text.js';
 
 // Le tableau des opérations effectuées, aussi utilisé par la page de vérification.
 export function operationsTable(record) {
@@ -34,7 +32,7 @@ export function attestationPage({ attestation: record, code, url_verification: u
   return el('article', { class: 'print-page attestation' }, [
     el('header', { class: 'attestation-header' }, [
       el('img', { class: 'sheet-logo', src: 'img/logo-cvm.png', alt: 'Cégep du Vieux Montréal' }),
-      el('div', { class: 'attestation-department' }, DEPARTMENT.map((line) => el('div', {}, line))),
+      el('div', { class: 'attestation-department' }, DEPARTMENT_LINES.map((line) => el('div', {}, line))),
     ]),
     el('h1', { class: 'attestation-title', tabindex: '-1' }, "Attestation de réussite — calcul de paramètres d'usinage"),
     el('div', { class: 'attestation-head' }, [

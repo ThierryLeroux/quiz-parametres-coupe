@@ -130,7 +130,7 @@ function showSession(jeton, seance) {
           const message = await openQuestion(jeton);
           return message === null ? null : { message };
         }
-        return { message: serverErrorMessage(error) };
+        return { message: serverErrorMessage(error), attendre_s: error.details?.attendre_s };
       }
     },
   });
@@ -154,7 +154,7 @@ async function start() {
     const app = await loadApp(location.search);
     // D18 : « ?exercice= » absent ou inconnu → la liste des exercices, jamais un exercice par défaut.
     if (app.exercise === null) {
-      renderExerciseList(main, app.index, app.unknownId);
+      renderExerciseList(main, app.listed, app.unknownId);
       return;
     }
     exercise = app.exercise;

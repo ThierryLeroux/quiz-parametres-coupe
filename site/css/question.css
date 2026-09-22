@@ -251,6 +251,11 @@
 
 .progress-row--reset .dot { border-color: var(--color-wrong); }
 
+/* Sur téléphone, les outils terminés sont repliés sous un résumé (UI §3.3). */
+.progress-done { margin: 0 0 var(--space-3); }
+.progress-done summary { padding: var(--space-1) var(--space-2); color: var(--color-text-muted); font-size: var(--text-xs); cursor: pointer; }
+.progress-done .progress-rows { margin-top: var(--space-2); border-bottom: none; padding-bottom: 0; }
+
 /* --- Tablette et ordinateur ---------------------------------------------------------------------------------------- */
 
 @media (min-width: 640px) {
@@ -269,3 +274,18 @@
 
   .answer-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
+
+/* Mode test (D26) : n'apparaît que si le serveur local a joint les réponses attendues à la question. */
+.banner--test {
+  align-items: center;
+  margin: 0 0 var(--space-4);
+  border-color: var(--color-gold);
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+}
+
+.banner--test strong { color: var(--color-gold); font-size: inherit; }
+
+/* Le rouge de la classe K, #FF0000 sur les feuilles, manque de contraste sur fond nuit : il est
+   éclairci ICI seulement (UI §1) ; la couleur des feuilles ne change pas. */
+.material-card { --iso-k: var(--iso-k-night); }
+

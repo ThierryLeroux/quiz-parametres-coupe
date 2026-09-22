@@ -10,6 +10,18 @@ const FIELD_NAMES = {
   vf: "vitesse d'avance",
 };
 
+// Le département, sur trois lignes, comme sur les feuilles de l'atelier : le même texte dans toutes
+// les pages (pied de page de index.html, feuilles de référence, attestation). Son sigle, partout où
+// il est affiché : « TGM-TMI » (D29). Les noms de dépôt, chemins et adresses ne changent pas.
+export const DEPARTMENT_LINES = ['Techniques de génie mécanique', 'Technique du génie de la maintenance industrielle', '(fiabilité des systèmes de production)'];
+export const DEPARTMENT_SHORT = 'TGM-TMI';
+
+// Signature au pied des feuilles de référence et de l'attestation (D30) : « TGM-TMI — TLP — 2026 ».
+// L'année est celle du jour d'impression.
+export function sheetSignature(date = new Date()) {
+  return `${DEPARTMENT_SHORT} — TLP — ${date.getFullYear()}`;
+}
+
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juill.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
 // « 1 outil », « 9 outils », « 0 réussite » : en français, 0 et 1 sont au singulier.
@@ -34,6 +46,13 @@ export function exerciseSummary(exercise) {
     'Une mauvaise réponse remet le compteur de cet outil à zéro.',
     'À la fin, tu enregistres ton rapport de réussite en PDF et tu le remets sur Léa.',
   ];
+}
+
+// La date du jour, à l'heure du poste, en « 2026-09-21 » (pied des feuilles et de l'attestation) —
+// pas toISOString, qui donnerait la date UTC : le soir, ce serait déjà demain.
+export function localDate(date = new Date()) {
+  const two = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 }
 
 // Date ISO → « 19 sept. 2026, 13 h 40 », à l'heure du poste.

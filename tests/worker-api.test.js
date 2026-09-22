@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MINUTE, SECONDE, serveurDeTest } from './aide-serveur.js';
+import { readFile } from 'node:fs/promises';
 import { lireFichier } from './aide.js';
 
 const M10 = 'm10-tournage-vc';
@@ -36,6 +37,61 @@ async function repondre(serveur, jeton, juste, exercice = M10, matricule = '2412
   const bonnes = serveur.bonnesReponses(matricule, exercice);
   return serveur.appel('POST', '/api/correction', { jeton, corps: { exercice, saisies: juste ? bonnes : { ...bonnes, vc: '1' } } });
 }
+
+// --- Mode test (D26) : local seulement, et c'est le serveur qui décide --------------------------------------------
+
+const LOCAL = { hote: 'http://localhost:8787', variables: { MODE_TEST: '1' } };
+
+test('mode test : MODE_TEST=1 sur localhost → les réponses attendues accompagnent la question, et la cadence est levée', async () => {
+  const serveur = serveurDeTest(LOCAL);
+  const { jeton, seance } = await commencer(serveur);
+  assert.deepEqual(seance.question.reponses_test, { vc: serveur.bonnesReponses('2412345', M10).vc });
+  assert.deepEqual((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.question.reponses_test, seance.question.reponses_test);
+
+  // Deux corrections coup sur coup : pas de 429 ; la question suivante arrive avec ses réponses.
+  for (let i = 0; i < 2; i += 1) {
+    const { status, corps } = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: serveur.bonnesReponses('2412345', M10) } });
+    assert.equal(status, 200, JSON.stringify(corps));
+    assert.equal(corps.correction.reussie, true);
+    assert.deepEqual(corps.seance.question.reponses_test, { vc: serveur.bonnesReponses('2412345', M10).vc });
+  }
+});
+
+test('mode test : rien de ce qu’envoie le navigateur ne l’active — ni adresse, ni en-tête, ni corps', async () => {
+  const cas = [
+    ['sans la variable, sur localhost', { hote: 'http://localhost:8787' }],
+    ['variable à une autre valeur', { hote: 'http://localhost:8787', variables: { MODE_TEST: 'true' } }],
+    ['avec la variable, mais ailleurs que sur le poste (production)', { variables: { MODE_TEST: '1' } }],
+  ];
+  for (const [nom, options] of cas) {
+    const serveur = serveurDeTest(options);
+    const { status, corps } = await serveur.appel('POST', '/api/creation?mode_test=1&MODE_TEST=1', { corps: { ...CAMILLE, mode_test: true, MODE_TEST: '1' }, entetes: { 'x-mode-test': '1', host: 'localhost' } });
+    assert.equal(status, 200, nom);
+    const question = await serveur.appel('POST', '/api/question?mode_test=1', { jeton: corps.jeton, corps: { exercice: M10, mode_test: true, MODE_TEST: '1' }, entetes: { 'x-mode-test': '1' } });
+    assert.equal(question.status, 200, nom);
+    assert.equal(JSON.stringify(question.corps).includes('reponses_test'), false, nom);
+    // Et la cadence tient : une seconde correction aussitôt → 429.
+    const saisies = serveur.bonnesReponses('2412345', M10);
+    assert.equal((await serveur.appel('POST', '/api/correction', { jeton: corps.jeton, corps: { exercice: M10, saisies } })).status, 200, nom);
+    assert.equal((await serveur.appel('POST', '/api/correction', { jeton: corps.jeton, corps: { exercice: M10, saisies: serveur.bonnesReponses('2412345', M10) } })).status, 429, nom);
+  }
+});
+
+test('mode test : MODE_TEST ne figure ni dans wrangler.jsonc ni dans le déploiement ; seulement, en commentaire, dans .dev.vars.exemple', async () => {
+  const lire = (chemin) => readFile(new URL(`../${chemin}`, import.meta.url), 'utf8');
+  assert.equal((await lire('wrangler.jsonc')).includes('MODE_TEST'), false, 'wrangler.jsonc');
+  assert.equal((await lire('.github/workflows/deploy.yml')).includes('MODE_TEST'), false, 'deploy.yml');
+  assert.equal((await lire('package.json')).includes('MODE_TEST'), false, 'package.json');
+  const actives = (await lire('.dev.vars.exemple')).split(/\r?\n/).filter((ligne) => ligne.includes('MODE_TEST') && !ligne.trim().startsWith('#'));
+  assert.deepEqual(actives, [], 'dans le modèle, MODE_TEST reste en commentaire');
+});
+
+test('test-complet : l’exercice de test est servi par le serveur, avec ses 29 outils et ses cinq champs à saisir', async () => {
+  const serveur = serveurDeTest();
+  const { seance } = await commencer(serveur, { ...CAMILLE, exercice: 'test-complet' });
+  assert.equal(seance.progression.outils.length, 29);
+  assert.deepEqual(seance.question.champs.map((champ) => champ.evalue), [true, true, true, true, true]);
+});
 
 // --- Généralités ---------------------------------------------------------------------------------------
 
@@ -116,7 +172,7 @@ test('reprise : matricule + NIP suffisent ; prénom et nom de la création ; la 
   const reprise = await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, prenom: 'Cam', nom: 'T.' } });
   assert.equal(reprise.status, 200);
   assert.notEqual(reprise.corps.jeton, jeton);
-  assert.deepEqual(reprise.corps.seance, enCours);
+  assert.deepEqual(reprise.corps.seance, { ...enCours, attendre_s: 0 }); // 5 minutes plus tard : plus rien à attendre
   assert.deepEqual(reprise.corps.seance.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
   assert.equal(reprise.corps.seance.progression.total_reussies, 1);
   assert.notEqual(reprise.corps.seance.question, null);
@@ -270,6 +326,18 @@ test('tirage mémorisé : tant qu’elle n’est pas corrigée, c’est la même
   for (const tirage of tirages) assert.deepEqual(tirage.corps.seance.question, memorisee);
 });
 
+test('attendre_s : la séance renvoyée avec la correction dit combien attendre ; GET /api/seance aussi ; 0 après 10 s', async () => {
+  const serveur = serveurDeTest();
+  const { jeton, seance } = await commencer(serveur);
+  assert.equal(seance.attendre_s, 0);
+  const { corps } = await repondre(serveur, jeton, true);
+  assert.equal(corps.seance.attendre_s, 10);
+  serveur.avancer(4 * SECONDE);
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.attendre_s, 6);
+  serveur.avancer(6 * SECONDE);
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.attendre_s, 0);
+});
+
 test('correction juste : compteur de l’outil, total, journal, question suivante', async () => {
   const serveur = serveurDeTest();
   const { jeton, seance } = await commencer(serveur);
@@ -373,9 +441,9 @@ test('complétion : 15 bonnes réponses au M10 → réussite datée, plus de que
   assert.equal(serveur.journal().length, 15);
 
   serveur.avancer(MINUTE);
-  assert.deepEqual((await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } })).corps.seance, finale);
+  assert.deepEqual((await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } })).corps.seance, { ...finale, attendre_s: 0 });
   assert.deepEqual(await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: {} } }), { status: 409, corps: { erreur: "Aucune question n'attend de correction." } });
-  assert.deepEqual((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).corps.seance, finale); // une réussite se retrouve de n'importe quel appareil
+  assert.deepEqual((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).corps.seance, { ...finale, attendre_s: 0 }); // une réussite se retrouve de n'importe quel appareil
 });
 
 test('correction sans question tirée → 409', async () => {
@@ -404,7 +472,7 @@ test('exercice modifié : la séance continue — outil retiré (et sa question)
   assert.equal(suite.exercice.version, 'r1');
   assert.notEqual(suite.question.outil.id, enAttente);
   assert.equal(suite.progression.outils.some((outil) => outil.id === enAttente), false);
-  assert.deepEqual(suite.progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', reussites: 0, requises: 1 });
+  assert.deepEqual(suite.progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', operation: 'Perçage', plage: 'Ø 1/64 po à Ø 1 po', reussites: 0, requises: 1 });
   assert.equal(suite.progression.total_reussies, 1); // ce qui est acquis le reste
   if (reussi !== enAttente) assert.equal(suite.progression.outils.find((outil) => outil.id === reussi).reussites, 1);
 
@@ -787,7 +855,7 @@ test('liste des séances : qui, quel exercice, quand, réussie ou en cours, ques
   const { status, corps } = await serveur.appel('GET', '/api/prof/seances', { entetes: { cookie: `prof=${cookie}` } });
   assert.equal(status, 200);
   assert.equal(corps.enseignant, 'admin');
-  assert.deepEqual(corps.exercices, [{ id: M10, titre: m10.titre }, { id: ESSAI.id, titre: ESSAI.titre }]);
+  assert.deepEqual(corps.exercices, [...index.exercices, { id: ESSAI.id, titre: ESSAI.titre }]);
   assert.equal(corps.seances.length, 3);
   const camille = corps.seances.find((s) => s.matricule === '2412345' && s.exercice.id === M10);
   assert.deepEqual(Object.keys(camille).sort(), ['code', 'debut', 'derniere_activite', 'exercice', 'id', 'matricule', 'nom', 'prenom', 'questions_reussies', 'reussite_le']);

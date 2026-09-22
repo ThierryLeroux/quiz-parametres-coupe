@@ -2,6 +2,7 @@
   "_source": "feuille 'Liste d'outils' (masquée) — une colonne par outil ; lignes 1..12 attributs, 13..22 matériaux d'outil (13..15 occupées), 23..40 groupes ISO usinables, 43+ paires (libellé, valeur) de dimensions. Le VBA (clsMateriau) lit les groupes aux lignes 21..40 (21..22 vides) ; dans la feuille, 4 outils ont aussi des groupes aux lignes 41..42 ('O - Plastique renforci d'aramid', 'O - Graphite'), jamais lus par le VBA et absents de ce fichier. La ligne 3 (réussites requises) était la configuration du M10, pas une propriété d'outil : elle vit dans site/exercices/m10-tournage-vc.json (décision D11)",
   "_unites": "diametres en pouces (les métriques sont déjà convertis) ; filetages sous forme 'Ø-filets/po' (impérial) ou 'ØxPas' mm (métrique)",
   "_image": "à compléter : 29 images d'outils existent dans le classeur (xl/media, EMF/PNG), à exporter en PNG/SVG",
+  "_deux_diametres": "outils à deux diamètres (décision D25) : « dimensions » = Ø usiné, qui sert à N ; « dimensions_barre » = Ø de l'outil, qui sert à l'avance proportionnelle ; la barre tirée doit entrer dans le trou : Ø barre ≤ rapport_barre_max × Ø usiné. Barre à aléser et barre à rainurer ; valeurs confirmées par Thierry le 2026-09-21",
   "outils": [
     {
       "id": "foret_fractionnaire",
@@ -215,7 +216,7 @@
           "valeur": 0.6875
         },
         {
-          "libelle": "Ø v45/64 po",
+          "libelle": "Ø 45/64 po",
           "valeur": 0.703125
         },
         {
@@ -2629,7 +2630,7 @@
       "id": "barre_a_rainurer",
       "colonne_excel": 21,
       "nom": "Barre à rainurer",
-      "format_identifiant": "Barre à rainurer - Ø rainuré: [IdDia]",
+      "format_identifiant": "Barre à rainurer Ø [IdBarre] - Ø rainuré: [IdDia]",
       "commentaire": null,
       "operation": "Rainurage interne",
       "fact_vc": 0.25,
@@ -2687,13 +2688,36 @@
           "libelle": "4.000\"",
           "valeur": 4
         }
-      ]
+      ],
+      "dimensions_barre": [
+        {
+          "libelle": "1/2 po",
+          "valeur": 0.5
+        },
+        {
+          "libelle": "5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "3/4 po",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "1 po",
+          "valeur": 1
+        },
+        {
+          "libelle": "1 1/4 po",
+          "valeur": 1.25
+        }
+      ],
+      "rapport_barre_max": 0.75
     },
     {
       "id": "barre_a_aleser",
       "colonne_excel": 22,
       "nom": "Barre à aléser",
-      "format_identifiant": "Barre à aléser - Ø alésé: [IdDia]",
+      "format_identifiant": "Barre à aléser Ø [IdBarre] - Ø alésé: [IdDia]",
       "commentaire": null,
       "operation": "Alésage à la barre",
       "fact_vc": 1,
@@ -2751,7 +2775,30 @@
           "libelle": "4.000\"",
           "valeur": 4
         }
-      ]
+      ],
+      "dimensions_barre": [
+        {
+          "libelle": "1/2 po",
+          "valeur": 0.5
+        },
+        {
+          "libelle": "5/8 po",
+          "valeur": 0.625
+        },
+        {
+          "libelle": "3/4 po",
+          "valeur": 0.75
+        },
+        {
+          "libelle": "1 po",
+          "valeur": 1
+        },
+        {
+          "libelle": "1 1/4 po",
+          "valeur": 1.25
+        }
+      ],
+      "rapport_barre_max": 0.75
     },
     {
       "id": "foret_a_centrer",

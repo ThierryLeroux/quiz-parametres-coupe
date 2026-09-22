@@ -15,6 +15,18 @@ test('materiaux.json : 47 matériaux, groupes 1..47, Vc positives', async () => 
   });
 });
 
+// D27 : le trait de la feuille marque un changement de matériau usiné ; plastiques et graphite
+// (42 à 47) forment une seule famille. Liste donnée par Thierry (2026-09-20), plus le groupe 1.
+test('materiaux.json : « debut_famille » sur les groupes 1, 6, 10, 12, 15, 17, 19, 21, 23, 26, 31, 36, 38, 41 et 42', async () => {
+  const { materiaux } = await lire('materiaux.json');
+  assert.deepEqual(materiaux.filter((m) => m.debut_famille === true).map((m) => m.groupe), [1, 6, 10, 12, 15, 17, 19, 21, 23, 26, 31, 36, 38, 41, 42]);
+});
+
+test('révision des tables de référence : présente dans materiaux.json et operations.json (D28)', async () => {
+  assert.match((await lire('materiaux.json')).revision, /^[AH]\d{4}_r\d+$/);
+  assert.match((await lire('operations.json')).revision, /^[AH]\d{4}_r\d+$/);
+});
+
 test('operations.json : chaque opération est fixe, proportionnelle ou filetage', async () => {
   const { operations } = await lire('operations.json');
   assert.equal(operations.length, 19);
@@ -34,6 +46,15 @@ test("outils.json : chaque outil référence une opération connue et a des dime
     assert.ok(o.dimensions.length > 0, o.nom);
     assert.ok(o.nb_dents_min >= 1 && o.nb_dents_max >= o.nb_dents_min, o.nom);
   }
+});
+
+test('exercices/test-complet.json : tous les outils du catalogue, les cinq grandeurs, une réussite chacun (D26)', async () => {
+  const exercice = JSON.parse(await readFile(new URL('../site/exercices/test-complet.json', import.meta.url), 'utf8'));
+  const { outils } = await lire('outils.json');
+  assert.deepEqual(exercice.outils.map((o) => o.id), outils.map((o) => o.id), 'un outil ajouté au catalogue doit l’être aussi à test-complet.json');
+  assert.deepEqual(exercice.outils.map((o) => Object.keys(o)), outils.map(() => ['id', 'reussites_requises']), 'aucune restriction');
+  assert.ok(exercice.outils.every((o) => o.reussites_requises === 1));
+  assert.deepEqual(exercice.champs_evalues, ['vc', 'fz', 'n', 'f', 'vf']);
 });
 
 test('exercices/m10-tournage-vc.json : reprend les réussites requises du classeur M10', async () => {

@@ -4,3 +4,8 @@
 # Ces valeurs n'ont aucun rapport avec les secrets de production (docs/DEMARRAGE.md, étape 5).
 CLE_SECRETE=remplacer-par-une-valeur-au-hasard
 CLE_ADMIN=remplacer-par-une-autre-valeur-au-hasard
+
+# Mode test (décision D26) — sur le poste de développement SEULEMENT, jamais en production ni dans
+# wrangler.jsonc. Décommenter pour que le serveur joigne les réponses attendues à chaque question
+# (bandeau « Mode test » et bouton « Remplir » à l'écran) et lève la cadence de 10 s.
+# MODE_TEST=1

@@ -61,10 +61,14 @@ Le moteur (jalons 1 et 1b) passe derrière l'API ; les règles d'une séance son
 - [x] Progression par outil (UI §3.3) : un point par réussite consécutive, outil en cours surligné ; outils de même nom distingués par l'unité, sinon par la plage de dimensions (`site/js/ui/rules.js`)
 - [x] Tables de référence (UI §3.5) : vitesses de coupe, avances (générée depuis `operations.json`), formules ; ouvertes par-dessus la question sans perdre la saisie, défilement dans leur propre cadre, impression de la feuille seule
 - [x] Images d'outils (`site/img/outils/`) et pictogrammes (`site/img/pictos/`) affichés
-- [ ] Pictogrammes d'opérations en SVG : les dix-neuf PNG du classeur sont provisoires (`site/img/pictos/README.md`) — fichiers d'origine de Thierry, ou redessin à valider
-- [ ] Attente imposée par la cadence montrée à l'écran (compte à rebours ; le serveur donne déjà `attendre_s`) — aujourd'hui, un message sous le formulaire
-- [ ] Sur téléphone, replier les outils terminés de la progression (UI §3.3 : « peuvent être repliés »)
-- [ ] Impression des feuilles vérifiée sur papier par Thierry (une page lettre chacune)
+- [x] Pictogrammes d'opérations en SVG : les dix-neuf dessins DrawingML du classeur, convertis sans redessin (`reference/pictogrammes-du-classeur/convertir.mjs`, D29) — planche-contact à valider par Thierry (`captures/jalon-4/planche-pictogrammes.png`)
+- [x] Corrections après le premier essai de Thierry (D24 à D29) : gabarit de nomenclature validé et jetons `[Dia]`, `[Pas]`, `[IdBarre]` ; **deux diamètres de la barre à aléser** ; feuilles comme le classeur (traits de famille `debut_famille`, bande grise des avances proportionnelles, révision des tables au pied, formule exacte de N à titre indicatif, colonnes figées sur téléphone) ; département sur trois lignes et « TGM-TMI » ; rouge K éclairci sur fond nuit
+- [x] **Mode test** local (D26 : `MODE_TEST=1` dans `.dev.vars`, décidé par le serveur, jamais en production) et exercice `test-complet` (tous les outils, les cinq grandeurs)
+- [x] Écran « Exercice réussi » : « Voir mon attestation » → attestation **provisoire, non signée** (la version signée : jalon 5, en tête)
+- [x] Second rapport (D30) : barres confirmées ; N tolérée à ±5 % et ±1 rév/min (D13) ; **barre à rainurer** à deux diamètres (D25) ; `"liste": false` pour les exercices d'essai ; note des avances sur la bande (maquette `05b`) ; pied « TGM-TMI — TLP — 2026 » ; coquille « Ø 45/64 po » ; classeur renommé ; attestation provisoire avec bannière et **liste des opérations effectuées** (servie par le serveur : `operation`, `plage`)
+- [x] Attente imposée par la cadence montrée à l'écran : compte à rebours sur le bouton Vérifier (`seance.attendre_s`, ou celui d'un refus 429), à la place du message
+- [x] Sur téléphone, les outils terminés de la progression sont repliés sous « n outils terminés » (UI §3.3)
+- [x] Impression des feuilles vérifiée sur papier par Thierry (2026-09-21)
 
 ## Jalon 5 — Attestation signée, vérification publique, espace professeur, limites de débit (décisions D31 à D36)
 Rapport de session : `docs/rapports/jalon-5-attestation.md`.
@@ -78,14 +82,19 @@ Rapport de session : `docs/rapports/jalon-5-attestation.md`.
 - [x] **`/prof`** (D34) : connexion par `CLE_ADMIN` (temps constant, cookie signé 12 h, cinq essais par adresse puis délai croissant, journalisés), tableau des séances (filtre, tri, recherche), export CSV, **remise à zéro** avec annulation de l'attestation (D35), journal des corrections d'identité ; aucune route `/api/prof/*` sans cookie
 - [x] **Limites de débit** (D36) : 100 matricules ou codes distincts par adresse et par heure, compteurs en D1, verrou de 10 minutes après refus
 - [x] Tests : signature et vérification (valide, falsifiée, inconnue, annulée), figeage et reconstitution, CSV, connexion (temps constant, verrou), routes sans cookie, remise à zéro, limites ; `test:api` étendu au cycle complet ; Chrome à 1280 et 390 px, média print (une page lettre), captures dans `captures/jalon-5/`
-- [ ] **Remise à zéro d'un NIP** (`nip_hache` nul : déjà compris par la reprise), **suppression d'une séance** (farce visible aux horodatages), **purge de fin de session** — depuis l'espace professeur
-- [ ] Une **clé par enseignant** et la table des enseignants (D34 : avec les devoirs, jalon 6)
+- [x] Réponses au rapport (D37 à D39) : « Corriger mon identité » sur la page de l'attestation, qui annule et réémet l'attestation ; **réinitialisation du NIP** depuis le tableau des séances ; révision des tables dans l'attestation ; cadence réglable en local (`CADENCE_S`) pour `test:api`
+- [ ] **Suppression d'une séance** (farce visible aux horodatages) et **purge de fin de session** — depuis l'espace professeur (jalon 6)
+- [ ] Une **clé par enseignant** et la table des enseignants (D34 : avec les devoirs, jalon 6), avec une **table des séances professeur** pour pouvoir révoquer une séance (le cookie sans état du jalon 5 ne se révoque qu'à son expiration) ; la connexion professeur pourra alors ouvrir le **mode test** aux séances d'un professeur connecté (D26)
 - [ ] Essai avec un groupe d'étudiants ; correctifs
 - ~~Page de vérification : durée totale, temps médian, corrections d'identité~~ — abandonné (D33 : rien de plus que l'attestation imprimée ; les corrections d'identité sont dans l'espace professeur)
 
 ## Jalon 6 — Éditeur web du catalogue et des exercices (décision D11)
-- [ ] `site/editeur/` : éditer un exercice (outils, réussites, champs évalués, restrictions), validé par `exercice.js`
-- [ ] Éditer le catalogue (outils, matériaux, opérations), validé par `data.js`
+Rien n'en existe encore. Protégé par la connexion professeur du jalon 5 (UI §8).
+
+- [ ] `site/editeur/` : **création de devoirs** — éditer un exercice (outils, réussites, champs évalués, restrictions), validé par `exercice.js` ; l'inscrire à l'index
+- [ ] Éditer les **outils** (`outils.json`), validé par `data.js` : dimensions, **gabarit de nomenclature** avec la liste des jetons et un aperçu (D24), **barres** d'un outil à deux diamètres (D25)
+- [ ] Éditer les **tables de référence** : vitesses de coupe (`materiaux.json`, dont `debut_famille`, D27), avances (`operations.json`), **révision** de chaque table (D28)
+- [ ] **Images** : photo d'un outil (`site/img/outils/`), pictogramme d'une opération (`site/img/pictos/operations/`)
 - [ ] Télécharger les JSON produits ; mode d'emploi « déposer dans le dépôt et commettre »
 
 ## Finition

@@ -41,6 +41,13 @@ export function parseThread(valeur) {
   return { diameter, pitch };
 }
 
+// Jetons du gabarit de nom d'un outil, « format_identifiant » (SPEC §4.6, décision D24) — ceux du
+// classeur (clsOutil.instIdOutil) qui ont un sens ici. question.js donne leur valeur au tirage.
+export const TEMPLATE_TOKENS = ['IdDia', 'Dia', 'Pas', 'IdBarre', 'NbDent', 'NomOutil', 'Matoutil', 'Operation'];
+
+// Les jetons d'un gabarit : « Alésoir [IdDia] - [NbDent] lèvres » → ['IdDia', 'NbDent'].
+export const templateTokens = (template) => [...template.matchAll(/\[([^\]]*)\]/g)].map((match) => match[1]);
+
 // ---------------------------------------------------------------------------
 // Validation croisée des trois JSON
 // ---------------------------------------------------------------------------
@@ -80,6 +87,10 @@ export function validateData({ materiaux, operations, outils }) {
   const ops = listOf(operations, 'operations', 'operations.json', errors);
   const tools = listOf(outils, 'outils', 'outils.json', errors);
 
+  // Révision des tables de référence, affichée au pied des feuilles (décision D28).
+  if (!isText(materiaux?.revision)) errors.push('materiaux.json : « revision » doit être un texte non vide (ex. « A2026_r0 »)');
+  if (!isText(operations?.revision)) errors.push('operations.json : « revision » doit être un texte non vide (ex. « A2026_r0 »)');
+
   validateMaterials(materials, groups, errors);
   validateOperations(ops, errors);
   validateTools(tools, ops, groups, errors);
@@ -97,6 +108,8 @@ function validateMaterials(materials, groups, errors) {
     else if (!groups.includes(`${m.iso} - ${m.materiau}`)) {
       errors.push(`${where} : « ${m.iso} - ${m.materiau} » est absent de « groupes_iso »`);
     }
+    // Trait de la feuille des vitesses de coupe au-dessus de ce matériau (décision D27).
+    if (m.debut_famille !== undefined && typeof m.debut_famille !== 'boolean') errors.push(`${where} : « debut_famille » doit être true ou false (ou absent)`);
     for (const key of Object.values(TOOL_MATERIAL_KEYS)) {
       if (!isPositive(m.vc_pi_min?.[key])) errors.push(`${where} : « vc_pi_min.${key} » doit être un nombre > 0`);
     }
@@ -190,8 +203,42 @@ function validateTools(tools, ops, groups, errors) {
     });
     // Les exercices restreignent les dimensions par leur libellé (SPEC §10) : il doit être unique.
     checkUnique(dimensions.filter(isObject).map((d) => d.libelle), `${where} : libellé de dimension`, errors);
+
+    validateBars(tool, op, where, errors);
+
+    // Gabarit du nom (D24) : un jeton inconnu, ou sans valeur pour cet outil, serait affiché à l'étudiant.
+    for (const token of isText(tool.format_identifiant) ? templateTokens(tool.format_identifiant) : []) {
+      if (!TEMPLATE_TOKENS.includes(token)) errors.push(`${where} : jeton inconnu dans « format_identifiant » : [${token}] (jetons permis : ${TEMPLATE_TOKENS.join(', ')})`);
+      else if (token === 'Pas' && op && !op.avance_egale_pas_filetage) errors.push(`${where} : le jeton [Pas] n'a de sens que pour un outil de filetage`);
+      else if (token === 'IdBarre' && tool.dimensions_barre === undefined) errors.push(`${where} : le jeton [IdBarre] exige « dimensions_barre »`);
+    }
   });
   checkUnique(tools.filter(isObject).map((tool) => tool.id), 'outils.json : id', errors);
+}
+
+// Outil à deux diamètres (décision D25) : « dimensions » est le Ø usiné, qui sert à N ;
+// « dimensions_barre » est le Ø de l'outil lui-même, qui sert à l'avance proportionnelle. La barre
+// doit entrer dans le trou : Ø barre ≤ rapport_barre_max × Ø usiné. Les deux clés vont ensemble.
+function validateBars(tool, op, where, errors) {
+  if (tool.dimensions_barre === undefined && tool.rapport_barre_max === undefined) return;
+  const bars = Array.isArray(tool.dimensions_barre) ? tool.dimensions_barre : [];
+  if (bars.length === 0) errors.push(`${where} : « dimensions_barre » doit être une liste non vide (ou être absente)`);
+  if (!isPositive(tool.rapport_barre_max) || tool.rapport_barre_max > 1) errors.push(`${where} : « rapport_barre_max » doit être un nombre > 0 et ≤ 1 (ex. 0.75)`);
+  if (op && !op.avance_proportionnelle_diametre) errors.push(`${where} : « dimensions_barre » ne sert qu'à une avance proportionnelle au Ø ; l'opération « ${op.operation} » ne l'est pas`);
+  bars.forEach((bar, j) => {
+    if (!isObject(bar) || !isText(bar.libelle)) errors.push(`${where} : dimensions_barre[${j}] n'a pas de « libelle »`);
+    else if (!isPositive(bar.valeur)) errors.push(`${where} : barre « ${bar.libelle} » : « valeur » doit être un Ø en pouces > 0`);
+  });
+  checkUnique(bars.filter(isObject).map((bar) => bar.libelle), `${where} : libellé de barre`, errors);
+  for (const d of isPositive(tool.rapport_barre_max) && Array.isArray(tool.dimensions) ? tool.dimensions : []) {
+    if (isObject(d) && isPositive(d.valeur) && fittingBars(tool, d.valeur).length === 0) errors.push(`${where} : dimension « ${d.libelle} » : aucune barre n'y entre (Ø barre ≤ ${tool.rapport_barre_max} × Ø)`);
+  }
+}
+
+// Les barres d'un outil à deux diamètres qui entrent dans un trou de Ø `diameter` (D25).
+export function fittingBars(tool, diameter) {
+  const bars = Array.isArray(tool.dimensions_barre) ? tool.dimensions_barre : [];
+  return bars.filter((bar) => isObject(bar) && isPositive(bar.valeur) && bar.valeur <= tool.rapport_barre_max * diameter + 1e-9);
 }
 
 // ---------------------------------------------------------------------------
@@ -213,6 +260,7 @@ export async function fetchJson(url) {
 //   materiaux, operations, outils : les tableaux (sans les en-têtes « _source », etc.)
 //   operationByName  : Map nom d'opération → opération
 //   materialsByGroup : Map « P - Acier non allié » → matériaux de ce groupe (tirage SPEC §4.5)
+//   revisions        : { materiaux, operations } — révision de chaque table, pour le pied des feuilles (D28)
 // Lève une erreur qui énumère tous les problèmes si les données sont invalides.
 // `readJson` est injectable : les tests Node y passent un lecteur de fichiers.
 export async function loadData(baseUrl = 'data/', readJson = fetchJson) {
@@ -235,5 +283,6 @@ export async function loadData(baseUrl = 'data/', readJson = fetchJson) {
     outils: outils.outils,
     operationByName,
     materialsByGroup,
+    revisions: { materiaux: materiaux.revision, operations: operations.revision },
   };
 }

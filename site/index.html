@@ -20,15 +20,21 @@
       <img class="app-logo" src="img/logo-cvm.png" alt="Cégep du Vieux Montréal">
       <div class="app-title" id="header-title">Quiz — paramètres de coupe</div>
     </div>
-    <div class="app-aside" id="header-aside">Techniques de génie mécanique</div>
+    <div class="app-aside" id="header-aside">TGM-TMI</div>
   </header>
 
   <main class="app-main" id="app">
     <p class="muted">Chargement du quiz… Si ce message reste affiché, la page doit être ouverte par un serveur web (<code>npm run dev</code>), pas directement depuis un fichier.</p>
   </main>
 
+  <!-- Le nom du département, sur trois lignes comme sur les feuilles de l'atelier (js/ui/text.js : DEPARTMENT_LINES). -->
   <footer class="app-footer no-print">
-    TGM — profil fabrication · Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session.
+    <div class="app-department">
+      <div>Techniques de génie mécanique</div>
+      <div>Technique du génie de la maintenance industrielle</div>
+      <div>(fiabilité des systèmes de production)</div>
+    </div>
+    <div>TGM-TMI · Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session.</div>
   </footer>
 
   <noscript><p class="app-noscript">Ce quiz a besoin de JavaScript pour fonctionner.</p></noscript>

@@ -22,12 +22,13 @@ la lisibilité priment sur l'élégance technique.**
 - `docs/UI.md` — écrans et présentation (langage visuel, parcours, composants, impression). **Source de vérité de la présentation**, au même titre que SPEC pour le comportement (décision D17) ; maquettes approuvées dans `docs/maquettes/`. En cas de contradiction : DECISIONS, puis SPEC, puis UI.
 - `docs/DECISIONS.md` — décisions prises et ouvertes. Ne jamais contredire une décision fermée sans en ajouter une nouvelle.
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
-- `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où.
-- `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions.
-- `worker/` — le **serveur de correction** (décisions D19 à D22, D31 à D36 ; API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles d'une séance (pur, testé), `attestation.js` celles de l'attestation (code, enregistrement figé, adresse du QR), `acces.js` celles de l'accès (limites de débit, verrous, cookie professeur), `base.js` tout le SQL, `crypto.js` le NIP, le jeton, les signatures, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
+- `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où. Y vivent aussi le **gabarit de nom** de chaque outil (`format_identifiant`, D24), les deux diamètres de la barre à aléser (D25), les débuts de famille (D27) et la révision des tables (D28).
+- `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions. `test-complet` couvre tout le catalogue, pour les essais (D26).
+- `worker/` — le **serveur de correction** (décisions D19 à D22, D26, D31 à D39 ; API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles d'une séance (pur, testé), `attestation.js` celles de l'attestation (code, enregistrement figé, adresse du QR), `acces.js` celles de l'accès (limites de débit, verrous, cookie professeur), `base.js` tout le SQL, `crypto.js` le NIP, le jeton, les signatures, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
 - `site/verifier.html` et `site/prof.html` — la page publique de vérification d'une attestation et l'espace professeur (SPEC §8) ; leurs écrans sont `site/js/ui/verifier.js` et `prof.js`, leurs règles `attestation-data.js` et `prof-data.js` (pures, testées).
 - `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js`) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
 - `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté.
+- `reference/pictogrammes-du-classeur/` — le convertisseur DrawingML → SVG des pictogrammes d'opérations (D29). Les SVG de `site/img/pictos/operations/` ne se retouchent pas à la main : on relance la conversion.
 - `docs/rapports/<jalon>-<sujet>.md` — les rapports de fin de session, tels qu'écrits à Thierry (règle 8 ci-dessous) : ce qui a été fait, vérifié, et les points douteux à trancher.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
 
@@ -92,6 +93,7 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 npm test                 # tests unitaires, dont l'API du serveur sur une base SQLite en mémoire
 npm run test:api         # l'API par HTTP sur wrangler dev et une vraie D1 locale jetable (~3 min : le cycle complet à la cadence réelle)
 npm run dev              # migrations locales, puis wrangler dev : le site et l'API (http://localhost:8787)
+                         # avec MODE_TEST=1 dans .dev.vars : mode test (D26), réponses jointes par le serveur — local seulement
 npm run deploy           # migrations de production puis wrangler deploy — normalement fait par GitHub Actions, pas à la main
 ```
 
@@ -102,4 +104,5 @@ npm run deploy           # migrations de production puis wrangler deploy — nor
 - Réécrire `legacy/`.
 - Modifier un fichier de `migrations/` déjà appliqué, ou toucher à la base de production (`--remote`) sans que Thierry le demande.
 - Écrire un secret (`CLE_SECRETE`, `CLE_ADMIN`, jeton Cloudflare) dans le dépôt, un test, un journal ou une conversation.
+- Mettre `MODE_TEST` dans `wrangler.jsonc`, dans le déploiement ou en production, ou l'activer depuis le navigateur (D26) : c'est le serveur local seul qui décide. Toute donnée ajoutée à `seance.question` se juge à la règle « rien de ce qui est à trouver ne part au navigateur » (SPEC §7).
 - Changer le format des JSON de données sans mettre à jour `SPEC.md` §3 et les tests de validation.

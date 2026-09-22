@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CADENCE_MS, NIP_CLEARED, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
-  gradeQuestion, isExerciseComplete, isNipLocked, isQuestionValid, later, questionView, sessionView,
+  gradeQuestion, isExerciseComplete, isNipLocked, isQuestionValid, isTestMode, later, questionView, sessionView,
 } from '../worker/seance.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
@@ -109,7 +109,7 @@ test('exercice modifié : un outil retiré disparaît, un outil ajouté part à 
   assert.equal(vue.exercice.version, 'r1');
 
   const avecForet = { ...m10, outils: [...m10.outils, { id: 'foret_fractionnaire', reussites_requises: 2 }] };
-  assert.deepEqual(sessionView(seance({ compteurs }), avecForet, data).progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', reussites: 0, requises: 2 });
+  assert.deepEqual(sessionView(seance({ compteurs }), avecForet, data).progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', operation: 'Perçage', plage: 'Ø 1/64 po à Ø 1 po', reussites: 0, requises: 2 });
 
   const toutReussi = { reussites: Object.fromEntries(m10.outils.map((entry) => [entry.id, entry.reussites_requises])), totalReussies: 15 };
   assert.equal(isExerciseComplete(toutReussi, avecForet), false); // l'outil ajouté reste à faire
@@ -187,7 +187,59 @@ test('questionView (M10) : Vc à saisir, les quatre autres champs fournis ; jama
 
 test('questionView (cinq champs évalués) : aucune valeur attendue ne part vers le navigateur', () => {
   const question = drawQuestion(emptyCounters(), CINQ_CHAMPS, data, aleaAGraine(1));
-  assert.deepEqual(questionView(question, CINQ_CHAMPS, data).champs.map((champ) => [champ.evalue, champ.texte]), Array(5).fill([true, '']));
+  const vue = questionView(question, CINQ_CHAMPS, data);
+  assert.deepEqual(vue.champs.map((champ) => [champ.evalue, champ.texte]), Array(5).fill([true, '']));
+  assert.equal('reponses_test' in vue, false);
+});
+
+// --- Mode test (D26) ------------------------------------------------------------------------------------------
+
+test('isTestMode : la variable MODE_TEST=1 ET une requête adressée au poste lui-même ; rien d’autre', () => {
+  for (const hote of ['localhost', '127.0.0.1', '[::1]']) assert.equal(isTestMode('1', hote), true, hote);
+  for (const [variable, hote] of [
+    ['1', 'quiz-parametres-coupe.exemple.workers.dev'], ['1', 'localhost.exemple.com'], ['1', ''], ['1', undefined],
+    [undefined, 'localhost'], ['', 'localhost'], ['0', 'localhost'], ['true', 'localhost'], [1, 'localhost'], [true, 'localhost'],
+  ]) assert.equal(isTestMode(variable, hote), false, `${String(variable)} / ${String(hote)}`);
+});
+
+test('questionView en mode test : les valeurs attendues des champs ÉVALUÉS seulement, mises en forme', () => {
+  const question = drawQuestion(emptyCounters(), m10, data, aleaAGraine(1));
+  assert.deepEqual(questionView(question, m10, data, { testMode: true }).reponses_test, { vc: bonnesReponses(question).vc });
+  const complete = questionView(question, { ...CINQ_CHAMPS, outils: m10.outils }, data, { testMode: true });
+  assert.deepEqual(complete.reponses_test, bonnesReponses(question));
+  assert.equal('reponses_test' in questionView(question, m10, data, { testMode: false }), false);
+});
+
+test('cadenceWait en mode test : la cadence est levée', () => {
+  assert.equal(cadenceWait(seance({ derniere_correction: MAINTENANT.toISOString() }), apres(1000), { testMode: true }), 0);
+  assert.equal(cadenceWait(seance({ derniere_correction: MAINTENANT.toISOString() }), apres(1000)), 9);
+});
+
+// --- Outil à deux diamètres (D25) --------------------------------------------------------------------------------
+
+const BARRE = { ...CINQ_CHAMPS, id: 'essai-barre', outils: [{ id: 'barre_a_aleser', reussites_requises: 1 }] };
+const questionBarre = () => questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', barre: '3/4 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
+
+test('barre à aléser : la vue nomme la barre ; la correction calcule N avec le Ø usiné (alésé) et fz avec le Ø de la barre', () => {
+  const question = questionBarre();
+  const vue = questionView(question, BARRE, data);
+  assert.equal(vue.identifiant, 'Barre à aléser Ø 3/4 po - Ø alésé: 2.000"');
+  assert.deepEqual([vue.outil.barre, vue.dimension], ['3/4 po', '2.000"']);
+  assert.equal(questionView(drawQuestion(emptyCounters(), CINQ_CHAMPS, data, aleaAGraine(1)), CINQ_CHAMPS, data).outil.barre, null);
+
+  const corrige = gradeQuestion(question, cleanAnswers({}), emptyCounters(), BARRE, data);
+  const champs = Object.fromEntries(correctionView(question, cleanAnswers({}), corrige.result, 0, corrige.counters, data).champs.map((champ) => [champ.champ, champ]));
+  assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø usiné = 400 × 4 / 2');
+  assert.equal(champs.feedPerTooth.calcul, 'fz = avance × Ø barre = 0.006 × 0.75');
+  assert.deepEqual([champs.rpm.attendu, champs.feedPerTooth.attendu], ['800', '0.0045']);
+});
+
+test('isQuestionValid : une question de barre à aléser tirée avant D25, sans barre, n’est plus posée', () => {
+  const question = questionBarre();
+  assert.equal(isQuestionValid(question, emptyCounters(), BARRE, data), true);
+  const { bar: _avantD25, ...ancienne } = question;
+  assert.equal(isQuestionValid(ancienne, emptyCounters(), BARRE, data), false);
+  assert.equal(isQuestionValid({ ...question, bar: null }, emptyCounters(), BARRE, data), false);
 });
 
 test('correctionView : juste ou faux, saisie et valeur attendue de chaque champ, compteur avant → après', () => {
@@ -216,7 +268,7 @@ test('correctionView : tolérance en clair, écart en %, calcul en une ligne (UI
   const { result, counters } = gradeQuestion(question, reponses, emptyCounters(), CINQ_CHAMPS, data);
   const champs = Object.fromEntries(correctionView(question, reponses, result, 0, counters, data).champs.map((champ) => [champ.champ, champ]));
 
-  assert.deepEqual([champs.rpm.ok, champs.rpm.attendu, champs.rpm.tolerance, champs.rpm.ecart_pct], [true, '1600', '±5 %', 3.1]);
+  assert.deepEqual([champs.rpm.ok, champs.rpm.attendu, champs.rpm.tolerance, champs.rpm.ecart_pct], [true, '1600', '±5 % et ±1 rév/min', 3.1]);
   assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø = 100 × 4 / 0.25');
   assert.deepEqual([champs.feedPerTooth.tolerance, champs.feedPerTooth.calcul], ['±25 %, au plus ±0.001 po', 'fz = avance × Ø = 0.006 × 0.25']);
   assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.0015 × 2');
@@ -248,6 +300,22 @@ test('correctionView : facteur de vitesse, plafond du RPM, pas d’un filet, ré
   assert.deepEqual([champs.feedPerTooth.calcul, champs.feedPerTooth.tolerance, champs.rpm.tolerance], ['fz = pas du filet = 0.05000', '±0.1 %', 'de −90 % à +0.1 %']);
 });
 
+test('sessionView : chaque outil porte son opération et sa plage de dimensions (attestation, D30) ; attendre_s suit la cadence', () => {
+  const vue = sessionView(seance({ compteurs: { reussites: { mvlnr: 2 }, totalReussies: 2 } }), m10, data);
+  const mvlnr = vue.progression.outils.find((outil) => outil.id === 'mvlnr');
+  assert.deepEqual(mvlnr, { id: 'mvlnr', nom: 'MVLNR', operation: 'Chariotage finition', plage: '1.000" à 4.000"', reussites: 2, requises: 3 });
+  assert.equal(vue.progression.outils.find((outil) => outil.id === 'sdtmr_2').plage, 'M4 x 0.7 à M68 x 6');
+  // Une restriction de l'exercice réduit la plage ; une seule dimension : son libellé.
+  const restreint = { ...m10, outils: [{ id: 'foret_fractionnaire', reussites_requises: 1, dimensions: ['Ø 1/4 po', 'Ø 1/2 po'] }, { id: 'mvlnr', reussites_requises: 1, dimensions: ['2.000"'] }] };
+  assert.deepEqual(sessionView(seance(), restreint, data).progression.outils.map((outil) => outil.plage), ['Ø 1/4 po à Ø 1/2 po', '2.000"']);
+  // attendre_s : 0 sans horloge ; sinon la cadence, levée en mode test.
+  const corrigee = seance({ derniere_correction: MAINTENANT.toISOString() });
+  assert.equal(sessionView(corrigee, m10, data).attendre_s, 0);
+  assert.equal(sessionView(corrigee, m10, data, { now: apres(3000) }).attendre_s, 7);
+  assert.equal(sessionView(corrigee, m10, data, { now: apres(3000), testMode: true }).attendre_s, 0);
+  assert.equal(sessionView(corrigee, m10, data, { now: apres(11000) }).attendre_s, 0);
+});
+
 test('sessionView : étudiant de la première visite, exercice, progression par outil, question en attente', () => {
   const question = drawQuestion(emptyCounters(), m10, data, aleaAGraine(1));
   const vue = sessionView(seance({ compteurs: { reussites: { mvlnr: 2, mclnr: 1, sdtmr: 7 }, totalReussies: 9 }, question_courante: question }), m10, data);
@@ -255,7 +323,7 @@ test('sessionView : étudiant de la première visite, exercice, progression par 
   assert.deepEqual(vue.exercice, { id: 'm10-tournage-vc', titre: m10.titre, version: 'r0' });
   assert.equal(vue.reussite_le, null);
   assert.equal(vue.progression.outils.length, 9);
-  assert.deepEqual(vue.progression.outils.find((outil) => outil.id === 'mvlnr'), { id: 'mvlnr', nom: 'MVLNR', reussites: 2, requises: 3 });
+  assert.deepEqual(vue.progression.outils.find((outil) => outil.id === 'mvlnr'), { id: 'mvlnr', nom: 'MVLNR', operation: 'Chariotage finition', plage: '1.000" à 4.000"', reussites: 2, requises: 3 });
   assert.deepEqual(vue.progression.outils.find((outil) => outil.id === 'sdtmr').reussites, 1); // jamais plus que le requis
   assert.equal(vue.progression.outils_termines, 2);
   assert.equal(vue.progression.total_reussies, 9);
