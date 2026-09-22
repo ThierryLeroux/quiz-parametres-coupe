@@ -951,3 +951,22 @@ faisait échouer le lot (UNIQUE) et répondait 409 « ce matricule a déjà une 
 `attestations.code` → « code ») ; sur « code », le serveur tire un autre code et recommence, comme
 il le faisait déjà à la réussite. L'aléa des codes est **injectable** (`tools.randomBytes`, à côté
 de `now` et `random`), pour forcer une collision dans les tests.
+
+## D43 — Réponses au rapport « exercice Vc et RPM » (2026-09-22, décidée)
+
+Points tranchés par Thierry, sur D40 et D41 :
+
+- **Numéro** de la liste des questions : le rang **dans la liste**, de 1 à n — pas dans la séance.
+  Les trous révélaient les échecs, qu'UI §3.4 interdit d'afficher ; l'heure suffit à la
+  chronologie, et l'unicité de la copie ne dépend pas du numéro.
+- **Titre** de l'exercice aligné sur le style du M10 : « M10 — Tournage : Vc et RPM » (remplace
+  le titre écrit dans D40).
+- **Jamais de troncature** sur une attestation : un libellé long se replie dans sa cellule, quitte
+  à ce qu'un rang prenne deux lignes ; la pagination en tient compte — elle estime les lignes de
+  chaque rang (largeur des colonnes, largeur de caractère prise avec marge) et ne coupe jamais un
+  rang entre deux pages.
+- **Pagination par constantes mesurées** : acceptable. Les constantes et la police sont consignées
+  dans UI §3.6, avec la consigne de recalibrer si la police d'impression change.
+- **Réponses normalisées** au figeage : le nombre interprété (point ou virgule, espaces ignorés),
+  écrit au format d'affichage de la grandeur (D10, D14 : point décimal, N entier, avances à
+  4 décimales, 5 en filetage, Vf à 3). La frappe brute n'a pas de valeur.

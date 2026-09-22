@@ -536,6 +536,7 @@ par une correction, ou constatée à la demande de question quand l'exercice a
   "questions": [ { "numero": 3, "outil_id": "mclnr", "outil": "MCLNR - Ø charioté: 10 mm", "materiau_outil": "Insert de carbure de tungstène",
                    "materiau": { "classe": "H", "groupe": 39, "materiau": "Acier durci", "etat": "Durci et revenu" },
                    "reponses": { "vc": "40" }, "horodatage": "2026-09-21T13:12:05.000Z" } ]
+  // numero : le rang dans la liste (1 à n) ; reponses : normalisées au format d'affichage (D43)
 }
 ```
 
@@ -549,11 +550,13 @@ par une correction, ou constatée à la demande de question quand l'exercice a
 - `questions` (D41) : **les questions réussies qui comptent** — pour chaque outil, la série
   finale de réussites consécutives (ses `reussites` dernières questions réussies, donc toutes
   après son dernier échec), dans l'ordre chronologique. Chaque entrée est copiée du **journal des
-  corrections** : `numero` (rang de la question dans la séance, ratées comprises), `outil_id`,
-  `outil` (le nom tel qu'affiché à l'étudiant : gabarit résolu, §4.6), `materiau_outil`,
-  `materiau` (classe ISO, no de groupe, nom, état), `reponses` (les saisies de l'étudiant, telles
-  quelles, pour les grandeurs évaluées seulement, sous les noms du moteur), `horodatage`. Une
-  attestation figée avant cette liste n'en a pas, et reste valide telle quelle ;
+  corrections** : `numero` (le rang dans la liste, de 1 à n — jamais le rang dans la séance, qui
+  révélerait les échecs : D43), `outil_id`, `outil` (le nom tel qu'affiché à l'étudiant : gabarit
+  résolu, §4.6), `materiau_outil`, `materiau` (classe ISO, no de groupe, nom, état), `reponses`
+  (les réponses de l'étudiant aux grandeurs évaluées seulement, sous les noms du moteur,
+  **normalisées** : le nombre lu, écrit au format d'affichage de la grandeur, §5 — « 400,0 » →
+  « 400 », « 1 600 » → « 1600 »), `horodatage`. Une attestation figée avant cette liste n'en a
+  pas, et reste valide telle quelle ;
 - une correction d'identité postérieure **annule et réémet** l'attestation
   (D37, ci-dessous) : les résultats, les dates et la liste sont repris tels quels.
 
@@ -780,7 +783,7 @@ Précisions :
   « index » est un identifiant réservé. Un fichier d'exercice absent de
   l'index n'est pas offert. Pour composer la liste, la page lit les fichiers des
   exercices de l'index et écarte ceux qui portent `"liste": false`.
-- **`m10-tournage-vc-rpm`** (décision D40) : « M10 - tournage - Vc et RPM »,
+- **`m10-tournage-vc-rpm`** (décisions D40, D43) : « M10 — Tournage : Vc et RPM »,
   `champs_evalues` `["vc", "n"]`, acier rapide ou insert de carbure seulement,
   onze outils de pointage, perçage, alésage à la barre et filetage, deux
   réussites de suite chacun (22 questions), listé à l'accueil.
