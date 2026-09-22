@@ -184,6 +184,15 @@ corrigé montré à l'étudiant) est toujours acceptée. `correction.js` dépend
 données ne changent pas : `fact_vc = 0,125` sur la lame à tronçonner est voulu,
 et la borne basse de N en filetage reste −90 % (et non les −90,1 % du VBA).
 
+**Complément (2026-09-21).** La feuille des formules montre aussi la formule
+exacte N = Vc × 12 / (π × Ø) (D29). Un N calculé avec elle est plus bas de
+4,5 % ; **arrondi à l'entier**, il sortait de ±5 % pour 122 combinaisons sous
+90 rév/min. La tolérance de N devient **±5 % élargie de ±1 rév/min de chaque
+côté** pour les avances fixes et proportionnelles ; le filetage reste de −90 %
+à +0,1 %. La ligne de correction l'écrit (« ±5 % et ±1 rév/min »). La
+demi-unité d'affichage de cette décision s'y ajoute toujours. Ferme le ❓ de
+SPEC §5.
+
 ## D14 — Avances : au moins 4 décimales et au moins 3 chiffres significatifs (2026-09-19, décidée)
 
 **Contexte.** À 4 décimales, l'avance d'un micro-foret s'affichait « 0.0000 »
@@ -508,8 +517,10 @@ l'avance était fausse.
 - Un outil peut porter une seconde liste, `dimensions_barre` (libellé + Ø en
   pouces), et `rapport_barre_max`. La barre est tirée **avec** la dimension,
   parmi celles qui entrent dans le trou : Ø barre ≤ `rapport_barre_max` × Ø alésé.
-- Valeurs de départ, **proposées et à confirmer par Thierry** : barres de 1/2,
-  5/8, 3/4, 1 et 1 1/4 po ; `rapport_barre_max` = 0,75.
+- Valeurs de départ : barres de 1/2, 5/8, 3/4, 1 et 1 1/4 po ;
+  `rapport_barre_max` = 0,75 — **confirmées par Thierry le 2026-09-21**. Que le
+  plafond de 0,006 ne soit atteint qu'à partir de la barre de 1 po convient :
+  l'étudiant rencontre le cas proportionnel et le cas plafonné.
 - Moteur : N avec le Ø de la dimension, avance proportionnelle avec le Ø de la
   barre. Question, panneau de l'outil, aide contextuelle et correction nomment
   chacun des deux diamètres. Gabarit : « Barre à aléser Ø [IdBarre] - Ø alésé:
@@ -521,7 +532,20 @@ l'avance était fausse.
   n'ont qu'un Ø. (Le foret à centrer a un Ø de corps et un Ø de pilote, mais une
   avance fixe : seul le Ø de corps sert, pour N.)
 
-**Conséquences.** Un tirage de plus pour cet outil seulement (le 7e) ; une
+**Extension (2026-09-21) — barre à rainurer.** Le rainurage interne est traité
+de même : la barre à rainurer reçoit `dimensions_barre` (même liste) et
+`rapport_barre_max` 0,75 ; N se calcule avec le Ø rainuré (facteur de vitesse
+0,25 inchangé), l'avance avec le Ø de la barre. Dans `operations.json`,
+« Rainurage interne » passe en avance **proportionnelle** : 0,003 × Ø barre,
+plafonnée à 0,003 po/tour, sur le modèle de l'alésage à la barre. Gabarit :
+« Barre à rainurer Ø [IdBarre] - Ø rainuré: [IdDia] ». Feuille des avances :
+même représentation que l'alésage à la barre (bande grise, « × Ø outil »,
+note « Ajuster l'avance ↔ Ø outil, Av. MAX. : .003" / tour ») : neuf bandes.
+À l'écran, les deux outils partagent les mêmes textes, avec « Ø usiné » pour le
+trou (« Ø usiné (le trou, pas la barre) ») ; le titre garde le mot du gabarit
+(alésé, rainuré).
+
+**Conséquences.** Un tirage de plus pour ces outils seulement (le 7e) ; une
 question en attente tirée avant ce changement, sans barre, est retirée et
 remplacée. SPEC §3 à §5, UI §3.3, tests du moteur et du serveur.
 
@@ -566,7 +590,8 @@ métallurgiques d'un même matériau restent ensemble ; plastiques et graphite
 trait sous l'en-tête. Le début d'une famille est un **indicateur dans les
 données**, `debut_famille: true` sur le matériau, et non un calcul : l'éditeur
 pourra le changer. Aujourd'hui : groupes 1, 6, 10, 12, 15, 17, 19, 21, 23, 26,
-31, 36, 38, 41 et 42. Thème nuit : le même trait, en clair.
+31, 36, 38, 41 et 42. (Le « thème nuit » demandé pour les feuilles venait d'une
+confusion : elles restent des pages blanches, UI §1 — D30.)
 
 **Conséquences.** `materiaux.json`, `validateData` (booléen facultatif),
 `vcSheet`, `sheets.css` ; SPEC §3, UI §3.5.
@@ -612,3 +637,38 @@ Points tranchés par Thierry, sans décision propre :
 - **Attestation de réussite** signée, avec son code QR : **en tête du jalon 5** —
   c'est la sortie du parcours étudiant. D'ici là, « Voir mon attestation » mène à
   une attestation **provisoire, non signée**, qui le dit.
+
+## D30 — Réponses au second rapport du jalon 4 (2026-09-21, décidée)
+
+Points tranchés par Thierry :
+
+- **Planche-contact validée** : les 19 pictogrammes convertis sont adoptés,
+  fraises rondes (sans l'étirement de 14 % qu'Excel applique au groupe), pointes
+  de flèche telles quelles. L'essai d'impression des trois feuilles est réussi.
+- **Barres et rapport 0,75** : confirmés (D25).
+- **N avec 12/π arrondi** : tolérance de N élargie de ±1 rév/min (D13).
+- **Feuilles en thème nuit : non.** Elles restent des pages blanches (UI §1). Les
+  variables CSS `--sheet-rule` et `--sheet-band` restent, sans redéfinition.
+- **Cadence levée en mode test** : confirmé (D26).
+- **`test-complet` hors de la liste** : un exercice porte `"liste": false` dans
+  son fichier pour ne pas apparaître dans la liste de l'accueil (D18) ; il reste
+  joignable par `?exercice=<id>`. Le même indicateur servira aux futurs
+  exercices d'essai. Clé facultative, `true` par défaut (SPEC §10).
+- **Note des avances posée sur la bande**, sans encadré : adopté ; maquette
+  `05b` et UI §3.5 mises à jour.
+- **Pied des feuilles et de l'attestation** : « TGM-TMI — TLP — 2026 », sans
+  « profil fabrication ».
+- **Coquille « Ø v45/64 po »** corrigée en « Ø 45/64 po » (commit « Corrige une
+  donnée »).
+- **Classeur de `legacy/`** renommé `Exercice_M10_tournage_vc_version_etudiant_r0.xlsm`
+  (sans accent ni espace) ; le convertisseur pointe sur ce chemin.
+- **Attestation provisoire** : elle part en production avec la prochaine
+  fusion ; bannière « PROVISOIRE — non signée, ne vaut pas preuve de réussite »
+  à l'écran et à l'impression, jusqu'au jalon 5. Elle **liste les opérations
+  effectuées** : pour chaque outil de l'exercice, dans l'ordre, le nom générique
+  avec sa plage de dimensions, l'opération, les réussites obtenues sur les
+  réussites exigées. La liste vient de la séance côté serveur, pour faire partie
+  du contenu signé au jalon 5.
+- **Rainurage interne** à deux diamètres (D25, extension).
+- Pour clore le jalon 4 : compte à rebours de la cadence à la place du message,
+  repli des outils terminés sur téléphone.
