@@ -116,7 +116,8 @@ th[aria-sort='descending'] .sort-button::after { content: '▼'; font-size: 0.7e
 .button-small:hover { background: var(--color-wrong-bg); }
 .button-small--neutral { border-color: var(--color-accent-light); color: var(--color-accent-light); }
 .button-small--neutral:hover { background: color-mix(in srgb, var(--color-accent-light) 15%, transparent); }
-.prof-table td.actions { display: flex; gap: var(--space-2); white-space: nowrap; }
+.prof-table td.actions { white-space: nowrap; }
+.prof-table td.actions .button-small + .button-small { margin-left: var(--space-2); }
 .button-small:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .identity-arrow { color: var(--color-text-muted); padding: 0 6px; }
