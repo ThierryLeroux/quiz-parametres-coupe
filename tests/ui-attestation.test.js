@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  attestationFacts, attestationFileName, attestationFooter, attestationRows, tablesRevision, verificationMention, verificationOutcome,
+  PAGE_LAYOUT, attestationFacts, attestationFileName, attestationFooter, attestationRows, continuationLine, hasQuestions,
+  materialText, pageLabel, paginateQuestions, questionColumns, questionRows, tablesRevision, verificationMention, verificationOutcome,
 } from '../site/js/ui/attestation-data.js';
 import { qrModules } from '../site/js/ui/qr.js';
 import { formatDateStamp } from '../site/js/ui/text.js';
@@ -59,6 +60,63 @@ test('attestationRows : une ligne par outil, dans l’ordre de l’enregistremen
     { operation: 'Chariotage ébauche', outil: 'MCLNR', plage: '10 mm à 20 mm', reussites: '1 / 1' },
     { operation: 'Chariotage finition', outil: 'MVLNR', plage: '1.000" à 4.000"', reussites: '3 / 3' },
   ]);
+});
+
+// --- La liste des questions réussies (D41) ---------------------------------------------------------------------
+
+const Q1 = new Date(2026, 8, 21, 13, 12, 5);
+const Q2 = new Date(2026, 8, 21, 13, 40, 59);
+const QUESTIONS = [
+  { numero: 3, outil_id: 'mclnr', outil: 'MCLNR - Ø charioté: 10 mm', materiau_outil: 'Insert de carbure de tungstène', materiau: { classe: 'H', groupe: 39, materiau: 'Acier durci', etat: 'Durci et revenu' }, reponses: { vc: '40' }, horodatage: Q1.toISOString() },
+  { numero: 7, outil_id: 'mvlnr', outil: 'MVLNR - Ø charioté: 2.000"', materiau_outil: 'Acier rapide', materiau: { classe: 'N', groupe: 21, materiau: 'Aluminium de corroyage', etat: null }, reponses: { vc: '400', rpm: '800' }, horodatage: Q2.toISOString() },
+];
+const AVEC_LISTE = { ...RECORD, questions: QUESTIONS };
+
+test('hasQuestions : vrai avec une liste non vide ; faux pour un enregistrement figé avant cette version, ou une liste vide', () => {
+  assert.equal(hasQuestions(AVEC_LISTE), true);
+  assert.equal(hasQuestions(RECORD), false);
+  assert.equal(hasQuestions({ ...RECORD, questions: [] }), false);
+});
+
+test('questionColumns : les grandeurs évaluées présentes, dans l’ordre du calcul, avec leur unité', () => {
+  assert.deepEqual(questionColumns(AVEC_LISTE), [{ key: 'vc', label: 'Vc (pi/min)' }, { key: 'rpm', label: 'N (rév/min)' }]);
+  assert.deepEqual(questionColumns({ ...RECORD, questions: [{ ...QUESTIONS[0], reponses: { feedRate: '4', vc: '40', feedPerTooth: '0.004' } }] }).map((c) => c.key), ['vc', 'feedPerTooth', 'feedRate']);
+  assert.deepEqual(questionColumns(RECORD), []);
+});
+
+test('materialText : « P 1 — Acier non allié, Recuit » ; sans état, pas de virgule', () => {
+  assert.equal(materialText({ classe: 'P', groupe: 1, materiau: 'Acier non allié', etat: 'Recuit' }), 'P 1 — Acier non allié, Recuit');
+  assert.equal(materialText({ classe: 'N', groupe: 21, materiau: 'Aluminium de corroyage', etat: null }), 'N 21 — Aluminium de corroyage');
+});
+
+test('questionRows : une ligne par question, dans l’ordre, matière en court, une réponse par colonne (« — » si la grandeur n’était pas évaluée), heure avec les secondes', () => {
+  assert.deepEqual(questionRows(AVEC_LISTE), [
+    { numero: '3', outil: 'MCLNR - Ø charioté: 10 mm', materiau_outil: 'Insert de carbure', materiau: 'H 39 — Acier durci, Durci et revenu', reponses: ['40', '—'], horodatage: '2026-09-21 13:12:05' },
+    { numero: '7', outil: 'MVLNR - Ø charioté: 2.000"', materiau_outil: 'Acier rapide', materiau: 'N 21 — Aluminium de corroyage', reponses: ['400', '800'], horodatage: '2026-09-21 13:40:59' },
+  ]);
+  assert.equal(questionRows({ ...RECORD, questions: [{ ...QUESTIONS[0], materiau_outil: 'Carbure de tungstène solide' }] })[0].materiau_outil, 'Carbure solide');
+  assert.deepEqual(questionRows(RECORD), []);
+});
+
+test('paginateQuestions : la place de la page 1 se partage entre le tableau par outil et les questions ; la suite sur les pages suivantes ; une page 1 toujours, même vide', () => {
+  const rows = Array.from({ length: 22 }, (_, i) => ({ numero: String(i + 1) }));
+  const layout = { firstPageFree: 400, toolRow: 20, questionRow: 20, nextPageRows: 15 };
+  const pages = paginateQuestions(rows, 11, layout);
+  assert.deepEqual(pages.map((page) => page.length), [9, 13]); // (400 − 11 × 20) / 20 = 9
+  assert.deepEqual(pages.flat(), rows); // rien de perdu, rien en double, dans l'ordre
+  assert.deepEqual(paginateQuestions(rows, 3, { ...layout, firstPageFree: 500 }).map((page) => page.length), [22]); // tout tient
+  assert.deepEqual(paginateQuestions(rows, 25, { ...layout, nextPageRows: 10 }).map((page) => page.length), [0, 10, 10, 2]); // trop d'outils : la liste commence page 2
+  assert.deepEqual(paginateQuestions([], 9), [[]]);
+  // Les vraies capacités, mesurées dans Chrome : « Vc et RPM » (11 outils, 22 questions) et le M10 (9 outils, 15) tiennent sur deux pages.
+  assert.deepEqual(paginateQuestions(rows, 11).map((page) => page.length), [9, 13]);
+  assert.deepEqual(paginateQuestions(rows.slice(0, 15), 9).map((page) => page.length), [12, 3]);
+  assert.ok(PAGE_LAYOUT.nextPageRows >= 22);
+});
+
+test('pageLabel et continuationLine : « Page 2 de 3 » ; le rappel en tête d’une page de suite', () => {
+  assert.equal(pageLabel(1, 1), 'Page 1 de 1');
+  assert.equal(pageLabel(2, 3), 'Page 2 de 3');
+  assert.equal(continuationLine(RECORD, 'ABCDE-FGHJK'), "Attestation de réussite — Zoé D'Amours Lévesque · 2412345 · code ABCDE-FGHJK (suite)");
 });
 
 test('mention de vérification, pied de page, nom du fichier PDF', () => {

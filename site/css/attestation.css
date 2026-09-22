@@ -23,7 +23,15 @@
   gap: var(--space-2) var(--space-4);
 }
 
-.attestation-stage { padding: var(--space-4); }
+/* Une ou plusieurs pages lettre, empilées ; sur téléphone, chacune garde sa taille et défile. */
+.attestation-stage {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.attestation-stage > .print-page { margin: 0 auto; }
 
 /* --- La page lettre ------------------------------------------------------------------------------------------ */
 
@@ -127,6 +135,34 @@
 
 .attestation-note { font-size: 10px; color: var(--color-page-muted); }
 
+/* La liste des questions réussies (D41) : une ligne par question, sans repli, pour que la coupe
+   entre les pages se décide par un compte de lignes (attestation-data.js). Un texte trop long est
+   tronqué avec des points de suspension ; le titre de la cellule le garde entier. */
+.attestation-questions {
+  table-layout: fixed;
+  font-size: 9.5px;
+}
+
+/* Hauteur de ligne fixe : 13 + 2 × 3 + 1 de trait = 20 px (PAGE_LAYOUT.questionRow). */
+.attestation-questions th,
+.attestation-questions td {
+  padding: 3px 4px;
+  line-height: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Largeurs sur 720 px : le matériau usiné prend ce qui reste (les libellés les plus longs sont tronqués). */
+.attestation-questions th:nth-child(1) { width: 22px; }
+.attestation-questions th:nth-child(2) { width: 180px; }
+.attestation-questions th:nth-child(3) { width: 78px; }
+.attestation-questions th.num:not(:first-child) { width: 60px; }
+.attestation-questions th:last-child { width: 110px; }
+.attestation-questions td.stamp { font-family: var(--font-number); font-size: 8.5px; }
+
+.attestation-continuation { font-size: 11px; font-weight: 700; }
+
 .attestation-footer {
   display: flex;
   justify-content: space-between;
@@ -151,6 +187,12 @@
 .verify-result .attestation-table th { border-bottom-color: var(--color-text); }
 .verify-result .attestation-table td { border-bottom-color: color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
 .verify-result .attestation-subtitle { margin-top: var(--space-4); border-bottom-color: var(--color-text); color: var(--color-text); }
+/* Sur la page de vérification, la liste complète : les lignes peuvent se replier, rien n'est tronqué. */
+.verify-result .attestation-questions { table-layout: auto; font-size: var(--text-sm); }
+.verify-result .attestation-questions th,
+.verify-result .attestation-questions td { white-space: normal; overflow: visible; line-height: 1.35; padding: 4px 6px; }
+.verify-result .attestation-questions th:nth-child(n) { width: auto; }
+.verify-result .attestation-questions td.stamp { white-space: nowrap; font-size: var(--text-sm); }
 .verify-result p + .attestation-facts { margin-top: var(--space-4); }
 
 @media (max-width: 480px) {
@@ -161,7 +203,9 @@
 
 @media print {
   .app-main { display: block; padding: 0; }
-  .attestation-stage { padding: 0; }
+  .attestation-stage { display: block; padding: 0; }
   /* @page laisse 0.5 po de marge : il reste 10 po de haut. */
   .attestation { height: 10in; }
+  /* Chaque page lettre sur sa feuille ; la suite de la liste des questions sur la suivante. */
+  .attestation-stage > .print-page:not(:last-child) { break-after: page; }
 }

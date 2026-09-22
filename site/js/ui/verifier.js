@@ -4,8 +4,8 @@
 // aucune ou invalide (attestation-data.js décide des textes) ; ici, on construit le DOM.
 
 import { verifyAttestation } from '../api.js';
-import { claimsFromInput, verificationOutcome } from './attestation-data.js';
-import { factsGrid, operationsTable } from './attestation-screen.js';
+import { claimsFromInput, hasQuestions, verificationOutcome } from './attestation-data.js';
+import { factsGrid, operationsTable, questionsTable } from './attestation-screen.js';
 import { el, showScreen } from './dom.js';
 import { serverErrorMessage } from './text.js';
 
@@ -33,6 +33,8 @@ function showResult(response) {
     el('h2', {}, title),
     el('p', { class: 'small' }, text),
     ...(record ? [factsGrid(record), el('h3', { class: 'attestation-subtitle' }, 'Opérations effectuées'), el('div', { class: 'table-wrap' }, operationsTable(record))] : []),
+    // La liste des questions réussies (D41), complète, telle que le serveur la détient ; absente d'une attestation figée avant cette version.
+    ...(record && hasQuestions(record) ? [el('h3', { class: 'attestation-subtitle' }, `Questions réussies qui comptent (${record.questions.length})`), el('div', { class: 'table-wrap' }, questionsTable(record))] : []),
   ]));
 }
 
