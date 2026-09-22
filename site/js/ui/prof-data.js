@@ -127,6 +127,11 @@ export function identityRows(corrections) {
   }));
 }
 
+// Le texte de confirmation d'une réinitialisation du NIP (D38).
+export function nipResetConfirmation(session) {
+  return `Réinitialiser le NIP de ${session.prenom} ${session.nom} (${session.matricule}, ${session.exercice.titre}) ? Le verrou tombe ; à sa prochaine reprise, le NIP qu'il ou elle entrera deviendra le nouveau. Sa progression ne change pas.`;
+}
+
 // Le texte de confirmation d'une remise à zéro.
 export function resetConfirmation(session) {
   const attestation = session.code ? " Son attestation sera annulée ; l'ancien code répondra « annulée »." : '';

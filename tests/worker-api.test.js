@@ -873,7 +873,7 @@ test('aucune route /api/prof/* ne répond sans cookie valide : absent, forgé, s
   const { cookie } = await seConnecter(serveur);
   const autre = serveurDeTest({ secret: 'autre-secret' });
   const { cookie: forge } = await seConnecter(autre);
-  const routes = [['GET', '/api/prof/seances'], ['POST', '/api/prof/remise-a-zero'], ['GET', '/api/prof/identites']];
+  const routes = [['GET', '/api/prof/seances'], ['POST', '/api/prof/remise-a-zero'], ['POST', '/api/prof/reinitialisation-nip'], ['GET', '/api/prof/identites']];
 
   for (const [methode, chemin] of routes) {
     for (const valeur of [undefined, 'n.importe.quoi', `${cookie.split('.')[0]}.${'x'.repeat(43)}`, forge, cookie.split('.')[0]]) {
@@ -955,6 +955,31 @@ test('remise à zéro : progression à zéro, la séance reste (matricule, NIP, 
   assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: attestation.code } })).corps.resultat, 'annulee');
   assert.equal((await serveur.appel('POST', '/api/prof/remise-a-zero', { corps: { seance: 999 }, entetes: { cookie: `prof=${cookie}` } })).status, 404);
   assert.equal((await serveur.appel('POST', '/api/prof/remise-a-zero', { corps: { seance: 'x' }, entetes: { cookie: `prof=${cookie}` } })).status, 404);
+});
+
+test('réinitialisation du NIP (D38) : le verrou tombe, le prochain NIP présenté devient le nouveau, la progression reste, l’action est journalisée', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await commencer(serveur);
+  assert.equal((await repondre(serveur, jeton, true)).status, 200);
+  for (let essai = 1; essai <= 5; essai += 1) await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: `000${essai}` } });
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 429); // verrouillée : elle a oublié son NIP
+  const { cookie } = await seConnecter(serveur);
+  const avant = serveur.seance();
+
+  serveur.avancer(MINUTE);
+  assert.deepEqual((await serveur.appel('POST', '/api/prof/reinitialisation-nip', { corps: { seance: avant.id }, entetes: { cookie: `prof=${cookie}` } })).corps, { nip_reinitialise: true, seance: avant.id });
+  const apres = serveur.seance();
+  assert.deepEqual([apres.nip_hache, apres.essais_nip, apres.essais_nip_debut, apres.verrou_nip_jusqua], [null, 0, null, null]);
+  assert.deepEqual([apres.compteurs, apres.question_courante, apres.jeton_hache], [avant.compteurs, avant.question_courante, avant.jeton_hache]);
+
+  // Le NIP présenté à la reprise devient le nouveau ; l'ancien ne vaut plus.
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: '999999' } })).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 401);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, nip: '999999' } })).corps.seance.progression.total_reussies, 1);
+
+  const [action] = serveur.journalEnseignant().filter((l) => l.action === 'reinitialisation_nip');
+  assert.deepEqual([action.enseignant, action.seance_id, action.details], ['admin', avant.id, `${M10} · 2412345 · Camille Tremblay`]);
+  assert.equal((await serveur.appel('POST', '/api/prof/reinitialisation-nip', { corps: { seance: 999 }, entetes: { cookie: `prof=${cookie}` } })).status, 404);
 });
 
 test('journal des corrections d’identité : la plus récente en premier, avant/après, matricule actuel et exercice de la séance', async () => {

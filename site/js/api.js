@@ -136,6 +136,11 @@ export function resetSession(seanceId, request) {
   return call('POST', '/api/prof/remise-a-zero', { body: { seance: seanceId } }, request);
 }
 
+// Réinitialisation du NIP d'une séance (D38) : { nip_reinitialise: true, seance }. Erreurs : 401 ; 404.
+export function resetNip(seanceId, request) {
+  return call('POST', '/api/prof/reinitialisation-nip', { body: { seance: seanceId } }, request);
+}
+
 // Le journal des corrections d'identité, la plus récente en premier : { corrections }.
 export function listIdentityCorrections(request) {
   return call('GET', '/api/prof/identites', {}, request);

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SESSION_COLUMNS, csvCell, csvFileName, csvOf, filterSessions, identityRows, plain, resetConfirmation, sessionCells, sessionState, sortSessions,
+  SESSION_COLUMNS, csvCell, csvFileName, csvOf, filterSessions, identityRows, nipResetConfirmation, plain, resetConfirmation, sessionCells, sessionState, sortSessions,
 } from '../site/js/ui/prof-data.js';
 import { claimsFromInput } from '../site/js/ui/attestation-data.js';
 
@@ -90,6 +90,11 @@ test('resetConfirmation : nomme l’étudiant, l’exercice, et prévient de l�
   assert.match(resetConfirmation(SEANCES[0]), /Camille Tremblay \(2412345, M10 — Tournage : vitesse de coupe\)/);
   assert.match(resetConfirmation(SEANCES[0]), /attestation sera annulée/);
   assert.doesNotMatch(resetConfirmation(SEANCES[1]), /attestation/);
+});
+
+test('nipResetConfirmation : nomme l’étudiant et l’exercice, dit que la progression ne change pas', () => {
+  assert.match(nipResetConfirmation(SEANCES[1]), /Alex Roy \(2498765, M10 — Tournage : vitesse de coupe\)/);
+  assert.match(nipResetConfirmation(SEANCES[1]), /progression ne change pas/);
 });
 
 test('claimsFromInput : un code, une adresse collée entière, ou rien', () => {

@@ -426,6 +426,22 @@ async function profRemiseAZero(request, env, { now }) {
   return json({ remise_a_zero: true, seance: session.id });
 }
 
+// POST /api/prof/reinitialisation-nip — { seance } : le NIP est effacé et le verrou tombe (D38) ;
+// l'étudiant choisit un nouveau NIP à sa prochaine reprise, comme à la création. Journalisée.
+async function profReinitialisationNip(request, env, { now }) {
+  const teacher = await requireTeacher(request, env, now);
+  const body = await readBody(request);
+  const session = Number.isInteger(body.seance) ? await base.findSessionById(env.DB, body.seance) : null;
+  if (session === null) throw new HttpError(404, "Cette séance n'existe pas.");
+  await base.resetNip(env.DB, session.id, NIP_CLEARED, {
+    horodatage: now.toISOString(),
+    enseignant: teacher,
+    action: 'reinitialisation_nip',
+    details: `${session.exercice_id} · ${session.matricule} · ${session.prenom} ${session.nom}`,
+  });
+  return json({ nip_reinitialise: true, seance: session.id });
+}
+
 // GET /api/prof/identites — le journal des corrections d'identité, la plus récente en premier.
 async function profIdentites(request, env, { now }) {
   await requireTeacher(request, env, now);
@@ -457,6 +473,7 @@ const ROUTES = {
   'POST /api/prof/deconnexion': profDeconnexion,
   'GET /api/prof/seances': profSeances,
   'POST /api/prof/remise-a-zero': profRemiseAZero,
+  'POST /api/prof/reinitialisation-nip': profReinitialisationNip,
   'GET /api/prof/identites': profIdentites,
 };
 

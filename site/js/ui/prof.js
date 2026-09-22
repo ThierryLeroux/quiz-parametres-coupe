@@ -4,9 +4,9 @@
 // cookie de séance posé à la connexion ; un 401 ramène à la connexion.
 // Ce qu'on montre est décidé par prof-data.js (pur, testé) : ici, on construit le DOM.
 
-import { listIdentityCorrections, listSessions, resetSession, teacherLogin, teacherLogout } from '../api.js';
+import { listIdentityCorrections, listSessions, resetNip, resetSession, teacherLogin, teacherLogout } from '../api.js';
 import { el, showScreen } from './dom.js';
-import { SESSION_COLUMNS, csvFileName, csvOf, filterSessions, identityRows, resetConfirmation, sessionCells, sortSessions } from './prof-data.js';
+import { SESSION_COLUMNS, csvFileName, csvOf, filterSessions, identityRows, nipResetConfirmation, resetConfirmation, sessionCells, sortSessions } from './prof-data.js';
 import { serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
@@ -73,11 +73,12 @@ function download(name, text) {
   URL.revokeObjectURL(url);
 }
 
-async function reset(session, button) {
-  if (!window.confirm(resetConfirmation(session))) return;
+// Une action sur une séance, après confirmation : remise à zéro (D35) ou réinitialisation du NIP (D38).
+async function act(button, confirmation, action) {
+  if (!window.confirm(confirmation)) return;
   button.disabled = true;
   try {
-    await resetSession(session.id);
+    await action();
     await loadAndShow();
   } catch (error) {
     if (error.status === 401) { showLogin('Ta séance a expiré : connecte-toi de nouveau.'); return; }
@@ -94,18 +95,20 @@ function sessionsTable() {
       return el('th', { class: column.num ? 'num' : null, 'aria-sort': active ? (state.sort.ascending ? 'ascending' : 'descending') : 'none' },
         el('button', { class: 'sort-button', type: 'button', onclick: () => { state.sort = { key: column.key, ascending: active ? !state.sort.ascending : true }; showDashboard(); } }, column.label));
     }),
-    el('th', {}, 'Action'),
+    el('th', {}, 'Actions'),
   ]);
   const body = rows.map((session) => {
     const cells = sessionCells(session);
     const resetButton = el('button', { class: 'button-small', type: 'button' }, 'Remettre à zéro');
-    resetButton.addEventListener('click', () => reset(session, resetButton));
+    resetButton.addEventListener('click', () => act(resetButton, resetConfirmation(session), () => resetSession(session.id)));
+    const nipButton = el('button', { class: 'button-small button-small--neutral', type: 'button' }, 'Réinitialiser le NIP');
+    nipButton.addEventListener('click', () => act(nipButton, nipResetConfirmation(session), () => resetNip(session.id)));
     return el('tr', {}, [
       ...SESSION_COLUMNS.map((column) => {
         const classes = [column.num ? 'num' : '', column.mono ? 'mono' : '', column.date ? 'date' : '', column.key === 'etat' ? (session.reussite_le === null ? 'state--running' : 'state--done') : ''].filter(Boolean).join(' ');
         return el('td', { class: classes || null }, cells[column.key]);
       }),
-      el('td', {}, resetButton),
+      el('td', { class: 'actions' }, [nipButton, resetButton]),
     ]);
   });
   return [

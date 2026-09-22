@@ -215,6 +215,18 @@ export async function resetSession(db, seanceId, compteurs, now, entry) {
   ]);
 }
 
+// Réinitialisation du NIP (D38) : nip_hache nul — le prochain NIP présenté à la reprise devient le
+// nouveau —, essais et verrou effacés, l'action journalisée, en un seul lot. Le jeton en cours reste.
+//   cleared : NIP_CLEARED (seance.js) ; entry : la ligne du journal
+export async function resetNip(db, seanceId, cleared, entry) {
+  await db.batch([
+    db.prepare('UPDATE seances SET nip_hache = NULL, essais_nip = ?, essais_nip_debut = ?, verrou_nip_jusqua = ? WHERE id = ?')
+      .bind(cleared.essais_nip, cleared.essais_nip_debut, cleared.verrou_nip_jusqua, seanceId),
+    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, ?, ?, ?)')
+      .bind(entry.horodatage, entry.enseignant, seanceId, entry.action, entry.details ?? null),
+  ]);
+}
+
 // Le journal des corrections d'identité, la plus récente en premier, avec la séance telle qu'elle
 // est aujourd'hui (exercice, matricule actuel).
 export async function listIdentityCorrections(db) {
