@@ -80,11 +80,13 @@ export function factorLines(outil) {
   ];
 }
 
-// Outil à deux diamètres (barre à aléser, D25) : le panneau de l'outil nomme chacun, avec son rôle.
-// Pour les autres outils, la dimension est déjà dans le titre : aucune ligne.
+// Outil à deux diamètres (barre à aléser, barre à rainurer : D25) : le panneau de l'outil nomme chacun,
+// avec son rôle. Le trou est le « Ø usiné », précisé du mot que le gabarit de nom emploie (alésé,
+// rainuré) quand il y est. Pour les autres outils, la dimension est déjà dans le titre : aucune ligne.
 export function diameterLines(question) {
   if (!question.outil.barre) return [];
-  return [`Ø alésé : ${question.dimension} — pour le RPM`, `Ø de la barre : ${question.outil.barre} — pour l'avance`];
+  const word = /Ø (\S+):/.exec(question.identifiant ?? '')?.[1];
+  return [`Ø usiné${word ? ` (${word})` : ''} : ${question.dimension} — pour le RPM`, `Ø de la barre : ${question.outil.barre} — pour l'avance`];
 }
 
 // --- Aide contextuelle (UI §3.3) : la méthode, jamais la valeur, ni la ligne ni la colonne -------------------------
@@ -109,7 +111,7 @@ export function helpLine(field, question, family) {
   if (field === 'feedPerTooth') {
     const byFamily = {
       proportional: question.outil.barre
-        ? ' Avance proportionnelle au Ø : avance × Ø de la barre (pas le Ø alésé), sans dépasser l’avance max.'
+        ? ' Avance proportionnelle au Ø : avance × Ø de la barre (pas le Ø usiné), sans dépasser l’avance max.'
         : ' Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.',
       thread: ' Filetage : fz = pas = 1 / filets au pouce (ou mm / 25.4).',
       fixed: '',
@@ -118,7 +120,7 @@ export function helpLine(field, question, family) {
   }
   if (field === 'rpm') {
     const factor = question.outil.fact_vc === 1 ? '' : `, × ${question.outil.fact_vc} pour cet outil`;
-    const which = question.outil.barre ? 'Ø alésé (le trou, pas la barre)' : 'Ø';
+    const which = question.outil.barre ? 'Ø usiné (le trou, pas la barre)' : 'Ø';
     return plain(`RPM → N = Vc × 4 / ${which}, plafonnée au RPM max de la machine${factor}.`);
   }
   if (field === 'feedPerRev') return plain('Avance totale par révolution → f = fz × nombre de dents.');

@@ -220,7 +220,7 @@ test('cadenceWait en mode test : la cadence est levée', () => {
 const BARRE = { ...CINQ_CHAMPS, id: 'essai-barre', outils: [{ id: 'barre_a_aleser', reussites_requises: 1 }] };
 const questionBarre = () => questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', barre: '3/4 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
 
-test('barre à aléser : la vue nomme la barre ; la correction calcule N avec le Ø alésé et fz avec le Ø de la barre', () => {
+test('barre à aléser : la vue nomme la barre ; la correction calcule N avec le Ø usiné (alésé) et fz avec le Ø de la barre', () => {
   const question = questionBarre();
   const vue = questionView(question, BARRE, data);
   assert.equal(vue.identifiant, 'Barre à aléser Ø 3/4 po - Ø alésé: 2.000"');
@@ -229,7 +229,7 @@ test('barre à aléser : la vue nomme la barre ; la correction calcule N avec le
 
   const corrige = gradeQuestion(question, cleanAnswers({}), emptyCounters(), BARRE, data);
   const champs = Object.fromEntries(correctionView(question, cleanAnswers({}), corrige.result, 0, corrige.counters, data).champs.map((champ) => [champ.champ, champ]));
-  assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø alésé = 400 × 4 / 2');
+  assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø usiné = 400 × 4 / 2');
   assert.equal(champs.feedPerTooth.calcul, 'fz = avance × Ø barre = 0.006 × 0.75');
   assert.deepEqual([champs.rpm.attendu, champs.feedPerTooth.attendu], ['800', '0.0045']);
 });
@@ -268,7 +268,7 @@ test('correctionView : tolérance en clair, écart en %, calcul en une ligne (UI
   const { result, counters } = gradeQuestion(question, reponses, emptyCounters(), CINQ_CHAMPS, data);
   const champs = Object.fromEntries(correctionView(question, reponses, result, 0, counters, data).champs.map((champ) => [champ.champ, champ]));
 
-  assert.deepEqual([champs.rpm.ok, champs.rpm.attendu, champs.rpm.tolerance, champs.rpm.ecart_pct], [true, '1600', '±5 %', 3.1]);
+  assert.deepEqual([champs.rpm.ok, champs.rpm.attendu, champs.rpm.tolerance, champs.rpm.ecart_pct], [true, '1600', '±5 % et ±1 rév/min', 3.1]);
   assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø = 100 × 4 / 0.25');
   assert.deepEqual([champs.feedPerTooth.tolerance, champs.feedPerTooth.calcul], ['±25 %, au plus ±0.001 po', 'fz = avance × Ø = 0.006 × 0.25']);
   assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.0015 × 2');

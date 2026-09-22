@@ -9,6 +9,8 @@ export const ANSWER_FIELDS = ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRa
 // Tolérances du tableau de la SPEC §6, en fraction de la valeur de référence.
 //   below / above : écart permis sous / au-dessus de la référence (0 = réponse exacte)
 //   maxDeviation  : écart absolu maximal (po) — l'intervalle retenu est le plus étroit des deux
+//   margin        : élargissement absolu de chaque côté, ajouté après (rév/min) — D13, complément : un N
+//                   calculé avec 12/π puis arrondi à l'entier tient ainsi dans la tolérance
 // S'y ajoute toujours la demi-unité d'affichage (D13), voir acceptedInterval.
 const EXACT = { below: 0, above: 0 };
 const within = (fraction) => ({ below: fraction, above: fraction });
@@ -26,19 +28,19 @@ const TOLERANCES = {
   fixed: {
     vc: EXACT,
     feedPerTooth: EXACT,
-    rpm: within(0.05),
+    rpm: { ...within(0.05), margin: 1 },
     feedPerRev: within(0.001),
   },
   proportional: {
     vc: EXACT,
     feedPerTooth: { ...within(0.25), maxDeviation: 0.001 },
-    rpm: within(0.05),
+    rpm: { ...within(0.05), margin: 1 },
     feedPerRev: within(0.2),
   },
 };
 
 // La tolérance d'un champ, en clair, pour l'expliquer à l'étudiant après la correction (UI §3.4) :
-// « exacte », « ±5 % », « de −90 % à +0.1 % », « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ».
+// « exacte », « ±5 % et ±1 rév/min », « de −90 % à +0.1 % », « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ».
 // Écrite à partir des mêmes constantes que la correction : elle ne peut pas la contredire.
 // (La demi-unité d'affichage de D13 n'y est pas dite : elle ne sert qu'à accepter les arrondis.)
 export function toleranceLabel(feedType, field) {
@@ -48,6 +50,7 @@ export function toleranceLabel(feedType, field) {
   if (tolerance.below === 0 && tolerance.above === 0) return 'exacte';
   let label = tolerance.below === tolerance.above ? `±${percent(tolerance.above)}` : `de −${percent(tolerance.below)} à +${percent(tolerance.above)}`;
   if (tolerance.maxDeviation !== undefined) label += `, au plus ±${tolerance.maxDeviation} po`;
+  if (tolerance.margin !== undefined) label += ` et ±${tolerance.margin} rév/min`;
   return field === 'feedRate' ? `${label} de N × f` : label;
 }
 
@@ -75,6 +78,10 @@ function acceptedInterval(reference, tolerance, halfUnit) {
   if (tolerance.maxDeviation !== undefined) {
     min = Math.max(min, reference - tolerance.maxDeviation);
     max = Math.min(max, reference + tolerance.maxDeviation);
+  }
+  if (tolerance.margin !== undefined) {
+    min -= tolerance.margin;
+    max += tolerance.margin;
   }
   return { min: clean(Math.min(min, reference - halfUnit)), max: clean(Math.max(max, reference + halfUnit)) };
 }

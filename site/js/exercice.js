@@ -16,7 +16,7 @@ export const GRADED_FIELD_KEYS = {
 };
 
 const EXERCISE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/; // minuscules, chiffres et tirets : c'est aussi le nom du fichier
-const EXERCISE_KEYS = ['id', 'titre', 'version', 'champs_evalues', 'outils'];
+const EXERCISE_KEYS = ['id', 'titre', 'version', 'champs_evalues', 'outils', 'liste'];
 const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes'];
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -59,6 +59,8 @@ export function validateExercise(exercise, data) {
   if (!isText(exercise.id) || !EXERCISE_ID.test(exercise.id) || exercise.id === 'index') errors.push(`${where} : « id » doit être fait de minuscules, de chiffres et de tirets (ex. « m10-tournage-vc »)`);
   if (!isText(exercise.titre)) errors.push(`${where} : « titre » est vide`);
   if (!isText(exercise.version)) errors.push(`${where} : « version » doit être un texte non vide (ex. « r0 »)`);
+  // « liste »: false retire l'exercice de la liste de l'accueil (D30) ; il reste joignable par « ?exercice=<id> ».
+  if (exercise.liste !== undefined && typeof exercise.liste !== 'boolean') errors.push(`${where} : « liste » doit être true ou false (ou absente : l'exercice est listé)`);
 
   const fields = Array.isArray(exercise.champs_evalues) ? exercise.champs_evalues : [];
   if (fields.length === 0) errors.push(`${where} : « champs_evalues » doit être une liste non vide`);

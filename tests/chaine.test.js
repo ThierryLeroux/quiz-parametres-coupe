@@ -65,12 +65,17 @@ test('toutes les combinaisons : un N calculé avec 12/π, sans l’arrondir, ré
   }
 });
 
-// ❓ À confirmer avec Thierry : arrondi À L'ENTIER, ce même N échoue pour 122 combinaisons sur
-// 40 733 (0,3 %), toutes sous 90 rév/min (alésoirs, lame à tronçonner, barre à rainurer, fraise
-// 82°…) : l'arrondi s'ajoute aux 4,5 %. Ex. alésoir 0.7500", attendu 26.67 → [25.33 ; 28] ; exact
-// 25.46, arrondi « 25 » : refusé. Pistes : élargir N à ±5 % ET ±1 rév/min, ou ne rien changer
-// (la formule du cours reste la référence).
-test.todo('❓ un N calculé avec 12/π puis arrondi à l’entier est refusé sous ~90 rév/min (122 combinaisons)');
+// Arrondi À L'ENTIER, ce même N sortait de ±5 % pour 122 combinaisons sous 90 rév/min (l'arrondi
+// s'ajoutait aux 4,5 %). D13, complément : N est tolérée à ±5 % ET ±1 rév/min hors filetage.
+test('toutes les combinaisons : un N calculé avec 12/π puis arrondi à l’entier réussit la correction (D13, complément)', () => {
+  for (const question of toutesLesQuestions()) {
+    const attendu = computeParameters(question, data);
+    const outil = data.outils.find((o) => o.id === question.tool.id);
+    const exact = Math.min((attendu.vc * 12 / Math.PI / question.dimension.diameter) * outil.fact_vc, outil.limite_rpm);
+    const resultat = gradeAnswers(attendu, { rpm: String(Math.round(exact)) }, ['rpm']);
+    assert.equal(resultat.fields.rpm.ok, true, `${question.displayId} / ${question.material.groupe} : ${Math.round(exact)} ∉ [${resultat.fields.rpm.min} ; ${resultat.fields.rpm.max}]`);
+  }
+});
 
 // --- Cas nommés : ceux qui échouaient avant D13, D14 et D15 ---------------------------------
 
@@ -83,16 +88,18 @@ test('lame à tronçonner Ø 4.000" dans l’acier 440C durci : N = 4,375 rév/m
   const affiche = formatParameters(attendu);
   assert.deepEqual(affiche, { vc: '35', rpm: '4', feedPerTooth: '0.0040', feedPerRev: '0.0040', feedRate: '0.018' });
 
-  // ±5 % de 4,375 = [4,156 ; 4,594] exclurait 4 ; la demi-unité d'affichage (D13) donne [3,875 ; 4,875].
+  // ±5 % de 4,375 = [4,156 ; 4,594] exclurait 4 ; le ±1 rév/min du complément de D13 donne [3,156 ; 5,594]
+  // (plus large que la demi-unité d'affichage, [3,875 ; 4,875]).
   const resultat = gradeAnswers(attendu, affiche);
-  assert.deepEqual(resultat.fields.rpm, { ok: true, value: 4, min: 3.875, max: 4.875 });
+  assert.deepEqual(resultat.fields.rpm, { ok: true, value: 4, min: 3.15625, max: 5.59375 });
   assert.equal(resultat.success, true); // y compris Vf « 0.018 », à côté d'un N arrondi à 4
 
   // L'étudiant qui calcule Vf avec le N arrondi qu'il a saisi (4 × 0,004 = 0,016) a bon aussi…
   assert.equal(gradeAnswers(attendu, { ...affiche, feedRate: '0.016' }).success, true);
-  // … mais pas celui qui saisit N = 5 ou N = 3.
-  assert.equal(gradeAnswers(attendu, { ...affiche, rpm: '5', feedRate: '0.02' }).fields.rpm.ok, false);
+  // … et N = 5 aussi, à ±1 rév/min près (D13, complément) ; mais pas N = 3 ni N = 6.
+  assert.equal(gradeAnswers(attendu, { ...affiche, rpm: '5', feedRate: '0.02' }).fields.rpm.ok, true);
   assert.equal(gradeAnswers(attendu, { ...affiche, rpm: '3', feedRate: '0.012' }).fields.rpm.ok, false);
+  assert.equal(gradeAnswers(attendu, { ...affiche, rpm: '6', feedRate: '0.024' }).fields.rpm.ok, false);
 });
 
 test('filetage M48 x 5 à la barre à fileter dans l’acier à outils durci : N = 84,67 rév/min, 84 et 85 sont acceptés', () => {

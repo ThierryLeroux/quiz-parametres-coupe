@@ -37,15 +37,19 @@ test('toolLabels : avec tout le catalogue dans un exercice, aucun nom affiché n
 const BARRE = { identifiant: 'Barre à aléser Ø 3/4 po - Ø alésé: 2.000"', dimension: '2.000"', outil: { id: 'barre_a_aleser', nom: 'Barre à aléser', barre: '3/4 po', fact_vc: 1, fact_av: 1 } };
 
 test('diameterLines : les deux diamètres de la barre à aléser, chacun avec son rôle ; rien pour les autres outils', () => {
-  assert.deepEqual(diameterLines(BARRE), ['Ø alésé : 2.000" — pour le RPM', "Ø de la barre : 3/4 po — pour l'avance"]);
+  assert.deepEqual(diameterLines(BARRE), ['Ø usiné (alésé) : 2.000" — pour le RPM', "Ø de la barre : 3/4 po — pour l'avance"]);
+  // Barre à rainurer (D25, extension) : mêmes textes, le mot du gabarit change.
+  const RAINURE = { ...BARRE, identifiant: 'Barre à rainurer Ø 1/2 po - Ø rainuré: 1.000"', dimension: '1.000"', outil: { ...BARRE.outil, id: 'barre_a_rainurer', nom: 'Barre à rainurer', barre: '1/2 po', fact_vc: 0.25 } };
+  assert.deepEqual(diameterLines(RAINURE), ['Ø usiné (rainuré) : 1.000" — pour le RPM', "Ø de la barre : 1/2 po — pour l'avance"]);
+  assert.deepEqual(diameterLines({ ...BARRE, identifiant: 'Outil Ø 1 po' }), ['Ø usiné : 2.000" — pour le RPM', "Ø de la barre : 3/4 po — pour l'avance"]);
   assert.deepEqual(diameterLines({ dimension: '2.000"', outil: { barre: null } }), []);
   assert.deepEqual(diameterLines({ dimension: '2.000"', outil: {} }), []); // séance servie par un serveur d'avant D25
 });
 
-test('helpLine, outil à deux diamètres : N avec le Ø alésé, avance avec le Ø de la barre', () => {
+test('helpLine, outil à deux diamètres : N avec le Ø usiné, avance avec le Ø de la barre', () => {
   const texte = (aide) => aide.parts.map((part) => part.text).join('');
-  assert.equal(texte(helpLine('rpm', BARRE, 'proportional')), 'RPM → N = Vc × 4 / Ø alésé (le trou, pas la barre), plafonnée au RPM max de la machine.');
-  assert.match(texte(helpLine('feedPerTooth', BARRE, 'proportional')), /avance × Ø de la barre \(pas le Ø alésé\)/);
+  assert.equal(texte(helpLine('rpm', BARRE, 'proportional')), 'RPM → N = Vc × 4 / Ø usiné (le trou, pas la barre), plafonnée au RPM max de la machine.');
+  assert.match(texte(helpLine('feedPerTooth', BARRE, 'proportional')), /avance × Ø de la barre \(pas le Ø usiné\)/);
 });
 
 test('testAnswers : le bouton « Remplir » n’existe que si le serveur a joint les réponses (D26)', () => {
@@ -117,7 +121,7 @@ test('helpLine : la méthode, jamais la valeur, sans nommer la ligne ni la colon
 test('gapExplanation : l’écart et la tolérance de chaque champ faux (UI §3.4)', () => {
   const correction = { champs: [
     { champ: 'vc', evalue: true, ok: true, saisie: '390', attendu: '390', tolerance: 'exacte', ecart_pct: 0 },
-    { champ: 'rpm', evalue: true, ok: true, saisie: '2500', attendu: '2496', tolerance: '±5 %', ecart_pct: 0.2 },
+    { champ: 'rpm', evalue: true, ok: true, saisie: '2500', attendu: '2496', tolerance: '±5 % et ±1 rév/min', ecart_pct: 0.2 },
     { champ: 'feedPerRev', evalue: false, ok: true, saisie: '', attendu: '0.0050', tolerance: null, ecart_pct: null },
     { champ: 'feedRate', evalue: true, ok: false, saisie: '13.2', attendu: '12.500', tolerance: '±0.5 % de N × f', ecart_pct: 5.6 },
   ] };
@@ -125,7 +129,7 @@ test('gapExplanation : l’écart et la tolérance de chaque champ faux (UI §3.
 
   const deux = { champs: [
     { champ: 'vc', evalue: true, ok: false, saisie: '1', attendu: '570', tolerance: 'exacte', ecart_pct: -99.8 },
-    { champ: 'rpm', evalue: true, ok: false, saisie: 'abc', attendu: '905', tolerance: '±5 %', ecart_pct: null },
+    { champ: 'rpm', evalue: true, ok: false, saisie: 'abc', attendu: '905', tolerance: '±5 % et ±1 rév/min', ecart_pct: null },
   ] };
   assert.equal(gapExplanation(deux), 'Ta Vc de 1 est à −99.8 % de 570 (la réponse doit être exacte). N : réponse vide ou illisible (attendu 905).');
   assert.equal(gapExplanation({ champs: correction.champs.slice(0, 3) }), '');
@@ -187,6 +191,7 @@ test('vcSheet : toutes les lignes du catalogue, les trois colonnes de matériau 
 });
 
 test('feedSheet : une opération par rang, barre proportionnelle à l’avance, texte de la barre', () => {
+  // (9 bandes grises depuis D25, extension : le rainurage interne est proportionnel au Ø de la barre)
   const feuille = feedSheet(data);
   assert.equal(feuille.rows.length, 19);
   const rang = (nom) => feuille.rows.find((row) => row.operation === nom);
@@ -195,12 +200,13 @@ test('feedSheet : une opération par rang, barre proportionnelle à l’avance, 
   assert.equal(rang('Perçage').label, '.006" / dent × Ø outil');
   assert.equal(rang('Pointage').label, '.001" / dent');
   assert.equal(rang('Alésage à la barre').label, '.006" × Ø outil');
+  assert.equal(rang('Rainurage interne').label, '.003" × Ø outil'); // D25, extension
   assert.deepEqual([rang('Taraudage').label, rang('Taraudage').bar], ['pas du filetage', null]);
   assert.equal(rang('Perçage').picto, 'img/pictos/operations/percage.svg');
   assert.equal(feuille.revision, data.revisions.operations);
   // La bande grise du classeur : les huit opérations à avance proportionnelle au Ø, et elles seules.
   assert.deepEqual(feuille.rows.filter((row) => row.proportional).map((row) => row.operation), [
-    'Contournage ébauche', 'Contournage finition', 'Surfaçage', 'Chanfreinage / ébavurage', 'Perçage', 'Chanfreinage', "Alésage à l'alésoir", 'Alésage à la barre',
+    'Contournage ébauche', 'Contournage finition', 'Surfaçage', 'Chanfreinage / ébavurage', 'Perçage', 'Chanfreinage', "Alésage à l'alésoir", 'Alésage à la barre', 'Rainurage interne',
   ]);
 });
 
@@ -210,11 +216,12 @@ test('feedSheet : machines et directions sur la hauteur de leurs opérations ; e
   assert.deepEqual(feuille.directions.map((run) => [run.key, run.start, run.span]), [
     ['Avance latérale', 0, 4], ['Avance axiale', 4, 5], ['Avance longitudinale', 9, 6], ['Avance transversale', 15, 4],
   ]);
-  assert.deepEqual(feuille.boxes.map((box) => [box.start, box.span]), [[0, 7], [14, 1]]);
+  assert.deepEqual(feuille.boxes.map((box) => [box.start, box.span]), [[0, 7], [14, 1], [18, 1]]);
   assert.deepEqual(feuille.boxes[0].lines.map((line) => line.text), [
     'Avances pour un outil Ø1"', "Ajuster l'avance ↔ Ø outil", 'Exemple :', 'Foret de Ø1/4"', '.006"/dent × Ø1/4" = .0015"/dent', 'Ne pas dépasser .010" / dent',
   ]);
   assert.deepEqual(feuille.boxes[1].lines.map((line) => line.text), ["Ajuster l'avance ↔ Ø outil", 'Av. MAX. : .006" / tour']);
+  assert.deepEqual(feuille.boxes[2].lines.map((line) => line.text), ["Ajuster l'avance ↔ Ø outil", 'Av. MAX. : .003" / tour']);
 });
 
 test('feedSheet : une opération ajoutée au catalogue apparaît dans la feuille, sans toucher au code', () => {

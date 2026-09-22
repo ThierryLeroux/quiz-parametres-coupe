@@ -162,12 +162,12 @@ export function questionView(question, exercise, data, { testMode = false } = {}
 function calculationLine(field, question, expected, shown, tool, operation) {
   const inches = (value) => String(Number(value.toPrecision(5)));
   const diameter = inches(question.dimension.diameter);
-  // Outil à deux diamètres (D25) : on nomme celui qui sert — le Ø alésé pour N, le Ø de la barre pour l'avance.
+  // Outil à deux diamètres (D25) : on nomme celui qui sert — le Ø usiné (le trou) pour N, le Ø de la barre pour l'avance.
   const twoDiameters = Boolean(question.bar);
   if (field === 'rpm') {
     const factor = tool.fact_vc === 1 ? '' : ` × ${tool.fact_vc}`;
     const capped = expected.rpmCapped ? ` → plafonné à ${tool.limite_rpm}` : '';
-    return `N = Vc × 4 / Ø${twoDiameters ? ' alésé' : ''} = ${shown.vc} × 4 / ${diameter}${factor}${capped}`;
+    return `N = Vc × 4 / Ø${twoDiameters ? ' usiné' : ''} = ${shown.vc} × 4 / ${diameter}${factor}${capped}`;
   }
   if (field === 'feedPerTooth' && expected.feedType === 'thread') return `fz = pas du filet = ${shown.feedPerTooth}`;
   if (field === 'feedPerTooth' && expected.feedType === 'proportional') {

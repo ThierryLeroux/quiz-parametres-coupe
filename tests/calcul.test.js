@@ -95,6 +95,17 @@ test('barre à aléser : N avec le Ø alésé, avance avec le Ø de la barre (D2
   assert.equal(parametres.feedPerToothCapped, false);
 });
 
+// D25, extension : la barre à rainurer, même modèle — N avec le Ø rainuré (× 0,25), avance 0,003 × Ø barre, plafond 0,003.
+test('barre à rainurer : N avec le Ø rainuré et le facteur 0,25, avance 0,003 × Ø de la barre, plafonnée à 0,003', () => {
+  const petite = questionPour({ outil: 'barre_a_rainurer', dimension: '2.000"', barre: '1/2 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_1020 });
+  let parametres = computeParameters(petite, data);
+  assert.equal(parametres.rpm, parametres.vc * 4 / 2 * 0.25); // Ø rainuré 2 po, fact_vc 0,25
+  assert.deepEqual([parametres.feedPerTooth, parametres.feedPerToothCapped, parametres.feedType], [0.003 * 0.5, false, 'proportional']);
+  const grande = questionPour({ outil: 'barre_a_rainurer', dimension: '2.000"', barre: '1 1/4 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_1020 });
+  parametres = computeParameters(grande, data);
+  assert.deepEqual([parametres.feedPerTooth, parametres.feedPerToothCapped], [0.003, true]);
+});
+
 test('barre à aléser de 1 1/4 po : 0,006 × 1,25 dépasse l’avance max, donc 0,006 (D25)', () => {
   const question = questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', barre: '1 1/4 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_1020 });
   const parametres = computeParameters(question, data);

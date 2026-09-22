@@ -144,7 +144,7 @@ async function start() {
     const app = await loadApp(location.search);
     // D18 : « ?exercice= » absent ou inconnu → la liste des exercices, jamais un exercice par défaut.
     if (app.exercise === null) {
-      renderExerciseList(main, app.index, app.unknownId);
+      renderExerciseList(main, app.listed, app.unknownId);
       return;
     }
     exercise = app.exercise;

@@ -173,7 +173,7 @@
       "avance_po_rev": 0.003,
       "avance_max_po_rev": 0.003,
       "avance_egale_pas_filetage": false,
-      "avance_proportionnelle_diametre": false
+      "avance_proportionnelle_diametre": true
     }
   ]
 }

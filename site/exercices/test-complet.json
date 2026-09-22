@@ -3,6 +3,7 @@
   "id": "test-complet",
   "titre": "Test complet — tous les outils, toutes les grandeurs",
   "version": "r0",
+  "liste": false,
   "champs_evalues": ["vc", "fz", "n", "f", "vf"],
   "outils": [
     { "id": "foret_fractionnaire", "reussites_requises": 1 },

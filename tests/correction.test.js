@@ -50,12 +50,12 @@ const CASES = [
 
   ['avance fixe', FIXE, 'vc', 'exact, affiché « 400 » → ±0,5', 399.5, 400.5, '399.49', '400.51'],
   ['avance fixe', FIXE, 'feedPerTooth', 'exact, affiché « 0.0050 » → ±0,00005', 0.00495, 0.00505, '0.004949', '0.005051'],
-  ['avance fixe', FIXE, 'rpm', '±5 %', 760, 840, '759.9', '840.1'], // 800 × 0,95 et × 1,05
+  ['avance fixe', FIXE, 'rpm', '±5 % et ±1 rév/min', 759, 841, '758.9', '841.1'], // 800 × 0,95 − 1 et × 1,05 + 1 (D13, complément)
   ['avance fixe', FIXE, 'feedPerRev', '±0,1 %, affiché « 0.0050 » → ±0,00005', 0.00495, 0.00505, '0.004949', '0.005051'], // ±0,1 % = ±0,000005, plus étroit
 
   ['avance proportionnelle', PROPORTIONNELLE, 'vc', 'exact, affiché « 100 » → ±0,5', 99.5, 100.5, '99.49', '100.51'],
   ['avance proportionnelle', PROPORTIONNELLE, 'feedPerTooth', '±25 %, borné à ±0,001 po', 0.001125, 0.001875, '0.0011249', '0.0018751'], // 0,0015 × 0,75 et × 1,25
-  ['avance proportionnelle', PROPORTIONNELLE, 'rpm', '±5 %', 1520, 1680, '1519.9', '1680.1'], // 1600 × 0,95 et × 1,05
+  ['avance proportionnelle', PROPORTIONNELLE, 'rpm', '±5 % et ±1 rév/min', 1519, 1681, '1518.9', '1681.1'], // 1600 × 0,95 − 1 et × 1,05 + 1
   ['avance proportionnelle', PROPORTIONNELLE, 'feedPerRev', '±20 %', 0.0024, 0.0036, '0.0023999', '0.0036001'], // 0,003 × 0,8 et × 1,2
 ];
 
@@ -124,8 +124,8 @@ test('D13 : la demi-unité d’affichage élargit une tolérance plus étroite q
   // N de filetage : +0,1 % de 400 = 400,4 ; affiché à l'entier → 400,5 accepté. La borne basse (−90 %) ne bouge pas.
   assert.equal(corrigerChamp(FILETAGE, 'rpm', '400.5').ok, true);
   assert.equal(corrigerChamp(FILETAGE, 'rpm', '40').ok, true);
-  // N hors filetage : ±5 % de 1600 = ±80, bien plus large que ±0,5 → inchangé.
-  assert.deepEqual(corrigerChamp(PROPORTIONNELLE, 'rpm', '1600'), { ok: true, value: 1600, min: 1520, max: 1680 });
+  // N hors filetage : ±5 % de 1600 = ±80, plus ±1 rév/min, bien plus large que ±0,5 → inchangé.
+  assert.deepEqual(corrigerChamp(PROPORTIONNELLE, 'rpm', '1600'), { ok: true, value: 1600, min: 1519, max: 1681 });
 });
 
 test('D15 : Vf est jugée sur N_saisi × f_saisi, pas sur la valeur théorique (filetage, N réduit)', () => {
@@ -193,8 +193,8 @@ test('la virgule et le point donnent la même correction', () => {
 });
 
 test('champ vide : non répondu → faux, value null, intervalle quand même fourni', () => {
-  assert.deepEqual(corrigerChamp(PROPORTIONNELLE, 'rpm', ''), { ok: false, value: null, min: 1520, max: 1680 });
-  assert.deepEqual(corrigerChamp(PROPORTIONNELLE, 'rpm', 'mille six cents'), { ok: false, value: null, min: 1520, max: 1680 });
+  assert.deepEqual(corrigerChamp(PROPORTIONNELLE, 'rpm', ''), { ok: false, value: null, min: 1519, max: 1681 });
+  assert.deepEqual(corrigerChamp(PROPORTIONNELLE, 'rpm', 'mille six cents'), { ok: false, value: null, min: 1519, max: 1681 });
 
   const sansCle = { ...BONNES.get(FIXE) };
   delete sansCle.feedRate; // champ absent des réponses
@@ -238,7 +238,7 @@ test('le résultat est sérialisable en JSON', () => {
 test('toleranceLabel : la tolérance de chaque champ, en clair, telle que le tableau de la SPEC §6', () => {
   const ligne = (type) => ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate'].map((champ) => toleranceLabel(type, champ));
   assert.deepEqual(ligne('thread'), ['exacte', '±0.1 %', 'de −90 % à +0.1 %', '±0.1 %', '±0.5 % de N × f']);
-  assert.deepEqual(ligne('fixed'), ['exacte', 'exacte', '±5 %', '±0.1 %', '±0.5 % de N × f']);
-  assert.deepEqual(ligne('proportional'), ['exacte', '±25 %, au plus ±0.001 po', '±5 %', '±20 %', '±0.5 % de N × f']);
+  assert.deepEqual(ligne('fixed'), ['exacte', 'exacte', '±5 % et ±1 rév/min', '±0.1 %', '±0.5 % de N × f']);
+  assert.deepEqual(ligne('proportional'), ['exacte', '±25 %, au plus ±0.001 po', '±5 % et ±1 rév/min', '±20 %', '±0.5 % de N × f']);
   assert.throws(() => toleranceLabel('inconnue', 'vc'), /Tolérance inconnue/);
 });
