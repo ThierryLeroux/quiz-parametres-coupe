@@ -717,7 +717,7 @@ test('réussite : l’attestation est figée à l’instant de la dernière réu
   assert.equal(ligne.enregistrement.debut, seance.debut);
   assert.deepEqual(ligne.enregistrement.outils.map((o) => [o.id, o.reussites, o.requises]), m10.outils.map((o) => [o.id, o.reussites_requises, o.reussites_requises]));
   assert.deepEqual(ligne.enregistrement.outils[0], { id: 'mclnr', nom: 'MCLNR', plage: '10 mm à 20 mm', operation: 'Chariotage ébauche', reussites: 1, requises: 1 });
-  // La liste des questions réussies (D41) : les 15, dans l'ordre, numérotées par leur rang dans la séance.
+  // La liste des questions réussies (D41) : les 15, dans l'ordre, numérotées de 1 à 15.
   assert.equal(ligne.enregistrement.questions.length, 15);
   assert.deepEqual(ligne.enregistrement.questions.map((q) => q.numero), Array.from({ length: 15 }, (_, i) => i + 1));
 
@@ -781,16 +781,17 @@ test('liste des questions réussies (D41) : la série finale de chaque outil, ti
   assert.equal(questions.length, 15); // une par réussite exigée
   assert.equal(record.questions_reussies, journal.filter((c) => c.reussie).length); // le total, lui, compte tout
   assert.ok(record.questions_reussies >= 15);
-  assert.deepEqual(questions.map((q) => q.numero), [...questions.map((q) => q.numero)].sort((x, y) => x - y)); // chronologique
+  assert.deepEqual(questions.map((q) => q.numero), Array.from({ length: 15 }, (_, i) => i + 1)); // numérotées 1 à n (D43), sans trou
+  assert.deepEqual(questions.map((q) => q.horodatage), [...questions.map((q) => q.horodatage)].sort()); // chronologique
   for (const outil of record.outils) {
     const siennes = questions.filter((q) => q.outil_id === outil.id);
     assert.equal(siennes.length, outil.reussites, outil.id);
-    const dernierEchec = journal.map((c, i) => (c.outil_id === outil.id && !c.reussie ? i + 1 : 0)).reduce((a, b) => Math.max(a, b), 0);
-    assert.ok(siennes.every((q) => q.numero > dernierEchec), `${outil.id} : après son dernier échec`);
+    const dernierEchec = journal.filter((c) => c.outil_id === outil.id && !c.reussie).map((c) => c.horodatage).sort().at(-1) ?? '';
+    assert.ok(siennes.every((q) => q.horodatage > dernierEchec), `${outil.id} : après son dernier échec`);
   }
   // Chaque ligne : ce que le journal a enregistré de la question posée et de la réponse.
   for (const q of questions) {
-    const ligne = journal[q.numero - 1];
+    const ligne = journal.find((c) => c.horodatage === q.horodatage);
     const question = JSON.parse(ligne.question);
     assert.equal(ligne.reussie, 1);
     assert.equal(q.outil, question.displayId);

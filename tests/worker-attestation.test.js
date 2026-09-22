@@ -128,7 +128,7 @@ const MCLNR = questionPour({ outil: 'mclnr', dimension: '10 mm', dents: 1, mater
 const BARRE = questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1, barre: '1 po' });
 const heure = (n) => `2026-09-21T13:${String(n).padStart(2, '0')}:00.000Z`;
 
-test('successfulQuestions : la série finale de réussites de chaque outil, dans l’ordre chronologique, numérotée par le rang dans la séance', () => {
+test('successfulQuestions : la série finale de réussites de chaque outil, dans l’ordre chronologique, numérotée de 1 à n', () => {
   // MVLNR : réussi, réussi, raté, puis trois de suite ; MCLNR : raté, puis réussi ; barre : réussie.
   const journal = [
     correction(MVLNR, { vc: bonneVc(MVLNR) }, heure(1)), // 1
@@ -147,9 +147,10 @@ test('successfulQuestions : la série finale de réussites de chaque outil, dans
     { id: 'barre_a_aleser', nom: 'Barre à aléser', plage: '1.000" à 4.000"', operation: 'Alésage à la barre', reussites: 1, requises: 1 },
   ];
   const questions = successfulQuestions(journal, outils);
-  assert.deepEqual(questions.map((q) => q.numero), [5, 6, 7, 8, 9]); // ni 1 ni 2 (série rompue), ni 3 ni 4 (ratées)
+  assert.deepEqual(questions.map((q) => q.horodatage), [5, 6, 7, 8, 9].map(heure)); // ni 1 ni 2 (série rompue), ni 3 ni 4 (ratées)
+  assert.deepEqual(questions.map((q) => q.numero), [1, 2, 3, 4, 5]); // le rang dans la liste, pas dans la séance (D43)
   assert.deepEqual(questions[0], {
-    numero: 5,
+    numero: 1,
     outil_id: 'mvlnr',
     outil: 'MVLNR - Ø charioté: 2.000"',
     materiau_outil: 'Insert de carbure de tungstène',
@@ -165,14 +166,14 @@ test('successfulQuestions : la série finale de réussites de chaque outil, dans
   for (const outil of outils) {
     const siennes = questions.filter((q) => q.outil_id === outil.id);
     assert.equal(siennes.length, outil.reussites, outil.id);
-    const dernierEchec = journal.map((c, i) => (c.outil_id === outil.id && !c.reussie ? i + 1 : 0)).reduce((a, b) => Math.max(a, b), 0);
-    assert.ok(siennes.every((q) => q.numero > dernierEchec), outil.id);
+    const dernierEchec = journal.map((c) => (c.outil_id === outil.id && !c.reussie ? c.horodatage : '')).reduce((a, b) => (a > b ? a : b), '');
+    assert.ok(siennes.every((q) => q.horodatage > dernierEchec), outil.id);
   }
   // Un outil jamais joué (reussites 0), ou un journal vide : rien.
   assert.deepEqual(successfulQuestions(journal, [{ id: 'sdtmr', reussites: 0 }]), []);
   assert.deepEqual(successfulQuestions([], outils), []);
   // Exercice allégé (D21) : le compteur dépasse les réussites exigées → les dernières seulement.
-  assert.deepEqual(successfulQuestions(journal, [{ id: 'mvlnr', reussites: 2 }]).map((q) => q.numero), [7, 9]);
+  assert.deepEqual(successfulQuestions(journal, [{ id: 'mvlnr', reussites: 2 }]).map((q) => [q.numero, q.horodatage]), [[1, heure(7)], [2, heure(9)]]);
 });
 
 test('successfulQuestions : les réponses listées sont celles des grandeurs évaluées de l’exercice, sous les noms du moteur', () => {

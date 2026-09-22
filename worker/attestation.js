@@ -57,15 +57,16 @@ export function canonical(value) {
 // d'un outil sont toujours postérieures à son dernier échec — et à une remise à zéro (D35). Chaque
 // question est copiée du journal telle qu'elle a été posée : le nom affiché (gabarit résolu, avec
 // dimension, barre et dents quand le gabarit les porte), la matière de l'outil, le matériau usiné,
-// les réponses de l'étudiant aux grandeurs évaluées, l'heure. Le numéro est le rang de la question
-// dans la séance (réussies ou non). Liste dans l'ordre chronologique.
+// les réponses de l'étudiant aux grandeurs évaluées, l'heure. Liste dans l'ordre chronologique,
+// numérotée de 1 à n (D43 : le rang dans la séance laisserait deviner les échecs, que l'écran ne
+// montre jamais ; l'heure suffit à la chronologie).
 //   corrections : le journal de la séance, dans l'ordre (base.js listCorrections)
 //   outils      : les outils de l'attestation, avec leurs `reussites`
 export function successfulQuestions(corrections, outils) {
-  const numbered = corrections.map((correction, i) => ({ ...correction, numero: i + 1 }));
-  const kept = outils.flatMap((outil) => numbered.filter((c) => c.outil_id === outil.id && c.reussie).slice(-outil.reussites));
-  return kept.sort((x, y) => x.numero - y.numero).map(({ numero, outil_id, question, reponses, resultat, horodatage }) => ({
-    numero,
+  const ranked = corrections.map((correction, rank) => ({ ...correction, rank }));
+  const kept = outils.flatMap((outil) => ranked.filter((c) => c.outil_id === outil.id && c.reussie).slice(-outil.reussites));
+  return kept.sort((x, y) => x.rank - y.rank).map(({ outil_id, question, reponses, resultat, horodatage }, i) => ({
+    numero: i + 1,
     outil_id,
     outil: question.displayId,
     materiau_outil: question.toolMaterial.label,
