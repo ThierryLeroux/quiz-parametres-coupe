@@ -43,6 +43,14 @@ export function formatDateTime(iso) {
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}, ${date.getHours()} h ${minutes}`;
 }
 
+// Date ISO → « 2026-09-21 13:48 » à l'heure du poste (documents et tableaux) ; avec les secondes si demandé.
+export function formatDateStamp(iso, { seconds = false } = {}) {
+  const date = new Date(iso);
+  const two = (n) => String(n).padStart(2, '0');
+  const stamp = `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())} ${two(date.getHours())}:${two(date.getMinutes())}`;
+  return seconds ? `${stamp}:${two(date.getSeconds())}` : stamp;
+}
+
 // Message à montrer quand un appel au serveur de correction échoue (ApiError d'api.js, ou toute
 // erreur portant { status, message }) : celui du serveur, sauf s'il n'a pas pu être joint.
 export function serverErrorMessage(error) {

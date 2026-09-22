@@ -27,7 +27,8 @@ async function call(method, path, { jeton, body } = {}, request = fetch) {
 
   let response;
   try {
-    response = await request(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    // credentials: le cookie de l'espace professeur (D34) voyage avec les appels /api/prof/… ; les autres n'en ont pas.
+    response = await request(path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, 'Le serveur de correction ne répond pas.');
   }
@@ -99,4 +100,43 @@ export function submitAnswers(jeton, exerciseId, answers, request) {
 // « Changer d'étudiant » : le serveur oublie le jeton.
 export function signOut(jeton, exerciseId, request) {
   return call('POST', '/api/deconnexion', { jeton, body: { exercice: exerciseId } }, request);
+}
+
+// L'attestation de la séance réussie (D31 à D33) : { attestation, code, signature, url_verification, annulee_le }.
+// Erreur : 409 l'exercice n'est pas encore réussi.
+export function getAttestation(jeton, exerciseId, request) {
+  return call('GET', `/api/attestation?exercice=${encodeURIComponent(exerciseId)}`, { jeton }, request);
+}
+
+// Vérification publique d'une attestation, sans jeton (D33) : { resultat, attestation?, annulee_le? }.
+//   claims : { code } seul, ou tous les champs de l'adresse du QR
+// Erreurs : 400 code mal formé ; 429 trop de codes distincts depuis cette adresse.
+export function verifyAttestation(claims, request) {
+  return call('POST', '/api/verification', { body: claims }, request);
+}
+
+// --- Espace professeur (D34, D35) : la séance est un cookie HttpOnly posé par le serveur -----------------------------
+
+// Connexion par la clé d'administration : { enseignant, expire_le }. Erreurs : 401 clé incorrecte ; 429 trop d'essais.
+export function teacherLogin(cle, request) {
+  return call('POST', '/api/prof/connexion', { body: { cle } }, request);
+}
+
+export function teacherLogout(request) {
+  return call('POST', '/api/prof/deconnexion', { body: {} }, request);
+}
+
+// Toutes les séances : { enseignant, exercices, seances }. Erreur : 401 connexion requise.
+export function listSessions(request) {
+  return call('GET', '/api/prof/seances', {}, request);
+}
+
+// Remise à zéro d'une séance (D35) : { remise_a_zero: true, seance }. Erreurs : 401 ; 404 séance inconnue.
+export function resetSession(seanceId, request) {
+  return call('POST', '/api/prof/remise-a-zero', { body: { seance: seanceId } }, request);
+}
+
+// Le journal des corrections d'identité, la plus récente en premier : { corrections }.
+export function listIdentityCorrections(request) {
+  return call('GET', '/api/prof/identites', {}, request);
 }

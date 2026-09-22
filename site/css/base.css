@@ -136,6 +136,23 @@ a:hover { color: var(--color-link-hover); }
 
 .button-link:hover { color: var(--color-link-hover); }
 
+/* Bouton discret, au contour : « Tables de référence », « Ouvrir la table », « Exporter en CSV ». */
+.button-outline {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-accent-light);
+  background: none;
+  color: var(--color-accent-light);
+  font-family: var(--font-text);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.button-outline:hover { background: color-mix(in srgb, var(--color-accent-light) 15%, transparent); }
+
 /* --- Champs -------------------------------------------------------------------------------------- */
 /* <div class="field"> <label for> <input> <div class="field-note"> </div>
    Quatre états (UI §4) :

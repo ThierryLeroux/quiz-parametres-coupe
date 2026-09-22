@@ -1,14 +1,14 @@
 // Écran Question (UI §3.3) et question corrigée (UI §3.4) : panneau de l'outil à la couleur de son
 // matériau, panneau du matériau brut à la couleur de sa classe ISO, questionnaire de cinq champs
-// avec pictogrammes et aide contextuelle, progression par points. Et l'écran « Exercice réussi »
-// (le rapport viendra au jalon 5).
+// avec pictogrammes et aide contextuelle, progression par points. L'exercice réussi ouvre la page
+// de l'attestation (attestation-screen.js).
 // Tout ce qui est affiché vient du serveur (SPEC §7) ; ce qu'on montre et quand est décidé par
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
 import { el, showScreen } from './dom.js';
 import { factorLines, feedFamily, gapExplanation, helpLine, labeledIdentifier, materialCard, progressRows, toolMaterialColor, toolStreak } from './rules.js';
 import { operationPicto } from './sheets-data.js';
-import { FIELD_PARTS, correctionBanner, fieldResultNote, formatDateTime, studentLine } from './text.js';
+import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
 
 // Pictogramme d'une grandeur (UI §5) : le fichier SVG sert de masque, la couleur est celle du texte.
 function picto(name) {
@@ -195,19 +195,4 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   // Le premier champ à saisir reçoit le focus à chaque nouvelle question.
   const firstGraded = question.champs.find((champ) => champ.evalue);
   showScreen(main, screen, header(seance, actions), firstGraded ? `#${firstGraded.champ}` : 'h1');
-}
-
-// Exercice réussi — écran minimal ; le rapport à remettre sur Léa viendra au jalon 5.
-//   actions : { onIdentity, onQuit }
-export function renderSuccess(main, { seance, labels }, actions) {
-  const screen = el('div', { class: 'screen' }, [
-    el('section', { class: 'panel panel--correct' }, [
-      el('div', { class: 'eyebrow' }, seance.exercice.titre),
-      el('h1', { tabindex: '-1' }, 'Exercice réussi'),
-      el('p', {}, `${studentLine(seance)} — réussi le ${formatDateTime(seance.reussite_le)}, avec ${seance.progression.total_reussies} questions réussies.`),
-      el('p', { class: 'muted small' }, 'Ta réussite est enregistrée sur le serveur de correction. Le rapport à remettre sur Léa sera offert ici prochainement.'),
-    ]),
-    progressPanel(seance.progression, labels, {}),
-  ]);
-  showScreen(main, screen, header(seance, { ...actions, onTables: null }));
 }

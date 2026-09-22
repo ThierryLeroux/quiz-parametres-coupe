@@ -1,0 +1,167 @@
+/* Attestation de réussite (docs/UI.md §3.6) et page de vérification (§3.7). La page lettre est
+   celle de base.css (.print-page) ; ici, son contenu, et la barre de consigne au-dessus. À
+   l'impression : la page seule, sur une feuille lettre. */
+
+/* L'écran « document » prend toute la largeur ; la page lettre garde sa taille et défile sur téléphone. */
+.screen--document { max-width: none; }
+.app-main:has(.screen--document) { align-items: flex-start; padding: 0; }
+
+.attestation-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.attestation-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.attestation-stage { padding: var(--space-4); }
+
+/* --- La page lettre ------------------------------------------------------------------------------------------ */
+
+.attestation {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 11in;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.attestation-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.attestation-header .sheet-logo { width: 220px; }
+.attestation-department { text-align: right; font-size: 11px; line-height: 1.4; }
+
+.attestation-title {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.attestation-title:focus { outline: none; }
+
+.attestation-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+}
+
+.attestation-facts {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 28px;
+}
+
+.attestation-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-page-rule);
+}
+
+.attestation-fact-label { color: var(--color-page-muted); }
+.attestation-fact-value { font-weight: 700; text-align: right; }
+.mono { font-family: var(--font-number); }
+
+.attestation-qr {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.attestation-qr svg { display: block; }
+
+.attestation-code {
+  font-family: var(--font-number);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.attestation-mention { font-size: 11px; color: var(--color-page-muted); }
+
+.attestation-subtitle {
+  margin-top: 6px;
+  padding-bottom: 3px;
+  border-bottom: 2px solid #000;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.attestation-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.attestation-table th,
+.attestation-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--color-page-rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.attestation-table th { border-bottom: 1px solid #000; font-weight: 700; }
+.attestation-table .num { text-align: right; }
+.attestation-table td.num { font-family: var(--font-number); white-space: nowrap; }
+
+.attestation-note { font-size: 10px; color: var(--color-page-muted); }
+
+.attestation-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--color-page-muted);
+}
+
+/* --- Page de vérification (univers « exercice », fond nuit) --------------------------------------------------- */
+
+.verify-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); margin-top: var(--space-4); }
+.verify-form .field { flex: 1 1 240px; }
+.verify-form input { font-family: var(--font-number); font-size: var(--text-lg); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* Le résultat : le même bloc d'informations et le même tableau que l'attestation, sur fond nuit. */
+.verify-result .attestation-fact { border-bottom-color: color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
+.verify-result .attestation-fact-label { color: var(--color-text-muted); }
+.verify-result .table-wrap { overflow-x: auto; }
+.verify-result .attestation-table { margin-top: var(--space-3); font-size: var(--text-sm); }
+.verify-result .attestation-table th { border-bottom-color: var(--color-text); }
+.verify-result .attestation-table td { border-bottom-color: color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
+.verify-result .attestation-subtitle { margin-top: var(--space-4); border-bottom-color: var(--color-text); color: var(--color-text); }
+.verify-result p + .attestation-facts { margin-top: var(--space-4); }
+
+@media (max-width: 480px) {
+  .attestation-facts { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- Impression : la page seule, sur une feuille lettre (UI §6) --------------------------------------------------- */
+
+@media print {
+  .app-main { display: block; padding: 0; }
+  .attestation-stage { padding: 0; }
+  /* @page laisse 0.5 po de marge : il reste 10 po de haut. */
+  .attestation { height: 10in; }
+}

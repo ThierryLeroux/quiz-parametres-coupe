@@ -3,11 +3,12 @@
 // qu'appeler app.js (choix de l'exercice), api.js (le serveur) et session.js (le jeton local).
 
 import { loadApp } from '../app.js';
-import { createSession, lookupSession, nextQuestion, resumeSession, signOut, submitAnswers, updateIdentity } from '../api.js';
+import { createSession, getAttestation, lookupSession, nextQuestion, resumeSession, signOut, submitAnswers, updateIdentity } from '../api.js';
 import { clearSession, loadSession, saveSession } from '../session.js';
+import { renderAttestation, renderAttestationError } from './attestation-screen.js';
 import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
-import { renderQuestion, renderSuccess } from './question-screen.js';
+import { renderQuestion } from './question-screen.js';
 import { createReference } from './reference-screen.js';
 import { toolLabels } from './rules.js';
 import { identificationErrorMessage, serverErrorMessage } from './text.js';
@@ -96,11 +97,23 @@ function sessionExpired() {
   return null;
 }
 
+// Exercice réussi : l'attestation, figée par le serveur (D31). Pas de « Corriger mon identité »
+// ici : l'attestation ne changerait pas.
+async function showAttestation(jeton, seance) {
+  try {
+    const attestation = await getAttestation(jeton, exercise.id);
+    renderAttestation(main, { seance, attestation }, { onQuit: showHome });
+  } catch (error) {
+    if (error.status === 401) { sessionExpired(); return; }
+    renderAttestationError(main, { seance, message: serverErrorMessage(error) }, { onRetry: () => showAttestation(jeton, seance), onQuit: showHome });
+  }
+}
+
 // Affiche où en est la séance : la question à laquelle répondre, ou la réussite.
 function showSession(jeton, seance) {
   const actions = { onQuit: showHome, onIdentity: () => showIdentity(jeton, seance) };
   if (seance.reussite_le !== null) {
-    renderSuccess(main, { seance, labels }, actions);
+    showAttestation(jeton, seance);
     return;
   }
   renderQuestion(main, { seance, data, labels }, {

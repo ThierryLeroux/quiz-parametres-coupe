@@ -165,23 +165,6 @@
 
 .form-notes { flex: 1 1 260px; }
 
-/* Bouton discret, au contour : « Tables de référence », « Ouvrir la table ». */
-.button-outline {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-accent-light);
-  background: none;
-  color: var(--color-accent-light);
-  font-family: var(--font-text);
-  font-size: var(--text-sm);
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-
-.button-outline:hover { background: color-mix(in srgb, var(--color-accent-light) 15%, transparent); }
-
 /* Bandeau après « Vérifier » : « Question ratée » à gauche, l'explication à droite. La couleur est
    doublée par le texte. */
 .banner {
