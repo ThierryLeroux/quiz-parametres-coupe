@@ -797,7 +797,7 @@ test('liste des questions réussies (D41) : la série finale de chaque outil, ti
     assert.equal(q.outil, question.displayId);
     assert.equal(q.materiau_outil, question.toolMaterial.label);
     assert.deepEqual(q.materiau, { classe: question.material.iso, groupe: question.material.groupe, materiau: question.material.materiau, etat: question.material.etat });
-    assert.deepEqual(q.reponses, { vc: JSON.parse(ligne.reponses).vc }); // le M10 n'évalue que Vc
+    assert.deepEqual(q.reponses, { vc: String(Number(JSON.parse(ligne.reponses).vc)) }); // le M10 n'évalue que Vc ; réponse normalisée (D43)
     assert.equal(q.horodatage, ligne.horodatage);
   }
   assert.ok(questions.some((q) => /^Barre à aléser Ø .+ - Ø alésé: /.test(q.outil)), 'la barre à aléser est nommée avec sa barre');

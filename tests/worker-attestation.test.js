@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CODE_ALPHABET, CODE_LENGTH, buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, parseCode, readClaims,
-  successfulQuestions, verificationUrl,
+  normalizedAnswers, successfulQuestions, verificationUrl,
 } from '../worker/attestation.js';
 import { cleanAnswers, gradeQuestion, sessionView } from '../worker/seance.js';
 import { computeParameters } from '../site/js/calcul.js';
@@ -160,7 +160,7 @@ test('successfulQuestions : la série finale de réussites de chaque outil, dans
   });
   assert.deepEqual(questions[1].materiau, { classe: 'H', groupe: 39, materiau: 'Acier durci', etat: 'Durci et revenu' });
   assert.equal(questions[1].outil, 'MCLNR - Ø charioté: 10 mm');
-  assert.deepEqual(questions[2].reponses, { vc: '400,0' }); // la réponse de l'étudiant, pas la valeur théorique
+  assert.deepEqual(questions[2].reponses, { vc: '400' }); // la réponse de l'étudiant, normalisée (D43) : « 400,0 » → « 400 »
   assert.equal(questions[3].outil, 'Barre à aléser Ø 1 po - Ø alésé: 2.000"'); // gabarit résolu : la barre et le Ø alésé
   // Chaque outil : exactement ses réussites, et toutes après son dernier échec.
   for (const outil of outils) {
@@ -174,6 +174,24 @@ test('successfulQuestions : la série finale de réussites de chaque outil, dans
   assert.deepEqual(successfulQuestions([], outils), []);
   // Exercice allégé (D21) : le compteur dépasse les réussites exigées → les dernières seulement.
   assert.deepEqual(successfulQuestions(journal, [{ id: 'mvlnr', reussites: 2 }]).map((q) => [q.numero, q.horodatage]), [[1, heure(7)], [2, heure(9)]]);
+});
+
+test('normalizedAnswers (D43) : le nombre lu, au format d’affichage de la grandeur — point décimal, N entier, avances à 4 décimales (5 en filetage), Vf à 3', () => {
+  const complet = { ...m10, champs_evalues: ['vc', 'fz', 'n', 'f', 'vf'] };
+  const brut = cleanAnswers({ vc: '400,0', feedPerTooth: ',004', rpm: '1 600', feedPerRev: '0.0040000', feedRate: '6,4' });
+  const { result } = gradeQuestion(MVLNR, brut, { reussites: {}, totalReussies: 0 }, complet, data);
+  assert.deepEqual(normalizedAnswers(brut, result), { vc: '400', feedPerTooth: '0.0040', rpm: '1600', feedPerRev: '0.0040', feedRate: '6.400' });
+  // Seuls les champs évalués sont listés : le M10 n'évalue que Vc.
+  const m10Result = gradeQuestion(MVLNR, brut, { reussites: {}, totalReussies: 0 }, m10, data).result;
+  assert.deepEqual(normalizedAnswers(brut, m10Result), { vc: '400' });
+  // Filetage : cinq décimales sur les avances, comme à l'écran.
+  const filet = questionPour({ outil: 'sdtmr', dimension: '1/2 - 13 UNC', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
+  const saisies = cleanAnswers({ vc: '400', feedPerTooth: '0,0769', rpm: '1500', feedPerRev: '.0769', feedRate: '115.35' });
+  const filetResult = gradeQuestion(filet, saisies, { reussites: {}, totalReussies: 0 }, complet, data).result;
+  assert.deepEqual(normalizedAnswers(saisies, filetResult), { vc: '400', feedPerTooth: '0.07690', rpm: '1500', feedPerRev: '0.07690', feedRate: '115.350' });
+  // Une saisie illisible (jamais sur une question réussie) reste telle quelle.
+  const illisible = cleanAnswers({ vc: 'abc' });
+  assert.deepEqual(normalizedAnswers(illisible, gradeQuestion(MVLNR, illisible, { reussites: {}, totalReussies: 0 }, m10, data).result), { vc: 'abc' });
 });
 
 test('successfulQuestions : les réponses listées sont celles des grandeurs évaluées de l’exercice, sous les noms du moteur', () => {
