@@ -20,7 +20,7 @@ import { loadCatalogue } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
-  gradeQuestion, isNipLocked, isQuestionValid, isTestMode, later, sessionView,
+  cadenceFor, gradeQuestion, isNipLocked, isQuestionValid, isTestMode, later, sessionView,
 } from './seance.js';
 
 // Réponse JSON, jamais mise en cache : une réponse de l'API ne vaut que pour l'instant présent.
@@ -130,10 +130,13 @@ function attestationView(request, row) {
   };
 }
 
-// Les options des vues de seance.js : l'heure (pour attendre_s, la cadence) et le mode test (D26) —
-// décidé ici, par le serveur seul : la variable MODE_TEST de .dev.vars et une requête adressée au
-// poste lui-même.
-const viewOptions = (request, env, now) => ({ now, testMode: isTestMode(env.MODE_TEST, new URL(request.url).hostname) });
+// Les options des vues de seance.js : l'heure (pour attendre_s, la cadence), le mode test (D26) et
+// la cadence réglable (D39) — décidés ici, par le serveur seul : les variables MODE_TEST et
+// CADENCE_S de .dev.vars, et une requête adressée au poste lui-même.
+function viewOptions(request, env, now) {
+  const { hostname } = new URL(request.url);
+  return { now, testMode: isTestMode(env.MODE_TEST, hostname), cadenceMs: cadenceFor(env.CADENCE_S, hostname) };
+}
 
 // --- Identification en deux temps (D23) ------------------------------------------------------------------
 

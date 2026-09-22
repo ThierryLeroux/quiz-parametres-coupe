@@ -5,9 +5,10 @@
 // mémoire avec une horloge réglable. Ici l'horloge est la vraie : on vérifie que le Worker se
 // construit, que les migrations s'appliquent avec wrangler et que le SQL passe sur D1. Ce qui
 // demande d'attendre 10 minutes ou 2 heures (verrou levé, jeton expiré) n'est testé que là-bas.
-// Le cycle complet du jalon 5 (réussite du M10, attestation, vérification par l'adresse du QR et par
-// le code, connexion professeur, remise à zéro, attestation annulée) prend environ 2,5 minutes de
-// plus : la cadence de 10 s entre deux corrections est la vraie.
+// Deux phases : d'abord la cadence réelle de 10 s (étapes 6 et 7), puis wrangler est relancé avec
+// CADENCE_S:1 (D39, honorée en local seulement) pour le cycle complet du jalon 5 — réussite du M10,
+// attestation, vérification par l'adresse du QR et par le code, connexion professeur, remise à
+// zéro, attestation annulée — en une vingtaine de secondes au lieu de 2,5 minutes.
 //
 // Ce fichier ne finit pas par .test.js : « npm test » ne le lance pas.
 import assert from 'node:assert/strict';
@@ -56,6 +57,19 @@ async function etape(nom, action) {
 const dossier = mkdtempSync(join(tmpdir(), 'quiz-d1-'));
 let serveur = null;
 
+// Lance wrangler dev sur la D1 jetable. « --var » l'emporte sur .dev.vars : le test ne dépend ni
+// des secrets locaux, ni d'un MODE_TEST=1 ou d'un CADENCE_S laissé là par l'enseignant.
+//   variables : ['--var', 'CADENCE_S:1'] pour la seconde phase
+async function lancer(variables) {
+  const base = ['--var', 'CLE_SECRETE:secret-du-test-api-locale', '--var', 'CLE_ADMIN:cle-admin-du-test-api-locale', '--var', 'MODE_TEST:0', '--var', 'CADENCE_S:0'];
+  serveur = spawn(process.execPath, [WRANGLER, 'dev', '--port', String(PORT), '--persist-to', dossier, ...base, ...variables], { cwd: ROOT, stdio: 'ignore' });
+  for (let essai = 0; ; essai += 1) {
+    assert.ok(essai < 60, 'wrangler dev ne répond pas après 60 s');
+    await sleep(1000);
+    try { if ((await fetch(`${ORIGIN}/api/version`)).ok) break; } catch { /* pas encore prêt */ }
+  }
+}
+
 function arreter() {
   if (serveur === null) return;
   // wrangler lance workerd dans un processus enfant : sous Windows, il faut arrêter tout l'arbre.
@@ -69,14 +83,7 @@ try {
   assert.equal(migrations.status, 0, `migrations : ${migrations.stdout}\n${migrations.stderr}`);
   console.log('# migrations appliquées sur une D1 locale jetable');
 
-  // « --var » l'emporte sur .dev.vars : le test ne dépend ni des secrets locaux, ni d'un MODE_TEST=1 laissé là
-  // par l'enseignant (D26) — la cadence de l'étape 6 doit tenir.
-  serveur = spawn(process.execPath, [WRANGLER, 'dev', '--port', String(PORT), '--persist-to', dossier, '--var', 'CLE_SECRETE:secret-du-test-api-locale', '--var', 'CLE_ADMIN:cle-admin-du-test-api-locale', '--var', 'MODE_TEST:0'], { cwd: ROOT, stdio: 'ignore' });
-  for (let essai = 0; ; essai += 1) {
-    assert.ok(essai < 60, 'wrangler dev ne répond pas après 60 s');
-    await sleep(1000);
-    try { if ((await fetch(`${ORIGIN}/api/version`)).ok) break; } catch { /* pas encore prêt */ }
-  }
+  await lancer([]);
 
   let jeton;
   let question;
@@ -180,13 +187,17 @@ try {
     assert.equal((await appel('POST', '/api/reprise', { corps: CAMILLE })).status, 429);
   });
 
-  // --- Jalon 5 : le cycle complet, avec une troisième étudiante ------------------------------------------------
+  // --- Jalon 5 : le cycle complet, avec une troisième étudiante — cadence réglée à 1 s (D39) ------------------
+  arreter();
+  await sleep(500);
+  await lancer(['--var', 'CADENCE_S:1']);
+  console.log('# wrangler dev relancé avec CADENCE_S:1 (même D1)');
   const ZOE = { exercice: M10, prenom: 'Zoé', nom: 'Lévesque', matricule: '2455555', nip: '2468' };
   let attestation;
   let cookie;
   let seanceZoe;
 
-  await etape('réussite du M10 (15 bonnes réponses, cadence de 10 s) : l’attestation est créée à la dernière', async () => {
+  await etape('réussite du M10 (15 bonnes réponses, cadence réglée à 1 s) : l’attestation est créée à la dernière', async () => {
     const creation = await appel('POST', '/api/creation', { corps: ZOE });
     assert.equal(creation.status, 200, JSON.stringify(creation.corps));
     const jetonZoe = creation.corps.jeton;
@@ -194,7 +205,7 @@ try {
     let etat = (await appel('POST', '/api/question', { jeton: jetonZoe, corps: { exercice: M10 } })).corps.seance;
     for (let n = 1; etat.reussite_le === null; n += 1) {
       assert.ok(n <= 15, 'plus de 15 questions');
-      await sleep(10200);
+      await sleep(1200);
       const correction = await appel('POST', '/api/correction', { jeton: jetonZoe, corps: { exercice: M10, saisies: { vc: bonneVc(etat.question) } } });
       assert.equal(correction.status, 200, JSON.stringify(correction.corps));
       assert.equal(correction.corps.correction.reussie, true, `question ${n}`);

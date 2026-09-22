@@ -77,13 +77,32 @@ test('mode test : rien de ce qu’envoie le navigateur ne l’active — ni adre
   }
 });
 
+test('cadence réglable (D39) : CADENCE_S=1 sur localhost → 1 s entre deux corrections ; ailleurs, 10 s', async () => {
+  const local = serveurDeTest({ hote: 'http://localhost:8787', variables: { CADENCE_S: '1' } });
+  const { jeton } = await commencer(local);
+  assert.equal((await local.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: local.bonnesReponses() } })).status, 200);
+  const tropTot = await local.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: local.bonnesReponses() } });
+  assert.deepEqual([tropTot.status, tropTot.corps.attendre_s], [429, 1]);
+  assert.equal((await local.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.attendre_s, 1);
+  local.avancer(SECONDE);
+  assert.equal((await local.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: local.bonnesReponses() } })).status, 200);
+
+  const production = serveurDeTest({ variables: { CADENCE_S: '1' } });
+  const prod = await commencer(production);
+  assert.equal((await production.appel('POST', '/api/correction', { jeton: prod.jeton, corps: { exercice: M10, saisies: production.bonnesReponses() } })).status, 200);
+  production.avancer(SECONDE);
+  assert.equal((await production.appel('POST', '/api/correction', { jeton: prod.jeton, corps: { exercice: M10, saisies: production.bonnesReponses() } })).corps.attendre_s, 9);
+});
+
 test('mode test : MODE_TEST ne figure ni dans wrangler.jsonc ni dans le déploiement ; seulement, en commentaire, dans .dev.vars.exemple', async () => {
   const lire = (chemin) => readFile(new URL(`../${chemin}`, import.meta.url), 'utf8');
-  assert.equal((await lire('wrangler.jsonc')).includes('MODE_TEST'), false, 'wrangler.jsonc');
-  assert.equal((await lire('.github/workflows/deploy.yml')).includes('MODE_TEST'), false, 'deploy.yml');
-  assert.equal((await lire('package.json')).includes('MODE_TEST'), false, 'package.json');
-  const actives = (await lire('.dev.vars.exemple')).split(/\r?\n/).filter((ligne) => ligne.includes('MODE_TEST') && !ligne.trim().startsWith('#'));
-  assert.deepEqual(actives, [], 'dans le modèle, MODE_TEST reste en commentaire');
+  for (const variable of ['MODE_TEST', 'CADENCE_S']) {
+    assert.equal((await lire('wrangler.jsonc')).includes(variable), false, `wrangler.jsonc : ${variable}`);
+    assert.equal((await lire('.github/workflows/deploy.yml')).includes(variable), false, `deploy.yml : ${variable}`);
+    assert.equal((await lire('package.json')).includes(variable), false, `package.json : ${variable}`);
+    const actives = (await lire('.dev.vars.exemple')).split(/\r?\n/).filter((ligne) => ligne.includes(variable) && !ligne.trim().startsWith('#'));
+    assert.deepEqual(actives, [], `dans le modèle, ${variable} reste en commentaire`);
+  }
 });
 
 test('test-complet : l’exercice de test est servi par le serveur, avec ses 29 outils et ses cinq champs à saisir', async () => {

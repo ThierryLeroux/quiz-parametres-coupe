@@ -9,3 +9,7 @@ CLE_ADMIN=remplacer-par-une-autre-valeur-au-hasard
 # wrangler.jsonc. Décommenter pour que le serveur joigne les réponses attendues à chaque question
 # (bandeau « Mode test » et bouton « Remplir » à l'écran) et lève la cadence de 10 s.
 # MODE_TEST=1
+
+# Cadence réglable (décision D39), même règle : sur le poste SEULEMENT. Secondes entre deux
+# corrections d'une même séance (10 sans cette ligne). « npm run test:api » passe CADENCE_S:1 lui-même.
+# CADENCE_S=1

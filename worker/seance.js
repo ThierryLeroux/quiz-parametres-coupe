@@ -33,6 +33,14 @@ export function isTestMode(variable, hostname) {
   return variable === '1' && LOCAL_HOSTS.includes(hostname);
 }
 
+// Cadence réglable (D39), pour « npm run test:api » : la variable CADENCE_S (secondes entières,
+// 1 à 999) n'est honorée que pour une requête adressée au poste lui-même, comme le mode test ;
+// partout ailleurs, et sans elle, la cadence est celle de CADENCE_MS.
+export function cadenceFor(variable, hostname) {
+  if (!LOCAL_HOSTS.includes(hostname) || typeof variable !== 'string' || !/^[1-9]\d{0,2}$/.test(variable)) return CADENCE_MS;
+  return Number(variable) * SECOND;
+}
+
 // Date ISO décalée de `ms` millisecondes : later(now, TOKEN_LIFETIME_MS).
 export const later = (now, ms) => new Date(now.getTime() + ms).toISOString();
 
@@ -93,11 +101,12 @@ export function gradeQuestion(question, answers, counters, exercise, data) {
 }
 
 // Secondes à attendre avant la prochaine correction (0 = on peut corriger). En mode test (D26),
-// la cadence est levée : on clique Vérifier, Question suivante, Vérifier…
-export function cadenceWait(session, now, { testMode = false } = {}) {
+// la cadence est levée : on clique Vérifier, Question suivante, Vérifier… ; cadenceMs est celle
+// de cadenceFor (D39), 10 s partout sauf en local avec CADENCE_S.
+export function cadenceWait(session, now, { testMode = false, cadenceMs = CADENCE_MS } = {}) {
   if (testMode || session.derniere_correction === null) return 0;
   const elapsed = now.getTime() - new Date(session.derniere_correction).getTime();
-  return elapsed >= CADENCE_MS ? 0 : Math.ceil((CADENCE_MS - elapsed) / SECOND);
+  return elapsed >= cadenceMs ? 0 : Math.ceil((cadenceMs - elapsed) / SECOND);
 }
 
 // --- Essais de NIP ---------------------------------------------------------------------------------------

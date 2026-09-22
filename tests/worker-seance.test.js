@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CADENCE_MS, NIP_CLEARED, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
+  CADENCE_MS, NIP_CLEARED, cadenceFor, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
   gradeQuestion, isExerciseComplete, isNipLocked, isQuestionValid, isTestMode, later, questionView, sessionView,
 } from '../worker/seance.js';
 import { computeParameters } from '../site/js/calcul.js';
@@ -137,6 +137,19 @@ test('cadenceWait : 10 s entre deux corrections ; la première n’attend pas', 
   assert.equal(cadenceWait(corrigee, apres(2500)), 8);
   assert.equal(cadenceWait(corrigee, apres(9999)), 1);
   assert.equal(cadenceWait(corrigee, apres(10000)), 0);
+  // Cadence réglée (D39) : 1 s.
+  assert.equal(cadenceWait(corrigee, apres(0), { cadenceMs: 1000 }), 1);
+  assert.equal(cadenceWait(corrigee, apres(1000), { cadenceMs: 1000 }), 0);
+});
+
+test('cadenceFor : CADENCE_S en secondes entières, sur le poste seulement ; sinon 10 s', () => {
+  assert.equal(cadenceFor('1', 'localhost'), 1000);
+  assert.equal(cadenceFor('3', '127.0.0.1'), 3000);
+  assert.equal(cadenceFor('120', '[::1]'), 120000);
+  for (const [variable, hote] of [
+    ['1', 'quiz-parametres-coupe.exemple.workers.dev'], ['1', 'localhost.exemple.com'], ['1', undefined],
+    [undefined, 'localhost'], ['', 'localhost'], ['0', 'localhost'], ['1.5', 'localhost'], ['-1', 'localhost'], ['1000', 'localhost'], [1, 'localhost'],
+  ]) assert.equal(cadenceFor(variable, hote), CADENCE_MS, `${String(variable)} / ${String(hote)}`);
 });
 
 test('countNipAttempt : le 5e essai en 10 minutes pose le verrou de 10 minutes', () => {
