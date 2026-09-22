@@ -315,7 +315,7 @@ try {
     assert.match(barre, /^Barre à aléser Ø .+ - Ø alésé: /);
     const { status, corps } = await appel('GET', `/api/attestation?exercice=${VC_RPM}`, { jeton: jetonAlex });
     assert.equal(status, 200, JSON.stringify(corps));
-    assert.equal(corps.attestation.exercice.titre, 'M10 - tournage - Vc et RPM');
+    assert.equal(corps.attestation.exercice.titre, 'M10 — Tournage : Vc et RPM');
     assert.deepEqual(corps.attestation.outils.map((o) => `${o.reussites}/${o.requises}`), Array(11).fill('2/2'));
     assert.equal(corps.attestation.questions.length, 22);
     assert.deepEqual(corps.attestation.questions.map((q) => q.numero), Array.from({ length: 22 }, (_, i) => i + 1));

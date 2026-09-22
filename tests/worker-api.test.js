@@ -114,7 +114,7 @@ test('test-complet : l’exercice de test est servi par le serveur, avec ses 29 
   assert.deepEqual(seance.question.champs.map((champ) => champ.evalue), [true, true, true, true, true]);
 });
 
-test('exercice « M10 - tournage - Vc et RPM » (D40) en mode test : 22 questions Vc et N jusqu’à l’attestation, jamais de carbure solide, filetage et barre à aléser rencontrés', async () => {
+test('exercice « M10 — Tournage : Vc et RPM » (D40) en mode test : 22 questions Vc et N jusqu’à l’attestation, jamais de carbure solide, filetage et barre à aléser rencontrés', async () => {
   const serveur = serveurDeTest(LOCAL);
   const VC_RPM = 'm10-tournage-vc-rpm';
   const { jeton, seance } = await commencer(serveur, { ...CAMILLE, exercice: VC_RPM });
@@ -148,7 +148,7 @@ test('exercice « M10 - tournage - Vc et RPM » (D40) en mode test : 22 question
 
   const { status, corps } = await serveur.appel('GET', `/api/attestation?exercice=${VC_RPM}`, { jeton });
   assert.equal(status, 200, JSON.stringify(corps));
-  assert.equal(corps.attestation.exercice.titre, 'M10 - tournage - Vc et RPM');
+  assert.equal(corps.attestation.exercice.titre, 'M10 — Tournage : Vc et RPM');
   assert.equal(corps.attestation.questions_reussies, 22);
   assert.deepEqual(corps.attestation.outils.map((o) => `${o.reussites}/${o.requises}`), Array(11).fill('2/2'));
   assert.equal(serveur.journal().length, 22);

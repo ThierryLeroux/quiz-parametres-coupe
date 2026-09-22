@@ -1,4 +1,4 @@
-// L'exercice « M10 - tournage - Vc et RPM » (site/exercices/m10-tournage-vc-rpm.json, décision D40) :
+// L'exercice « M10 — Tournage : Vc et RPM » (site/exercices/m10-tournage-vc-rpm.json, décision D40) :
 // Vc et N sur onze outils, jamais de carbure de tungstène solide, deux réussites de suite par outil.
 // Tout ce qui existe s'applique sans changement ; on vérifie en particulier la tolérance de N en
 // filetage et la barre à aléser à deux diamètres dans cet exercice.
@@ -18,7 +18,7 @@ const OUTILS = ['foret_a_pointer', 'foret_fractionnaire', 'foret_a_numero', 'for
 
 test('l’exercice : Vc et N, onze outils dans l’ordre demandé, deux réussites de suite chacun, listé à l’accueil', async () => {
   assert.deepEqual(validateExercise(exercice, data), []);
-  assert.equal(exercice.titre, 'M10 - tournage - Vc et RPM');
+  assert.equal(exercice.titre, 'M10 — Tournage : Vc et RPM');
   assert.deepEqual(exercice.champs_evalues, ['vc', 'n']);
   assert.deepEqual(fieldsToGrade(exercice), ['vc', 'rpm']);
   assert.deepEqual(exercice.outils.map((entry) => entry.id), OUTILS);
