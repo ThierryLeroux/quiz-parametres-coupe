@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { loadData } from '../site/js/data.js';
-import { GRADED_FIELD_KEYS, fieldsToGrade, loadExercise, validateExercise } from '../site/js/exercice.js';
+import { GRADED_FIELD_KEYS, allowedToolMaterials, fieldsToGrade, loadExercise, validateExercise } from '../site/js/exercice.js';
 import { ANSWER_FIELDS } from '../site/js/correction.js';
 
 // Vrai catalogue et vrais exercices, lus sur disque (sous Node, fetch ne lit pas les fichiers locaux).
@@ -68,6 +68,12 @@ const anomalies = [
   ['groupe non usinable par l’outil', (e) => { e.outils[1].groupes = ['O - Graphite']; }, /« foret_fractionnaire » : « groupes » : « O - Graphite » n'existe pas sur cet outil/],
   ['groupe inconnu', (e) => { e.outils[1].groupes = ['P - Acier inconnu']; }, /« groupes » : « P - Acier inconnu » n'existe pas/],
   ['liste de groupes qui n’est pas une liste', (e) => { e.outils[1].groupes = 'P - Acier non allié'; }, /« groupes » doit être une liste non vide/],
+  // Restriction de matière d'outil pour tout l'exercice (D40).
+  ['matière d’outil de l’exercice inconnue du catalogue', (e) => { e.materiaux_outil = ['Insert de carbure de tungstène', 'Acier rapide', 'Céramique']; }, /exercice « essai-percage » : « materiaux_outil » : « Céramique » n'existe pas dans le catalogue/],
+  ['matière d’outil de l’exercice en double', (e) => { e.materiaux_outil = ['Insert de carbure de tungstène', 'Acier rapide', 'Acier rapide']; }, /exercice « essai-percage » : « materiaux_outil » : « Acier rapide » est en double/],
+  ['liste de matières de l’exercice vide', (e) => { e.materiaux_outil = []; }, /exercice « essai-percage » : « materiaux_outil » doit être une liste non vide/],
+  ['un outil sans plus aucune matière permise (le MVLNR n’existe qu’en insert)', (e) => { e.materiaux_outil = ['Acier rapide']; }, /« mvlnr » : plus aucune matière d'outil permise — l'outil offre Insert de carbure de tungstène ; l'exercice permet Acier rapide/],
+  ['restriction de l’outil et de l’exercice qui ne se recoupent pas', (e) => { e.materiaux_outil = ['Carbure de tungstène solide', 'Insert de carbure de tungstène']; }, /« foret_fractionnaire » : plus aucune matière d'outil permise/],
 ];
 
 for (const [nom, abimer, attendu] of anomalies) {
@@ -79,6 +85,21 @@ for (const [nom, abimer, attendu] of anomalies) {
     assert.match(erreurs[0], attendu);
   });
 }
+
+test('materiaux_outil de l’exercice (D40) : valide quand chaque outil garde au moins une matière ; allowedToolMaterials croise l’outil, l’exercice et l’entrée', () => {
+  const exercice = exerciceValide();
+  exercice.materiaux_outil = ['Acier rapide', 'Insert de carbure de tungstène'];
+  assert.deepEqual(validateExercise(exercice, data), []);
+  const mvlnr = data.outils.find((o) => o.id === 'mvlnr');
+  const foret = data.outils.find((o) => o.id === 'foret_fractionnaire');
+  assert.deepEqual(allowedToolMaterials(exercice, exercice.outils[0], mvlnr), ['Insert de carbure de tungstène']);
+  assert.deepEqual(allowedToolMaterials(exercice, exercice.outils[1], foret), ['Acier rapide']); // l'entrée ne permet que l'acier rapide
+  assert.deepEqual(allowedToolMaterials(exercice, { id: 'foret_fractionnaire', reussites_requises: 1 }, foret), ['Acier rapide']); // l'exercice exclut le carbure solide
+  assert.deepEqual(allowedToolMaterials(exerciceValide(), { id: 'foret_fractionnaire', reussites_requises: 1 }, foret), foret.materiaux_outil); // sans restriction : tout l'outil
+  // Un exercice qui ne permet que le carbure solide n'a plus d'outil à insert : autant d'erreurs que d'outils touchés.
+  exercice.materiaux_outil = ['Carbure de tungstène solide'];
+  assert.equal(validateExercise(exercice, data).length, 2);
+});
 
 test('validateExercise : rapporte toutes les erreurs d’un coup, sans lever d’exception', () => {
   const exercice = exerciceValide();

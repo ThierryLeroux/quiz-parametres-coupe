@@ -142,6 +142,22 @@ test('restrictions : les questions générées ne sortent que les dimensions, ma
   assert.deepEqual([...groupes].sort(), ['N - Aluminium de corroyage', 'P - Acier non allié']);
 });
 
+test('eligibleTools : la restriction de matière d’outil de l’exercice (D40) s’applique à tous les outils, croisée avec celle de l’entrée', () => {
+  const exercice = { ...EXERCICE, materiaux_outil: ['Acier rapide', 'Insert de carbure de tungstène'], outils: [...EXERCICE.outils, { id: 'foret_a_pointer', reussites_requises: 1 }] };
+  assert.deepEqual(validateExercise(exercice, data), []);
+  const [mvlnr, mclnr, foret, pointer] = eligibleTools(exercice, data, createProgress(exercice));
+  assert.deepEqual(mvlnr.materiaux_outil, ['Insert de carbure de tungstène']);
+  assert.deepEqual(mclnr.materiaux_outil, ['Insert de carbure de tungstène']);
+  assert.deepEqual(foret.materiaux_outil, ['Acier rapide']);
+  assert.deepEqual(pointer.materiaux_outil, ['Acier rapide']); // le carbure solide, qu'offre l'outil, est exclu par l'exercice
+  const random = aleaAGraine(9);
+  for (let i = 0; i < 2000; i += 1) {
+    const q = generateQuestion(data, [pointer, foret], random);
+    assert.equal(q.toolMaterial.label, 'Acier rapide');
+  }
+  assert.deepEqual(data.outils.find((o) => o.id === 'foret_a_pointer').materiaux_outil, ['Acier rapide', 'Carbure de tungstène solide']); // le catalogue n'a pas bougé
+});
+
 test('isComplete : vrai seulement quand chaque outil a atteint ses réussites requises', () => {
   let etat = createProgress(EXERCICE);
   const reussir = (id, fois) => { for (let i = 0; i < fois; i += 1) etat = recordResult(etat, id, true); };

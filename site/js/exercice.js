@@ -3,7 +3,7 @@
 // évalués, leurs réussites requises, les champs évalués et d'éventuelles restrictions.
 // La même validation sert aux tests, au quiz et à l'éditeur.
 
-import { fetchJson } from './data.js';
+import { TOOL_MATERIAL_KEYS, fetchJson } from './data.js';
 
 // Champ évalué tel qu'écrit dans l'exercice → nom du champ dans le moteur
 // (computeParameters, gradeAnswers). L'ordre est celui de l'écran : Vc, fz, N, f, Vf.
@@ -16,7 +16,7 @@ export const GRADED_FIELD_KEYS = {
 };
 
 const EXERCISE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/; // minuscules, chiffres et tirets : c'est aussi le nom du fichier
-const EXERCISE_KEYS = ['id', 'titre', 'version', 'champs_evalues', 'outils', 'liste'];
+const EXERCISE_KEYS = ['id', 'titre', 'version', 'champs_evalues', 'outils', 'liste', 'materiaux_outil'];
 const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes'];
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -32,16 +32,26 @@ function checkKeys(object, allowed, where, errors) {
 
 // Vérifie une liste de restriction facultative (dimensions, materiaux_outil ou groupes) : si elle est
 // présente, elle doit être non vide, sans doublon, et ne nommer que des choix offerts par l'outil.
-function checkRestriction(list, key, available, where, errors) {
+//   origin : d'où viennent les choix offerts, pour le message (« sur cet outil », « dans le catalogue »)
+function checkRestriction(list, key, available, where, errors, origin = 'sur cet outil') {
   if (list === undefined) return;
   if (!Array.isArray(list) || list.length === 0) {
     errors.push(`${where} : « ${key} » doit être une liste non vide (ou être absente : aucune restriction)`);
     return;
   }
   list.forEach((item, i) => {
-    if (!available.includes(item)) errors.push(`${where} : « ${key} » : « ${item} » n'existe pas sur cet outil`);
+    if (!available.includes(item)) errors.push(`${where} : « ${key} » : « ${item} » n'existe pas ${origin}`);
     else if (list.indexOf(item) !== i) errors.push(`${where} : « ${key} » : « ${item} » est en double`);
   });
+}
+
+// Les matériaux d'outil qu'un outil peut tirer dans cet exercice (décision D40) : ceux de l'outil,
+// restreints par la liste de l'exercice (`materiaux_outil` à la racine, pour tous les outils) et par
+// celle de l'entrée (`outils[].materiaux_outil`, pour cet outil). Liste vide = l'outil n'a plus rien
+// à tirer : l'exercice est refusé (validateExercise).
+export function allowedToolMaterials(exercise, entry, tool) {
+  const permitted = (list, material) => !Array.isArray(list) || list.includes(material);
+  return tool.materiaux_outil.filter((material) => permitted(exercise.materiaux_outil, material) && permitted(entry.materiaux_outil, material));
 }
 
 // Vérifie un exercice contre le catalogue.
@@ -61,6 +71,8 @@ export function validateExercise(exercise, data) {
   if (!isText(exercise.version)) errors.push(`${where} : « version » doit être un texte non vide (ex. « r0 »)`);
   // « liste »: false retire l'exercice de la liste de l'accueil (D30) ; il reste joignable par « ?exercice=<id> ».
   if (exercise.liste !== undefined && typeof exercise.liste !== 'boolean') errors.push(`${where} : « liste » doit être true ou false (ou absente : l'exercice est listé)`);
+  // Restriction de matière d'outil pour tout l'exercice (D40) : chaque nom doit être un matériau d'outil du catalogue.
+  checkRestriction(exercise.materiaux_outil, 'materiaux_outil', Object.keys(TOOL_MATERIAL_KEYS), where, errors, 'dans le catalogue');
 
   const fields = Array.isArray(exercise.champs_evalues) ? exercise.champs_evalues : [];
   if (fields.length === 0) errors.push(`${where} : « champs_evalues » doit être une liste non vide`);
@@ -88,6 +100,10 @@ export function validateExercise(exercise, data) {
     checkRestriction(entry.dimensions, 'dimensions', tool.dimensions.map((d) => d.libelle), whereTool, errors);
     checkRestriction(entry.materiaux_outil, 'materiaux_outil', tool.materiaux_outil, whereTool, errors);
     checkRestriction(entry.groupes, 'groupes', tool.groupes_materiaux_usinables, whereTool, errors);
+    // Un outil dont aucune matière ne reste permise ne pourrait jamais être tiré : refusé, en le disant.
+    if (Array.isArray(exercise.materiaux_outil) && exercise.materiaux_outil.length > 0 && allowedToolMaterials(exercise, entry, tool).length === 0) {
+      errors.push(`${whereTool} : plus aucune matière d'outil permise — l'outil offre ${tool.materiaux_outil.join(', ')} ; l'exercice permet ${exercise.materiaux_outil.join(', ')}`);
+    }
   });
 
   return errors;

@@ -7,6 +7,8 @@
 // Un outil absent de `reussites` vaut 0. Les fonctions sont pures : elles ne modifient
 // jamais l'état reçu, elles en retournent un nouveau.
 
+import { allowedToolMaterials } from './exercice.js';
+
 // État de départ d'un exercice.
 export function createProgress(exercise) {
   return { exerciceId: exercise.id, reussites: {}, totalReussies: 0 };
@@ -31,8 +33,9 @@ export function recordResult(progress, toolId, success) {
 
 // Outils encore à évaluer, prêts pour generateQuestion (question.js) : ceux de l'exercice
 // dont le compteur est sous reussites_requises. Si l'exercice restreint les dimensions, les
-// matériaux d'outil ou les groupes de matériaux d'un outil, l'outil retourné est une COPIE
-// qui ne contient que les choix permis ; le catalogue n'est pas modifié.
+// matériaux d'outil (pour un outil, ou pour tout l'exercice : D40) ou les groupes de matériaux
+// d'un outil, l'outil retourné est une COPIE qui ne contient que les choix permis ; le catalogue
+// n'est pas modifié.
 export function eligibleTools(exercise, data, progress) {
   checkSameExercise(exercise, progress);
   return exercise.outils
@@ -47,7 +50,7 @@ export function eligibleTools(exercise, data, progress) {
       return {
         ...tool,
         dimensions: restrict(tool.dimensions, entry.dimensions, (d) => d.libelle),
-        materiaux_outil: restrict(tool.materiaux_outil, entry.materiaux_outil),
+        materiaux_outil: allowedToolMaterials(exercise, entry, tool),
         groupes_materiaux_usinables: restrict(tool.groupes_materiaux_usinables, entry.groupes),
       };
     });
