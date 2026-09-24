@@ -147,6 +147,7 @@ export function questionView(question, exercise, data, { testMode = false } = {}
     outil: {
       id: tool.id,
       nom: tool.nom,
+      image: tool.image ?? tool.id, // la photo (site/img/outils/<image>.png) : une copie renommée dans l'exercice garde la sienne (D47)
       operation: tool.operation,
       commentaire: tool.commentaire,
       dents: question.teeth,

@@ -7,15 +7,17 @@ import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
 import { CODE_ALPHABET } from '../worker/attestation.js';
 import { fausseD1 } from './aide-d1.js';
-import { aleaAGraine, data } from './aide.js';
+import { aleaAGraine } from './aide.js';
+import { assembleData } from '../site/js/data.js';
+import { draftFromExercise, engineExercise } from '../site/js/exercice.js';
+import { forgetAssembled } from '../worker/catalogue.js';
 
-// Fausse liaison ASSETS : sert les fichiers de site/ ; `remplacements` substitue un JSON à un
-// fichier ({ 'exercices/index.json': {…} }) pour simuler un exercice ajouté ou modifié.
-export function fauxSite(remplacements = {}) {
+// Fausse liaison ASSETS : sert les fichiers de site/. Depuis le jalon 7 (D47), les exercices et le
+// catalogue ne viennent plus de là mais de la base : serveur.publierExercice les y met.
+export function fauxSite() {
   return {
     fetch: async (request) => {
       const chemin = new URL(request.url).pathname.slice(1);
-      if (chemin in remplacements) return Response.json(remplacements[chemin]);
       try {
         return new Response(await readFile(new URL(`../site/${chemin}`, import.meta.url)));
       } catch {
@@ -33,7 +35,7 @@ export function fauxSite(remplacements = {}) {
 //   codes     : les codes d'attestation à tirer, dans l'ordre (10 caractères de l'alphabet, D32) ; au hasard ensuite
 //   cleConsultation : la clé de consultation (D44) ; null = non configurée sur le serveur
 //   db        : une fausse D1 déjà construite (ex. fausseD1({ jusqua: 3 }), pour tester une migration sur des données réelles)
-export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test', cleConsultation = 'cle-consultation-de-test', hote = 'https://quiz.example', variables = {}, codes = [], db = fausseD1() } = {}) {
+export function serveurDeTest({ graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test', cleConsultation = 'cle-consultation-de-test', hote = 'https://quiz.example', variables = {}, codes = [], db = fausseD1() } = {}) {
   const prevus = [...codes];
   const serveur = {
     db,
@@ -47,8 +49,29 @@ export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'sec
       return code === undefined ? crypto.getRandomValues(new Uint8Array(n)) : Uint8Array.from(code, (c) => CODE_ALPHABET.indexOf(c));
     },
     avancer(ms) { this.maintenant = new Date(this.maintenant.getTime() + ms); },
-    // Republie le site avec d'autres JSON, sans toucher à la base : « l'enseignant modifie l'exercice ».
-    publier(nouveaux) { this.env = { ...this.env, ASSETS: fauxSite(nouveaux) }; },
+    // Publie un exercice au format des fichiers JSON (SPEC §10, outils du catalogue avec restrictions)
+    // comme nouvelle version en base, avec des copies prises dans la banque : « l'enseignant publie ».
+    // Crée l'exercice s'il n'existe pas. Retourne le numéro de la version.
+    publierExercice(exercice, { tablesId = 'A2026_r0', quand = this.maintenant.toISOString() } = {}) {
+      const banque = this.db.sqlite.prepare('SELECT outil FROM banque_outils ORDER BY rang').all().map((row) => JSON.parse(row.outil));
+      const brouillon = draftFromExercise(exercice, banque);
+      const contenu = JSON.stringify(brouillon);
+      const existe = this.db.sqlite.prepare('SELECT 1 FROM exercices WHERE id = ?').get(exercice.id);
+      if (existe) this.db.sqlite.prepare('UPDATE exercices SET brouillon = ?, revision = revision + 1, brouillon_modifie_le = ?, publie_le = ? WHERE id = ?').run(contenu, quand, quand, exercice.id);
+      else this.db.sqlite.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, publie_le, cree_le) VALUES (?, ?, ?, ?, ?)').run(exercice.id, contenu, quand, quand, quand);
+      const numero = (this.db.sqlite.prepare('SELECT MAX(numero) AS n FROM versions_exercice WHERE exercice_id = ?').get(exercice.id).n ?? 0) + 1;
+      this.db.sqlite.prepare('INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le) VALUES (?, ?, ?, ?, ?)').run(exercice.id, numero, contenu, tablesId, quand);
+      return numero;
+    },
+    // Le catalogue d'une version publiée (la dernière par défaut), au format de loadData.
+    catalogue(exerciceId, numero = null) {
+      const version = numero === null
+        ? this.db.sqlite.prepare('SELECT * FROM versions_exercice WHERE exercice_id = ? ORDER BY numero DESC LIMIT 1').get(exerciceId)
+        : this.db.sqlite.prepare('SELECT * FROM versions_exercice WHERE exercice_id = ? AND numero = ?').get(exerciceId, numero);
+      const tables = this.db.sqlite.prepare('SELECT * FROM tables_reference WHERE id = ?').get(version.tables_id);
+      const { tools } = engineExercise(exerciceId, version.numero, JSON.parse(version.contenu));
+      return assembleData({ materiaux: JSON.parse(tables.materiaux), operations: JSON.parse(tables.operations) }, tools);
+    },
     async appel(methode, chemin, { jeton, corps, entetes = {} } = {}) {
       const headers = { ...entetes };
       if (jeton) headers.authorization = `Bearer ${jeton}`;
@@ -72,12 +95,16 @@ export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'sec
     journal() {
       return this.db.sqlite.prepare('SELECT * FROM corrections ORDER BY id').all().map((row) => ({ ...row }));
     },
-    // Les bonnes réponses de la question mémorisée, telles qu'affichées par le corrigé.
-    bonnesReponses(matricule, exercice) {
-      return formatParameters(computeParameters(JSON.parse(this.seance(matricule, exercice).question_courante), data));
+    // Les bonnes réponses de la question mémorisée, telles qu'affichées par le corrigé — calculées
+    // avec le catalogue de la version épinglée à la séance.
+    bonnesReponses(matricule = '2412345', exercice = 'm10-tournage-vc') {
+      const ligne = this.seance(matricule, exercice);
+      const version = this.db.sqlite.prepare('SELECT numero FROM versions_exercice WHERE id = ?').get(ligne.version_id);
+      return formatParameters(computeParameters(JSON.parse(ligne.question_courante), this.catalogue(exercice, version?.numero ?? null)));
     },
   };
-  serveur.env = { DB: serveur.db, ASSETS: fauxSite(remplacements), CLE_SECRETE: secret, CLE_ADMIN: cleAdmin, ...(cleConsultation === null ? {} : { CLE_CONSULTATION: cleConsultation }), ...variables };
+  forgetAssembled(); // une autre base : les versions gardées en mémoire ne valent plus
+  serveur.env = { DB: serveur.db, ASSETS: fauxSite(), CLE_SECRETE: secret, CLE_ADMIN: cleAdmin, ...(cleConsultation === null ? {} : { CLE_CONSULTATION: cleConsultation }), ...variables };
   return serveur;
 }
 

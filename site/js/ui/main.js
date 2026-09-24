@@ -2,7 +2,7 @@
 // Le navigateur affiche ; la séance vit sur le serveur de correction (D19). Ici on ne fait
 // qu'appeler app.js (choix de l'exercice), api.js (le serveur) et session.js (le jeton local).
 
-import { loadApp } from '../app.js';
+import { loadApp, loadExerciseVersion } from '../app.js';
 import { createSession, getAttestation, lookupSession, nextQuestion, resumeSession, signOut, submitAnswers, updateIdentity } from '../api.js';
 import { clearSession, loadSession, saveSession } from '../session.js';
 import { renderAttestation, renderAttestationError } from './attestation-screen.js';
@@ -15,14 +15,29 @@ import { identificationErrorMessage, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
 
-let exercise; // exercice demandé par l'adresse
-let data; // catalogue (loadData) : feuilles de référence, aide contextuelle
+let exercise; // exercice demandé par l'adresse — la dernière version publiée, puis celle de la séance (D47)
+let data; // catalogue (assembleData) : feuilles de référence, aide contextuelle
 let labels; // noms à afficher des outils de l'exercice (« SDTMR (métrique) »)
 let reference; // feuilles de référence, ouvertes par-dessus l'écran Question
+let archived = false; // l'exercice n'est plus offert : plus de nouvelle séance
+
+// Adopte une version d'exercice : catalogue, noms des outils, feuilles de référence.
+function useExercise(loaded) {
+  exercise = loaded.exercise;
+  data = loaded.data;
+  labels = toolLabels(exercise, data);
+  reference = createReference(data);
+}
+
+// La séance est épinglée à sa version (D47) : si ce n'est pas celle qui est chargée, on la demande au serveur.
+async function ensureVersion(seance) {
+  if (seance.exercice.version === exercise.version) return;
+  useExercise(await loadExerciseVersion(exercise.id, seance.exercice.version));
+}
 
 function showHome() {
   const local = loadSession();
-  renderHome(main, { exercise, local }, {
+  renderHome(main, { exercise, local, archived }, {
     onResume: () => openQuestion(local.jeton),
     onStart: () => showMatricule(),
     onForget: () => {
@@ -44,6 +59,7 @@ async function enter(opening) {
   try {
     const { jeton, seance } = await opening;
     remember(jeton, seance);
+    await ensureVersion(seance);
     return await openQuestion(jeton);
   } catch (error) {
     return identificationErrorMessage(error);
@@ -141,6 +157,7 @@ function showSession(jeton, seance) {
 async function openQuestion(jeton) {
   try {
     const { seance } = await nextQuestion(jeton, exercise.id);
+    await ensureVersion(seance);
     showSession(jeton, seance);
     return null;
   } catch (error) {
@@ -157,10 +174,8 @@ async function start() {
       renderExerciseList(main, app.listed, app.unknownId);
       return;
     }
-    exercise = app.exercise;
-    data = app.data;
-    labels = toolLabels(exercise, data);
-    reference = createReference(data);
+    useExercise(app);
+    archived = app.archived;
     showHome();
   } catch (error) {
     renderLoadError(main, error);

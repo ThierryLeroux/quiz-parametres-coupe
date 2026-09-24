@@ -52,6 +52,18 @@ export function getVersion(request) {
   return call('GET', '/api/version', {}, request);
 }
 
+// L'exercice publié (D47) : sa dernière version, ou la version demandée (numéro) — { exercice, tables, version, archive }.
+// Erreurs : 400 exercice inconnu ou jamais publié ; 404 version inconnue.
+export function getExercise(exerciseId, version, request) {
+  const query = `exercice=${encodeURIComponent(exerciseId)}${version === null || version === undefined ? '' : `&version=${encodeURIComponent(version)}`}`;
+  return call('GET', `/api/exercice?${query}`, {}, request);
+}
+
+// Les exercices offerts à l'accueil (D18, D47) : { exercices: [{ id, titre }] }.
+export function listOfferedExercises(request) {
+  return call('GET', '/api/exercices', {}, request);
+}
+
 // Identification en deux temps (SPEC §8, D23) — le serveur ne devine rien : on consulte, puis on
 // crée OU on reprend.
 

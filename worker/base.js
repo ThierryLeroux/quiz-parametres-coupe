@@ -24,15 +24,15 @@ export async function findSessionByToken(db, tokenHash) {
   return decode(await db.prepare('SELECT * FROM seances WHERE jeton_hache = ?').bind(tokenHash).first());
 }
 
-// Crée la séance d'un couple (exercice, matricule). Retourne false si elle existait déjà (deux
-// premières identifications en même temps) : l'appelant la traite alors comme une reprise.
+// Crée la séance d'un couple (exercice, matricule), épinglée à la version publiée du moment
+// (version_id, D47). Retourne false si elle existait déjà (deux premières identifications en même temps).
 export async function createSession(db, s) {
   const { meta } = await db.prepare(`
     INSERT INTO seances (exercice_id, matricule, prenom, nom, nip_hache, jeton_hache, jeton_expire_le,
-                         debut, derniere_activite, version_exercice, compteurs)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         debut, derniere_activite, version_exercice, version_id, compteurs)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (exercice_id, matricule) DO NOTHING`)
-    .bind(s.exercice_id, s.matricule, s.prenom, s.nom, s.nip_hache, s.jeton_hache, s.jeton_expire_le, s.debut, s.debut, s.version_exercice, JSON.stringify(s.compteurs))
+    .bind(s.exercice_id, s.matricule, s.prenom, s.nom, s.nip_hache, s.jeton_hache, s.jeton_expire_le, s.debut, s.debut, s.version_exercice, s.version_id, JSON.stringify(s.compteurs))
     .run();
   return meta.changes === 1;
 }
@@ -330,4 +330,214 @@ export async function countDistinct(db, portee, adresse, tranche, valeur) {
 // Oublie une valeur refusée : elle ne compte pas parmi les valeurs vues, et sera refusée de nouveau.
 export async function forgetDistinct(db, portee, adresse, tranche, valeur) {
   await db.prepare('DELETE FROM debit WHERE portee = ? AND adresse = ? AND tranche = ? AND valeur = ?').bind(portee, adresse, tranche, valeur).run();
+}
+
+// --- Exercices, versions, banque d'outils, tables de référence (jalon 7, D47 à D49) ----------------------------
+// Les colonnes JSON sont décodées à la lecture. Une version publiée est immuable ; le brouillon d'un
+// exercice et un outil de la banque portent un numéro de révision : une écriture doit présenter
+// celui qu'elle a lu, sinon elle est refusée (contrôle optimiste, D48).
+
+const decodeJson = (row, keys) => (row === null ? null : { ...row, ...Object.fromEntries(keys.map((key) => [key, JSON.parse(row[key])])) });
+
+export async function findTables(db, id) {
+  return decodeJson(await db.prepare('SELECT * FROM tables_reference WHERE id = ?').bind(id).first(), ['materiaux', 'operations']);
+}
+
+// La version des tables de référence la plus récente : celle que prend une publication.
+export async function findLatestTables(db) {
+  return decodeJson(await db.prepare('SELECT * FROM tables_reference ORDER BY creee_le DESC, id DESC LIMIT 1').first(), ['materiaux', 'operations']);
+}
+
+export async function listTables(db) {
+  const { results } = await db.prepare('SELECT * FROM tables_reference ORDER BY creee_le, id').all();
+  return results.map((row) => decodeJson(row, ['materiaux', 'operations']));
+}
+
+export async function findExercise(db, id) {
+  return decodeJson(await db.prepare('SELECT * FROM exercices WHERE id = ?').bind(id).first(), ['brouillon']);
+}
+
+export async function findVersionById(db, id) {
+  return decodeJson(await db.prepare('SELECT * FROM versions_exercice WHERE id = ?').bind(id).first(), ['contenu']);
+}
+
+export async function findVersion(db, exerciceId, numero) {
+  return decodeJson(await db.prepare('SELECT * FROM versions_exercice WHERE exercice_id = ? AND numero = ?').bind(exerciceId, numero).first(), ['contenu']);
+}
+
+// La dernière version publiée d'un exercice, ou null s'il n'a jamais été publié.
+export async function findLatestVersion(db, exerciceId) {
+  return decodeJson(await db.prepare('SELECT * FROM versions_exercice WHERE exercice_id = ? ORDER BY numero DESC LIMIT 1').bind(exerciceId).first(), ['contenu']);
+}
+
+// Les versions d'un exercice, la plus récente en premier, sans leur contenu, avec le nombre de séances épinglées à chacune.
+export async function listVersions(db, exerciceId) {
+  const { results } = await db.prepare(`
+    SELECT v.id, v.numero, v.tables_id, v.publiee_le, (SELECT COUNT(*) FROM seances s WHERE s.version_id = v.id) AS seances
+    FROM versions_exercice v WHERE v.exercice_id = ? ORDER BY v.numero DESC`).bind(exerciceId).all();
+  return results;
+}
+
+// Tous les exercices, pour la liste de l'éditeur : la fiche, le brouillon, le contenu de la dernière
+// version et le nombre de séances (toutes versions confondues). Les versions détaillées : listVersions.
+export async function listExercises(db) {
+  const { results } = await db.prepare(`
+    SELECT e.id, e.brouillon, e.revision, e.brouillon_modifie_le, e.publie_le, e.archive_le, e.cree_le,
+           (SELECT MAX(numero) FROM versions_exercice v WHERE v.exercice_id = e.id) AS derniere_version,
+           (SELECT contenu FROM versions_exercice v WHERE v.exercice_id = e.id ORDER BY numero DESC LIMIT 1) AS contenu_publie,
+           (SELECT COUNT(*) FROM seances s WHERE s.exercice_id = e.id) AS seances
+    FROM exercices e ORDER BY e.cree_le, e.id`).all();
+  return results.map((row) => ({ ...row, brouillon: JSON.parse(row.brouillon), contenu_publie: row.contenu_publie === null ? null : JSON.parse(row.contenu_publie) }));
+}
+
+// Les exercices publiés (archivés compris : l'appelant filtre), avec le contenu de leur dernière version.
+export async function listPublishedExercises(db) {
+  const { results } = await db.prepare(`
+    SELECT e.id, e.archive_le, v.id AS version_id, v.numero, v.contenu, v.tables_id
+    FROM exercices e JOIN versions_exercice v ON v.exercice_id = e.id
+    WHERE v.numero = (SELECT MAX(numero) FROM versions_exercice w WHERE w.exercice_id = e.id)
+    ORDER BY e.cree_le, e.id`).all();
+  return results.map((row) => ({ ...row, contenu: JSON.parse(row.contenu) }));
+}
+
+function teacherLogStatement(db, entry) {
+  return db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, NULL, ?, ?)')
+    .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null);
+}
+
+// Crée un exercice (brouillon seul, jamais publié), et journalise. Retourne false si l'identifiant est déjà pris.
+export async function createExercise(db, { id, brouillon, now }, entry) {
+  try {
+    await db.batch([
+      db.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, cree_le) VALUES (?, ?, ?, ?)').bind(id, JSON.stringify(brouillon), now, now),
+      teacherLogStatement(db, entry),
+    ]);
+    return true;
+  } catch (error) {
+    if (/UNIQUE/i.test(String(error?.message))) return false;
+    throw error;
+  }
+}
+
+// Enregistre le brouillon, seulement si sa révision est encore celle qu'on a lue (D48) ; journalise
+// dans le même lot. Retourne false si quelqu'un a enregistré entre-temps : rien n'est écrit.
+export async function saveDraft(db, id, revision, brouillon, now, entry) {
+  const [update] = await db.batch([
+    db.prepare('UPDATE exercices SET brouillon = ?, revision = revision + 1, brouillon_modifie_le = ? WHERE id = ? AND revision = ?').bind(JSON.stringify(brouillon), now, id, revision),
+    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND revision = ?)')
+      .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null, id, revision + 1),
+  ]);
+  return update.meta.changes === 1;
+}
+
+// Publie un contenu comme version `numero` de l'exercice, seulement si la révision du brouillon est
+// encore celle qu'on a lue ; journalise dans le même lot. Retourne false sinon.
+export async function publishVersion(db, { id, revision, numero, contenu, tablesId, now }, entry) {
+  const [update] = await db.batch([
+    db.prepare('UPDATE exercices SET publie_le = ? WHERE id = ? AND revision = ?').bind(now, id, revision),
+    db.prepare(`INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le)
+                SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND revision = ? AND publie_le = ?)`)
+      .bind(id, numero, JSON.stringify(contenu), tablesId, now, id, revision, now),
+    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND revision = ? AND publie_le = ?)')
+      .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null, id, revision, now),
+  ]);
+  return update.meta.changes === 1;
+}
+
+// Archive (date) ou rétablit (null) un exercice, et journalise.
+export async function archiveExercise(db, id, archiveLe, entry) {
+  await db.batch([db.prepare('UPDATE exercices SET archive_le = ? WHERE id = ?').bind(archiveLe, id), teacherLogStatement(db, entry)]);
+}
+
+// Supprime un exercice et ses versions — l'appelant a vérifié qu'aucune séance ne s'y rattache.
+export async function deleteExercise(db, id, entry) {
+  await db.batch([
+    db.prepare('DELETE FROM versions_exercice WHERE exercice_id = ?').bind(id),
+    db.prepare('DELETE FROM exercices WHERE id = ?').bind(id),
+    teacherLogStatement(db, entry),
+  ]);
+}
+
+export async function countSessionsOfExercise(db, exerciceId) {
+  return (await db.prepare('SELECT COUNT(*) AS n FROM seances WHERE exercice_id = ?').bind(exerciceId).first()).n;
+}
+
+// Une séance créée par l'ancien serveur, entre la migration et le déploiement, n'a pas de version :
+// on l'épingle à la première venue.
+export async function pinSessionVersion(db, seanceId, versionId) {
+  await db.prepare('UPDATE seances SET version_id = ? WHERE id = ? AND version_id IS NULL').bind(versionId, seanceId).run();
+}
+
+// --- Banque d'outils ---
+
+export async function listBankTools(db) {
+  const { results } = await db.prepare('SELECT * FROM banque_outils ORDER BY rang, id').all();
+  return results.map((row) => decodeJson(row, ['outil']));
+}
+
+export async function findBankTool(db, id) {
+  return decodeJson(await db.prepare('SELECT * FROM banque_outils WHERE id = ?').bind(id).first(), ['outil']);
+}
+
+// Crée un outil de la banque, au dernier rang, et journalise. Retourne false si l'identifiant est déjà pris.
+export async function createBankTool(db, { id, outil, now }, entry) {
+  try {
+    await db.batch([
+      db.prepare('INSERT INTO banque_outils (id, outil, rang, modifie_le) SELECT ?, ?, COALESCE(MAX(rang), 0) + 1, ? FROM banque_outils').bind(id, JSON.stringify(outil), now),
+      teacherLogStatement(db, entry),
+    ]);
+    return true;
+  } catch (error) {
+    if (/UNIQUE/i.test(String(error?.message))) return false;
+    throw error;
+  }
+}
+
+// Enregistre un outil de la banque, seulement si sa révision est encore celle qu'on a lue (D48).
+export async function saveBankTool(db, id, revision, outil, now, entry) {
+  const [update] = await db.batch([
+    db.prepare('UPDATE banque_outils SET outil = ?, revision = revision + 1, modifie_le = ? WHERE id = ? AND revision = ?').bind(JSON.stringify(outil), now, id, revision),
+    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM banque_outils WHERE id = ? AND revision = ?)')
+      .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null, id, revision + 1),
+  ]);
+  return update.meta.changes === 1;
+}
+
+export async function archiveBankTool(db, id, archiveLe, entry) {
+  await db.batch([db.prepare('UPDATE banque_outils SET archive_le = ? WHERE id = ?').bind(archiveLe, id), teacherLogStatement(db, entry)]);
+}
+
+// --- Sauvegarde : export complet, import par fusion (D49) ---
+
+// Tout ce que l'éditeur gère : tables de référence, banque, exercices avec toutes leurs versions.
+export async function exportEditorData(db) {
+  const tables = await listTables(db);
+  const banque = await listBankTools(db);
+  const exercices = await listExercises(db);
+  const { results: versions } = await db.prepare('SELECT exercice_id, numero, contenu, tables_id, publiee_le FROM versions_exercice ORDER BY exercice_id, numero').all();
+  return {
+    tables_reference: tables.map(({ id, materiaux, operations, creee_le }) => ({ id, materiaux, operations, creee_le })),
+    banque: banque.map(({ id, outil, rang, archive_le }) => ({ id, outil, rang, archive_le })),
+    exercices: exercices.map(({ id, brouillon, archive_le, cree_le, publie_le }) => ({
+      id, brouillon, archive_le, cree_le, publie_le,
+      versions: versions.filter((v) => v.exercice_id === id).map(({ numero, contenu, tables_id, publiee_le }) => ({ numero, contenu: JSON.parse(contenu), tables_id, publiee_le })),
+    })),
+  };
+}
+
+// Applique un plan d'import (editeur.js, importPlan) en un seul lot : tables et versions ajoutées,
+// brouillons remplacés, banque remplacée. Jamais de suppression de version ; jamais les séances ni les attestations.
+export async function applyImport(db, plan, now, entry) {
+  const statements = [];
+  for (const t of plan.tables_ajoutees) statements.push(db.prepare('INSERT INTO tables_reference (id, materiaux, operations, creee_le) VALUES (?, ?, ?, ?)').bind(t.id, JSON.stringify(t.materiaux), JSON.stringify(t.operations), t.creee_le ?? now));
+  statements.push(db.prepare('DELETE FROM banque_outils'));
+  plan.banque.forEach((b, i) => statements.push(db.prepare('INSERT INTO banque_outils (id, outil, rang, modifie_le, archive_le) VALUES (?, ?, ?, ?, ?)').bind(b.id, JSON.stringify(b.outil), b.rang ?? i + 1, now, b.archive_le ?? null)));
+  for (const e of plan.exercices_ajoutes) statements.push(db.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, publie_le, archive_le, cree_le) VALUES (?, ?, ?, ?, ?, ?)').bind(e.id, JSON.stringify(e.brouillon), now, e.publie_le ?? null, e.archive_le ?? null, e.cree_le ?? now));
+  for (const e of plan.exercices_remplaces) statements.push(db.prepare('UPDATE exercices SET brouillon = ?, revision = revision + 1, brouillon_modifie_le = ?, archive_le = ? WHERE id = ?').bind(JSON.stringify(e.brouillon), now, e.archive_le ?? null, e.id));
+  for (const v of plan.versions_ajoutees) {
+    statements.push(db.prepare('INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le) VALUES (?, ?, ?, ?, ?)').bind(v.exercice_id, v.numero, JSON.stringify(v.contenu), v.tables_id, v.publiee_le ?? now));
+    statements.push(db.prepare('UPDATE exercices SET publie_le = MAX(COALESCE(publie_le, ?), ?) WHERE id = ?').bind(v.publiee_le ?? now, v.publiee_le ?? now, v.exercice_id));
+  }
+  statements.push(teacherLogStatement(db, entry));
+  await db.batch(statements);
 }

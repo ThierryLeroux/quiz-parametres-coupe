@@ -1,14 +1,17 @@
-// Serveur du quiz : un Worker Cloudflare (décisions D19 à D23, D31 à D36 ; API décrite dans SPEC §7).
-//   /api/…       → le serveur de correction, en JSON
-//   /api/prof/…  → l'espace professeur, derrière un cookie de séance signé
-//   le reste     → les fichiers de site/, servis tels quels (liaison ASSETS de wrangler.jsonc)
+// Serveur du quiz : un Worker Cloudflare (décisions D19 à D23, D31 à D36, D47 à D49 ; API décrite dans SPEC §7).
+//   /api/…               → le serveur de correction, en JSON
+//   /api/prof/…          → l'espace professeur, derrière un cookie de séance signé
+//   /api/prof/editeur/…  → l'éditeur des exercices et de la banque d'outils, rôle admin seulement
+//   le reste             → les fichiers de site/, servis tels quels (liaison ASSETS de wrangler.jsonc)
 //
 // Ce fichier ne fait que recevoir les requêtes et enchaîner les étapes. Les règles du quiz sont
 // dans seance.js, celles de l'attestation dans attestation.js, celles de l'accès (limites de débit,
-// verrous, cookie professeur) dans acces.js, le SQL dans base.js, la cryptographie dans crypto.js,
-// la lecture des JSON de site/ dans catalogue.js.
+// verrous, cookie professeur) dans acces.js, celles de l'éditeur dans editeur.js, le SQL dans
+// base.js, la cryptographie dans crypto.js, le chargement des exercices depuis la base dans catalogue.js.
 
 import pkg from '../package.json' with { type: 'json' };
+import { validateData } from '../site/js/data.js';
+import { draftErrors } from '../site/js/exercice.js';
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
   ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PURGE_WORD, anonymizedDetails, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader,
@@ -16,8 +19,11 @@ import {
 } from './acces.js';
 import { buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, readClaims, verificationUrl } from './attestation.js';
 import * as base from './base.js';
-import { loadCatalogue } from './catalogue.js';
+import { assembleDraft, loadLatest, loadVersion } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
+import {
+  EXPORT_FORMAT, cleanDraft, cleanTool, importDetails, importPlan, isExerciseId, isToolId, previewQuestions, sameContent,
+} from './editeur.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
   cadenceFor, gradeQuestion, isNipLocked, isQuestionValid, isTestMode, later, sessionView,
@@ -42,9 +48,14 @@ class HttpError extends Error {
 
 const SESSION_EXPIRED = 'Ta séance a expiré : identifie-toi de nouveau.';
 
-async function readBody(request) {
+// Le corps JSON d'une requête. Les requêtes du quiz sont courtes ; celles de l'éditeur portent des
+// exercices entiers (des dizaines de Ko), et un import, toute la sauvegarde.
+const BODY_MAX = 10000;
+const EDITOR_BODY_MAX = 4_000_000;
+
+async function readBody(request, max = BODY_MAX) {
   const text = await request.text();
-  if (text.length > 10000) throw new HttpError(400, 'Requête trop longue.');
+  if (text.length > max) throw new HttpError(400, 'Requête trop longue.');
   try {
     const body = JSON.parse(text);
     if (body !== null && typeof body === 'object' && !Array.isArray(body)) return body;
@@ -54,24 +65,44 @@ async function readBody(request) {
   throw new HttpError(400, 'Requête illisible : du JSON est attendu.');
 }
 
-// L'exercice nommé par la requête — chaque appel le nomme (D21) — et le catalogue.
+// --- L'exercice nommé par la requête (D21), lu dans la base (D47) ----------------------------------------------
+
+const NO_SUCH_EXERCISE = "Cet exercice n'existe pas.";
+const ARCHIVED_EXERCISE = "Cet exercice n'est plus offert.";
+
+// La fiche d'un exercice publié : sa dernière version, et si l'exercice est archivé. 400 s'il n'existe
+// pas ou n'a jamais été publié : pour le serveur, un exercice sans version publiée n'existe pas.
 async function findExercise(env, id) {
-  const { data, exercises } = await loadCatalogue(env.ASSETS);
-  const exercise = typeof id === 'string' ? exercises.get(id) : undefined;
-  if (!exercise) throw new HttpError(400, "Cet exercice n'existe pas.");
-  return { data, exercise };
+  if (!isExerciseId(id)) throw new HttpError(400, NO_SUCH_EXERCISE);
+  const record = await base.findExercise(env.DB, id);
+  const latest = record === null ? null : await loadLatest(env.DB, id);
+  if (latest === null) throw new HttpError(400, NO_SUCH_EXERCISE);
+  return { ...latest, archived: record.archive_le !== null };
 }
 
-// La séance du jeton présenté. Jeton absent, inconnu, expiré ou d'un autre exercice → 401 : le
-// navigateur renvoie alors à l'identification. Un appel accepté prolonge le jeton de 2 h.
-async function authenticate(request, env, exercise, now) {
+// La version épinglée à une séance (D47) : celle de sa création, jusqu'à la fin. Une séance sans
+// version (créée par l'ancien serveur entre la migration et le déploiement) prend la dernière
+// publiée, et y reste épinglée désormais.
+async function loadSessionVersion(env, session, latest) {
+  if (session.version_id === null) {
+    await base.pinSessionVersion(env.DB, session.id, latest.version.id);
+    return latest;
+  }
+  return loadVersion(env.DB, session.version_id);
+}
+
+// La séance du jeton présenté, avec sa version d'exercice. Jeton absent, inconnu, expiré ou d'un
+// autre exercice → 401 : le navigateur renvoie alors à l'identification. Un appel accepté prolonge
+// le jeton de 2 h. Retourne { session, data, exercise }.
+async function authenticate(request, env, latest, now) {
   const [, token] = (request.headers.get('authorization') ?? '').match(/^Bearer ([A-Za-z0-9_-]{20,100})$/) ?? [];
   const session = token ? await base.findSessionByToken(env.DB, await hashToken(token)) : null;
-  if (session === null || session.exercice_id !== exercise.id || session.jeton_expire_le <= now.toISOString()) {
+  if (session === null || session.exercice_id !== latest.exercise.id || session.jeton_expire_le <= now.toISOString()) {
     throw new HttpError(401, SESSION_EXPIRED);
   }
   await base.touchSession(env.DB, session.id, now.toISOString(), later(now, TOKEN_LIFETIME_MS));
-  return session;
+  const { data, exercise } = await loadSessionVersion(env, session, latest);
+  return { session, data, exercise };
 }
 
 // --- Limites de débit par adresse (D36) ---------------------------------------------------------------
@@ -141,6 +172,38 @@ function viewOptions(request, env, now) {
   return { now, testMode: isTestMode(env.MODE_TEST, hostname), cadenceMs: cadenceFor(env.CADENCE_S, hostname) };
 }
 
+// --- L'exercice pour le navigateur (D47) ---------------------------------------------------------------------
+// Le navigateur ne lit plus les JSON de site/ : il demande l'exercice au serveur — la dernière version
+// publiée pour l'accueil, ou la version épinglée à sa séance (?version=<n>) pour l'écran Question,
+// les feuilles de référence et les noms des outils. Rien de secret : les tables sont celles des
+// feuilles imprimées, et les copies d'outils ce qu'outils.json publiait.
+
+function exerciseView({ data, exercise, version }, archived) {
+  return {
+    exercice: { ...exercise, outils: data.outils.map((tool) => ({ ...tool, reussites_requises: exercise.outils.find((entry) => entry.id === tool.id).reussites_requises })) },
+    tables: { materiaux: { revision: data.revisions.materiaux, groupes_iso: [...data.materialsByGroup.keys()], materiaux: data.materiaux }, operations: { revision: data.revisions.operations, operations: data.operations } },
+    version: version.numero,
+    archive: archived,
+  };
+}
+
+// GET /api/exercice?exercice=<id>[&version=<n>] — l'exercice publié (sa dernière version, ou celle demandée).
+async function exercice(request, env) {
+  const params = new URL(request.url).searchParams;
+  const latest = await findExercise(env, params.get('exercice'));
+  const wanted = params.get('version');
+  if (wanted === null || Number(wanted) === latest.version.numero) return json(exerciseView(latest, latest.archived));
+  const version = /^[1-9]\d*$/.test(wanted) ? await base.findVersion(env.DB, latest.exercise.id, Number(wanted)) : null;
+  if (version === null) throw new HttpError(404, "Cette version de l'exercice n'existe pas.");
+  return json(exerciseView(await loadVersion(env.DB, version.id), latest.archived));
+}
+
+// GET /api/exercices — la liste de l'accueil (D18) : publiés, non archivés, sans « liste »: false.
+async function exercices(request, env) {
+  const rows = await base.listPublishedExercises(env.DB);
+  return json({ exercices: rows.filter((row) => row.archive_le === null && row.contenu.liste !== false).map((row) => ({ id: row.id, titre: row.contenu.titre })) });
+}
+
 // --- Identification en deux temps (D23) ------------------------------------------------------------------
 
 const ALREADY_EXISTS = 'Ce matricule a déjà une séance pour cet exercice.';
@@ -172,20 +235,26 @@ async function freshToken(now) {
 // Répond le prénom et l'initiale du nom, pour que l'étudiant se reconnaisse. Rien d'autre ne sort.
 async function consultation(request, env, { now }) {
   const body = await readBody(request);
-  const { exercise } = await findExercise(env, body.exercice);
+  const latest = await findExercise(env, body.exercice);
   requireValid(matriculeError(body.matricule));
   const matricule = body.matricule.trim();
   await limitRate(request, env, 'consultation', matricule, now);
-  const session = await base.findSession(env.DB, exercise.id, matricule);
-  if (session === null) return json({ trouvee: false });
+  const session = await base.findSession(env.DB, latest.exercise.id, matricule);
+  if (session === null) {
+    if (latest.archived) throw new HttpError(400, ARCHIVED_EXERCISE); // plus de nouvelle séance ; les séances existantes continuent
+    return json({ trouvee: false });
+  }
   return json({ trouvee: true, prenom: session.prenom, initiale: [...session.nom][0].toUpperCase() });
 }
 
 // --- POST /api/creation — écran 2/2, aucune séance : prénom, nom, matricule, NIP choisi.
-// Ne reprend jamais une séance existante : 409, et l'écran renvoie à la reprise.
+// Ne reprend jamais une séance existante : 409, et l'écran renvoie à la reprise. La séance est
+// épinglée à la dernière version publiée (D47).
 async function creation(request, env, { now }) {
   const body = await readBody(request);
-  const { data, exercise } = await findExercise(env, body.exercice);
+  const latest = await findExercise(env, body.exercice);
+  if (latest.archived) throw new HttpError(400, ARCHIVED_EXERCISE);
+  const { data, exercise, version } = latest;
   requireValid(validateStudent(body));
   const student = cleanStudent(body);
   const { token, stored } = await freshToken(now);
@@ -198,6 +267,7 @@ async function creation(request, env, { now }) {
     nom: student.nom,
     debut: now.toISOString(),
     version_exercice: exercise.version,
+    version_id: version.id,
     compteurs: emptyCounters(),
   });
   if (!created) throw new HttpError(409, ALREADY_EXISTS);
@@ -208,18 +278,19 @@ async function creation(request, env, { now }) {
 // --- POST /api/reprise — écran 2/2, séance trouvée : matricule + NIP. Ni prénom ni nom.
 async function reprise(request, env, { now }) {
   const body = await readBody(request);
-  const { data, exercise } = await findExercise(env, body.exercice);
+  const latest = await findExercise(env, body.exercice);
   requireValid(matriculeError(body.matricule), nipError(body.nip));
   const matricule = body.matricule.trim();
   const nip = body.nip.trim();
 
-  const session = await base.findSession(env.DB, exercise.id, matricule);
+  const session = await base.findSession(env.DB, latest.exercise.id, matricule);
   if (session === null) throw new HttpError(404, "Aucune séance pour ce matricule dans cet exercice.");
   await checkNip(env, session, nip, now);
 
   const { token, stored } = await freshToken(now);
   // nip_hache est réécrit : c'est ainsi qu'un NIP remis à zéro par l'enseignant est remplacé.
   await base.openSession(env.DB, session.id, { ...stored, nip_hache: await hashNip(env.CLE_SECRETE, matricule, nip), now: now.toISOString(), cleared: NIP_CLEARED });
+  const { data, exercise } = await loadSessionVersion(env, session, latest);
   return json({ jeton: token, seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env, now)) });
 }
 
@@ -230,8 +301,8 @@ async function reprise(request, env, { now }) {
 // Si le code tiré est déjà pris, on en tire un autre (D42).
 async function identite(request, env, { now, randomBytes }) {
   const body = await readBody(request);
-  const { data, exercise } = await findExercise(env, body.exercice);
-  const session = await authenticate(request, env, exercise, now);
+  const latest = await findExercise(env, body.exercice);
+  const { session, data, exercise } = await authenticate(request, env, latest, now);
   requireValid(validateStudent(body));
   const identity = cleanStudent(body);
   await checkNip(env, session, identity.nip, now);
@@ -260,8 +331,8 @@ async function identite(request, env, { now, randomBytes }) {
 // --- GET /api/seance?exercice=<id> ---------------------------------------------------------------------
 // L'état de la séance, sans rien tirer.
 async function seance(request, env, { now }) {
-  const { data, exercise } = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
-  const session = await authenticate(request, env, exercise, now);
+  const latest = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
+  const { session, data, exercise } = await authenticate(request, env, latest, now);
   return json({ seance: sessionView(session, exercise, data, viewOptions(request, env, now)) });
 }
 
@@ -270,8 +341,8 @@ async function seance(request, env, { now }) {
 // pas corrigée, c'est toujours la même qui revient : on ne « passe » pas une question.
 async function question(request, env, { now, random, randomBytes }) {
   const body = await readBody(request);
-  const { data, exercise } = await findExercise(env, body.exercice);
-  let session = await authenticate(request, env, exercise, now);
+  const latest = await findExercise(env, body.exercice);
+  let { session, data, exercise } = await authenticate(request, env, latest, now);
 
   if (session.reussite_le === null && !isQuestionValid(session.question_courante, session.compteurs, exercise, data)) {
     const drawn = drawQuestion(session.compteurs, exercise, data, random);
@@ -289,8 +360,8 @@ async function question(request, env, { now, random, randomBytes }) {
 // jour, journalise, et tire la question suivante (ou constate la réussite).
 async function correction(request, env, { now, random, randomBytes }) {
   const body = await readBody(request);
-  const { data, exercise } = await findExercise(env, body.exercice);
-  const session = await authenticate(request, env, exercise, now);
+  const latest = await findExercise(env, body.exercice);
+  const { session, data, exercise } = await authenticate(request, env, latest, now);
 
   if (session.reussite_le !== null || !isQuestionValid(session.question_courante, session.compteurs, exercise, data)) {
     throw new HttpError(409, "Aucune question n'attend de correction.");
@@ -330,8 +401,8 @@ async function correction(request, env, { now, random, randomBytes }) {
 // L'attestation de la séance, une fois l'exercice réussi ; un étudiant la retrouve par la reprise
 // de séance. Une séance réussie avant cette version reçoit la sienne ici, à la première ouverture.
 async function attestation(request, env, { now, randomBytes }) {
-  const { data, exercise } = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
-  const session = await authenticate(request, env, exercise, now);
+  const latest = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
+  const { session, data, exercise } = await authenticate(request, env, latest, now);
   if (session.reussite_le === null) throw new HttpError(409, "L'exercice n'est pas encore réussi.");
   return json(attestationView(request, await ensureAttestation(env, session, exercise, data, now, { randomBytes })));
 }
@@ -417,19 +488,25 @@ async function profDeconnexion() {
   return json({ deconnecte: true }, 200, { 'set-cookie': profCookieHeader(null) });
 }
 
+// Les titres des exercices, par identifiant, pour le tableau des séances : le titre de la dernière
+// version publiée, sinon celui du brouillon.
+async function exerciseTitles(env) {
+  return new Map((await base.listExercises(env.DB)).map((row) => [row.id, (row.contenu_publie ?? row.brouillon).titre]));
+}
+
 // GET /api/prof/seances — toutes les séances, pour le tableau des réussites ; le tri, le filtre et
 // la recherche se font dans le navigateur (une classe, pas une base de données).
 async function profSeances(request, env, { now }) {
   const { teacher, role } = await requireTeacher(request, env, now);
-  const { exercises } = await loadCatalogue(env.ASSETS);
+  const titles = await exerciseTitles(env);
   const rows = await base.listSessions(env.DB);
   return json({
     enseignant: teacher,
     role,
-    exercices: [...exercises.values()].map((exercise) => ({ id: exercise.id, titre: exercise.titre })),
+    exercices: [...titles].map(([id, titre]) => ({ id, titre })).sort((a, b) => a.titre.localeCompare(b.titre, 'fr')),
     seances: rows.map((row) => ({
       id: row.id,
-      exercice: { id: row.exercice_id, titre: exercises.get(row.exercice_id)?.titre ?? row.exercice_id },
+      exercice: { id: row.exercice_id, titre: titles.get(row.exercice_id) ?? row.exercice_id },
       prenom: row.prenom,
       nom: row.nom,
       matricule: row.matricule,
@@ -495,7 +572,7 @@ async function profSuppression(request, env, { now }) {
 // de corrections, corrections d'identité et attestations, les compteurs de débit et les verrous ;
 // garde le journal des actions, anonymisé (matricules, noms et codes → « — »), où les nombres effacés
 // sont inscrits. Les anciens codes d'attestation répondent ensuite « aucune ». Rôle admin seulement ;
-// sans le mot exact, 400 et rien n'est touché. Exercices et catalogue ne sont pas en base.
+// sans le mot exact, 400 et rien n'est touché. Exercices et banque d'outils ne sont pas touchés.
 async function profEffacement(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
@@ -513,17 +590,281 @@ async function profIdentites(request, env, { now }) {
   return json({ corrections: await base.listIdentityCorrections(env.DB) });
 }
 
+// --- L'éditeur : /api/prof/editeur/… (D47 à D49), rôle admin seulement ------------------------------------------
+// Chaque route exige le cookie professeur avec le rôle admin (requireAdmin : 401 sans cookie, 403 en
+// consultation), et chaque action est inscrite au journal des actions. L'aperçu, lui, n'enregistre rien.
+
+const CONFLICT = "Ce brouillon a été enregistré ailleurs depuis ton ouverture (un autre onglet ou un autre appareil). Recharge la page pour reprendre ses dernières modifications ; rien n'a été écrasé.";
+
+const logEntry = (teacher, now, action, details) => ({ horodatage: now.toISOString(), enseignant: teacher, action, details });
+
+// La fiche d'un exercice de l'éditeur, ou 404.
+async function editorExercise(env, id) {
+  const record = isExerciseId(id) ? await base.findExercise(env.DB, id) : null;
+  if (record === null) throw new HttpError(404, "Cet exercice n'existe pas.");
+  return record;
+}
+
+// Les tables de référence les plus récentes, tel quel : ce contre quoi un brouillon se valide.
+async function latestTables(env) {
+  const tables = await base.findLatestTables(env.DB);
+  return { id: tables.id, materiaux: tables.materiaux, operations: tables.operations };
+}
+
+// GET /api/prof/editeur/exercices — la liste : brouillon modifié ou non, dernière version, séances par version.
+async function editeurExercices(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const rows = await base.listExercises(env.DB);
+  const list = [];
+  for (const row of rows) {
+    list.push({
+      id: row.id,
+      titre: row.brouillon.titre,
+      modifie: row.contenu_publie === null || !sameContent(row.brouillon, row.contenu_publie),
+      derniere_version: row.derniere_version,
+      publie_le: row.publie_le,
+      archive_le: row.archive_le,
+      brouillon_modifie_le: row.brouillon_modifie_le,
+      seances: row.seances,
+      versions: await base.listVersions(env.DB, row.id),
+      liste: row.brouillon.liste !== false,
+    });
+  }
+  return json({ exercices: list });
+}
+
+// GET /api/prof/editeur/exercice?id=<id> — le brouillon avec sa révision, les versions (sans contenu), la dernière version (contenu) et les tables.
+async function editeurExercice(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const record = await editorExercise(env, new URL(request.url).searchParams.get('id'));
+  const latest = await base.findLatestVersion(env.DB, record.id);
+  const tables = await latestTables(env);
+  return json({
+    exercice: { id: record.id, brouillon: record.brouillon, revision: record.revision, brouillon_modifie_le: record.brouillon_modifie_le, publie_le: record.publie_le, archive_le: record.archive_le },
+    versions: await base.listVersions(env.DB, record.id),
+    derniere_version: latest === null ? null : { numero: latest.numero, contenu: latest.contenu, tables_id: latest.tables_id, publiee_le: latest.publiee_le },
+    tables,
+    erreurs: draftErrors(record.brouillon, tables),
+  });
+}
+
+// POST /api/prof/editeur/exercice/creer — { id, titre } ou { id, depuis: <id d'un exercice> } (dupliquer).
+async function editeurCreer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  if (!isExerciseId(body.id)) throw new HttpError(400, "L'identifiant doit être fait de minuscules, de chiffres et de tirets (ex. « m10-fraisage »), et ne peut pas être « index ».");
+  let brouillon;
+  let details;
+  if (typeof body.depuis === 'string') {
+    const source = await editorExercise(env, body.depuis);
+    brouillon = structuredClone(source.brouillon);
+    brouillon.titre = typeof body.titre === 'string' && body.titre.trim() !== '' ? body.titre.trim() : `${brouillon.titre} (copie)`;
+    details = `${body.id} · dupliqué de ${body.depuis}`;
+  } else {
+    if (typeof body.titre !== 'string' || body.titre.trim() === '') throw new HttpError(400, 'Le titre est requis.');
+    brouillon = { titre: body.titre.trim(), champs_evalues: ['vc'], outils: [] };
+    details = `${body.id} · ${brouillon.titre}`;
+  }
+  const created = await base.createExercise(env.DB, { id: body.id, brouillon, now: now.toISOString() }, logEntry(teacher, now, typeof body.depuis === 'string' ? 'editeur_duplication' : 'editeur_creation', details));
+  if (!created) throw new HttpError(409, `L'identifiant « ${body.id} » est déjà pris.`);
+  return json({ cree: true, id: body.id });
+}
+
+// POST /api/prof/editeur/exercice/enregistrer — { id, revision, brouillon } : contrôle optimiste (D48).
+async function editeurEnregistrer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  const record = await editorExercise(env, body.id);
+  if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision du brouillon est requise.');
+  const brouillon = cleanDraft(body.brouillon);
+  if (!Array.isArray(brouillon.outils) || !Array.isArray(brouillon.champs_evalues)) throw new HttpError(400, 'Le brouillon est mal formé.');
+  const tables = await latestTables(env);
+  const erreurs = draftErrors(brouillon, tables);
+  const saved = await base.saveDraft(env.DB, record.id, body.revision, brouillon, now.toISOString(), logEntry(teacher, now, 'editeur_enregistrement', `${record.id} · révision ${body.revision + 1}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s)` : ''}`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
+  return json({ enregistre: true, revision: body.revision + 1, erreurs });
+}
+
+// POST /api/prof/editeur/exercice/renommer — { id, titre } : le titre du brouillon (à publier ensuite).
+async function editeurRenommer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  if (typeof body.titre !== 'string' || body.titre.trim() === '') throw new HttpError(400, 'Le titre est requis.');
+  const brouillon = { ...record.brouillon, titre: body.titre.trim() };
+  const saved = await base.saveDraft(env.DB, record.id, record.revision, brouillon, now.toISOString(), logEntry(teacher, now, 'editeur_renommage', `${record.id} · « ${record.brouillon.titre} » → « ${brouillon.titre} »`));
+  if (!saved) throw new HttpError(409, CONFLICT);
+  return json({ renomme: true, titre: brouillon.titre });
+}
+
+// POST /api/prof/editeur/exercice/archiver — { id, archive: true|false }.
+async function editeurArchiver(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  if (typeof body.archive !== 'boolean') throw new HttpError(400, '« archive » doit être true ou false.');
+  await base.archiveExercise(env.DB, record.id, body.archive ? now.toISOString() : null, logEntry(teacher, now, body.archive ? 'editeur_archivage' : 'editeur_retablissement', record.id));
+  return json({ archive: body.archive, id: record.id });
+}
+
+// POST /api/prof/editeur/exercice/supprimer — { id } : seulement sans aucune séance ; sinon, archiver.
+async function editeurSupprimer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  const sessions = await base.countSessionsOfExercise(env.DB, record.id);
+  if (sessions > 0) throw new HttpError(409, `Cet exercice a ${sessions} séance(s) : il ne peut pas être supprimé, seulement archivé.`);
+  await base.deleteExercise(env.DB, record.id, logEntry(teacher, now, 'editeur_suppression', `${record.id} · « ${record.brouillon.titre} »`));
+  return json({ supprime: true, id: record.id });
+}
+
+// POST /api/prof/editeur/exercice/publier — { id, revision } : le brouillon devient la version suivante, s'il est valide.
+async function editeurPublier(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
+  const tables = await latestTables(env);
+  const erreurs = draftErrors(record.brouillon, tables);
+  if (erreurs.length > 0) throw new HttpError(400, `Le brouillon a ${erreurs.length} erreur(s) : il ne peut pas être publié.`, { erreurs });
+  const latest = await base.findLatestVersion(env.DB, record.id);
+  const numero = (latest?.numero ?? 0) + 1;
+  const published = await base.publishVersion(env.DB, { id: record.id, revision: record.revision, numero, contenu: record.brouillon, tablesId: tables.id, now: now.toISOString() },
+    logEntry(teacher, now, 'editeur_publication', `${record.id} · version ${numero} · tables ${tables.id}`));
+  if (!published) throw new HttpError(409, CONFLICT);
+  return json({ publie: true, numero, publiee_le: now.toISOString() });
+}
+
+// POST /api/prof/editeur/apercu — { id, brouillon } ou { id, version } : dix questions et leurs réponses. Rien n'est enregistré.
+async function editeurApercu(request, env, { now, random }) {
+  await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  const record = await editorExercise(env, body.id);
+  let assembledExercise;
+  if (Number.isInteger(body.version)) {
+    const version = await base.findVersion(env.DB, record.id, body.version);
+    if (version === null) throw new HttpError(404, "Cette version n'existe pas.");
+    assembledExercise = await loadVersion(env.DB, version.id);
+  } else {
+    const brouillon = cleanDraft(body.brouillon ?? record.brouillon);
+    const erreurs = draftErrors(brouillon, await latestTables(env));
+    if (erreurs.length > 0) throw new HttpError(400, "Le brouillon a des erreurs : corrige-les avant l'aperçu.", { erreurs });
+    assembledExercise = await assembleDraft(env.DB, record.id, brouillon);
+  }
+  return json({ questions: previewQuestions(assembledExercise.exercise, assembledExercise.data, random, 10), champs_evalues: assembledExercise.exercise.champs_evalues });
+}
+
+// GET /api/prof/editeur/banque — les outils de la banque, avec le nombre d'exercices qui en ont une copie (brouillons).
+async function editeurBanque(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const tools = await base.listBankTools(env.DB);
+  const exercises = await base.listExercises(env.DB);
+  const tables = await latestTables(env);
+  const copies = (id) => exercises.filter((e) => e.brouillon.outils.some((copy) => copy.origine === id)).map((e) => e.id);
+  return json({ outils: tools.map((row) => ({ id: row.id, outil: row.outil, revision: row.revision, rang: row.rang, archive_le: row.archive_le, modifie_le: row.modifie_le, exercices: copies(row.id) })), tables });
+}
+
+// GET /api/prof/editeur/tables — les tables de référence les plus récentes (pour les listes de l'éditeur).
+async function editeurTables(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  return json({ tables: await latestTables(env) });
+}
+
+// POST /api/prof/editeur/banque/creer — { id, outil } ou { id, depuis: <id> } (dupliquer).
+async function editeurBanqueCreer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  if (!isToolId(body.id)) throw new HttpError(400, "L'identifiant d'outil doit être fait de minuscules, de chiffres et de soulignés (ex. « foret_udrill »).");
+  let outil;
+  if (typeof body.depuis === 'string') {
+    const source = await base.findBankTool(env.DB, body.depuis);
+    if (source === null) throw new HttpError(404, "L'outil à dupliquer n'existe pas.");
+    outil = { ...structuredClone(source.outil), id: body.id, nom: `${source.outil.nom} (copie)` };
+  } else {
+    outil = { ...cleanTool(body.outil), id: body.id };
+  }
+  const created = await base.createBankTool(env.DB, { id: body.id, outil, now: now.toISOString() }, logEntry(teacher, now, typeof body.depuis === 'string' ? 'editeur_banque_duplication' : 'editeur_banque_creation', `${body.id}${typeof body.depuis === 'string' ? ` · dupliqué de ${body.depuis}` : ''}`));
+  if (!created) throw new HttpError(409, `L'identifiant « ${body.id} » est déjà pris.`);
+  return json({ cree: true, id: body.id });
+}
+
+// POST /api/prof/editeur/banque/enregistrer — { id, revision, outil } : contrôle optimiste (D48).
+async function editeurBanqueEnregistrer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  const record = isToolId(body.id) ? await base.findBankTool(env.DB, body.id) : null;
+  if (record === null) throw new HttpError(404, "Cet outil n'existe pas dans la banque.");
+  if (!Number.isInteger(body.revision)) throw new HttpError(400, "La révision de l'outil est requise.");
+  const outil = { ...cleanTool(body.outil), id: record.id };
+  const tables = await latestTables(env);
+  const erreurs = validateData({ materiaux: tables.materiaux, operations: tables.operations, outils: { outils: [outil] } }).map((message) => ({ champ: '', message }));
+  const saved = await base.saveBankTool(env.DB, record.id, body.revision, outil, now.toISOString(), logEntry(teacher, now, 'editeur_banque_enregistrement', `${record.id} · révision ${body.revision + 1}`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findBankTool(env.DB, record.id)).revision });
+  return json({ enregistre: true, revision: body.revision + 1, erreurs });
+}
+
+// POST /api/prof/editeur/banque/archiver — { id, archive: true|false }.
+async function editeurBanqueArchiver(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = isToolId(body.id) ? await base.findBankTool(env.DB, body.id) : null;
+  if (record === null) throw new HttpError(404, "Cet outil n'existe pas dans la banque.");
+  if (typeof body.archive !== 'boolean') throw new HttpError(400, '« archive » doit être true ou false.');
+  await base.archiveBankTool(env.DB, record.id, body.archive ? now.toISOString() : null, logEntry(teacher, now, body.archive ? 'editeur_banque_archivage' : 'editeur_banque_retablissement', record.id));
+  return json({ archive: body.archive, id: record.id });
+}
+
+// GET /api/prof/editeur/export — la sauvegarde complète : tables, banque, exercices et toutes leurs versions.
+async function editeurExport(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const data = await base.exportEditorData(env.DB);
+  await base.addTeacherLog(env.DB, logEntry(teacher, now, 'editeur_export', `${data.exercices.length} exercice(s) · ${data.banque.length} outil(s)`));
+  return json({ format: EXPORT_FORMAT, exporte_le: now.toISOString(), version_serveur: pkg.version, ...data });
+}
+
+// Le plan d'un import, à partir d'un export reçu et de ce que la base contient.
+async function planImport(env, received) {
+  const existing = await base.exportEditorData(env.DB);
+  return importPlan(received, existing, {
+    tablesErrors: (t) => validateData({ materiaux: t.materiaux, operations: t.operations, outils: { outils: [] } }).filter((m) => !m.startsWith('outils')),
+    draftErrorsOf: (contenu, tables) => draftErrors(contenu, tables),
+  });
+}
+
+// POST /api/prof/editeur/import/valider — { export } : ce que l'import ferait, et ses erreurs ; rien n'est écrit.
+async function editeurImportValider(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  const { erreurs, resume } = await planImport(env, body.export);
+  return json({ erreurs, resume });
+}
+
+// POST /api/prof/editeur/import — { export, confirmation: "IMPORTER" } : applique le plan, sans erreur seulement.
+export const IMPORT_WORD = 'IMPORTER';
+
+async function editeurImport(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  if (body.confirmation !== IMPORT_WORD) throw new HttpError(400, `Pour importer, la requête doit porter le mot ${IMPORT_WORD}.`);
+  const { erreurs, plan, resume } = await planImport(env, body.export);
+  if (erreurs.length > 0) throw new HttpError(400, "L'export a des erreurs : rien n'a été importé.", { erreurs });
+  await base.applyImport(env.DB, plan, now.toISOString(), logEntry(teacher, now, 'editeur_import', importDetails(resume)));
+  return json({ importe: true, resume });
+}
+
 // --- POST /api/deconnexion -------------------------------------------------------------------------------
 // « Changer d'étudiant » : le jeton ne vaut plus rien, sur aucun appareil.
 async function deconnexion(request, env, { now }) {
   const body = await readBody(request);
-  const { exercise } = await findExercise(env, body.exercice);
-  const session = await authenticate(request, env, exercise, now);
+  const latest = await findExercise(env, body.exercice);
+  const { session } = await authenticate(request, env, latest, now);
   await base.closeToken(env.DB, session.id);
   return json({ deconnecte: true });
 }
 
 const ROUTES = {
+  'GET /api/exercice': exercice,
+  'GET /api/exercices': exercices,
   'POST /api/consultation': consultation,
   'POST /api/creation': creation,
   'POST /api/reprise': reprise,
@@ -542,7 +883,27 @@ const ROUTES = {
   'POST /api/prof/suppression': profSuppression,
   'POST /api/prof/effacement': profEffacement,
   'GET /api/prof/identites': profIdentites,
+  'GET /api/prof/editeur/exercices': editeurExercices,
+  'GET /api/prof/editeur/exercice': editeurExercice,
+  'POST /api/prof/editeur/exercice/creer': editeurCreer,
+  'POST /api/prof/editeur/exercice/enregistrer': editeurEnregistrer,
+  'POST /api/prof/editeur/exercice/renommer': editeurRenommer,
+  'POST /api/prof/editeur/exercice/archiver': editeurArchiver,
+  'POST /api/prof/editeur/exercice/supprimer': editeurSupprimer,
+  'POST /api/prof/editeur/exercice/publier': editeurPublier,
+  'POST /api/prof/editeur/apercu': editeurApercu,
+  'GET /api/prof/editeur/banque': editeurBanque,
+  'GET /api/prof/editeur/tables': editeurTables,
+  'POST /api/prof/editeur/banque/creer': editeurBanqueCreer,
+  'POST /api/prof/editeur/banque/enregistrer': editeurBanqueEnregistrer,
+  'POST /api/prof/editeur/banque/archiver': editeurBanqueArchiver,
+  'GET /api/prof/editeur/export': editeurExport,
+  'POST /api/prof/editeur/import/valider': editeurImportValider,
+  'POST /api/prof/editeur/import': editeurImport,
 };
+
+// Les routes de l'éditeur, toutes réservées au rôle admin (tests : refus du rôle consultation sur chacune).
+export const EDITOR_ROUTES = Object.keys(ROUTES).filter((route) => route.includes('/api/prof/editeur/'));
 
 // Traite une requête. `tools` porte l'horloge et l'aléa — celui des tirages (random) et celui des
 // codes d'attestation (randomBytes, D32) —, que les tests remplacent.

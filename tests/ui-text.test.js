@@ -6,11 +6,11 @@ import {
   DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
   localDate, serverErrorMessage, sheetSignature, studentLine,
 } from '../site/js/ui/text.js';
-import { loadApp } from '../site/js/app.js';
+import { loadExercise } from '../site/js/exercice.js';
 import { ApiError } from '../site/js/api.js';
-import { lireFichier } from './aide.js';
+import { data, lireFichier } from './aide.js';
 
-const { exercise: m10 } = await loadApp('?exercice=m10-tournage-vc', lireFichier);
+const m10 = await loadExercise('m10-tournage-vc', data, 'exercices/', lireFichier);
 
 const CINQ_CHAMPS = {
   id: 'essai',

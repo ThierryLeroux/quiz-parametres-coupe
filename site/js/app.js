@@ -2,40 +2,50 @@
 //
 // Aucun DOM ici : seulement des fonctions testables sous Node. Depuis D19, tout le reste d'une
 // séance — tirage, correction, compteurs — se passe sur le serveur de correction
-// (worker/seance.js) ; le navigateur y accède par api.js.
+// (worker/seance.js) ; le navigateur y accède par api.js. Depuis D47 (jalon 7), l'exercice et son
+// catalogue viennent aussi du serveur (GET /api/exercice), plus des JSON de site/ : le navigateur
+// reçoit la version publiée — la dernière pour l'accueil, celle de la séance ensuite — avec ses
+// copies d'outils et ses tables de référence, et assemble le catalogue comme le fait le serveur.
 
-import { fetchJson, loadData } from './data.js';
-import { loadExercise, loadExerciseIndex } from './exercice.js';
+import { getExercise, listOfferedExercises } from './api.js';
+import { assembleData } from './data.js';
+import { engineExercise } from './exercice.js';
 
-// Exercice demandé par l'adresse de la page : « ?exercice=<id> » (décision D18).
+// Exercice demandé par l'adresse de la page : « ?exercice=<id> » (décision D18), ou null.
 //   search : location.search (ex. « ?exercice=m10-tournage-vc »)
-//   index  : résultat de loadExerciseIndex, [{ id, titre }, …]
-// Retourne { exercise, unknownId } :
-//   exercise  : l'entrée { id, titre } de l'index, ou null si l'adresse n'en nomme aucune
-//   unknownId : ce que l'adresse demande et qui n'est PAS dans l'index, ou null
-// Seuls les exercices de l'index sont offerts, et il n'y a aucun repli : sans exercice reconnu,
-// l'accueil montre la liste des exercices (UI §3.1).
-export function requestedExercise(search, index) {
-  const requested = new URLSearchParams(search).get('exercice') || null;
-  const exercise = index.find((entry) => entry.id === requested) ?? null;
-  return { exercise, unknownId: exercise === null ? requested : null };
+export function requestedExerciseId(search) {
+  return new URLSearchParams(search).get('exercice') || null;
 }
 
-// Charge tout ce qu'il faut à la page : catalogue, index, et l'exercice nommé par l'adresse.
-// Retourne { data, index, exercise, unknownId, listed } — exercise vaut null si l'adresse n'en
-// nomme aucun de l'index (voir requestedExercise) ; l'accueil montre alors `listed`, les exercices
-// de l'index dont le fichier ne dit pas « liste »: false (exercices d'essai, D30). C'est le seul cas
-// où plusieurs fichiers d'exercice sont lus.
-//   readJson : lecteur injectable (fetch par défaut), comme dans loadData
-export async function loadApp(search, readJson = fetchJson) {
-  const data = await loadData('data/', readJson);
-  const index = await loadExerciseIndex('exercices/', readJson);
-  const { exercise: entry, unknownId } = requestedExercise(search, index);
-  const exercise = entry === null ? null : await loadExercise(entry.id, data, 'exercices/', readJson);
-  let listed = [];
-  if (exercise === null) {
-    const files = await Promise.all(index.map((item) => loadExercise(item.id, data, 'exercices/', readJson)));
-    listed = index.filter((_, i) => files[i].liste !== false);
+// Ce que le serveur rend d'une version d'exercice (GET /api/exercice) → { data, exercise, version, archived } :
+// le catalogue au format de loadData (assembleData : les tables de la version et les copies d'outils)
+// et l'exercice au format du moteur.
+export function assembleExercise(response) {
+  const { exercise, tools } = engineExercise(response.exercice.id, response.exercice.version, response.exercice);
+  return { data: assembleData(response.tables, tools), exercise, version: response.version, archived: response.archive === true };
+}
+
+// Charge ce qu'il faut à la page. Retourne { data, exercise, version, archived, unknownId, listed } :
+//   exercise  : l'exercice nommé par l'adresse, dans sa dernière version publiée — ou null si l'adresse
+//               n'en nomme aucun que le serveur connaisse ; l'accueil montre alors `listed`, les exercices
+//               offerts (publiés, non archivés, sans « liste »: false), et `unknownId`, l'id demandé qui n'existe pas
+//   request   : fonction fetch injectable, pour les tests
+// Seuls les exercices publiés existent, et il n'y a aucun repli (D18).
+export async function loadApp(search, request = fetch) {
+  const id = requestedExerciseId(search);
+  if (id !== null) {
+    try {
+      return { ...assembleExercise(await getExercise(id, null, request)), unknownId: null, listed: [] };
+    } catch (error) {
+      if (error.status !== 400 && error.status !== 404) throw error;
+    }
   }
-  return { data, index, exercise, unknownId, listed };
+  const { exercices } = await listOfferedExercises(request);
+  return { data: null, exercise: null, version: null, archived: false, unknownId: id, listed: exercices };
+}
+
+// La version d'exercice d'une séance en cours, quand elle n'est pas la dernière publiée (D47) :
+// même forme que loadApp, sans liste.
+export async function loadExerciseVersion(id, version, request = fetch) {
+  return assembleExercise(await getExercise(id, version, request));
 }

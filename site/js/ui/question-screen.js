@@ -65,7 +65,7 @@ function toolPanel(question) {
   return el('section', { class: 'panel tool-card', style: `--panel-color: var(${toolMaterialColor(outil.materiau)})` }, [
     el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Outil de coupe'), el('div', { class: 'swatch smaller' }, outil.materiau.toLowerCase())]),
     el('div', { class: 'tool-body' }, [
-      optionalImage(`img/outils/${outil.id}.png`, 'tool-photo'),
+      optionalImage(`img/outils/${outil.image ?? outil.id}.png`, 'tool-photo'),
       el('div', {}, [
         el('h2', { class: 'tool-title' }, question.identifiant),
         el('p', { class: 'tool-operation small' }, [optionalImage(operationPicto(outil.operation), 'operation-picto'), `Opération : ${outil.operation}`]),

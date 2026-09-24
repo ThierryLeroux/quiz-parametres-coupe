@@ -9,20 +9,25 @@ import { signAttestation } from '../worker/crypto.js';
 import { lireFichier } from './aide.js';
 
 const M10 = 'm10-tournage-vc';
+// Le M10 tel qu'il est semé en base (migration 0005) : la version 1, identique au fichier du dépôt.
+const VERSION_1 = '1';
 const CAMILLE = { exercice: M10, prenom: 'Camille', nom: 'Tremblay', matricule: '2412345', nip: '4821' };
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
 const index = await lireFichier('exercices/index.json');
 
 // Un second exercice, pour les jetons « d'un autre exercice » : cinq champs évalués, un seul outil.
+// Publié en base par serveur.publierExercice (D47) : ses restrictions deviennent la copie de l'outil.
 const ESSAI = {
   id: 'essai-percage', titre: 'Essai — perçage', version: 'r1', champs_evalues: ['vc', 'fz', 'n', 'f', 'vf'],
   outils: [{ id: 'foret_fractionnaire', reussites_requises: 2, dimensions: ['Ø 1/4 po'], materiaux_outil: ['Acier rapide'], groupes: ['P - Acier non allié'] }],
 };
-const DEUX_EXERCICES = {
-  'exercices/index.json': { exercices: [...index.exercices, { id: ESSAI.id, titre: ESSAI.titre }] },
-  'exercices/essai-percage.json': ESSAI,
-};
+// Un serveur où l'essai est publié à côté des deux M10 semés.
+function serveurAvecEssai(options = {}) {
+  const serveur = serveurDeTest(options);
+  serveur.publierExercice(ESSAI);
+  return serveur;
+}
 
 // Crée la séance de Camille et demande sa première question ; retourne { jeton, seance }.
 async function commencer(serveur, etudiant = CAMILLE) {
@@ -107,8 +112,9 @@ test('mode test : MODE_TEST ne figure ni dans wrangler.jsonc ni dans le déploie
   }
 });
 
-test('test-complet : l’exercice de test est servi par le serveur, avec ses 29 outils et ses cinq champs à saisir', async () => {
+test('test-complet : l’exercice de test, publié depuis son fichier, est servi par le serveur avec ses 29 outils et ses cinq champs à saisir', async () => {
   const serveur = serveurDeTest();
+  serveur.publierExercice(await lireFichier('exercices/test-complet.json'));
   const { seance } = await commencer(serveur, { ...CAMILLE, exercice: 'test-complet' });
   assert.equal(seance.progression.outils.length, 29);
   assert.deepEqual(seance.question.champs.map((champ) => champ.evalue), [true, true, true, true, true]);
@@ -208,13 +214,14 @@ test('création : nouvelle séance, jeton de 43 caractères ; la base ne contien
   assert.equal(status, 200);
   assert.match(corps.jeton, /^[A-Za-z0-9_-]{43}$/);
   assert.deepEqual(corps.seance.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412345' });
-  assert.deepEqual(corps.seance.exercice, { id: M10, titre: m10.titre, version: 'r0' });
+  assert.deepEqual(corps.seance.exercice, { id: M10, titre: m10.titre, version: VERSION_1 });
   assert.equal(corps.seance.question, null); // rien n'est tiré avant POST /api/question
   assert.equal(corps.seance.progression.total_reussies, 0);
 
   const ligne = serveur.seance();
   assert.equal(ligne.debut, '2026-09-21T13:05:00.000Z');
-  assert.equal(ligne.version_exercice, 'r0');
+  assert.equal(ligne.version_exercice, VERSION_1);
+  assert.equal(ligne.version_id, serveur.db.sqlite.prepare('SELECT id FROM versions_exercice WHERE exercice_id = ? AND numero = 1').get(M10).id); // épinglée (D47)
   assert.equal(ligne.jeton_expire_le, '2026-09-21T15:05:00.000Z'); // 2 h
   assert.match(ligne.nip_hache, /^[A-Za-z0-9_-]{43}$/);
   const contenu = JSON.stringify(ligne);
@@ -344,7 +351,7 @@ test('jeton : expire 2 h après la dernière activité ; chaque appel le prolong
 });
 
 test('jeton d’un autre exercice → 401 ; chaque exercice a sa séance, son NIP et son jeton', async () => {
-  const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
+  const serveur = serveurAvecEssai();
   const m10Seance = await commencer(serveur);
   const essai = await commencer(serveur, { ...CAMILLE, exercice: ESSAI.id, nip: '777777' });
 
@@ -425,7 +432,7 @@ test('correction juste : compteur de l’outil, total, journal, question suivant
 });
 
 test('correction fausse : remise à zéro de cet outil seulement, total inchangé, journalisée elle aussi', async () => {
-  const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
+  const serveur = serveurAvecEssai();
   const { jeton } = await commencer(serveur, { ...CAMILLE, exercice: ESSAI.id });
   assert.equal((await repondre(serveur, jeton, true, ESSAI.id)).corps.seance.progression.outils[0].reussites, 1);
 
@@ -498,7 +505,7 @@ test('complétion : 15 bonnes réponses au M10 → réussite datée, plus de que
   assert.equal(finale.question, null);
   assert.equal(finale.progression.outils_termines, 9);
   assert.equal(finale.progression.total_reussies, 15); // 1 + 3 + 3 + 1 + 1 + 3 + 1 + 1 + 1
-  assert.deepEqual([serveur.seance().reussite_le, serveur.seance().version_exercice, serveur.seance().version_exercice_reussite], [finale.reussite_le, 'r0', 'r0']);
+  assert.deepEqual([serveur.seance().reussite_le, serveur.seance().version_exercice, serveur.seance().version_exercice_reussite], [finale.reussite_le, VERSION_1, VERSION_1]);
   assert.equal(serveur.journal().length, 15);
 
   serveur.avancer(MINUTE);
@@ -513,52 +520,82 @@ test('correction sans question tirée → 409', async () => {
   assert.equal((await serveur.appel('POST', '/api/correction', { jeton: corps.jeton, corps: { exercice: M10, saisies: { vc: '400' } } })).status, 409);
 });
 
-// --- Exercice modifié en cours de session (D21) --------------------------------------------------------------
+// --- Séance épinglée à sa version (D47) : une publication ne touche pas les séances en cours --------------------
 
-test('exercice modifié : la séance continue — outil retiré (et sa question), outil ajouté à zéro, version notée à la réussite', async () => {
+test('séance épinglée (D47) : après la publication d’une version 2, la séance en cours garde la version 1 — même titre, mêmes outils, même question — et une nouvelle séance prend la 2', async () => {
   const serveur = serveurDeTest();
   const { jeton, seance } = await commencer(serveur);
   assert.equal((await repondre(serveur, jeton, true)).status, 200);
-  const reussi = seance.question.outil.id;
   const enAttente = JSON.parse(serveur.seance().question_courante).tool.id;
 
-  // L'enseignant publie la r1 : l'outil de la question en attente est retiré, un foret est ajouté.
-  const r1 = { ...m10, version: 'r1', outils: [...m10.outils.filter((outil) => outil.id !== enAttente), { id: 'foret_fractionnaire', reussites_requises: 1 }] };
-  serveur.publier({ 'exercices/m10-tournage-vc.json': r1 });
+  // L'enseignant publie la version 2 : l'outil de la question en attente est retiré, un foret est ajouté, le titre change.
+  const v2 = { ...m10, titre: 'M10 — Tournage (v2)', outils: [...m10.outils.filter((outil) => outil.id !== enAttente), { id: 'foret_fractionnaire', reussites_requises: 1 }] };
+  assert.equal(serveur.publierExercice(v2), 2);
 
-  // Corriger la question d'un outil retiré : refusé ; la question suivante est tirée dans la r1.
+  // Camille continue sur la version 1 : la question en attente vaut toujours, l'outil retiré est toujours là, le titre est l'ancien.
   serveur.avancer(11 * SECONDE);
-  assert.equal((await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: { vc: '1' } } })).status, 409);
-  const suite = (await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } })).corps.seance;
-  assert.equal(suite.exercice.version, 'r1');
-  assert.notEqual(suite.question.outil.id, enAttente);
-  assert.equal(suite.progression.outils.some((outil) => outil.id === enAttente), false);
-  assert.deepEqual(suite.progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', operation: 'Perçage', plage: 'Ø 1/64 po à Ø 1 po', reussites: 0, requises: 1 });
-  assert.equal(suite.progression.total_reussies, 1); // ce qui est acquis le reste
-  if (reussi !== enAttente) assert.equal(suite.progression.outils.find((outil) => outil.id === reussi).reussites, 1);
+  const suite = (await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance;
+  assert.deepEqual(suite.exercice, { id: M10, titre: m10.titre, version: VERSION_1 });
+  assert.equal(suite.question.outil.id, enAttente);
+  assert.deepEqual(suite.progression.outils.map((outil) => outil.id), m10.outils.map((outil) => outil.id));
+  assert.equal((await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: serveur.bonnesReponses() } })).status, 200);
 
+  // Une nouvelle séance, elle, prend la version 2 ; sa reprise aussi.
+  const alex = await commencer(serveur, { ...CAMILLE, prenom: 'Alex', nom: 'Roy', matricule: '2498765' });
+  assert.deepEqual(alex.seance.exercice, { id: M10, titre: 'M10 — Tournage (v2)', version: '2' });
+  assert.deepEqual(alex.seance.progression.outils.at(-1), { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', operation: 'Perçage', plage: 'Ø 1/64 po à Ø 1 po', reussites: 0, requises: 1 });
+  assert.equal(alex.seance.progression.outils.some((outil) => outil.id === enAttente), false);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: { ...CAMILLE, matricule: '2498765' } })).corps.seance.exercice.version, '2');
+
+  // Camille va jusqu'au bout sur la version 1 : la réussite note la version 1.
   let etat = suite;
   for (let n = 0; etat.reussite_le === null; n += 1) {
     assert.ok(n < 20);
     etat = (await repondre(serveur, jeton, true)).corps.seance;
   }
-  assert.deepEqual([serveur.seance().version_exercice, serveur.seance().version_exercice_reussite], ['r0', 'r1']);
+  assert.deepEqual([serveur.seance().version_exercice, serveur.seance().version_exercice_reussite], [VERSION_1, VERSION_1]);
+  assert.equal(serveur.attestations()[0].enregistrement.revision, VERSION_1);
+  assert.equal(serveur.attestations()[0].enregistrement.exercice.titre, m10.titre);
 });
 
-test('exercice allégé au point d’être déjà réussi : la réussite est constatée à la prochaine demande de question', async () => {
+test('séance sans version (créée par l’ancien serveur entre la migration et le déploiement) : elle prend la dernière version publiée et y reste épinglée', async () => {
   const serveur = serveurDeTest();
-  const { jeton, seance } = await commencer(serveur);
-  assert.equal((await repondre(serveur, jeton, true)).status, 200);
-  const outil = m10.outils.find((entry) => entry.id === seance.question.outil.id);
-  serveur.publier({ 'exercices/m10-tournage-vc.json': { ...m10, version: 'r2', outils: [{ ...outil, reussites_requises: 1 }] } });
+  const { jeton } = await commencer(serveur);
+  serveur.db.sqlite.exec('UPDATE seances SET version_id = NULL');
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.exercice.version, VERSION_1);
+  assert.equal(serveur.seance().version_id, serveur.db.sqlite.prepare('SELECT id FROM versions_exercice WHERE exercice_id = ? AND numero = 1').get(M10).id);
+  serveur.publierExercice({ ...m10, titre: 'M10 (v2)' });
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.exercice.version, VERSION_1); // épinglée, désormais
+});
 
-  // La question en attente ne vaut plus, quel que soit son outil : lui aussi est déjà réussi.
-  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.question, null);
-  const { corps } = await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } });
-  assert.equal(corps.seance.question, null);
-  assert.equal(corps.seance.reussite_le, serveur.maintenant.toISOString());
-  assert.equal(corps.seance.progression.outils_termines, 1);
-  assert.deepEqual([serveur.seance().version_exercice_reussite, serveur.seance().question_courante], ['r2', null]);
+test('exercice archivé : plus de nouvelle séance (consultation et création refusées), mais les séances existantes continuent ; la liste de l’accueil ne le montre plus', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await commencer(serveur);
+  serveur.db.sqlite.prepare('UPDATE exercices SET archive_le = ? WHERE id = ?').run(serveur.maintenant.toISOString(), M10);
+  assert.deepEqual(await serveur.appel('POST', '/api/creation', { corps: { ...CAMILLE, matricule: '2498765' } }), { status: 400, corps: { erreur: "Cet exercice n'est plus offert." } });
+  assert.equal((await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '2498765' } })).status, 400);
+  assert.deepEqual((await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: CAMILLE.matricule } })).corps, { trouvee: true, prenom: 'Camille', initiale: 'T' });
+  assert.equal((await repondre(serveur, jeton, true)).status, 200);
+  assert.equal((await serveur.appel('POST', '/api/reprise', { corps: CAMILLE })).status, 200);
+  assert.deepEqual((await serveur.appel('GET', '/api/exercices')).corps.exercices.map((e) => e.id), ['m10-tournage-vc-rpm']);
+  assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.archive, true);
+});
+
+test('GET /api/exercice et /api/exercices (D47) : la dernière version publiée avec ses copies d’outils et ses tables, ou une version précise ; la liste de l’accueil sans les exercices « liste »: false', async () => {
+  const serveur = serveurDeTest();
+  const { status, corps } = await serveur.appel('GET', `/api/exercice?exercice=${M10}`);
+  assert.equal(status, 200);
+  assert.deepEqual([corps.version, corps.archive, corps.exercice.id, corps.exercice.titre, corps.exercice.version], [1, false, M10, m10.titre, VERSION_1]);
+  assert.deepEqual(corps.exercice.outils.map((o) => [o.id, o.reussites_requises]), m10.outils.map((o) => [o.id, o.reussites_requises]));
+  assert.equal(corps.exercice.outils[0].dimensions.length, 11); // la copie complète du MCLNR
+  assert.deepEqual([corps.tables.materiaux.revision, corps.tables.materiaux.materiaux.length, corps.tables.operations.operations.length], ['A2026_r0', 47, 19]);
+  assert.equal((await serveur.appel('GET', '/api/exercice?exercice=inconnu')).status, 400);
+  assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}&version=9`)).status, 404);
+  serveur.publierExercice({ ...m10, titre: 'M10 (v2)' });
+  assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.titre, 'M10 (v2)');
+  assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}&version=1`)).corps.exercice.titre, m10.titre);
+  serveur.publierExercice({ ...ESSAI, liste: false });
+  assert.deepEqual((await serveur.appel('GET', '/api/exercices')).corps.exercices, index.exercices.filter((e) => e.id !== 'test-complet').map((e) => ({ ...e, titre: e.id === M10 ? 'M10 (v2)' : e.titre })));
 });
 
 // --- Identification en deux temps et correction d'identité (D23) ------------------------------------------------
@@ -644,7 +681,7 @@ test('corriger mon identité : NIP exigé (401, essais comptés, verrou) ; sans 
 });
 
 test('corriger mon identité : un matricule qui a déjà une séance pour cet exercice → 409, rien n’est déplacé ni journalisé', async () => {
-  const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
+  const serveur = serveurAvecEssai();
   const { jeton } = await commencer(serveur);
   await commencer(serveur, { ...CAMILLE, prenom: 'Alex', matricule: '2498765' });
   await commencer(serveur, { ...CAMILLE, exercice: ESSAI.id, matricule: '2455555' });
@@ -714,7 +751,7 @@ test('réussite : l’attestation est figée à l’instant de la dernière réu
   assert.match(ligne.signature, /^[A-Za-z0-9_-]{43}$/);
   assert.deepEqual(ligne.enregistrement.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412346' });
   assert.deepEqual(ligne.enregistrement.exercice, { id: M10, titre: m10.titre });
-  assert.equal(ligne.enregistrement.revision, 'r0');
+  assert.equal(ligne.enregistrement.revision, VERSION_1);
   assert.equal(ligne.enregistrement.questions_reussies, 15);
   assert.equal(ligne.enregistrement.reussite_le, seance.reussite_le);
   assert.equal(ligne.enregistrement.debut, seance.debut);
@@ -733,7 +770,7 @@ test('réussite : l’attestation est figée à l’instant de la dernière réu
   // Le QR : l'adresse de vérification, absolue, sur l'origine de la requête, l'essentiel en clair.
   assert.ok(corps.url_verification.startsWith('https://quiz.example/verifier?'), corps.url_verification);
   assert.deepEqual(claimsDe(corps.url_verification), {
-    exercice: M10, matricule: '2412346', nom: 'Tremblay', prenom: 'Camille', reussite: seance.reussite_le, revision: 'r0',
+    exercice: M10, matricule: '2412346', nom: 'Tremblay', prenom: 'Camille', reussite: seance.reussite_le, revision: VERSION_1,
     questions: '15', code: corps.code, signature: ligne.signature,
   });
   // Une seconde ouverture rend la même attestation, sans en créer une autre.
@@ -741,20 +778,22 @@ test('réussite : l’attestation est figée à l’instant de la dernière réu
   assert.equal(serveur.attestations('2412346').length, 1);
 });
 
-test('figée : ni le catalogue ni l’exercice ne changent l’attestation ; l’écran, lui, suit', async () => {
+test('figée : une nouvelle version de l’exercice (outil renommé, dimensions changées, titre, tables) ne change ni l’attestation ni la séance épinglée (D31, D47) ; une nouvelle séance la voit', async () => {
   const serveur = serveurDeTest();
   const { jeton } = await reussir(serveur);
   const { corps: avant } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
 
-  // L'enseignant renomme un outil, change ses dimensions, retitre l'exercice et change la révision des tables.
-  const outils = await lireFichier('data/outils.json');
+  // L'enseignant publie une version 2 : le MVLNR renommé et réduit à deux dimensions, un nouveau titre, une autre révision des tables.
   const materiaux = await lireFichier('data/materiaux.json');
-  const mvlnr = outils.outils.find((o) => o.id === 'mvlnr');
-  mvlnr.nom = 'MVLNR (nouveau)';
-  mvlnr.dimensions = mvlnr.dimensions.slice(0, 2);
-  serveur.publier({ 'data/outils.json': outils, 'data/materiaux.json': { ...materiaux, revision: 'A2027_r0' }, 'exercices/m10-tournage-vc.json': { ...m10, titre: 'M10 — nouveau titre', version: 'r9' } });
+  const operations = await lireFichier('data/operations.json');
+  serveur.db.sqlite.prepare('INSERT INTO tables_reference (id, materiaux, operations, creee_le) VALUES (?, ?, ?, ?)').run('A2027_r0', JSON.stringify({ ...materiaux, revision: 'A2027_r0' }), JSON.stringify(operations), serveur.maintenant.toISOString());
+  serveur.db.sqlite.prepare("UPDATE banque_outils SET outil = json_set(outil, '$.nom', 'MVLNR (nouveau)') WHERE id = 'mvlnr'").run();
+  serveur.publierExercice({ ...m10, titre: 'M10 — nouveau titre', outils: m10.outils.map((o) => (o.id === 'mvlnr' ? { ...o, dimensions: ['1.000"', '1.500"'] } : o)) }, { tablesId: 'A2027_r0' });
   serveur.avancer(MINUTE);
-  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.exercice.titre, 'M10 — nouveau titre');
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.exercice.titre, m10.titre); // épinglée à la version 1
+  const alex = await commencer(serveur, { ...CAMILLE, prenom: 'Alex', nom: 'Roy', matricule: '2498765' });
+  assert.equal(alex.seance.exercice.titre, 'M10 — nouveau titre');
+  assert.deepEqual(alex.seance.progression.outils[1], { id: 'mvlnr', nom: 'MVLNR (nouveau)', operation: 'Chariotage finition', plage: '1.000" à 1.500"', reussites: 0, requises: 3 });
 
   const { corps: apres } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
   assert.deepEqual(apres, avant);
@@ -924,17 +963,18 @@ test('séance réussie avant cette version : l’attestation est créée à la p
   assert.equal(attestation.questions.length, 15); // la liste vient du journal, qui existe depuis le jalon 3
 });
 
-test('la réussite constatée sans correction (exercice allégé, D21) crée aussi l’attestation', async () => {
+test('la réussite constatée sans correction (rien à tirer à la demande de question) crée aussi l’attestation', async () => {
   const serveur = serveurDeTest();
   const { jeton, seance } = await commencer(serveur);
   assert.equal((await repondre(serveur, jeton, true)).status, 200);
-  const outil = m10.outils.find((entry) => entry.id === seance.question.outil.id);
-  serveur.publier({ 'exercices/m10-tournage-vc.json': { ...m10, version: 'r2', outils: [{ ...outil, reussites_requises: 1 }] } });
+  // Les compteurs disent que tout est réussi (comme si l'exercice avait été allégé, D21) : la prochaine demande de question constate la réussite.
+  const outil = seance.question.outil.id;
+  serveur.db.sqlite.prepare('UPDATE seances SET compteurs = ?').run(JSON.stringify({ reussites: Object.fromEntries(m10.outils.map((o) => [o.id, o.reussites_requises])), totalReussies: 1 }));
   const { corps } = await serveur.appel('POST', '/api/question', { jeton, corps: { exercice: M10 } });
   assert.notEqual(corps.seance.reussite_le, null);
   assert.equal(serveur.attestations().length, 1);
-  assert.equal(serveur.attestations()[0].enregistrement.revision, 'r2');
-  assert.deepEqual(serveur.attestations()[0].enregistrement.outils.map((o) => o.id), [outil.id]);
+  assert.equal(serveur.attestations()[0].enregistrement.revision, VERSION_1);
+  assert.ok(serveur.attestations()[0].enregistrement.outils.some((o) => o.id === outil));
 });
 
 // --- Vérification publique ---------------------------------------------------------------------------------
@@ -1092,7 +1132,7 @@ test('aucune route /api/prof/* ne répond sans cookie valide : absent, forgé, s
 });
 
 test('liste des séances : qui, quel exercice, quand, réussie ou en cours, questions réussies, code ; ni NIP, ni jeton, ni question', async () => {
-  const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
+  const serveur = serveurAvecEssai();
   const { seance: reussie } = await reussir(serveur);
   serveur.avancer(MINUTE);
   const { jeton: alex } = await commencer(serveur, { ...CAMILLE, prenom: 'Alex', nom: 'Roy', matricule: '2498765' });
@@ -1103,7 +1143,7 @@ test('liste des séances : qui, quel exercice, quand, réussie ou en cours, ques
   const { status, corps } = await serveur.appel('GET', '/api/prof/seances', { entetes: { cookie: `prof=${cookie}` } });
   assert.equal(status, 200);
   assert.equal(corps.enseignant, 'admin');
-  assert.deepEqual(corps.exercices, [...index.exercices, { id: ESSAI.id, titre: ESSAI.titre }]);
+  assert.deepEqual(corps.exercices, [...index.exercices.filter((e) => e.id !== 'test-complet'), { id: ESSAI.id, titre: ESSAI.titre }].sort((a, b) => a.titre.localeCompare(b.titre, 'fr')));
   assert.equal(corps.seances.length, 3);
   const camille = corps.seances.find((s) => s.matricule === '2412345' && s.exercice.id === M10);
   assert.deepEqual(Object.keys(camille).sort(), ['code', 'debut', 'derniere_activite', 'exercice', 'id', 'matricule', 'nom', 'prenom', 'questions_reussies', 'reussite_le']);
@@ -1223,7 +1263,7 @@ test('suppression d’une séance (D45) : la séance, son journal et ses correct
 });
 
 test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séances, journaux, corrections d’identité, attestations, compteurs de débit et verrous disparaissent ; le journal des actions reste, détaché et anonymisé, et note les nombres ; les anciens codes répondent « aucune » ; exercices intacts', async () => {
-  const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
+  const serveur = serveurAvecEssai();
   const { jeton } = await reussir(serveur); // 15 corrections, une attestation
   serveur.avancer(MINUTE);
   assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camila' } })).status, 200); // une correction d'identité, deux attestations
@@ -1272,9 +1312,10 @@ test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séanc
   assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 401);
   assert.deepEqual((await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '2412345' } })).corps, { trouvee: false });
 
-  // Les exercices et le catalogue ne sont pas en base : la liste des exercices est la même, et l'étudiant recommence.
+  // Les exercices, la banque et les tables de référence ne sont pas touchés : la liste des exercices est la même (les deux M10 semés et l'essai), et l'étudiant recommence.
   const liste = await serveur.appel('GET', '/api/prof/seances', { entetes });
-  assert.deepEqual([liste.corps.seances, liste.corps.exercices.length], [[], index.exercices.length + 1]);
+  assert.deepEqual([liste.corps.seances, liste.corps.exercices.length], [[], 3]);
+  assert.deepEqual([compte('exercices'), compte('versions_exercice'), compte('banque_outils'), compte('tables_reference')], [3, 3, 29, 1]);
   const { seance } = await commencer(serveur);
   assert.equal(seance.progression.total_reussies, 0);
   // (Trois compteurs de débit depuis : les deux codes vérifiés et le matricule consulté ci-dessus.)

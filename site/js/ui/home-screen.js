@@ -7,12 +7,13 @@ import { DEPARTMENT_SHORT, exerciseMeta, exerciseSummary } from './text.js';
 
 // Accueil d'un exercice.
 //   local   : { matricule, prenom, jeton } gardé par ce navigateur (loadSession), ou null
+//   archived : l'exercice n'est plus offert (D47) — une séance existante se reprend encore, aucune ne se crée
 //   actions : { onResume, onStart, onForget }
 //     onResume : async — demande la séance au serveur ; retourne le message à afficher si ça
 //                échoue, ou null si un autre écran a pris la place
 //     onStart  : ouvre l'écran Identification
 //     onForget : « Changer d'étudiant » — oublie le jeton local
-export function renderHome(main, { exercise, local }, actions) {
+export function renderHome(main, { exercise, local, archived = false }, actions) {
   const status = el('div', { class: 'server-message', role: 'status' });
 
   async function resume(event) {
@@ -40,6 +41,7 @@ export function renderHome(main, { exercise, local }, actions) {
       el('p', { class: 'home-summary' }, exerciseSummary(exercise).join(' ')),
       // Aucun moyen de changer d'exercice depuis la page (D11) : seulement la consigne de vérifier.
       el('p', { class: 'muted smaller' }, "Vérifie que le titre ci-dessus est bien l'exercice indiqué sur Léa. Il n'est pas possible d'en changer depuis cette page."),
+      archived ? el('p', { class: 'small home-archived' }, "Cet exercice n'est plus offert par ton enseignant : aucune nouvelle séance ne peut être commencée, mais une séance déjà commencée se reprend encore.") : '',
     ]),
     el('div', { class: 'home-start' }, start),
     status,

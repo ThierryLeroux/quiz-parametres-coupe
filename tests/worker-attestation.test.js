@@ -9,10 +9,10 @@ import {
 import { cleanAnswers, gradeQuestion, sessionView } from '../worker/seance.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
-import { loadApp } from '../site/js/app.js';
-import { lireFichier, questionPour } from './aide.js';
+import { loadExercise } from '../site/js/exercice.js';
+import { data, lireFichier, questionPour } from './aide.js';
 
-const { data, exercise: m10 } = await loadApp('?exercice=m10-tournage-vc', lireFichier);
+const m10 = await loadExercise('m10-tournage-vc', data, 'exercices/', lireFichier);
 
 // Une séance réussie du M10, telle qu'en base (colonnes JSON décodées).
 const SEANCE = {
