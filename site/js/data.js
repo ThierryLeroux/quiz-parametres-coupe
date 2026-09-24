@@ -152,86 +152,119 @@ function validateTools(tools, ops, groups, errors) {
   tools.forEach((tool, i) => {
     if (!isObject(tool)) return errors.push(`outils[${i}] : n'est pas un objet`);
     const where = `outils[${i}] « ${tool.nom} »`;
-
-    for (const key of ['id', 'nom', 'format_identifiant']) {
-      if (!isText(tool[key])) errors.push(`${where} : « ${key} » est vide`);
-    }
-    for (const key of ['fact_vc', 'fact_av', 'limite_rpm']) {
-      if (!isPositive(tool[key])) errors.push(`${where} : « ${key} » doit être un nombre > 0`);
-    }
-    // Les tarauds n'ont pas de limite d'avance : l'avance est imposée par le pas.
-    if (tool.limite_avance !== null && !isPositive(tool.limite_avance)) errors.push(`${where} : « limite_avance » doit être un nombre > 0 ou null`);
-    // Le catalogue ne sait rien des exercices (décision D11).
-    if ('reussites_requises' in tool) errors.push(`${where} : « reussites_requises » n'est plus une propriété d'outil ; elle se règle dans site/exercices/<id>.json`);
-    if (!isInteger(tool.nb_dents_min, 1) || !isInteger(tool.nb_dents_max, 1)) errors.push(`${where} : « nb_dents_min » et « nb_dents_max » doivent être des entiers ≥ 1`);
-    else if (tool.nb_dents_max < tool.nb_dents_min) errors.push(`${where} : « nb_dents_max » est plus petit que « nb_dents_min »`);
-
-    const toolMaterials = Array.isArray(tool.materiaux_outil) ? tool.materiaux_outil : [];
-    if (toolMaterials.length === 0) errors.push(`${where} : « materiaux_outil » est absent ou vide`);
-    for (const name of toolMaterials) {
-      if (!(name in TOOL_MATERIAL_KEYS)) errors.push(`${where} : matériau d'outil inconnu : « ${name} »`);
-    }
-    // Un doublon fausserait le tirage uniforme (SPEC §4) sans que ça se voie.
-    checkUnique(toolMaterials, `${where} : matériau d'outil`, errors);
-
-    const toolGroups = Array.isArray(tool.groupes_materiaux_usinables) ? tool.groupes_materiaux_usinables : [];
-    if (toolGroups.length === 0) errors.push(`${where} : « groupes_materiaux_usinables » est absent ou vide`);
-    for (const group of toolGroups) {
-      if (!groups.includes(group)) errors.push(`${where} : groupe de matériaux inconnu : « ${group} »`);
-    }
-    checkUnique(toolGroups, `${where} : groupe de matériaux`, errors);
-
-    const op = opsByName.get(tool.operation);
-    if (!op) errors.push(`${where} : opération inconnue : « ${tool.operation} »`);
-
-    // fact_av ne sert qu'aux avances proportionnelles au Ø (SPEC §5). Ailleurs, le moteur
-    // l'ignorerait en silence : on refuse, plutôt que de laisser croire qu'il a un effet.
-    if (op && !op.avance_proportionnelle_diametre && isPositive(tool.fact_av) && tool.fact_av !== 1) {
-      errors.push(`${where} : « fact_av » vaut ${tool.fact_av}, mais l'opération « ${op.operation} » n'est pas proportionnelle au Ø : le facteur serait ignoré (mettre 1)`);
-    }
-
-    const dimensions = Array.isArray(tool.dimensions) ? tool.dimensions : [];
-    if (dimensions.length === 0) errors.push(`${where} : « dimensions » est absent ou vide`);
-    dimensions.forEach((d, j) => {
-      if (!isObject(d) || !isText(d.libelle)) return errors.push(`${where} : dimensions[${j}] n'a pas de « libelle »`);
-      if (!op) return; // sans opération connue, impossible de savoir si c'est un filetage
-      if (op.avance_egale_pas_filetage) {
-        if (parseThread(d.valeur) === null) errors.push(`${where} : dimension « ${d.libelle} » : filetage illisible : « ${d.valeur} » (attendu « 0.25-20 » ou « 10x1.5 »)`);
-      } else if (!isPositive(d.valeur)) {
-        errors.push(`${where} : dimension « ${d.libelle} » : « valeur » doit être un Ø en pouces > 0`);
-      }
-    });
-    // Les exercices restreignent les dimensions par leur libellé (SPEC §10) : il doit être unique.
-    checkUnique(dimensions.filter(isObject).map((d) => d.libelle), `${where} : libellé de dimension`, errors);
-
-    validateBars(tool, op, where, errors);
-
-    // Gabarit du nom (D24) : un jeton inconnu, ou sans valeur pour cet outil, serait affiché à l'étudiant.
-    for (const token of isText(tool.format_identifiant) ? templateTokens(tool.format_identifiant) : []) {
-      if (!TEMPLATE_TOKENS.includes(token)) errors.push(`${where} : jeton inconnu dans « format_identifiant » : [${token}] (jetons permis : ${TEMPLATE_TOKENS.join(', ')})`);
-      else if (token === 'Pas' && op && !op.avance_egale_pas_filetage) errors.push(`${where} : le jeton [Pas] n'a de sens que pour un outil de filetage`);
-      else if (token === 'IdBarre' && tool.dimensions_barre === undefined) errors.push(`${where} : le jeton [IdBarre] exige « dimensions_barre »`);
-    }
+    for (const error of toolErrors(tool, opsByName, groups)) errors.push(`${where} : ${error.message}`);
   });
   checkUnique(tools.filter(isObject).map((tool) => tool.id), 'outils.json : id', errors);
+}
+
+// Les clés d'un outil, au format d'outils.json — celles que l'éditeur (jalon 7) montre et enregistre.
+// « colonne_excel » est la provenance (classeur) ; « limite_avance » n'est pas utilisée par le moteur (SPEC §3).
+export const TOOL_KEYS = [
+  'id', 'colonne_excel', 'nom', 'format_identifiant', 'commentaire', 'operation', 'fact_vc', 'fact_av', 'limite_rpm', 'limite_avance',
+  'nb_dents_min', 'nb_dents_max', 'materiaux_outil', 'groupes_materiaux_usinables', 'image', 'dimensions', 'dimensions_barre', 'rapport_barre_max',
+];
+
+// Les erreurs d'UN outil, chacune avec le champ en cause : [{ champ, message }]. C'est la règle que
+// validateData applique à chaque outil du catalogue, et que l'éditeur applique en continu à un
+// outil de la banque ou à une copie dans un exercice, pour écrire l'erreur à côté du champ (jalon 7).
+//   tool      : l'outil, au format d'outils.json (un objet)
+//   opsByName : Map nom d'opération → opération (celles des tables de référence)
+//   groups    : les groupes ISO des tables (« P - Acier non allié »…)
+// Ne lève jamais d'exception ; liste vide = outil valide.
+export function toolErrors(tool, opsByName, groups) {
+  const errors = [];
+  const error = (champ, message) => errors.push({ champ, message });
+  if (!isObject(tool)) return [{ champ: '', message: "n'est pas un objet" }];
+
+  for (const key of ['id', 'nom', 'format_identifiant']) {
+    if (!isText(tool[key])) error(key, `« ${key} » est vide`);
+  }
+  for (const key of ['fact_vc', 'fact_av', 'limite_rpm']) {
+    if (!isPositive(tool[key])) error(key, `« ${key} » doit être un nombre > 0`);
+  }
+  // Les tarauds n'ont pas de limite d'avance : l'avance est imposée par le pas.
+  if (tool.limite_avance !== null && !isPositive(tool.limite_avance)) error('limite_avance', '« limite_avance » doit être un nombre > 0 ou null');
+  // Le catalogue ne sait rien des exercices (décision D11).
+  if ('reussites_requises' in tool) error('reussites_requises', "« reussites_requises » n'est plus une propriété d'outil ; elle se règle dans site/exercices/<id>.json");
+  if (!isInteger(tool.nb_dents_min, 1) || !isInteger(tool.nb_dents_max, 1)) error('nb_dents_min', '« nb_dents_min » et « nb_dents_max » doivent être des entiers ≥ 1');
+  else if (tool.nb_dents_max < tool.nb_dents_min) error('nb_dents_max', '« nb_dents_max » est plus petit que « nb_dents_min »');
+
+  const toolMaterials = Array.isArray(tool.materiaux_outil) ? tool.materiaux_outil : [];
+  if (toolMaterials.length === 0) error('materiaux_outil', '« materiaux_outil » est absent ou vide');
+  for (const name of toolMaterials) {
+    if (!(name in TOOL_MATERIAL_KEYS)) error('materiaux_outil', `matériau d'outil inconnu : « ${name} »`);
+  }
+  // Un doublon fausserait le tirage uniforme (SPEC §4) sans que ça se voie.
+  for (const dup of duplicates(toolMaterials)) error('materiaux_outil', `matériau d'outil en double : « ${dup} »`);
+
+  const toolGroups = Array.isArray(tool.groupes_materiaux_usinables) ? tool.groupes_materiaux_usinables : [];
+  if (toolGroups.length === 0) error('groupes_materiaux_usinables', '« groupes_materiaux_usinables » est absent ou vide');
+  for (const group of toolGroups) {
+    if (!groups.includes(group)) error('groupes_materiaux_usinables', `groupe de matériaux inconnu : « ${group} »`);
+  }
+  for (const dup of duplicates(toolGroups)) error('groupes_materiaux_usinables', `groupe de matériaux en double : « ${dup} »`);
+
+  const op = opsByName.get(tool.operation);
+  if (!op) error('operation', `opération inconnue : « ${tool.operation} »`);
+
+  // fact_av ne sert qu'aux avances proportionnelles au Ø (SPEC §5). Ailleurs, le moteur
+  // l'ignorerait en silence : on refuse, plutôt que de laisser croire qu'il a un effet.
+  if (op && !op.avance_proportionnelle_diametre && isPositive(tool.fact_av) && tool.fact_av !== 1) {
+    error('fact_av', `« fact_av » vaut ${tool.fact_av}, mais l'opération « ${op.operation} » n'est pas proportionnelle au Ø : le facteur serait ignoré (mettre 1)`);
+  }
+
+  const dimensions = Array.isArray(tool.dimensions) ? tool.dimensions : [];
+  if (dimensions.length === 0) error('dimensions', '« dimensions » est absent ou vide');
+  dimensions.forEach((d, j) => {
+    if (!isObject(d) || !isText(d.libelle)) return error('dimensions', `dimensions[${j}] n'a pas de « libelle »`);
+    if (!op) return; // sans opération connue, impossible de savoir si c'est un filetage
+    if (op.avance_egale_pas_filetage) {
+      if (parseThread(d.valeur) === null) error('dimensions', `dimension « ${d.libelle} » : filetage illisible : « ${d.valeur} » (attendu « 0.25-20 » ou « 10x1.5 »)`);
+    } else if (!isPositive(d.valeur)) {
+      error('dimensions', `dimension « ${d.libelle} » : « valeur » doit être un Ø en pouces > 0`);
+    }
+  });
+  // Les exercices restreignent les dimensions par leur libellé (SPEC §10) : il doit être unique.
+  for (const dup of duplicates(dimensions.filter(isObject).map((d) => d.libelle))) error('dimensions', `libellé de dimension en double : « ${dup} »`);
+
+  barErrors(tool, op, error);
+
+  // Gabarit du nom (D24) : un jeton inconnu, ou sans valeur pour cet outil, serait affiché à l'étudiant.
+  for (const token of isText(tool.format_identifiant) ? templateTokens(tool.format_identifiant) : []) {
+    if (!TEMPLATE_TOKENS.includes(token)) error('format_identifiant', `jeton inconnu dans « format_identifiant » : [${token}] (jetons permis : ${TEMPLATE_TOKENS.join(', ')})`);
+    else if (token === 'Pas' && op && !op.avance_egale_pas_filetage) error('format_identifiant', "le jeton [Pas] n'a de sens que pour un outil de filetage");
+    else if (token === 'IdBarre' && tool.dimensions_barre === undefined) error('format_identifiant', 'le jeton [IdBarre] exige « dimensions_barre »');
+  }
+  return errors;
+}
+
+// Les valeurs présentes plus d'une fois, chacune une fois par répétition.
+function duplicates(values) {
+  const seen = new Set();
+  const found = [];
+  for (const v of values) {
+    if (seen.has(v)) found.push(v);
+    seen.add(v);
+  }
+  return found;
 }
 
 // Outil à deux diamètres (décision D25) : « dimensions » est le Ø usiné, qui sert à N ;
 // « dimensions_barre » est le Ø de l'outil lui-même, qui sert à l'avance proportionnelle. La barre
 // doit entrer dans le trou : Ø barre ≤ rapport_barre_max × Ø usiné. Les deux clés vont ensemble.
-function validateBars(tool, op, where, errors) {
+function barErrors(tool, op, error) {
   if (tool.dimensions_barre === undefined && tool.rapport_barre_max === undefined) return;
   const bars = Array.isArray(tool.dimensions_barre) ? tool.dimensions_barre : [];
-  if (bars.length === 0) errors.push(`${where} : « dimensions_barre » doit être une liste non vide (ou être absente)`);
-  if (!isPositive(tool.rapport_barre_max) || tool.rapport_barre_max > 1) errors.push(`${where} : « rapport_barre_max » doit être un nombre > 0 et ≤ 1 (ex. 0.75)`);
-  if (op && !op.avance_proportionnelle_diametre) errors.push(`${where} : « dimensions_barre » ne sert qu'à une avance proportionnelle au Ø ; l'opération « ${op.operation} » ne l'est pas`);
+  if (bars.length === 0) error('dimensions_barre', '« dimensions_barre » doit être une liste non vide (ou être absente)');
+  if (!isPositive(tool.rapport_barre_max) || tool.rapport_barre_max > 1) error('rapport_barre_max', '« rapport_barre_max » doit être un nombre > 0 et ≤ 1 (ex. 0.75)');
+  if (op && !op.avance_proportionnelle_diametre) error('dimensions_barre', `« dimensions_barre » ne sert qu'à une avance proportionnelle au Ø ; l'opération « ${op.operation} » ne l'est pas`);
   bars.forEach((bar, j) => {
-    if (!isObject(bar) || !isText(bar.libelle)) errors.push(`${where} : dimensions_barre[${j}] n'a pas de « libelle »`);
-    else if (!isPositive(bar.valeur)) errors.push(`${where} : barre « ${bar.libelle} » : « valeur » doit être un Ø en pouces > 0`);
+    if (!isObject(bar) || !isText(bar.libelle)) error('dimensions_barre', `dimensions_barre[${j}] n'a pas de « libelle »`);
+    else if (!isPositive(bar.valeur)) error('dimensions_barre', `barre « ${bar.libelle} » : « valeur » doit être un Ø en pouces > 0`);
   });
-  checkUnique(bars.filter(isObject).map((bar) => bar.libelle), `${where} : libellé de barre`, errors);
+  for (const dup of duplicates(bars.filter(isObject).map((bar) => bar.libelle))) error('dimensions_barre', `libellé de barre en double : « ${dup} »`);
   for (const d of isPositive(tool.rapport_barre_max) && Array.isArray(tool.dimensions) ? tool.dimensions : []) {
-    if (isObject(d) && isPositive(d.valeur) && fittingBars(tool, d.valeur).length === 0) errors.push(`${where} : dimension « ${d.libelle} » : aucune barre n'y entre (Ø barre ≤ ${tool.rapport_barre_max} × Ø)`);
+    if (isObject(d) && isPositive(d.valeur) && fittingBars(tool, d.valeur).length === 0) error('dimensions', `dimension « ${d.libelle} » : aucune barre n'y entre (Ø barre ≤ ${tool.rapport_barre_max} × Ø)`);
   }
 }
 
@@ -269,8 +302,16 @@ export async function loadData(baseUrl = 'data/', readJson = fetchJson) {
     readJson(`${baseUrl}operations.json`),
     readJson(`${baseUrl}outils.json`),
   ]);
+  return assembleData({ materiaux, operations }, outils.outils);
+}
 
-  const errors = validateData({ materiaux, operations, outils });
+// Le catalogue prêt à l'emploi (la même forme que loadData) à partir d'objets déjà lus : les deux
+// tables de référence (contenu de materiaux.json et d'operations.json, tels quels) et une liste
+// d'outils. Depuis le jalon 7, c'est ainsi que le serveur et le navigateur composent le catalogue
+// d'une séance : les tables d'une version de référence, et les copies d'outils de l'exercice.
+// Valide tout (validateData) ; lève une erreur qui énumère les problèmes.
+export function assembleData({ materiaux, operations }, outils) {
+  const errors = validateData({ materiaux, operations, outils: { outils } });
   if (errors.length > 0) throw new Error(`Données invalides :\n- ${errors.join('\n- ')}`);
 
   const operationByName = new Map(operations.operations.map((op) => [op.operation, op]));
@@ -280,7 +321,7 @@ export async function loadData(baseUrl = 'data/', readJson = fetchJson) {
   return {
     materiaux: materiaux.materiaux,
     operations: operations.operations,
-    outils: outils.outils,
+    outils,
     operationByName,
     materialsByGroup,
     revisions: { materiaux: materiaux.revision, operations: operations.revision },

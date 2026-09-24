@@ -7,7 +7,7 @@
 // Un outil absent de `reussites` vaut 0. Les fonctions sont pures : elles ne modifient
 // jamais l'état reçu, elles en retournent un nouveau.
 
-import { allowedToolMaterials } from './exercice.js';
+import { allowedGroups, allowedToolMaterials } from './exercice.js';
 
 // État de départ d'un exercice.
 export function createProgress(exercise) {
@@ -44,14 +44,11 @@ export function eligibleTools(exercise, data, progress) {
       const tool = data.outils.find((o) => o.id === entry.id);
       if (!tool) throw new Error(`Exercice « ${exercise.id} » : l'outil « ${entry.id} » n'existe pas dans le catalogue`);
       // Une restriction absente laisse tous les choix de l'outil.
-      const restrict = (choices, allowed, labelOf = (choice) => choice) => (
-        allowed ? choices.filter((choice) => allowed.includes(labelOf(choice))) : choices
-      );
       return {
         ...tool,
-        dimensions: restrict(tool.dimensions, entry.dimensions, (d) => d.libelle),
+        dimensions: entry.dimensions ? tool.dimensions.filter((d) => entry.dimensions.includes(d.libelle)) : tool.dimensions,
         materiaux_outil: allowedToolMaterials(exercise, entry, tool),
-        groupes_materiaux_usinables: restrict(tool.groupes_materiaux_usinables, entry.groupes),
+        groupes_materiaux_usinables: allowedGroups(exercise, entry, tool),
       };
     });
 }
