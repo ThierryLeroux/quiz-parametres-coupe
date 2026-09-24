@@ -122,7 +122,7 @@ function sessionsTable() {
         const classes = [column.num ? 'num' : '', column.mono ? 'mono' : '', column.date ? 'date' : '', column.key === 'etat' ? (session.reussite_le === null ? 'state--running' : 'state--done') : ''].filter(Boolean).join(' ');
         return el('td', { class: classes || null }, cells[column.key]);
       }),
-      ...(actions ? [el('td', { class: 'actions' }, actionButtons(session))] : []),
+      ...(actions ? [el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, actionButtons(session)))] : []),
     ]);
   });
   return [
