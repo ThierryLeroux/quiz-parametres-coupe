@@ -419,29 +419,31 @@ export async function createExercise(db, { id, brouillon, now }, entry) {
   }
 }
 
-// Enregistre le brouillon, seulement si sa révision est encore celle qu'on a lue (D48) ; journalise
-// dans le même lot. Retourne false si quelqu'un a enregistré entre-temps : rien n'est écrit.
+// Enregistre le brouillon, seulement si sa révision est encore celle qu'on a lue (D48), puis
+// journalise. Retourne false si quelqu'un a enregistré entre-temps : rien n'est écrit, rien n'est journalisé.
 export async function saveDraft(db, id, revision, brouillon, now, entry) {
-  const [update] = await db.batch([
-    db.prepare('UPDATE exercices SET brouillon = ?, revision = revision + 1, brouillon_modifie_le = ? WHERE id = ? AND revision = ?').bind(JSON.stringify(brouillon), now, id, revision),
-    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND revision = ?)')
-      .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null, id, revision + 1),
-  ]);
-  return update.meta.changes === 1;
+  const { meta } = await db.prepare('UPDATE exercices SET brouillon = ?, revision = revision + 1, brouillon_modifie_le = ? WHERE id = ? AND revision = ?').bind(JSON.stringify(brouillon), now, id, revision).run();
+  if (meta.changes !== 1) return false;
+  await addTeacherLog(db, entry);
+  return true;
 }
 
 // Publie un contenu comme version `numero` de l'exercice, seulement si la révision du brouillon est
-// encore celle qu'on a lue ; journalise dans le même lot. Retourne false sinon.
+// encore celle qu'on a lue, et si ce numéro n'est pas déjà pris (deux publications en même temps :
+// une seule passe, UNIQUE) ; la version et la ligne du journal vont dans le même lot. Retourne false sinon.
 export async function publishVersion(db, { id, revision, numero, contenu, tablesId, now }, entry) {
-  const [update] = await db.batch([
-    db.prepare('UPDATE exercices SET publie_le = ? WHERE id = ? AND revision = ?').bind(now, id, revision),
-    db.prepare(`INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le)
-                SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND revision = ? AND publie_le = ?)`)
-      .bind(id, numero, JSON.stringify(contenu), tablesId, now, id, revision, now),
-    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND revision = ? AND publie_le = ?)')
-      .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null, id, revision, now),
-  ]);
-  return update.meta.changes === 1;
+  const { meta } = await db.prepare('UPDATE exercices SET publie_le = ? WHERE id = ? AND revision = ?').bind(now, id, revision).run();
+  if (meta.changes !== 1) return false;
+  try {
+    await db.batch([
+      db.prepare('INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le) VALUES (?, ?, ?, ?, ?)').bind(id, numero, JSON.stringify(contenu), tablesId, now),
+      teacherLogStatement(db, entry),
+    ]);
+    return true;
+  } catch (error) {
+    if (/UNIQUE/i.test(String(error?.message))) return false;
+    throw error;
+  }
 }
 
 // Archive (date) ou rétablit (null) un exercice, et journalise.
@@ -493,14 +495,12 @@ export async function createBankTool(db, { id, outil, now }, entry) {
   }
 }
 
-// Enregistre un outil de la banque, seulement si sa révision est encore celle qu'on a lue (D48).
+// Enregistre un outil de la banque, seulement si sa révision est encore celle qu'on a lue (D48), puis journalise.
 export async function saveBankTool(db, id, revision, outil, now, entry) {
-  const [update] = await db.batch([
-    db.prepare('UPDATE banque_outils SET outil = ?, revision = revision + 1, modifie_le = ? WHERE id = ? AND revision = ?').bind(JSON.stringify(outil), now, id, revision),
-    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM banque_outils WHERE id = ? AND revision = ?)')
-      .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null, id, revision + 1),
-  ]);
-  return update.meta.changes === 1;
+  const { meta } = await db.prepare('UPDATE banque_outils SET outil = ?, revision = revision + 1, modifie_le = ? WHERE id = ? AND revision = ?').bind(JSON.stringify(outil), now, id, revision).run();
+  if (meta.changes !== 1) return false;
+  await addTeacherLog(db, entry);
+  return true;
 }
 
 export async function archiveBankTool(db, id, archiveLe, entry) {
