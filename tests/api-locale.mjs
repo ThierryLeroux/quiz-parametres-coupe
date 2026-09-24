@@ -9,7 +9,8 @@
 // CADENCE_S:1 (D39, honorée en local seulement) pour le cycle complet du jalon 5 — réussite du M10,
 // attestation, vérification par l'adresse du QR et par le code, connexion professeur, remise à
 // zéro, attestation annulée — puis l'exercice « Vc et RPM » (D40) jusqu'à son attestation à deux
-// pages de questions (D41) — en une minute au lieu de trois.
+// pages de questions (D41), la connexion en consultation (D44), la suppression d'une séance (D45) et
+// l'effacement des données des étudiants (D46) — en une minute au lieu de trois.
 //
 // Ce fichier ne finit pas par .test.js : « npm test » ne le lance pas.
 import assert from 'node:assert/strict';
@@ -73,7 +74,10 @@ let serveur = null;
 // des secrets locaux, ni d'un MODE_TEST=1 ou d'un CADENCE_S laissé là par l'enseignant.
 //   variables : ['--var', 'CADENCE_S:1'] pour la seconde phase
 async function lancer(variables) {
-  const base = ['--var', 'CLE_SECRETE:secret-du-test-api-locale', '--var', 'CLE_ADMIN:cle-admin-du-test-api-locale', '--var', 'MODE_TEST:0', '--var', 'CADENCE_S:0'];
+  const base = [
+    '--var', 'CLE_SECRETE:secret-du-test-api-locale', '--var', 'CLE_ADMIN:cle-admin-du-test-api-locale', '--var', 'CLE_CONSULTATION:cle-consultation-du-test-api-locale',
+    '--var', 'MODE_TEST:0', '--var', 'CADENCE_S:0',
+  ];
   serveur = spawn(process.execPath, [WRANGLER, 'dev', '--port', String(PORT), '--persist-to', dossier, ...base, ...variables], { cwd: ROOT, stdio: 'ignore' });
   for (let essai = 0; ; essai += 1) {
     assert.ok(essai < 60, 'wrangler dev ne répond pas après 60 s');
@@ -253,7 +257,7 @@ try {
     assert.equal((await appel('GET', '/api/prof/seances')).status, 401);
     const connexion = await appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-admin-du-test-api-locale' } });
     assert.equal(connexion.status, 200, JSON.stringify(connexion.corps));
-    assert.equal(connexion.corps.enseignant, 'admin');
+    assert.deepEqual([connexion.corps.enseignant, connexion.corps.role], ['admin', 'admin']);
     const setCookie = derniersEntetes.get('set-cookie');
     assert.match(setCookie, /^prof=[^;]+; Path=\/api\/prof; HttpOnly; Secure; SameSite=Strict; Max-Age=43200$/);
     cookie = setCookie.split(';')[0];
@@ -287,9 +291,11 @@ try {
     assert.equal((await appel('POST', '/api/question', { jeton: reprise.corps.jeton, corps: { exercice: M10 } })).corps.seance.question === null, false);
   });
 
+  const VC_RPM = 'm10-tournage-vc-rpm';
+  const ALEX = { exercice: VC_RPM, prenom: 'Alex', nom: 'Roy', matricule: '2466666', nip: '1357' };
+  let attestationAlex;
+
   await etape('exercice « Vc et RPM » (D40) : 22 réponses Vc et N, jamais de carbure solide ; attestation avec ses 22 questions listées (D41), vérifiable par le code', async () => {
-    const VC_RPM = 'm10-tournage-vc-rpm';
-    const ALEX = { exercice: VC_RPM, prenom: 'Alex', nom: 'Roy', matricule: '2466666', nip: '1357' };
     const creation = await appel('POST', '/api/creation', { corps: ALEX });
     assert.equal(creation.status, 200, JSON.stringify(creation.corps));
     const jetonAlex = creation.corps.jeton;
@@ -323,6 +329,53 @@ try {
     assert.ok(corps.attestation.questions.some((q) => q.outil === barre));
     const verification = await appel('POST', '/api/verification', { corps: { code: corps.code } });
     assert.deepEqual(verification.corps, { resultat: 'valide', attestation: corps.attestation });
+    attestationAlex = corps;
+  });
+
+  await etape('clé de consultation (D44) : rôle consultation, lecture du tableau et du journal ; chaque action refusée (403) ; la clé d’administration seule agit', async () => {
+    const connexion = await appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-consultation-du-test-api-locale' } });
+    assert.equal(connexion.status, 200, JSON.stringify(connexion.corps));
+    assert.deepEqual([connexion.corps.enseignant, connexion.corps.role], ['consultation', 'consultation']);
+    const consultation = derniersEntetes.get('set-cookie').split(';')[0];
+    const seances = await appel('GET', '/api/prof/seances', { cookie: consultation });
+    assert.deepEqual([seances.status, seances.corps.role, seances.corps.seances.length >= 3], [200, 'consultation', true]);
+    assert.equal((await appel('GET', '/api/prof/identites', { cookie: consultation })).status, 200);
+    const alexId = seances.corps.seances.find((s) => s.matricule === ALEX.matricule).id;
+    for (const [chemin, corps] of [['/api/prof/remise-a-zero', {}], ['/api/prof/reinitialisation-nip', {}], ['/api/prof/suppression', {}], ['/api/prof/effacement', { confirmation: 'EFFACER' }]]) {
+      assert.equal((await appel('POST', chemin, { corps: { seance: alexId, ...corps }, cookie: consultation })).status, 403, chemin);
+    }
+    assert.equal((await appel('GET', '/api/prof/seances', { cookie })).corps.seances.length, seances.corps.seances.length); // rien n'a bougé
+    assert.deepEqual((await appel('POST', '/api/prof/deconnexion', { cookie: consultation })).corps, { deconnecte: true });
+  });
+
+  await etape('suppression de la séance d’Alex (D45) : disparue du tableau, son attestation répond « annulée — séance supprimée » avec la date ; Alex peut recommencer', async () => {
+    const alexId = (await appel('GET', '/api/prof/seances', { cookie })).corps.seances.find((s) => s.matricule === ALEX.matricule).id;
+    assert.deepEqual((await appel('POST', '/api/prof/suppression', { corps: { seance: alexId }, cookie })).corps, { supprimee: true, seance: alexId });
+    assert.equal((await appel('GET', '/api/prof/seances', { cookie })).corps.seances.some((s) => s.id === alexId), false);
+    const verification = await appel('POST', '/api/verification', { corps: { code: attestationAlex.code } });
+    assert.deepEqual([verification.corps.resultat, verification.corps.motif], ['annulee', 'seance_supprimee']);
+    assert.match(verification.corps.annulee_le, /^20\d\d-/);
+    assert.deepEqual(verification.corps.attestation, attestationAlex.attestation);
+    assert.deepEqual((await appel('POST', '/api/consultation', { corps: { exercice: VC_RPM, matricule: ALEX.matricule } })).corps, { trouvee: false });
+    assert.equal((await appel('POST', '/api/prof/suppression', { corps: { seance: alexId }, cookie })).status, 404);
+    assert.equal((await appel('POST', '/api/creation', { corps: ALEX })).status, 200);
+  });
+
+  await etape('effacement des données des étudiants (D46) : mot EFFACER exigé ; plus aucune séance ; les anciens codes répondent « aucune » ; les exercices sont toujours servis', async () => {
+    assert.equal((await appel('POST', '/api/prof/effacement', { corps: { confirmation: 'effacer' }, cookie })).status, 400);
+    const avant = (await appel('GET', '/api/prof/seances', { cookie })).corps;
+    assert.ok(avant.seances.length >= 3);
+    const { status, corps } = await appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, cookie });
+    assert.equal(status, 200, JSON.stringify(corps));
+    assert.equal(corps.efface, true);
+    assert.equal(corps.nombres.seances, avant.seances.length);
+    // Les 22 corrections d'Alex sont parties avec sa séance (D45) ; restent celles de Camille (2) et de Zoé (15) ; ses deux attestations, elles, étaient restées.
+    assert.ok(corps.nombres.corrections >= 17 && corps.nombres.attestations === 2, JSON.stringify(corps.nombres));
+    const apres = (await appel('GET', '/api/prof/seances', { cookie })).corps;
+    assert.deepEqual([apres.seances, apres.exercices], [[], avant.exercices]);
+    for (const code of [attestation.code, attestationAlex.code]) assert.deepEqual((await appel('POST', '/api/verification', { corps: { code } })).corps, { resultat: 'aucune' });
+    assert.deepEqual((await appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: CAMILLE.matricule } })).corps, { trouvee: false });
+    assert.equal((await appel('POST', '/api/creation', { corps: CAMILLE })).status, 200); // l'exercice se sert comme avant
   });
 
   await etape('déconnexion professeur : le cookie est effacé', async () => {
