@@ -1222,7 +1222,7 @@ test('suppression d’une séance (D45) : la séance, son journal et ses correct
   assert.equal((await serveur.appel('POST', '/api/prof/suppression', { corps: { seance: 'x' }, entetes })).status, 404);
 });
 
-test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séances, journaux, corrections d’identité et attestations disparaissent ; le journal des actions reste, détaché, et note les nombres ; les anciens codes répondent « aucune » ; exercices intacts', async () => {
+test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séances, journaux, corrections d’identité, attestations, compteurs de débit et verrous disparaissent ; le journal des actions reste, détaché et anonymisé, et note les nombres ; les anciens codes répondent « aucune » ; exercices intacts', async () => {
   const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
   const { jeton } = await reussir(serveur); // 15 corrections, une attestation
   serveur.avancer(MINUTE);
@@ -1234,28 +1234,40 @@ test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séanc
   const entetes = { cookie: `prof=${cookie}` };
   const alexId = serveur.seance('2498765').id;
   assert.equal((await serveur.appel('POST', '/api/prof/remise-a-zero', { corps: { seance: alexId }, entetes })).status, 200); // une ligne du journal liée à une séance
+  assert.equal((await serveur.appel('POST', '/api/prof/reinitialisation-nip', { corps: { seance: alexId }, entetes })).status, 200);
+  // Des compteurs de débit (deux matricules consultés, un code vérifié) et un verrou (une clé fausse depuis une autre adresse).
   const codes = serveur.attestations().map((a) => a.code);
+  for (const matricule of ['2412345', '2498765']) await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule }, entetes: { 'cf-connecting-ip': '203.0.113.7' } });
+  await serveur.appel('POST', '/api/verification', { corps: { code: codes[0] }, entetes: { 'cf-connecting-ip': '203.0.113.7' } });
+  assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'mauvaise' }, entetes: { 'cf-connecting-ip': '198.51.100.9' } })).status, 401);
   const compte = (table) => serveur.db.sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
-  const comptes = () => [compte('seances'), compte('corrections'), compte('corrections_identite'), compte('attestations')];
-  assert.deepEqual(comptes(), [3, 16, 1, 2]);
+  const comptes = () => [compte('seances'), compte('corrections'), compte('corrections_identite'), compte('attestations'), compte('debit'), compte('verrous')];
+  assert.deepEqual(comptes(), [3, 16, 1, 2, 3, 1]);
   const journalAvant = serveur.journalEnseignant();
-  assert.deepEqual(journalAvant.map((l) => [l.action, l.seance_id]), [['connexion', null], ['remise_a_zero', alexId]]);
+  assert.deepEqual(journalAvant.map((l) => [l.action, l.seance_id]), [['connexion', null], ['remise_a_zero', alexId], ['reinitialisation_nip', alexId], ['connexion_refusee', null]]);
+  assert.equal(journalAvant[1].details, `${M10} · 2498765 · Alex Roy`);
 
   // Sans le mot exact : 400, rien n'est effacé, rien n'est journalisé.
   for (const corps of [{}, { confirmation: 'effacer' }, { confirmation: ' EFFACER' }, { confirmation: 'OUI' }, { confirmation: 42 }]) {
     const refus = await serveur.appel('POST', '/api/prof/effacement', { corps, entetes });
     assert.deepEqual([refus.status, refus.corps.erreur], [400, 'Pour effacer, la requête doit porter le mot EFFACER.'], JSON.stringify(corps));
   }
-  assert.deepEqual(comptes(), [3, 16, 1, 2]);
-  assert.equal(serveur.journalEnseignant().length, 2);
+  assert.deepEqual(comptes(), [3, 16, 1, 2, 3, 1]);
+  assert.deepEqual(serveur.journalEnseignant(), journalAvant);
 
   serveur.avancer(MINUTE);
-  const nombres = { seances: 3, corrections: 16, corrections_identite: 1, attestations: 2 };
+  const nombres = { seances: 3, corrections: 16, corrections_identite: 1, attestations: 2, debit: 3, verrous: 1, journal_anonymise: 2 };
   assert.deepEqual(await serveur.appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, entetes }), { status: 200, corps: { efface: true, nombres } });
-  assert.deepEqual(comptes(), [0, 0, 0, 0]);
+  assert.deepEqual(comptes(), [0, 0, 0, 0, 0, 0]);
+  // Le journal des actions reste entier, détaché des séances, et ses détails ne nomment plus personne : date, enseignant, action, exercice et nombres restent.
   const journal = serveur.journalEnseignant();
-  assert.deepEqual(journal.map((l) => [l.action, l.seance_id, l.enseignant]), [['connexion', null, 'admin'], ['remise_a_zero', null, 'admin'], ['effacement', null, 'admin']]); // intact, détaché
-  assert.deepEqual([journal[2].details, journal[2].horodatage], ["3 séances · 16 corrections · 1 correction d'identité · 2 attestations", serveur.maintenant.toISOString()]);
+  assert.deepEqual(journal.map((l) => [l.action, l.seance_id, l.enseignant, l.horodatage]), [...journalAvant.map((l) => [l.action, null, l.enseignant, l.horodatage]), ['effacement', null, 'admin', serveur.maintenant.toISOString()]]);
+  assert.deepEqual(journal.map((l) => l.details), [
+    'adresse 203.0.113.7, rôle admin', `${M10} · — · —`, `${M10} · — · —`, 'adresse 198.51.100.9, échec 1',
+    "3 séances · 16 corrections · 1 correction d'identité · 2 attestations · 3 compteurs de débit · 1 verrou · 2 entrées du journal anonymisées",
+  ]);
+  assert.equal(JSON.stringify(journal).includes('2498765'), false);
+  assert.equal(JSON.stringify(journal).includes('Roy'), false);
   for (const code of codes) assert.deepEqual((await serveur.appel('POST', '/api/verification', { corps: { code } })).corps, { resultat: 'aucune' });
   assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 401);
   assert.deepEqual((await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '2412345' } })).corps, { trouvee: false });
@@ -1265,8 +1277,9 @@ test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séanc
   assert.deepEqual([liste.corps.seances, liste.corps.exercices.length], [[], index.exercices.length + 1]);
   const { seance } = await commencer(serveur);
   assert.equal(seance.progression.total_reussies, 0);
-  assert.deepEqual((await serveur.appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, entetes })).corps.nombres, { seances: 1, corrections: 0, corrections_identite: 0, attestations: 0 });
-  assert.equal(serveur.journalEnseignant().at(-1).details, '1 séance · 0 correction · 0 correction d\'identité · 0 attestation');
+  // (Trois compteurs de débit depuis : les deux codes vérifiés et le matricule consulté ci-dessus.)
+  assert.deepEqual((await serveur.appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, entetes })).corps.nombres, { seances: 1, corrections: 0, corrections_identite: 0, attestations: 0, debit: 3, verrous: 0, journal_anonymise: 0 });
+  assert.equal(serveur.journalEnseignant().at(-1).details, "1 séance · 0 correction · 0 correction d'identité · 0 attestation · 3 compteurs de débit · 0 verrou · 0 entrée du journal anonymisée");
 });
 
 test('journal des corrections d’identité : la plus récente en premier, avant/après, matricule actuel et exercice de la séance', async () => {

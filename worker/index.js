@@ -11,8 +11,8 @@
 import pkg from '../package.json' with { type: 'json' };
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
-  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PURGE_WORD, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock,
-  profSessionPayload, purgeDetails, readCookie, readProfSessionPayload, refusalLock,
+  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PURGE_WORD, anonymizedDetails, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader,
+  profFailureLock, profSessionPayload, purgeDetails, readCookie, readProfSessionPayload, refusalLock,
 } from './acces.js';
 import { buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, readClaims, verificationUrl } from './attestation.js';
 import * as base from './base.js';
@@ -492,15 +492,18 @@ async function profSuppression(request, env, { now }) {
 }
 
 // POST /api/prof/effacement — { confirmation: "EFFACER" } (D46) : efface toutes les séances, journaux
-// de corrections, corrections d'identité et attestations ; garde le journal des actions, où les
-// nombres effacés sont inscrits. Les anciens codes d'attestation répondent ensuite « aucune ». Rôle
-// admin seulement ; sans le mot exact, 400 et rien n'est touché. Exercices et catalogue ne sont pas en base.
+// de corrections, corrections d'identité et attestations, les compteurs de débit et les verrous ;
+// garde le journal des actions, anonymisé (matricules, noms et codes → « — »), où les nombres effacés
+// sont inscrits. Les anciens codes d'attestation répondent ensuite « aucune ». Rôle admin seulement ;
+// sans le mot exact, 400 et rien n'est touché. Exercices et catalogue ne sont pas en base.
 async function profEffacement(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
   if (body.confirmation !== PURGE_WORD) throw new HttpError(400, `Pour effacer, la requête doit porter le mot ${PURGE_WORD}.`);
-  const nombres = await base.countStudentData(env.DB);
-  await base.purgeStudentData(env.DB, { horodatage: now.toISOString(), enseignant: teacher, action: 'effacement', details: purgeDetails(nombres) });
+  const rows = await base.listTeacherLog(env.DB);
+  const changed = rows.map((row) => ({ id: row.id, details: anonymizedDetails(row.action, row.details) })).filter((row, i) => row.details !== rows[i].details);
+  const nombres = { ...await base.countStudentData(env.DB), journal_anonymise: changed.length };
+  await base.purgeStudentData(env.DB, changed, { horodatage: now.toISOString(), enseignant: teacher, action: 'effacement', details: purgeDetails(nombres) });
   return json({ efface: true, nombres });
 }
 

@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PROF_COOKIE_PATH, PROF_FREE_ATTEMPTS, PROF_SESSION_MS, PURGE_WORD, REFUSAL_LOCK_MS, ROLES, canAct, clientAddress,
-  hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload, purgeDetails, readCookie, readProfSessionPayload, refusalLock,
+  ADMIN, ANONYMIZED, CONSULTATION, DISTINCT_PER_HOUR, PROF_COOKIE_PATH, PROF_FREE_ATTEMPTS, PROF_SESSION_MS, PURGE_WORD, REFUSAL_LOCK_MS, ROLES, anonymizedDetails,
+  canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload, purgeDetails, readCookie, readProfSessionPayload,
+  refusalLock,
 } from '../worker/acces.js';
 
 const NOW = new Date('2026-09-21T13:05:00.000Z');
@@ -67,8 +68,22 @@ test('cookie professeur : charge signable de 12 h, relue tant qu’elle n’est 
 
 test('effacement (D46) : le mot exigé, et le détail des nombres pour le journal, au singulier comme au pluriel', () => {
   assert.equal(PURGE_WORD, 'EFFACER');
-  assert.equal(purgeDetails({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2 }), "3 séances · 40 corrections · 1 correction d'identité · 2 attestations");
-  assert.equal(purgeDetails({ seances: 1, corrections: 0, corrections_identite: 0, attestations: 1 }), "1 séance · 0 correction · 0 correction d'identité · 1 attestation");
+  assert.equal(purgeDetails({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2, debit: 12, verrous: 1, journal_anonymise: 4 }),
+    "3 séances · 40 corrections · 1 correction d'identité · 2 attestations · 12 compteurs de débit · 1 verrou · 4 entrées du journal anonymisées");
+  assert.equal(purgeDetails({ seances: 1, corrections: 0, corrections_identite: 0, attestations: 1, debit: 0, verrous: 0, journal_anonymise: 1 }),
+    "1 séance · 0 correction · 0 correction d'identité · 1 attestation · 0 compteur de débit · 0 verrou · 1 entrée du journal anonymisée");
+});
+
+test('anonymizedDetails (D46) : matricule, nom et codes d’attestation → « — » dans les actions qui nomment un étudiant ; le reste ne change pas', () => {
+  assert.equal(ANONYMIZED, '—');
+  assert.equal(anonymizedDetails('remise_a_zero', 'm10-tournage-vc · 2412345 · Camille Tremblay'), 'm10-tournage-vc · — · —');
+  assert.equal(anonymizedDetails('reinitialisation_nip', 'm10-tournage-vc · 2412345 · Camille Tremblay-Roy'), 'm10-tournage-vc · — · —');
+  assert.equal(anonymizedDetails('suppression', 'm10-tournage-vc · 2412345 · Camille Tremblay · séance 7'), 'm10-tournage-vc · — · — · séance 7');
+  assert.equal(anonymizedDetails('suppression', 'm10-tournage-vc · 2412345 · Camille Tremblay · ABCDE-FGHJK · séance 7'), 'm10-tournage-vc · — · — · — · séance 7'); // un code, si un jour les détails en portent
+  assert.equal(anonymizedDetails('connexion', 'adresse 203.0.113.7, rôle admin'), 'adresse 203.0.113.7, rôle admin');
+  assert.equal(anonymizedDetails('connexion_refusee', 'adresse 203.0.113.7, échec 3'), 'adresse 203.0.113.7, échec 3');
+  assert.equal(anonymizedDetails('effacement', "3 séances · 40 corrections · 1 correction d'identité · 2 attestations"), "3 séances · 40 corrections · 1 correction d'identité · 2 attestations");
+  assert.equal(anonymizedDetails('remise_a_zero', null), null);
 });
 
 test('rôles (D44) : la charge porte le rôle ; un rôle inconnu est refusé ; seul admin agit', () => {

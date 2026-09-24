@@ -72,7 +72,8 @@ export const canAct = (role) => role === ADMIN;
 // Le mot que la requête doit porter, tel quel ; l'écran l'exige aussi (prof-data.js porte le même).
 export const PURGE_WORD = 'EFFACER';
 
-// Ce que le journal des actions note d'un effacement : « 3 séances · 40 corrections · 1 correction d'identité · 3 attestations ».
+// Ce que le journal des actions note d'un effacement :
+// « 3 séances · 40 corrections · 1 correction d'identité · 3 attestations · 12 compteurs de débit · 1 verrou · 4 entrées du journal anonymisées ».
 export function purgeDetails(counts) {
   const plural = (count, one, many) => `${count} ${count > 1 ? many : one}`; // en français, zéro reste au singulier
   return [
@@ -80,7 +81,23 @@ export function purgeDetails(counts) {
     plural(counts.corrections, 'correction', 'corrections'),
     plural(counts.corrections_identite, "correction d'identité", "corrections d'identité"),
     plural(counts.attestations, 'attestation', 'attestations'),
+    plural(counts.debit, 'compteur de débit', 'compteurs de débit'),
+    plural(counts.verrous, 'verrou', 'verrous'),
+    plural(counts.journal_anonymise, 'entrée du journal anonymisée', 'entrées du journal anonymisées'),
   ].join(' · ');
+}
+
+// À l'effacement, le journal des actions est gardé mais ANONYMISÉ : dans les détails des actions
+// qui nomment un étudiant — « exercice · matricule · Prénom Nom [· séance n] » —, le matricule, le
+// nom et tout code d'attestation deviennent « — » ; la date, l'enseignant, l'action, l'exercice et
+// les nombres restent. Les connexions (adresse, rôle, échecs) et les effacements ne changent pas.
+export const ANONYMIZED = '—';
+const STUDENT_ACTIONS = ['remise_a_zero', 'reinitialisation_nip', 'suppression'];
+const ATTESTATION_CODE = /^[23456789ABCDEFGHJKMNPQRSTVWXYZ]{5}-?[23456789ABCDEFGHJKMNPQRSTVWXYZ]{5}$/;
+
+export function anonymizedDetails(action, details) {
+  if (typeof details !== 'string' || !STUDENT_ACTIONS.includes(action)) return details;
+  return details.split(' · ').map((part, i) => (i === 1 || i === 2 || ATTESTATION_CODE.test(part) ? ANONYMIZED : part)).join(' · ');
 }
 
 // --- Cookie de séance professeur (D34) --------------------------------------------------------------------

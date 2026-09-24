@@ -252,23 +252,35 @@ export async function deleteSession(db, seanceId, now, entry) {
 
 // --- Effacement des données des étudiants (D46) ---------------------------------------------------------------
 
-// Ce qu'il y a à effacer : { seances, corrections, corrections_identite, attestations }.
+// Ce qu'il y a à effacer : { seances, corrections, corrections_identite, attestations, debit, verrous }.
 export async function countStudentData(db) {
   return db.prepare(`
     SELECT (SELECT COUNT(*) FROM seances) AS seances, (SELECT COUNT(*) FROM corrections) AS corrections,
-           (SELECT COUNT(*) FROM corrections_identite) AS corrections_identite, (SELECT COUNT(*) FROM attestations) AS attestations`).first();
+           (SELECT COUNT(*) FROM corrections_identite) AS corrections_identite, (SELECT COUNT(*) FROM attestations) AS attestations,
+           (SELECT COUNT(*) FROM debit) AS debit, (SELECT COUNT(*) FROM verrous) AS verrous`).first();
 }
 
-// Efface toutes les séances, journaux de corrections, corrections d'identité et attestations, et
-// inscrit l'action au journal des actions — qui reste, ses lignes détachées des séances (ON DELETE
-// SET NULL) — en un seul lot. Les exercices et le catalogue ne sont pas en base : jamais touchés.
-//   entry : la ligne du journal (addTeacherLog), dont les détails donnent les nombres effacés
-export async function purgeStudentData(db, entry) {
+// Le journal des actions, tel quel : { id, action, details } — pour l'anonymiser à l'effacement.
+export async function listTeacherLog(db) {
+  const { results } = await db.prepare('SELECT id, action, details FROM journal_enseignant ORDER BY id').all();
+  return results;
+}
+
+// Efface toutes les séances, journaux de corrections, corrections d'identité et attestations, les
+// compteurs de débit et les verrous ; anonymise les détails du journal des actions — qui reste, ses
+// lignes détachées des séances (ON DELETE SET NULL) — et y inscrit l'action ; en un seul lot. Les
+// exercices et le catalogue ne sont pas en base : jamais touchés.
+//   anonymized : [{ id, details }] — les lignes du journal à réécrire (acces.js, anonymizedDetails)
+//   entry      : la ligne du journal (addTeacherLog), dont les détails donnent les nombres effacés
+export async function purgeStudentData(db, anonymized, entry) {
   await db.batch([
+    ...anonymized.map((row) => db.prepare('UPDATE journal_enseignant SET details = ? WHERE id = ?').bind(row.details, row.id)),
     db.prepare('DELETE FROM attestations'),
     db.prepare('DELETE FROM corrections_identite'),
     db.prepare('DELETE FROM corrections'),
     db.prepare('DELETE FROM seances'),
+    db.prepare('DELETE FROM debit'),
+    db.prepare('DELETE FROM verrous'),
     db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, NULL, ?, ?)')
       .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null),
   ]);
