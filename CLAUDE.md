@@ -22,12 +22,15 @@ la lisibilité priment sur l'élégance technique.**
 - `docs/UI.md` — écrans et présentation (langage visuel, parcours, composants, impression). **Source de vérité de la présentation**, au même titre que SPEC pour le comportement (décision D17) ; maquettes approuvées dans `docs/maquettes/`. En cas de contradiction : DECISIONS, puis SPEC, puis UI.
 - `docs/DECISIONS.md` — décisions prises et ouvertes. Ne jamais contredire une décision fermée sans en ajouter une nouvelle.
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
-- `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où. Y vivent aussi le **gabarit de nom** de chaque outil (`format_identifiant`, D24), les deux diamètres de la barre à aléser (D25), les débuts de famille (D27) et la révision des tables (D28).
-- `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions (par outil, et matière d'outil pour tout l'exercice : D40). `test-complet` couvre tout le catalogue, pour les essais (D26).
-- `worker/` — le **serveur de correction** (décisions D19 à D22, D26, D31 à D39, D44 à D46 ; API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles d'une séance (pur, testé), `attestation.js` celles de l'attestation (code, enregistrement figé, adresse du QR), `acces.js` celles de l'accès (limites de débit, verrous, cookie professeur et ses deux rôles, mot d'effacement), `base.js` tout le SQL, `crypto.js` le NIP, le jeton, les signatures, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
+- **La base D1 porte les exercices, la banque d'outils et les tables de référence** (décision D47, migration `0005`) : c'est ce que le serveur et le navigateur lisent, et ce que l'éditeur modifie en production. Les JSON du dépôt ne sont plus que la **semence et les données des tests** :
+  - `site/data/*.json` — le format des tables de référence (matériaux, opérations) et de la banque d'outils (SPEC §3), extraits du classeur ; l'en-tête `_source` de chaque fichier dit d'où. Y vivent le **gabarit de nom** de chaque outil (`format_identifiant`, D24), les deux diamètres de la barre à aléser (D25), les débuts de famille (D27) et la révision des tables (D28). Semés en base par `0005` comme version « A2026_r0 » et comme banque ; un test vérifie que la semence leur est identique. **Les éditer ne change rien en production.**
+  - `site/exercices/<id>.json` — les exercices au format **fichier** (SPEC §10 : outils du catalogue avec restrictions), convertis en copies d'outils par `draftFromExercise` pour la semence (les deux M10) et les tests. `test-complet` couvre tout le catalogue, pour les tests et le mode test (D26) ; il n'est pas semé.
+  - `reference/semence-d1/generer.mjs` — le script qui a composé la migration `0005` ; on ne le relance pas (une migration appliquée ne change pas).
+- `site/prof/editeur.html` — **l'éditeur** (D47 à D49, SPEC §10, UI §3.9), rôle admin : exercices (brouillon, versions publiées immuables, aperçu, publication avec le résumé des différences), banque d'outils, sauvegarde (export, import). Écrans `site/js/ui/editeur.js`, règles pures `editeur-data.js` ; côté serveur `worker/editeur.js` (pur, testé) et les routes `/api/prof/editeur/*` d'`index.js`. La validation (`draftErrors`, `toolErrors`) est la même des deux côtés.
+- `worker/` — le **serveur de correction** (décisions D19 à D22, D26, D31 à D39, D44 à D49 ; API dans SPEC §7) : `index.js` reçoit les requêtes (et **n'exporte que des fonctions** : le Workers runtime refuse tout autre export), `seance.js` porte les règles d'une séance (pur, testé), `attestation.js` celles de l'attestation (code, enregistrement figé, adresse du QR), `acces.js` celles de l'accès (limites de débit, verrous, cookie professeur et ses deux rôles, mot d'effacement), `editeur.js` celles de l'éditeur (aperçu, import), `base.js` tout le SQL, `crypto.js` le NIP, le jeton, les signatures, `catalogue.js` assemble une **version publiée** d'exercice depuis D1 (tables + copies d'outils) — une séance est épinglée à la sienne (D47). Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
 - `site/verifier.html` et `site/prof.html` — la page publique de vérification d'une attestation et l'espace professeur (SPEC §8) ; leurs écrans sont `site/js/ui/verifier.js` et `prof.js`, leurs règles `attestation-data.js` et `prof-data.js` (pures, testées).
 - `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js`) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
-- `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté.
+- `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté. `deploy.yml` les applique en production avant chaque déploiement.
 - `reference/pictogrammes-du-classeur/` — le convertisseur DrawingML → SVG des pictogrammes d'opérations (D29). Les SVG de `site/img/pictos/operations/` ne se retouchent pas à la main : on relance la conversion.
 - `docs/rapports/<jalon>-<sujet>.md` (ou `<sujet>.md` pour une session hors jalon) — les rapports de fin de session, tels qu'écrits à Thierry (règle 8 ci-dessous) : ce qui a été fait, vérifié, et les points douteux à trancher.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
@@ -52,13 +55,13 @@ la lisibilité priment sur l'élégance technique.**
   `site/fonts/` : aucune requête vers un domaine externe.
 
 ```
-site/              pages publiées : index.html (le quiz), verifier.html, prof.html ; css/, js/, fonts/, vendor/ (bibliothèque QR)
-site/data/         catalogue : JSON de référence, unique exemplaire (décisions D8, D11)
-site/exercices/    un JSON par exercice configurable (décision D11, SPEC §10)
-site/img/outils/   images des outils
-site/editeur/      éditeur web statique du catalogue et des exercices (jalon 7)
-worker/            le Worker : API /api/… du serveur de correction (décisions D19, D20)
-migrations/        schéma de la base D1, un fichier SQL numéroté par changement
+site/              pages publiées : index.html (le quiz), verifier.html, prof.html, prof/editeur.html ; css/, js/, fonts/, vendor/ (bibliothèque QR)
+site/data/         tables de référence et banque d'outils au format JSON : semence de la base et données des tests (D47)
+site/exercices/    exercices au format fichier (SPEC §10) : semence (les deux M10) et tests
+site/img/outils/   photos des outils, et index.json qui les liste pour l'éditeur
+worker/            le Worker : API /api/… du serveur de correction et de l'éditeur (décisions D19, D20, D47)
+migrations/        schéma de la base D1, un fichier SQL numéroté par changement ; 0005 sème la banque et les exercices
+reference/         outillage ponctuel : convertisseur des pictogrammes (D29), générateur de la semence 0005
 wrangler.jsonc     configuration du Worker (nom, ressources statiques, base D1)
 tests/             tests du moteur et du serveur (node --test) ; api-locale.mjs = npm run test:api
 docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN ; rapports/ = un rapport de fin de session par jalon
@@ -82,7 +85,7 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 4. **Petits commits** en français, un sujet par commit (`Ajoute le calcul de N avec plafond RPM`).
    Un commit n'est créé que si `npm test` affiche `fail 0`. Un commit local non
    poussé qui s'avère rouge est **amendé**, jamais suivi d'un commit de réparation.
-5. **Ne pas modifier `site/data/*.json`** pour faire passer un test : si une donnée semble fausse, le signaler à Thierry (c'est lui qui connaît le métier).
+5. **Ne pas modifier `site/data/*.json`** pour faire passer un test : si une donnée semble fausse, le signaler à Thierry (c'est lui qui connaît le métier). Depuis D47, une correction de donnée se fait **dans l'éditeur, en production** (banque, exercices) ; le JSON du dépôt reste la semence d'origine et ne se retouche que pour les tests, jamais pour « corriger la production ».
 6. Quand la SPEC est ambiguë : proposer une interprétation, l'écrire en commentaire `// ❓` et le signaler en fin de session — ne pas décider en silence.
 7. Vérifier que `node --test` passe et que `site/index.html`, servi par `npm run dev`, s'ouvre sans erreur console avant de conclure une tâche.
 8. **Chaque rapport de fin de session écrit à Thierry est aussi enregistré dans `docs/rapports/<jalon>-<sujet>.md`** (ex. `jalon-5-attestation.md`) et commité avec le travail, points douteux compris : la conversation s'oublie, le dépôt reste.
@@ -105,4 +108,5 @@ npm run deploy           # migrations de production puis wrangler deploy — nor
 - Modifier un fichier de `migrations/` déjà appliqué, ou toucher à la base de production (`--remote`) sans que Thierry le demande.
 - Écrire un secret (`CLE_SECRETE`, `CLE_ADMIN`, `CLE_CONSULTATION`, jeton Cloudflare) dans le dépôt, un test, un journal ou une conversation.
 - Mettre `MODE_TEST` dans `wrangler.jsonc`, dans le déploiement ou en production, ou l'activer depuis le navigateur (D26) : c'est le serveur local seul qui décide. Toute donnée ajoutée à `seance.question` se juge à la règle « rien de ce qui est à trouver ne part au navigateur » (SPEC §7).
-- Changer le format des JSON de données sans mettre à jour `SPEC.md` §3 et les tests de validation.
+- Changer le format des JSON de données sans mettre à jour `SPEC.md` §3 et les tests de validation — le même format vit maintenant en base (colonnes JSON) : un changement de format demande une migration qui réécrit les lignes.
+- Croire que modifier `site/data/` ou `site/exercices/` change quelque chose en production (D47) : c'est l'éditeur `/prof/editeur` qui écrit en base, et l'export JSON de l'éditeur qui sauvegarde.

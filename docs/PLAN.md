@@ -108,14 +108,22 @@ Rapport de session : `docs/rapports/jalon-6-exploitation.md`.
 - [x] **Effacement des données des étudiants** (D46) : page à part de `/prof`, rôle admin, export CSV de tout proposé puis le mot EFFACER exigé (écran et serveur) ; séances, journaux, corrections d'identité et attestations effacés ; journal des actions gardé avec les nombres ; exercices et catalogue jamais touchés
 - [x] Tests : rôle consultation refusé sur chaque route d'action, suppression avec attestations annulées, effacement complet avec journal intact, mot de confirmation exigé, migration `0004` sur des attestations existantes ; `test:api` étendu à la connexion en consultation, à la suppression et à l'effacement ; Chrome à 1280 et 390 px pour les deux rôles, captures dans `captures/jalon-6/`, aucune requête externe
 
-## Jalon 7 — Éditeur web du catalogue et des exercices (décision D11)
-Rien n'en existe encore. Protégé par la connexion professeur du jalon 5, rôle admin (UI §8).
+## Jalon 7a — Éditeur des exercices et banque d'outils, en production (décisions D47 à D49)
+Rapport de session : `docs/rapports/jalon-7a-editeur.md`. Thierry est le seul auteur ; l'éditeur écrit en D1, sans commit ni déploiement.
 
-- [ ] `site/editeur/` : **création de devoirs** — éditer un exercice (outils, réussites, champs évalués, restrictions par outil et matière d'outil pour tout l'exercice, D40), validé par `exercice.js` ; l'inscrire à l'index
-- [ ] Éditer les **outils** (`outils.json`), validé par `data.js` : dimensions, **gabarit de nomenclature** avec la liste des jetons et un aperçu (D24), **barres** d'un outil à deux diamètres (D25)
-- [ ] Éditer les **tables de référence** : vitesses de coupe (`materiaux.json`, dont `debut_famille`, D27), avances (`operations.json`), **révision** de chaque table (D28)
-- [ ] **Images** : photo d'un outil (`site/img/outils/`), pictogramme d'une opération (`site/img/pictos/operations/`)
-- [ ] Télécharger les JSON produits ; mode d'emploi « déposer dans le dépôt et commettre »
+- [x] **Migration `0005`** : `tables_reference` (une version « A2026_r0 »), `banque_outils`, `exercices` (brouillon, révision), `versions_exercice` (immuables, numérotées) ; `seances.version_id` ; semence générée depuis les JSON du dépôt (`reference/semence-d1/generer.mjs`) : les 29 outils, les deux M10 en version 1 ; les séances existantes épinglées à la version 1 ; un test vérifie que la semence est identique aux JSON, et que les M10 posent les mêmes questions qu'avant pour une même graine
+- [x] **Copies d'outils** dans l'exercice (`copyOfTool`, `draftFromExercise`, `engineExercise`, `draftErrors`, `toolErrors` par champ) ; groupes permis pour tout l'exercice
+- [x] Le serveur lit la version épinglée à la séance (`worker/catalogue.js`) ; `GET /api/exercice`, `GET /api/exercices` ; le navigateur compose son catalogue à partir de là ; exercice archivé = plus de nouvelle séance
+- [x] **Éditeur** `/prof/editeur`, rôle admin, chaque action au journal : liste (état, versions, séances par version, dupliquer, renommer, archiver, supprimer, lien étudiant) ; page d'un exercice (réglages, copies d'outils : ajouter depuis la banque ou un autre exercice, dupliquer, retirer, réordonner, tout modifier sauf le gabarit en lecture seule avec exemple ; photo parmi les images du site) ; validation continue par champ, Publier désactivé tant qu'il reste une erreur ; enregistrement avec contrôle de version optimiste (409) ; publication avec résumé des différences ; aperçu de dix questions ; banque (créer, dupliquer, modifier, archiver, nombre d'exercices qui en ont une copie) ; sauvegarde (export JSON, import validé, fusion sans suppression, mot IMPORTER)
+- [x] Tests : migration et semence, séance épinglée, copie indépendante, refus du rôle consultation sur chaque route, conflit d'enregistrement, publication bloquée, aller-retour export-import, `worker/index.js` n'exporte que des fonctions ; `test:api` étendu (25 étapes) ; Chrome à 1280 et 390 px, captures dans `captures/jalon-7a/`, aucune requête externe
+
+## Jalon 7b — Images, gabarits de nomenclature, tables de référence versionnées
+À concevoir sur les tables de `0005` : une nouvelle version des tables = une nouvelle ligne de `tables_reference` (immuable), que les publications suivantes prennent ; le brouillon d'un exercice pourra choisir sa version de tables.
+
+- [ ] **Téléversement d'images** : photo d'un outil et pictogramme d'une opération (où les stocker : D1 en blob, ou R2 ; `image` de la copie et `operationPicto` pointent déjà sur un nom de fichier)
+- [ ] **Gabarit de nomenclature** (D24) : édition avec la liste des jetons et l'exemple composé (déjà affiché en lecture seule), validation des jetons (`toolErrors`)
+- [ ] **Tables de référence versionnées** : vitesses de coupe (matériaux, groupes ISO, `debut_famille` D27), avances et opérations (avec leur pictogramme), matériaux d'outil, **révision** (D28) ; publier une version des tables ; l'attestation inscrit déjà la révision des tables (D28)
+- [ ] Une clé par enseignant et la table des séances professeur (D34), le mode test ouvert au professeur connecté (D26)
 
 ## Finition
 - [ ] Graphique de progression par opération

@@ -1047,3 +1047,122 @@ et SPEC §9 le dit ; rien ne le faisait encore.
 `base.purgeStudentData`, `PURGE_WORD` et `anonymizedDetails` (`acces.js` ; le mot est le même dans
 `prof-data.js`, un test le vérifie) ; SPEC §7, §8, §9 ; UI §3.8. L'éditeur du catalogue devient le
 jalon 7 (`PLAN.md`).
+
+## D47 — Les exercices et la banque d'outils vivent en D1 : copies d'outils, versions publiées immuables, séance épinglée (2026-09-24, décidée)
+
+**Contexte.** Thierry est le seul auteur des exercices ; il veut en créer dix à vingt lui-même, en
+production, depuis n'importe quel poste, sans commit ni déploiement. D11 prévoyait un éditeur
+statique qui produit des JSON à déposer dans le dépôt ; D22 faisait lire au serveur les JSON de
+`site/` ; D21 (point 4) faisait continuer une séance sur un exercice modifié, avec des compteurs
+par outil. Rien de cela ne convient à une édition en production.
+
+**Décision.**
+
+- **Quatre tables de plus en D1** (migration `0005`) : `tables_reference` (une version des tables
+  de référence : le contenu de `materiaux.json` et d'`operations.json`, immuable, identifiée par sa
+  révision — une seule pour l'instant, « A2026_r0 »), `banque_outils` (un outil par ligne, au format
+  d'`outils.json`, modifiable, archivable), `exercices` (l'identifiant d'URL, définitif, et le
+  **brouillon**, seul état modifiable) et `versions_exercice` (les versions publiées d'un exercice,
+  numérotées 1, 2, 3…, **immuables**, chacune avec la version des tables qu'elle utilise).
+- **Un exercice porte des COPIES d'outils**, pas des références à la banque : chaque copie a ses
+  dimensions possibles, son nombre de dents, son gabarit de nomenclature, sa photo (`image`), ses
+  facteurs et ses réussites de suite exigées. Modifier la banque ne change aucun exercice ; modifier
+  une copie ne change pas la banque. Les restrictions par outil de SPEC §10 (`dimensions`,
+  `materiaux_outil`, `groupes` d'une entrée) disparaissent du format enregistré : restreindre, c'est
+  retirer de la copie. Restent les restrictions de tout l'exercice : `materiaux_outil` (D40) et,
+  nouveau, `groupes`.
+- **Une séance est épinglée à sa version** (`seances.version_id`) de sa création à sa fin ; seules
+  les nouvelles séances prennent la dernière version publiée. Une publication ne touche donc
+  jamais une séance en cours : **remplace le point 4 de D21** (la séance qui « continue » sur
+  l'exercice modifié). La version d'un exercice est son numéro (« 1 », « 2 ») : c'est ce que
+  l'attestation inscrit comme « version de l'exercice » (`revision`).
+- **Semence** : la migration importe les JSON du dépôt tels qu'ils étaient ce jour-là — les tables
+  comme « A2026_r0 », les 29 outils comme banque (chaque outil recevant `image` = son id), les deux
+  M10 comme version 1 publiée (brouillon identique). Les séances existantes pointent vers la
+  version 1 de leur exercice ; une séance créée par l'ancien serveur entre la migration et le
+  déploiement (sans version) prend la dernière publiée à sa première requête, et y reste. Les liens
+  `?exercice=<id>` diffusés sur Léa ne changent pas ; les attestations émises restent telles quelles.
+- **Le serveur et le navigateur lisent l'exercice en base** : `worker/catalogue.js` assemble une
+  version (tables + copies) au format de `loadData` ; le navigateur demande `GET /api/exercice`
+  (dernière version pour l'accueil, celle de la séance ensuite) et `GET /api/exercices` (la liste
+  de l'accueil). **Remplace « une seule source de données : `site/data/` et `site/exercices/` » de
+  D22** : les JSON du dépôt ne servent plus qu'à la semence et aux tests (`tests/aide.js`,
+  `reference/semence-d1/generer.mjs`), avec un test qui vérifie que la semence leur est identique.
+- Un exercice **archivé** disparaît de la liste et refuse toute nouvelle séance ; les séances en
+  cours continuent, les attestations restent vérifiables. Un exercice sans aucune séance peut être
+  supprimé ; sinon, seulement archivé.
+
+**Conséquences.** `exercice.js` : `copyOfTool`, `draftFromExercise`, `engineExercise`,
+`draftErrors`, `allowedGroups` ; `data.js` : `toolErrors` (erreurs par champ), `assembleData` ;
+`progression.js` ne restreint plus les dimensions par entrée que pour les fichiers JSON des tests ;
+`base.js`, `catalogue.js` réécrit, `index.js` (version épinglée sur chaque route de séance) ;
+`app.js` et `main.js` (l'exercice vient du serveur, la version de la séance est rechargée au
+besoin). SPEC §3, §7, §10 ; UI §3.1 ; CLAUDE.md. D11 reste vraie pour les deux couches (catalogue,
+exercices) et l'éditeur ; son « éditeur statique » est remplacé par D48.
+
+## D48 — L'éditeur en production, rôle admin, validation continue, contrôle de version optimiste, journal (2026-09-24, décidée)
+
+**Décision.**
+
+- L'éditeur est une page du site, `/prof/editeur`, derrière la connexion de l'espace professeur avec
+  le **rôle admin** seulement (D44) : chaque route `/api/prof/editeur/*` refuse le rôle consultation
+  côté serveur (403), pas seulement à l'écran ; la page refuse la clé de consultation à la
+  connexion. **Chaque action est inscrite au journal des actions** (`editeur_creation`,
+  `editeur_enregistrement`, `editeur_renommage`, `editeur_archivage`, `editeur_retablissement`,
+  `editeur_suppression`, `editeur_publication`, `editeur_banque_*`, `editeur_export`,
+  `editeur_import`) ; l'aperçu et les lectures, non.
+- **Validation continue** : la règle est celle du quiz — `toolErrors` (le `validateData` du catalogue,
+  outil par outil) et `draftErrors` (l'exercice), partagés par le serveur et le navigateur. Chaque
+  erreur nomme son champ (« outils.1.fact_vc ») et s'écrit à côté de lui ; « Publier » reste
+  désactivé tant qu'il en reste, et le serveur refuse de publier un brouillon en erreur (400, erreurs
+  jointes). Un brouillon en erreur s'enregistre quand même : c'est un brouillon.
+- **Contrôle de version optimiste** : le brouillon d'un exercice et un outil de la banque portent un
+  numéro de `revision` ; un enregistrement doit présenter celui qu'il a lu, sinon il est refusé
+  (409) avec un message clair et rien n'est écrasé — l'éditeur ouvert sur deux appareils, le
+  second perd. La ligne du journal n'est écrite que si l'enregistrement a eu lieu.
+- La liste des exercices montre l'état (jamais publié, brouillon modifié — comparaison du contenu
+  avec la dernière version —, à jour, archivé), la dernière version, le nombre de séances par
+  version, et offre dupliquer (un nouveau brouillon, jamais publié), renommer (le titre du
+  brouillon), archiver ou rétablir, supprimer (sans séance seulement), copier le lien étudiant.
+- La page d'un exercice : réglages généraux (titre, grandeurs évaluées, matières d'outil et groupes
+  permis pour tout l'exercice, proposé à l'accueil), puis ses copies d'outils dans l'ordre — ajouter
+  depuis la banque ou depuis un autre exercice, dupliquer dans l'exercice, retirer, monter,
+  descendre ; sur chaque copie, tout ce qu'`outils.json` porte, plus les réussites de suite. Le
+  **gabarit de nomenclature reste en lecture seule**, avec un exemple composé (son édition, les
+  images et les tables : jalon 7b). La photo se choisit parmi celles de `site/img/outils/` (liste
+  dans `index.json`, vérifiée par un test).
+- La banque : les mêmes formulaires ; créer, dupliquer, modifier, archiver ; chaque outil dit dans
+  quels exercices il a une copie (`origine` de la copie), à titre d'information.
+- Les dimensions s'éditent en texte, une par ligne, « libellé ; valeur » (Ø en pouces, ou le
+  filetage en texte « 0.25-20 », « 10x1.5 »), les barres d'un outil à deux diamètres de même.
+
+**Conséquences.** `worker/editeur.js` (règles pures), routes dans `index.js`, SQL dans `base.js` ;
+`site/prof/editeur.html`, `site/js/ui/editeur.js`, `editeur-data.js` (pur, testé),
+`site/css/editeur.css` ; `site/img/outils/index.json`. `worker/index.js` n'exporte que des fonctions :
+le Workers runtime refuse tout autre export du module d'entrée (un test le vérifie). UI §3.9.
+
+## D49 — Publier avec le résumé des différences, aperçu sans trace, sauvegarde par export et import par fusion (2026-09-24, décidée)
+
+**Décision.**
+
+- **Publier** enregistre le brouillon, puis montre les différences avec la version précédente —
+  réglages changés, outils ajoutés, retirés ou modifiés champ par champ, ordre changé — et crée la
+  version suivante après confirmation. Une publication sans différence est permise (le brouillon
+  redevient « à jour »). La version prend les tables de référence les plus récentes.
+- **Aperçu** : dix questions tirées parmi tous les outils du brouillon (tel qu'il est à l'écran,
+  même non enregistré) ou d'une version, avec la nomenclature composée, le matériau tiré et les
+  réponses attendues des grandeurs évaluées. Aucune séance, rien d'enregistré, rien au journal.
+  Ce n'est pas le mode test (D26) : il n'existe que derrière la clé d'administration.
+- **Sauvegarde** : un export JSON complet (`format` « quiz-parametres-coupe/editeur/1 » : tables de
+  référence, banque, exercices avec brouillon et toutes leurs versions), jamais de données
+  d'étudiants. **L'import fusionne** : il ajoute les tables, exercices et versions absents, remplace
+  les brouillons et la banque ; il **ne supprime jamais une version publiée ni un exercice**, refuse
+  une version ou une table différente sous un numéro ou un identifiant existant (immuables), refuse
+  un contenu invalide ; il est d'abord validé et résumé, puis appliqué sur le mot IMPORTER, en un
+  seul lot ; il ne touche ni aux séances, ni aux journaux, ni aux attestations. Un export réimporté
+  ne change rien (aller-retour identique).
+
+**Conséquences.** `versionDiff`, `diffLines` (`editeur-data.js`) ; `previewQuestions`,
+`importPlan` (`worker/editeur.js`) ; `base.exportEditorData`, `base.applyImport`.
+`DEMARRAGE.md` §7 : la sauvegarde par export, la restauration par import. La `CLE_ADMIN` reste le
+seul secret de l'éditeur.

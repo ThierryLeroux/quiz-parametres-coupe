@@ -161,7 +161,10 @@ seule fois, dans PowerShell, à la racine du dépôt (après `npm install`) :
 Ensuite, rien à faire à la main : le schéma de la base est dans `migrations/`
 (un fichier SQL numéroté par changement, jamais modifié une fois appliqué).
 `npm run dev` applique les migrations à la base **locale** ; `deploy.yml` les
-applique à la base de **production**, juste avant de publier le Worker.
+applique à la base de **production**, juste avant de publier le Worker — la
+`0005` (jalon 7a) y sème la banque d'outils et les deux M10 en version 1, et
+épingle les séances existantes à cette version 1, **toute seule, au premier push
+sur `main` après la fusion** ; aucune commande à taper.
 
 Pour regarder la base de production (lecture seule, sans risque) :
 
@@ -205,6 +208,33 @@ séance, avec une boîte de confirmation qui nomme l'étudiant :
   supprimée » à la vérification, avec la date. L'étudiant peut recommencer de
   zéro avec le même matricule.
 
+Et, dans la barre du haut, **Éditeur des exercices** (`…/prof/editeur`, jalon 7a,
+décisions D47 à D49) : la clé d'administration seule y entre. C'est là que se
+créent et se modifient les exercices et la banque d'outils, **en production, sans
+commit ni déploiement** : un exercice a un brouillon (modifiable) et des versions
+publiées (numérotées, figées) ; les étudiants voient la dernière version publiée,
+et une séance commencée garde la sienne jusqu'à la fin. « Publier » résume les
+différences avant de créer la version ; « Aperçu » tire dix questions avec leurs
+réponses. Mode d'emploi : `docs/UI.md` §3.9.
+
+**Sauvegarde et restauration** (onglet **Sauvegarde** de l'éditeur, décision D49) :
+
+- **Sauvegarder** : **Exporter tout en JSON** télécharge
+  `quiz-parametres-coupe-exercices-AAAA-MM-JJ.json` — les tables de référence, la
+  banque, tous les exercices avec leur brouillon et toutes leurs versions ; aucune
+  donnée d'étudiant. À faire avant une grosse retouche, et à la fin de chaque
+  session, dans un dossier hors du dépôt (le dépôt ne porte plus que la semence
+  d'origine).
+- **Restaurer** : choisir le fichier sous **Importer** ; l'import est d'abord validé
+  et résumé (ce qui sera ajouté, remplacé, gardé), puis appliqué en tapant
+  **IMPORTER**. Il **fusionne** : il ajoute les exercices, versions et tables
+  absents, remplace les brouillons et la banque, ne supprime jamais une version
+  publiée ni un exercice, et ne touche ni aux séances ni aux attestations. Un
+  export réimporté tel quel ne change rien. Il refuse une version différente sous
+  un numéro déjà pris : les versions publiées sont figées.
+- En local, la même sauvegarde s'importe sur la base de `npm run dev` pour y
+  reproduire la production.
+
 Et, sous le tableau, **Effacer les données des étudiants…** (décision D46) :
 la page à part qui vide la base **en fin de session**. Elle propose d'abord
 l'export CSV de tout, puis exige de taper le mot **EFFACER**. Toutes les
@@ -213,7 +243,8 @@ compteurs de débit et les verrous disparaissent ; les anciens codes
 d'attestation répondent ensuite « aucune attestation ne correspond ». Le journal
 des actions reste, anonymisé (noms, matricules et codes remplacés par « — »),
 avec les nombres effacés. Les exercices, la banque d'outils et les tables de
-référence ne sont jamais touchés : ils sont dans le dépôt, pas dans la base.
+référence ne sont jamais touchés : l'effacement ne concerne que les tables des
+étudiants.
 
 ### La clé de consultation : la créer, la remettre, la remplacer
 

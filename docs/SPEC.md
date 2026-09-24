@@ -1,6 +1,6 @@
 # Spécification fonctionnelle — Quiz de paramètres de coupe (version web)
 
-Statut : **brouillon v0.7** (2026-09-24). Rédigée à partir de l'analyse du classeur
+Statut : **brouillon v0.8** (2026-09-24). Rédigée à partir de l'analyse du classeur
 `Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm` et de son VBA
 (voir `legacy/vba/`). Un point marqué ❓ est à confirmer avec Thierry ; il n'y en a aucun en ce moment.
 
@@ -25,14 +25,22 @@ révolution, vitesse d'avance). La configuration d'un exercice (quels outils,
 combien de réussites, quels champs pré-remplis) doit permettre de reproduire le
 M10 actuel (« Vc seulement, tournage ») comme simple cas particulier (§10).
 
-Un **éditeur web statique** du catalogue et des exercices fait aussi partie de
-la v1 (décision D11) : il produit des JSON à télécharger, que l'enseignant
-dépose dans le dépôt et commet. Il n'écrit rien en ligne.
+Un **éditeur web** des exercices et de la banque d'outils fait aussi partie de la
+v1 (décisions D11, D47 à D49) : depuis le jalon 7a, il écrit **en production, dans
+la base D1**, derrière la clé d'administration (§8, §10). Les exercices et la
+banque n'y sont plus des fichiers du dépôt.
 
-## 3. Données de référence (`site/data/`)
+## 3. Données de référence (`site/data/`, et la table `tables_reference`)
 
-Les JSON vivent dans `site/data/`, en un seul exemplaire publié avec le site
-(décision D8) ; les tests les lisent au même endroit.
+Les JSON de `site/data/` décrivent le format des données de référence et sont
+**la semence** de la base (décision D47) : la migration `0005` les a importés tels
+quels comme version « A2026_r0 » de la table `tables_reference` (`materiaux` et
+`operations`, JSON), et `outils.json` comme **banque d'outils** (`banque_outils`,
+un outil par ligne). Depuis, **le serveur et le navigateur lisent la base**, pas
+les fichiers ; les JSON ne servent plus qu'à la semence et aux tests (un test vérifie
+que la semence leur est identique). Les éditer ne change rien en production :
+c'est l'éditeur (§10) qui modifie la banque, et le jalon 7b qui versionnera les
+tables. Le format ci-dessous reste celui des tables en base.
 
 | Fichier | Contenu | Source Excel |
 |---|---|---|
@@ -262,28 +270,36 @@ Une **séance** = un couple (exercice, matricule) : il n'y en a qu'une. Une
 séance interrompue se reprend **de n'importe quel appareil**, en s'identifiant
 (§8) ; il n'y a ni lien de reprise ni QR de séance.
 
-**Exercice modifié en cours de session (D21).** La séance **continue**. Les
-compteurs sont indexés par `id` d'outil : un outil retiré de l'exercice
-disparaît de la progression, un outil ajouté part à zéro, ce qui est acquis le
-reste. Une question en attente ne vaut plus si son outil a quitté l'exercice,
-ou s'y trouve déjà réussi parce qu'on exige maintenant moins de réussites : la
-suivante est tirée à la prochaine demande — ou la réussite est constatée s'il
-ne reste rien à tirer. La séance note la version de l'exercice **au début** et
-**à la réussite**. Une réussite acquise le reste, quoi que devienne l'exercice.
+**Séance épinglée à sa version (D47, remplace le point 4 de D21).** Une séance
+est créée sur la **dernière version publiée** de l'exercice (`seances.version_id`)
+et **la garde jusqu'à la fin** : une publication ne touche jamais une séance en
+cours (mêmes outils, même titre, mêmes tables) ; seules les nouvelles séances
+prennent la nouvelle version. La séance note la version (son numéro) **au
+début** et **à la réussite** ; c'est ce que l'attestation inscrit. Une séance sans
+version (créée par l'ancien serveur entre la migration `0005` et le déploiement)
+prend la dernière version publiée à sa première requête, et y reste. Les compteurs
+restent indexés par `id` d'outil ; une question en attente dont l'outil n'est
+plus à évaluer (ce qui ne peut plus arriver qu'en cas de retouche directe de la
+base) est retirée et remplacée.
 
 **Le serveur conserve** (base D1, schéma dans `migrations/`) :
 
 | Table | Contenu |
 |---|---|
-| `seances` | une ligne par couple (exercice, matricule) : prénom et nom **de la première visite**, NIP haché, jeton haché et son expiration, début, dernière activité, dernière correction, version de l'exercice au début et à la réussite, compteurs (JSON), question en attente (JSON), date de réussite, essais de NIP et verrou |
+| `seances` | une ligne par couple (exercice, matricule) : prénom et nom **de la première visite**, NIP haché, jeton haché et son expiration, début, dernière activité, dernière correction, version de l'exercice au début et à la réussite (son numéro), **la version épinglée** (`version_id`, D47), compteurs (JSON), question en attente (JSON), date de réussite, essais de NIP et verrou |
 | `corrections_identite` | le journal des corrections d'identité (D23) : séance, anciens et nouveaux prénom, nom et matricule, horodatage ; après la réussite, les codes de l'attestation annulée et de la nouvelle (D37) — pour l'espace professeur |
 | `corrections` | le journal : séance, outil, question (JSON), réponses (JSON), résultat champ par champ et valeurs attendues (JSON), réussie ou non, horodatage |
 | `attestations` | une ligne par attestation (D31, D35, D37, D45) : séance (NULL une fois la séance supprimée), code court, enregistrement figé (JSON, avec la liste des questions réussies qui comptent, D41), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`, `seance_supprimee`) |
 | `journal_enseignant` | les actions d'enseignant (D34, D35, D38, D44 à D46) : horodatage, enseignant (« admin » ou « consultation » : le rôle, D44), séance (NULL quand elle n'existe plus), action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`, `suppression`, `effacement`), détails — anonymisés à l'effacement (D46) |
 | `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
+| `tables_reference` | les versions des tables de référence (D47) : identifiant (la révision, « A2026_r0 »), `materiaux` et `operations` (JSON, le contenu des deux fichiers de §3), date ; immuables — une seule pour l'instant |
+| `banque_outils` | la banque d'outils (D47) : un outil par ligne (JSON au format d'`outils.json`), rang, numéro de révision (D48), date de modification, date d'archivage |
+| `exercices` | les exercices (D47) : l'identifiant d'URL (définitif), le **brouillon** (JSON, §10), son numéro de révision (D48), dates de modification, de dernière publication, d'archivage, de création |
+| `versions_exercice` | les versions publiées (D47) : exercice, numéro (1, 2, 3…), contenu (JSON, la même forme que le brouillon, **figé**), version des tables de référence, date |
 
-Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **efface le
-tout en fin de session** (espace professeur, §8, D46) ; supprimer une séance
+Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **efface les
+données des étudiants en fin de session** (espace professeur, §8, D46) — les
+quatre tables de l'éditeur ne sont jamais touchées ; supprimer une séance
 efface son journal, mais ses attestations restent, annulées (D45).
 
 **Le navigateur ne conserve que** `{ matricule, prenom, jeton }`
@@ -320,15 +336,22 @@ stockage vide, illisible ou en panne → l'étudiant s'identifie, sans erreur.
   essai de NIP est examiné, une seule question est tirée, une seule correction
   compte.
 
-### Données lues par le serveur (décision D22)
+### Données lues par le serveur (décisions D22, D47)
 
-Il n'y a **qu'une source** : `site/data/` (§3) et `site/exercices/` (§10), ceux
-que lit aussi le navigateur. Le Worker les lit **par sa liaison `ASSETS`**
-(`worker/catalogue.js`), avec `loadData` et `loadExercise` du site — donc avec
-les mêmes validations —, et garde le résultat en mémoire jusqu'au déploiement
-suivant. Seuls les exercices de l'index (§10) existent pour le serveur. Le
-moteur (`site/js/` : question, calcul, format, correction, progression) est
-importé par le Worker : il n'existe qu'en un exemplaire.
+Il n'y a **qu'une source** : la base D1 — une **version publiée** d'exercice
+(`versions_exercice`) et la version des tables de référence qu'elle nomme
+(`tables_reference`). `worker/catalogue.js` les assemble (`assembleData` de
+`site/js/data.js`, avec les mêmes validations que le navigateur) au format de
+`loadData` : les copies d'outils de la version tiennent lieu de catalogue
+d'outils. Une version publiée ne change jamais : une fois assemblée, elle est
+gardée en mémoire. Un exercice sans version publiée n'existe pas pour le serveur
+(400 « Cet exercice n'existe pas ») ; un exercice archivé refuse toute nouvelle
+séance (400 « Cet exercice n'est plus offert »), ses séances en cours continuent.
+Le navigateur reçoit la même chose par `GET /api/exercice` — la dernière version
+pour l'accueil, puis celle de sa séance — et compose ses feuilles de référence et
+ses noms d'outils à partir de là. Le moteur (`site/js/` : question, calcul,
+format, correction, progression) est importé par le Worker : il n'existe qu'en
+un exemplaire.
 
 ### API du serveur (`/api/…`, appelée par `site/js/api.js`)
 
@@ -340,6 +363,8 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | Appel | Requête | Réponse |
 |---|---|---|
 | `GET /api/version` | — | `{ version }` (celle de `package.json`) |
+| `GET /api/exercice?exercice=<id>[&version=<n>]` | — | `{ exercice, tables, version, archive }` — la dernière version publiée de l'exercice (ou la version `n`, celle d'une séance) : l'exercice au format du moteur avec ses copies d'outils (chacune avec `reussites_requises`), les deux tables de référence, le numéro, et si l'exercice est archivé ; 400 inconnu ou jamais publié, 404 version inconnue (D47) |
+| `GET /api/exercices` | — | `{ exercices: [ { id, titre } ] }` — la liste de l'accueil (D18) : publiés, non archivés, sans `"liste": false` |
 | `POST /api/consultation` | `{ exercice, matricule }` | `{ trouvee: false }`, ou `{ trouvee: true, prenom, initiale }` — **rien d'autre ne sort** |
 | `POST /api/creation` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, seance }` — crée la séance ; ne reprend **jamais** une séance existante (409) |
 | `POST /api/reprise` | `{ exercice, matricule, nip }` | `{ jeton, seance }` — ni prénom ni nom ; 404 s'il n'y a pas de séance |
@@ -362,6 +387,31 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 Aucune route `/api/prof/*` ne répond sans cookie valide (401 « Connexion
 requise. ») ; les routes d'action (**admin**) refusent le rôle consultation
 (403, D44).
+
+**L'éditeur** (`/api/prof/editeur/*`, décisions D47 à D49) : toutes les routes
+exigent le cookie avec le **rôle admin** (403 sinon), et chaque action est
+inscrite au journal des actions. Les corps sont en JSON, jusqu'à 4 Mo (un import
+porte toute la sauvegarde).
+
+| Appel | Requête | Réponse |
+|---|---|---|
+| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, titre, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — `modifie` : le brouillon diffère de la dernière version (ou jamais publié) |
+| `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, erreurs }` — `erreurs` : celles du brouillon (`draftErrors`), chacune avec son `champ` ; 404 inconnu |
+| `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié ; 400 identifiant ou titre, 409 identifiant pris |
+| `POST /api/prof/editeur/exercice/enregistrer` | `{ id, revision, brouillon }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur ; **409** si la révision n'est plus celle lue (D48, `revision_actuelle` jointe), rien n'est écrasé |
+| `POST /api/prof/editeur/exercice/renommer` | `{ id, titre }` | `{ renomme: true, titre }` — le titre du brouillon (à publier) |
+| `POST /api/prof/editeur/exercice/archiver` | `{ id, archive }` | `{ archive, id }` |
+| `POST /api/prof/editeur/exercice/supprimer` | `{ id }` | `{ supprime: true, id }` — 409 s'il a des séances (archiver alors) |
+| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante ; 400 s'il a des erreurs (`erreurs` jointes), 409 révision périmée |
+| `POST /api/prof/editeur/apercu` | `{ id, brouillon }` ou `{ id, version }` | `{ questions: [ { identifiant, outil_id, outil, operation, dimension, barre, dents, materiau_outil, materiau, reponses } ], champs_evalues }` — dix questions, rien d'enregistré (D49) ; 400 brouillon en erreur |
+| `GET /api/prof/editeur/banque` | cookie admin | `{ outils: [ { id, outil, revision, rang, archive_le, modifie_le, exercices } ], tables }` — `exercices` : ceux dont le brouillon a une copie de cet outil |
+| `GET /api/prof/editeur/tables` | cookie admin | `{ tables: { id, materiaux, operations } }` — les tables les plus récentes |
+| `POST /api/prof/editeur/banque/creer` | `{ id, outil }` ou `{ id, depuis }` | `{ cree: true, id }` |
+| `POST /api/prof/editeur/banque/enregistrer` | `{ id, revision, outil }` | `{ enregistre: true, revision, erreurs }` — 409 révision périmée |
+| `POST /api/prof/editeur/banque/archiver` | `{ id, archive }` | `{ archive, id }` |
+| `GET /api/prof/editeur/export` | cookie admin | `{ format, exporte_le, version_serveur, tables_reference, banque, exercices: [ { id, brouillon, archive_le, cree_le, publie_le, versions } ] }` — la sauvegarde complète, sans données d'étudiants (D49) |
+| `POST /api/prof/editeur/import/valider` | `{ export }` | `{ erreurs, resume }` — ce que l'import ferait ; rien n'est écrit |
+| `POST /api/prof/editeur/import` | `{ export, confirmation: "IMPORTER" }` | `{ importe: true, resume }` — fusion en un seul lot (D49) ; 400 sans le mot ou avec des erreurs, rien n'est touché |
 
 `saisies` : les champs évalués, en texte, sous les noms du moteur —
 `{ vc, feedPerTooth, rpm, feedPerRev, feedRate }`. Tout le reste est ignoré.
@@ -428,11 +478,11 @@ Pour chaque champ :
 
 | Code | Sens |
 |---|---|
-| 400 | requête invalide : JSON illisible, exercice inconnu, identification mal formée (le message dit quoi) |
+| 400 | requête invalide : JSON illisible, exercice inconnu ou jamais publié, exercice archivé pour une nouvelle séance, identification mal formée (le message dit quoi) ; éditeur : identifiant ou titre, brouillon en erreur à la publication, mot d'import absent |
 | 401 | NIP incorrect (reprise, correction d'identité) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau ; espace professeur : clé incorrecte, ou cookie absent, forgé ou expiré |
 | 403 | espace professeur : action réservée à la clé d'administration, refusée au rôle consultation (D44) |
 | 404 | adresse inconnue sous `/api/` ; reprise : aucune séance pour ce matricule dans cet exercice ; espace professeur : séance inconnue |
-| 409 | création ou correction d'identité : ce matricule a déjà une séance pour cet exercice ; correction : aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question ; attestation : l'exercice n'est pas encore réussi |
+| 409 | création ou correction d'identité : ce matricule a déjà une séance pour cet exercice ; correction : aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question ; attestation : l'exercice n'est pas encore réussi ; éditeur : révision périmée (enregistré ailleurs entre-temps, D48), identifiant pris, exercice à séances qu'on voudrait supprimer |
 | 429 | reprise et correction d'identité : 5 essais de NIP en 10 minutes → verrou de 10 minutes, même pour le bon NIP ; correction : moins de 10 s depuis la précédente (`attendre_s` dit combien) ; consultation et vérification : limite de débit par adresse (§8) ; connexion professeur : cinq échecs par adresse, puis délai croissant |
 | 500 | erreur du serveur ; le détail reste dans ses journaux |
 
@@ -695,6 +745,10 @@ corrections d'identité, ni durées. Elle est soumise aux limites de débit
   s'il y en a une (D37), et la séance.
 - Aucune route `/api/prof/*` ne répond sans cookie valide ; le client ne
   contient aucun secret. Ordinateur d'abord, lisible à 390 px.
+- **L'éditeur des exercices** (`/prof/editeur`, décisions D47 à D49 ; `UI.md`
+  §3.9) : la même connexion, **rôle admin seulement** — la clé de consultation est
+  refusée à la connexion et par chaque route. Exercices (brouillon, versions,
+  aperçu, publication), banque d'outils, sauvegarde (export, import) : §10.
 - Reste à faire (`PLAN.md`) : une clé par enseignant avec une table des
   séances professeur, pour révoquer une séance avant son expiration.
 
@@ -735,6 +789,9 @@ ferme D6.
 - Le **moteur de calcul et de correction est testé unitairement** (cas tirés du
   classeur), tout comme le serveur (§7, « Tests »). Node ≥ 22.13 pour
   développer ; rien à installer pour l'étudiant.
+- **Les exercices, la banque d'outils et les tables de référence vivent dans la
+  base D1** (D47) et s'éditent en production (D48) ; la sauvegarde est l'export
+  JSON de l'éditeur (D49, `DEMARRAGE.md` §7).
 - **Données personnelles** : prénom, nom, matricule, NIP haché, réponses et
   résultats ne vont qu'au serveur de correction du projet, et sont **effacés par l'enseignant
   en fin de session** (§8, D46). Rien n'est envoyé à un tiers, et la page ne charge
@@ -743,12 +800,21 @@ ferme D6.
   réponses sont corrigées par un serveur ; tes données sont effacées à la fin de
   la session. »
 
-## 10. Configuration d'un exercice (décision D11)
+## 10. Configuration d'un exercice (décisions D11, D47 à D49)
 
-Le **catalogue** (`site/data/`, §3) décrit le métier ; un **exercice** choisit
-dans le catalogue ce qui est évalué. Un exercice = un fichier
-`site/exercices/<id>.json`. Le M10 du classeur est
-`site/exercices/m10-tournage-vc.json`.
+Le **catalogue** (§3) décrit le métier ; un **exercice** choisit ce qui est
+évalué. Deux formats coexistent :
+
+- le **fichier d'exercice** `site/exercices/<id>.json`, ci-dessous : des
+  références aux outils du catalogue avec des restrictions. Depuis D47, il ne
+  sert plus qu'à la **semence** et aux **tests** (`test-complet` compris) ; le M10 du
+  classeur est `site/exercices/m10-tournage-vc.json` ;
+- l'**exercice enregistré** en base — brouillon et versions —, avec ses **copies
+  d'outils** (« Exercice enregistré », plus bas), que l'éditeur produit et que le
+  serveur sert.
+
+La fonction `draftFromExercise` (`exercice.js`) convertit le premier dans le
+second ; `engineExercise` rend le second au moteur.
 
 ```json
 {
@@ -798,20 +864,20 @@ Précisions :
 - **Clé inconnue = erreur.** Une faute de frappe (« dimension » pour
   « dimensions ») lèverait sinon une restriction en silence. Seules les clés
   commençant par `_` (commentaires, comme `_source`) sont ignorées.
+- `groupes` (facultatif, jalon 7) : comme `materiaux_outil`, restreint les groupes de
+  matériaux usinés pour **tous** les outils ; un outil sans plus aucun groupe rend
+  l'exercice invalide.
 - La validation (`site/js/exercice.js`) est la même pour les tests, le quiz et
-  l'éditeur (jalon 7).
-- **Index des exercices offerts** : un site statique ne peut pas lister un
-  dossier ; `site/exercices/index.json` dit quels exercices proposer, dans
-  l'ordre d'affichage : `{ "exercices": [ { "id", "titre" }, … ] }`.
-  `?exercice=<id>` dans l'adresse choisit un exercice **parmi ceux de l'index**.
-  Il n'y a **pas d'exercice par défaut** (décision D18) : `?exercice=` absent →
-  l'accueil affiche la liste des exercices de l'index ; id inconnu → l'accueil
-  affiche « L'exercice « <id> » n'existe pas — vérifie le lien sur Léa », puis
-  la même liste. Chaque
-  `id` a son fichier `<id>.json` et le même `titre` (vérifié par les tests) ;
-  « index » est un identifiant réservé. Un fichier d'exercice absent de
-  l'index n'est pas offert. Pour composer la liste, la page lit les fichiers des
-  exercices de l'index et écarte ceux qui portent `"liste": false`.
+  l'éditeur.
+- **Liste des exercices offerts** : le serveur la compose (`GET /api/exercices`, D47)
+  — les exercices publiés, non archivés, sans `"liste": false` —, et
+  `site/exercices/index.json` ne sert plus qu'aux tests et à la semence.
+  `?exercice=<id>` dans l'adresse choisit un exercice **publié**. Il n'y a **pas
+  d'exercice par défaut** (décision D18) : `?exercice=` absent → l'accueil affiche
+  la liste ; id inconnu, jamais publié → l'accueil affiche « L'exercice « <id> »
+  n'existe pas — vérifie le lien sur Léa », puis la même liste ; archivé →
+  l'accueil le dit, une séance en cours se reprend encore. « index » est un
+  identifiant réservé.
 - **`m10-tournage-vc-rpm`** (décisions D40, D43) : « M10 — Tournage : Vc et RPM »,
   `champs_evalues` `["vc", "n"]`, acier rapide ou insert de carbure seulement,
   onze outils de pointage, perçage, alésage à la barre et filetage, deux
@@ -823,6 +889,57 @@ Précisions :
   dans la liste de l'accueil ; joignable par `?exercice=test-complet`, il ne
   donne aucune réponse en production (le mode test n'existe qu'en local, §7).
 - Reporté : seuils du graphique de progression (finition).
+
+### Exercice enregistré : brouillon et versions (décisions D47 à D49)
+
+Un exercice en base, c'est un **identifiant d'URL** (définitif : c'est le lien
+sur Léa), un **brouillon** et des **versions publiées** numérotées 1, 2, 3…,
+immuables. Brouillon et version ont la même forme :
+
+```json
+{
+  "titre": "M10 — Tournage : vitesse de coupe",
+  "champs_evalues": ["vc"],
+  "materiaux_outil": ["Acier rapide", "Insert de carbure de tungstène"],
+  "groupes": ["P - Acier non allié"],
+  "liste": false,
+  "outils": [
+    { "id": "mvlnr", "reussites_requises": 3, "origine": "mvlnr",
+      "nom": "MVLNR", "format_identifiant": "MVLNR - Ø charioté: [IdDia]", "commentaire": "Outil de finition", "operation": "Chariotage finition",
+      "fact_vc": 1, "fact_av": 1, "limite_rpm": 3000, "limite_avance": 0.01, "nb_dents_min": 1, "nb_dents_max": 1,
+      "materiaux_outil": ["Insert de carbure de tungstène"], "groupes_materiaux_usinables": ["P - Acier non allié", "…"],
+      "image": "mvlnr", "dimensions": [ { "libelle": "1.000\"", "valeur": 1 } ] }
+  ]
+}
+```
+
+- `materiaux_outil`, `groupes` et `liste` sont facultatifs, avec le même sens que
+  dans le fichier d'exercice ; `titre`, `champs_evalues` et `outils` sont
+  obligatoires ; la **version** n'est pas dans le contenu : c'est le numéro attribué
+  à la publication.
+- Chaque entrée d'`outils` est une **copie complète** d'un outil (toutes les clés
+  d'`outils.json`, `TOOL_KEYS`), plus `reussites_requises` (entier ≥ 1) et
+  `origine` (l'id de l'outil de la banque dont elle vient, à titre d'information).
+  Son `id` est unique dans l'exercice (« mvlnr », puis « mvlnr_2 » pour une
+  copie dupliquée) ; `image` nomme sa photo (`site/img/outils/<image>.png`).
+  **Ses dimensions, ses matières et ses groupes sont ce que l'exercice permet** :
+  il n'y a plus de restriction par outil, on retire de la copie.
+- **Validation** (`draftErrors`, la même dans l'éditeur et sur le serveur) : les
+  règles du fichier d'exercice, plus celles de `validateData` pour chaque copie
+  (`toolErrors`), chaque erreur nommant son champ (« outils.1.fact_vc »). Un
+  brouillon en erreur s'enregistre, mais ne se publie pas.
+- **Publier** = copier le brouillon tel quel comme version suivante, avec la
+  version des tables de référence la plus récente. Le brouillon reste, modifiable.
+  Le serveur sert la dernière version ; une séance garde la sienne (§7).
+- **Semence** (migration `0005`) : les deux M10 du dépôt, convertis par
+  `draftFromExercise`, version 1 ; `test-complet` n'est pas semé (il ne sert
+  qu'aux tests, où il est publié à la volée).
+- **Sauvegarde** : l'export JSON de l'éditeur (`format`
+  « quiz-parametres-coupe/editeur/1 ») contient les tables de référence, la
+  banque et les exercices avec toutes leurs versions ; l'import **fusionne**
+  (ajoute ce qui manque, remplace les brouillons et la banque, ne supprime jamais
+  une version ni un exercice, refuse une version différente sous un numéro
+  existant) et ne touche ni aux séances ni aux attestations (D49).
 
 ## 11. Questions ouvertes (résumé)
 
