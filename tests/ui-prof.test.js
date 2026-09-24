@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SESSION_COLUMNS, canAct, csvCell, csvFileName, csvOf, filterSessions, identityRows, nipResetConfirmation, plain, resetConfirmation, roleLabel, sessionCells,
-  sessionState, sortSessions,
+  SESSION_COLUMNS, canAct, csvCell, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, plain, resetConfirmation, roleLabel,
+  sessionCells, sessionState, sortSessions,
 } from '../site/js/ui/prof-data.js';
 import { claimsFromInput } from '../site/js/ui/attestation-data.js';
 
@@ -99,6 +99,13 @@ test('resetConfirmation : nomme l’étudiant, l’exercice, et prévient de l�
   assert.match(resetConfirmation(SEANCES[0]), /Camille Tremblay \(2412345, M10 — Tournage : vitesse de coupe\)/);
   assert.match(resetConfirmation(SEANCES[0]), /attestation sera annulée/);
   assert.doesNotMatch(resetConfirmation(SEANCES[1]), /attestation/);
+});
+
+test('deleteConfirmation (D45) : rappelle le nom et le matricule, dit que c’est sans retour, et ce qu’il advient de l’attestation', () => {
+  assert.match(deleteConfirmation(SEANCES[0]), /Camille Tremblay, matricule 2412345 \(M10 — Tournage : vitesse de coupe\)/);
+  assert.match(deleteConfirmation(SEANCES[0]), /sans retour/);
+  assert.match(deleteConfirmation(SEANCES[0]), /ABCDE-FGHJK restera vérifiable et répondra « annulée — séance supprimée »/);
+  assert.doesNotMatch(deleteConfirmation(SEANCES[1]), /attestation/);
 });
 
 test('nipResetConfirmation : nomme l’étudiant et l’exercice, dit que la progression ne change pas', () => {

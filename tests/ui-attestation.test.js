@@ -155,6 +155,7 @@ test('verificationOutcome : quatre issues, ton et texte ; l’annulation donne l
   assert.equal(annulee.title, 'Attestation annulée');
   assert.match(annulee.text, /le 2026-09-21 13:48 : séance remise à zéro/);
   assert.match(verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'identite_corrigee' }).text, /identité corrigée .* autre code/);
+  assert.match(verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'seance_supprimee' }).text, /le 2026-09-21 13:48 : séance supprimée par l'enseignant/);
   assert.match(verificationOutcome({ resultat: 'annulee' }).text, /motif inconnu/);
   assert.equal(verificationOutcome({ resultat: 'autre' }).tone, 'wrong');
 });

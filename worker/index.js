@@ -474,6 +474,23 @@ async function profReinitialisationNip(request, env, { now }) {
   return json({ nip_reinitialise: true, seance: session.id });
 }
 
+// POST /api/prof/suppression — { seance } (D45) : la séance et son journal disparaissent ; ses
+// attestations restent, annulées « séance supprimée » — l'ancien code répond « annulée » avec la date.
+// Rôle admin seulement. Journalisée, sans lien vers la séance : elle n'existe plus.
+async function profSuppression(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const session = Number.isInteger(body.seance) ? await base.findSessionById(env.DB, body.seance) : null;
+  if (session === null) throw new HttpError(404, "Cette séance n'existe pas.");
+  await base.deleteSession(env.DB, session.id, now.toISOString(), {
+    horodatage: now.toISOString(),
+    enseignant: teacher,
+    action: 'suppression',
+    details: `${session.exercice_id} · ${session.matricule} · ${session.prenom} ${session.nom} · séance ${session.id}`,
+  });
+  return json({ supprimee: true, seance: session.id });
+}
+
 // GET /api/prof/identites — le journal des corrections d'identité, la plus récente en premier.
 async function profIdentites(request, env, { now }) {
   await requireTeacher(request, env, now);
@@ -506,6 +523,7 @@ const ROUTES = {
   'GET /api/prof/seances': profSeances,
   'POST /api/prof/remise-a-zero': profRemiseAZero,
   'POST /api/prof/reinitialisation-nip': profReinitialisationNip,
+  'POST /api/prof/suppression': profSuppression,
   'GET /api/prof/identites': profIdentites,
 };
 

@@ -173,6 +173,7 @@ function cancellationText(result) {
   const reasons = {
     remise_a_zero: "séance remise à zéro par l'enseignant",
     identite_corrigee: "identité corrigée par l'étudiant, une nouvelle attestation a été émise avec un autre code",
+    seance_supprimee: "séance supprimée par l'enseignant",
   };
   const reason = reasons[result.motif] ?? 'motif inconnu';
   const when = result.annulee_le ? ` le ${formatDateStamp(result.annulee_le)}` : '';

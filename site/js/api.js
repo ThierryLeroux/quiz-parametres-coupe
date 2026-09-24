@@ -141,6 +141,11 @@ export function resetNip(seanceId, request) {
   return call('POST', '/api/prof/reinitialisation-nip', { body: { seance: seanceId } }, request);
 }
 
+// Suppression d'une séance (D45) : { supprimee: true, seance }. Erreurs : 401 ; 403 rôle consultation ; 404.
+export function deleteSession(seanceId, request) {
+  return call('POST', '/api/prof/suppression', { body: { seance: seanceId } }, request);
+}
+
 // Le journal des corrections d'identité, la plus récente en premier : { corrections }.
 export function listIdentityCorrections(request) {
   return call('GET', '/api/prof/identites', {}, request);

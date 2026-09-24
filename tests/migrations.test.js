@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
-import { fausseD1 } from './aide-d1.js';
+import { DatabaseSync } from 'node:sqlite';
+import { fausseD1, migrationsSql } from './aide-d1.js';
 
 const colonnes = (db, table) => db.sqlite.prepare(`SELECT name FROM pragma_table_info('${table}')`).all().map((row) => row.name);
 
@@ -37,17 +38,40 @@ test('tables du jalon 5 : attestations, journal_enseignant, debit, verrous', () 
   assert.deepEqual(colonnes(db, 'verrous'), ['portee', 'adresse', 'echecs', 'jusqua']);
 });
 
-test('attestations : un code unique ; purger la séance efface ses attestations, mais pas le journal d’enseignant (séance mise à NULL)', async () => {
+test('attestations : un code unique ; supprimer la séance garde ses attestations et le journal d’enseignant, séance mise à NULL (migration 0004, D45)', async () => {
   const db = fausseD1();
   const { meta } = await db.prepare(INSERER).bind(...SEANCE).run();
   const attestation = 'INSERT INTO attestations (seance_id, code, enregistrement, signature, creee_le) VALUES (?, ?, ?, ?, ?)';
   await db.prepare(attestation).bind(meta.last_row_id, 'ABCDEFGHJK', '{}', 'sig', '2026-09-21T13:06:00.000Z').run();
   await assert.rejects(db.prepare(attestation).bind(meta.last_row_id, 'ABCDEFGHJK', '{}', 'sig', '2026-09-21T13:07:00.000Z').run(), /UNIQUE/);
+  await assert.rejects(db.prepare(attestation).bind(999, 'ZZZZZYYYYY', '{}', 'sig', '2026-09-21T13:07:00.000Z').run(), /FOREIGN KEY/);
   await db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action) VALUES (?, ?, ?, ?)').bind('2026-09-21T13:08:00.000Z', 'admin', meta.last_row_id, 'remise_a_zero').run();
 
   await db.prepare('DELETE FROM seances WHERE id = ?').bind(meta.last_row_id).run();
-  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM attestations').first()).n, 0);
+  assert.deepEqual(await db.prepare('SELECT id, seance_id, code FROM attestations').first(), { id: 1, seance_id: null, code: 'ABCDEFGHJK' });
   assert.deepEqual(await db.prepare('SELECT enseignant, seance_id, action FROM journal_enseignant').first(), { enseignant: 'admin', seance_id: null, action: 'remise_a_zero' });
+  // La table recréée reprend la numérotation là où elle était.
+  const { meta: suivante } = await db.prepare(attestation).bind(null, 'ZZZZZYYYYY', '{}', 'sig', '2026-09-21T13:09:00.000Z').run();
+  assert.equal(suivante.last_row_id, 2);
+});
+
+test('migration 0004 : les attestations existantes sont copiées telles quelles, avec leurs identifiants, et l’index est refait', () => {
+  // Les migrations jusqu'à 0003, une attestation, puis la 0004 seule.
+  const sql = migrationsSql().split('-- Jalon 6 (décision D45)');
+  assert.equal(sql.length, 2);
+  const db = new DatabaseSync(':memory:');
+  db.exec(sql[0]);
+  db.prepare(INSERER).run(...SEANCE);
+  db.prepare('INSERT INTO attestations (id, seance_id, code, enregistrement, signature, creee_le, annulee_le, annulation_motif) VALUES (7, 1, ?, ?, ?, ?, ?, ?)')
+    .run('ABCDEFGHJK', '{"a":1}', 'sig', '2026-09-21T13:06:00.000Z', '2026-09-21T13:07:00.000Z', 'remise_a_zero');
+  db.exec(`-- Jalon 6 (décision D45)${sql[1]}`);
+  assert.deepEqual(db.prepare('SELECT * FROM attestations').all().map((row) => ({ ...row })), [{
+    id: 7, seance_id: 1, code: 'ABCDEFGHJK', enregistrement: '{"a":1}', signature: 'sig', creee_le: '2026-09-21T13:06:00.000Z', annulee_le: '2026-09-21T13:07:00.000Z', annulation_motif: 'remise_a_zero',
+  }]);
+  assert.deepEqual(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'attestations' AND name NOT LIKE 'sqlite_%'").all().map((row) => row.name), ['attestations_par_seance']);
+  assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name = 'attestations_nouvelle'").get(), undefined);
+  db.prepare('DELETE FROM seances').run();
+  assert.equal(db.prepare('SELECT seance_id FROM attestations').get().seance_id, null);
 });
 
 test('une seule séance par couple (exercice, matricule)', async () => {

@@ -236,6 +236,20 @@ export async function resetNip(db, seanceId, cleared, entry) {
   ]);
 }
 
+// Suppression d'une séance (D45) : la séance disparaît avec son journal des corrections et ses
+// corrections d'identité (ON DELETE CASCADE) ; ses attestations restent, l'attestation en cours
+// annulée « séance supprimée » avec la date (leur seance_id passe à NULL par la base) ; l'action est
+// journalisée sans lien vers la séance, qui n'existe plus — en un seul lot.
+//   entry : la ligne du journal (addTeacherLog), dont les détails nomment l'étudiant et la séance
+export async function deleteSession(db, seanceId, now, entry) {
+  await db.batch([
+    db.prepare("UPDATE attestations SET annulee_le = ?, annulation_motif = 'seance_supprimee' WHERE seance_id = ? AND annulee_le IS NULL").bind(now, seanceId),
+    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, NULL, ?, ?)')
+      .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null),
+    db.prepare('DELETE FROM seances WHERE id = ?').bind(seanceId),
+  ]);
+}
+
 // Le journal des corrections d'identité, la plus récente en premier, avec la séance telle qu'elle
 // est aujourd'hui (exercice, matricule actuel).
 export async function listIdentityCorrections(db) {

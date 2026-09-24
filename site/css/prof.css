@@ -116,6 +116,9 @@ th[aria-sort='descending'] .sort-button::after { content: '▼'; font-size: 0.7e
 .button-small:hover { background: var(--color-wrong-bg); }
 .button-small--neutral { border-color: var(--color-accent-light); color: var(--color-accent-light); }
 .button-small--neutral:hover { background: color-mix(in srgb, var(--color-accent-light) 15%, transparent); }
+/* Supprimer (D45) : rouge plein, le seul bouton du tableau qui ne se défait pas. */
+.button-small--danger { background: var(--color-wrong); color: var(--color-bg); }
+.button-small--danger:hover { background: var(--color-wrong); filter: brightness(1.15); }
 .prof-table td.actions { white-space: nowrap; }
 .prof-table td.actions .button-small + .button-small { margin-left: var(--space-2); }
 .button-small:disabled { opacity: 0.45; cursor: not-allowed; }

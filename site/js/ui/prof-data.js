@@ -142,6 +142,12 @@ export function nipResetConfirmation(session) {
   return `Réinitialiser le NIP de ${session.prenom} ${session.nom} (${session.matricule}, ${session.exercice.titre}) ? Le verrou tombe ; à sa prochaine reprise, le NIP qu'il ou elle entrera deviendra le nouveau. Sa progression ne change pas.`;
 }
 
+// Le texte de confirmation d'une suppression (D45) : rappelle le nom et le matricule, et ce qu'il advient de l'attestation.
+export function deleteConfirmation(session) {
+  const attestation = session.code ? ` Son attestation ${session.code} restera vérifiable et répondra « annulée — séance supprimée ».` : '';
+  return `Supprimer la séance de ${session.prenom} ${session.nom}, matricule ${session.matricule} (${session.exercice.titre}) ? La séance et son journal disparaissent, sans retour ; l'étudiant pourra recommencer de zéro.${attestation}`;
+}
+
 // Le texte de confirmation d'une remise à zéro.
 export function resetConfirmation(session) {
   const attestation = session.code ? " Son attestation sera annulée ; l'ancien code répondra « annulée »." : '';

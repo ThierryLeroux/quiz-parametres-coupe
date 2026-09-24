@@ -686,7 +686,7 @@ async function reussir(serveur, etudiant = CAMILLE) {
 }
 
 // Les routes d'action de l'espace professeur, réservées au rôle admin (D44), avec le corps qu'elles attendent en plus de la séance.
-const ROUTES_ACTION = [['/api/prof/remise-a-zero', {}], ['/api/prof/reinitialisation-nip', {}]];
+const ROUTES_ACTION = [['/api/prof/remise-a-zero', {}], ['/api/prof/reinitialisation-nip', {}], ['/api/prof/suppression', {}]];
 
 // Ouvre une séance professeur ; retourne l'en-tête Cookie à renvoyer.
 async function seConnecter(serveur, cle = 'cle-admin-de-test', adresse = '203.0.113.7') {
@@ -1068,7 +1068,7 @@ test('aucune route /api/prof/* ne répond sans cookie valide : absent, forgé, s
   const { cookie } = await seConnecter(serveur);
   const autre = serveurDeTest({ secret: 'autre-secret' });
   const { cookie: forge } = await seConnecter(autre);
-  const routes = [['GET', '/api/prof/seances'], ['POST', '/api/prof/remise-a-zero'], ['POST', '/api/prof/reinitialisation-nip'], ['GET', '/api/prof/identites']];
+  const routes = [['GET', '/api/prof/seances'], ['POST', '/api/prof/remise-a-zero'], ['POST', '/api/prof/reinitialisation-nip'], ['POST', '/api/prof/suppression'], ['GET', '/api/prof/identites']];
 
   for (const [methode, chemin] of routes) {
     for (const valeur of [undefined, 'n.importe.quoi', `${cookie.split('.')[0]}.${'x'.repeat(43)}`, forge, cookie.split('.')[0]]) {
@@ -1175,6 +1175,48 @@ test('réinitialisation du NIP (D38) : le verrou tombe, le prochain NIP présent
   const [action] = serveur.journalEnseignant().filter((l) => l.action === 'reinitialisation_nip');
   assert.deepEqual([action.enseignant, action.seance_id, action.details], ['admin', avant.id, `${M10} · 2412345 · Camille Tremblay`]);
   assert.equal((await serveur.appel('POST', '/api/prof/reinitialisation-nip', { corps: { seance: 999 }, entetes: { cookie: `prof=${cookie}` } })).status, 404);
+});
+
+test('suppression d’une séance (D45) : la séance, son journal et ses corrections d’identité disparaissent ; ses attestations restent, l’attestation en cours annulée « séance supprimée » avec la date, la vérification le dit ; journalisée ; l’étudiant peut recommencer', async () => {
+  const serveur = serveurDeTest();
+  const { jeton } = await reussir(serveur);
+  const { corps: premiere } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  serveur.avancer(MINUTE);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camila' } })).status, 200); // annule et réémet (D37) : deux attestations
+  const { corps: seconde } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
+  const avant = serveur.seance();
+  const { cookie } = await seConnecter(serveur);
+  const entetes = { cookie: `prof=${cookie}` };
+  serveur.avancer(MINUTE);
+
+  assert.deepEqual(await serveur.appel('POST', '/api/prof/suppression', { corps: { seance: avant.id }, entetes }), { status: 200, corps: { supprimee: true, seance: avant.id } });
+
+  // La séance, son journal des corrections et ses corrections d'identité ont disparu ; le jeton ne vaut plus rien.
+  const compte = (table) => serveur.db.sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
+  assert.deepEqual([compte('seances'), compte('corrections'), compte('corrections_identite')], [0, 0, 0]);
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 401);
+  assert.deepEqual((await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '2412345' } })).corps, { trouvee: false });
+  assert.equal((await serveur.appel('GET', '/api/prof/seances', { entetes })).corps.seances.length, 0);
+
+  // Les attestations restent, sans séance : celle en cours est annulée « séance supprimée » ; celle déjà annulée garde son motif et sa date.
+  const attestations = serveur.db.sqlite.prepare('SELECT * FROM attestations ORDER BY id').all().map((row) => ({ ...row, enregistrement: JSON.parse(row.enregistrement) }));
+  assert.deepEqual(attestations.map((a) => [a.seance_id, a.annulation_motif]), [[null, 'identite_corrigee'], [null, 'seance_supprimee']]);
+  assert.equal(attestations[1].annulee_le, serveur.maintenant.toISOString());
+  assert.deepEqual((await serveur.appel('POST', '/api/verification', { corps: { code: seconde.code } })).corps, { resultat: 'annulee', attestation: seconde.attestation, annulee_le: serveur.maintenant.toISOString(), motif: 'seance_supprimee' });
+  assert.deepEqual((await serveur.appel('POST', '/api/verification', { corps: claimsDe(seconde.url_verification) })).corps.resultat, 'annulee');
+  const ancienne = (await serveur.appel('POST', '/api/verification', { corps: { code: premiere.code } })).corps;
+  assert.deepEqual([ancienne.resultat, ancienne.motif, ancienne.annulee_le], ['annulee', 'identite_corrigee', attestations[0].annulee_le]);
+
+  // L'action est journalisée, sans lien vers la séance (elle n'existe plus) ; les détails la nomment.
+  const [action] = serveur.journalEnseignant().filter((l) => l.action === 'suppression');
+  assert.deepEqual([action.enseignant, action.seance_id, action.details, action.horodatage], ['admin', null, `${M10} · 2412345 · Camila Tremblay · séance ${avant.id}`, serveur.maintenant.toISOString()]);
+
+  // L'étudiant recommence de zéro ; une nouvelle réussite donne une attestation neuve, les anciennes restent annulées.
+  const { seance } = await commencer(serveur);
+  assert.equal(seance.progression.total_reussies, 0);
+  assert.equal(compte('attestations'), 2);
+  assert.equal((await serveur.appel('POST', '/api/prof/suppression', { corps: { seance: avant.id }, entetes })).status, 404);
+  assert.equal((await serveur.appel('POST', '/api/prof/suppression', { corps: { seance: 'x' }, entetes })).status, 404);
 });
 
 test('journal des corrections d’identité : la plus récente en premier, avant/après, matricule actuel et exercice de la séance', async () => {

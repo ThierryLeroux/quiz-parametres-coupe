@@ -5,10 +5,11 @@
 // serveur ne répond qu'avec le cookie de séance posé à la connexion ; un 401 ramène à la connexion.
 // Ce qu'on montre est décidé par prof-data.js (pur, testé) : ici, on construit le DOM.
 
-import { listIdentityCorrections, listSessions, resetNip, resetSession, teacherLogin, teacherLogout } from '../api.js';
+import { deleteSession, listIdentityCorrections, listSessions, resetNip, resetSession, teacherLogin, teacherLogout } from '../api.js';
 import { el, showScreen } from './dom.js';
 import {
-  SESSION_COLUMNS, canAct, csvFileName, csvOf, filterSessions, identityRows, nipResetConfirmation, resetConfirmation, roleLabel, sessionCells, sortSessions,
+  SESSION_COLUMNS, canAct, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, resetConfirmation, roleLabel, sessionCells,
+  sortSessions,
 } from './prof-data.js';
 import { serverErrorMessage } from './text.js';
 
@@ -98,7 +99,9 @@ function actionButtons(session) {
   resetButton.addEventListener('click', () => act(resetButton, resetConfirmation(session), () => resetSession(session.id)));
   const nipButton = el('button', { class: 'button-small button-small--neutral', type: 'button' }, 'Réinitialiser le NIP');
   nipButton.addEventListener('click', () => act(nipButton, nipResetConfirmation(session), () => resetNip(session.id)));
-  return [nipButton, resetButton];
+  const deleteButton = el('button', { class: 'button-small button-small--danger', type: 'button' }, 'Supprimer');
+  deleteButton.addEventListener('click', () => act(deleteButton, deleteConfirmation(session), () => deleteSession(session.id)));
+  return [nipButton, resetButton, deleteButton];
 }
 
 function sessionsTable() {
