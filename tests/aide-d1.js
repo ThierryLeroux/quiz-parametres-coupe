@@ -7,15 +7,28 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 const MIGRATIONS = new URL('../migrations/', import.meta.url);
 
-// Le SQL de toutes les migrations, dans l'ordre de leurs numéros.
-export function migrationsSql() {
-  return readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort()
-    .map((name) => readFileSync(new URL(name, MIGRATIONS), 'utf8')).join('\n');
+// Les fichiers de migration, dans l'ordre de leurs numéros ; `jusqua` = seulement jusqu'à ce numéro.
+function migrationFiles(jusqua = Infinity) {
+  return readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql') && Number(name.slice(0, 4)) <= jusqua).sort();
 }
 
-export function fausseD1() {
+// Le SQL de toutes les migrations (ou de celles jusqu'au numéro `jusqua`), dans l'ordre.
+export function migrationsSql({ jusqua = Infinity } = {}) {
+  return migrationFiles(jusqua).map((name) => readFileSync(new URL(name, MIGRATIONS), 'utf8')).join('\n');
+}
+
+// Le SQL d'une seule migration, par son numéro.
+export function migrationSql(numero) {
+  const [name] = migrationFiles(numero).slice(-1);
+  if (Number(name?.slice(0, 4)) !== numero) throw new Error(`pas de migration ${numero}`);
+  return readFileSync(new URL(name, MIGRATIONS), 'utf8');
+}
+
+// Une base neuve avec toutes les migrations — ou seulement jusqu'à `jusqua`, pour tester la suivante
+// sur des données produites par le vrai serveur.
+export function fausseD1({ jusqua = Infinity } = {}) {
   const sqlite = new DatabaseSync(':memory:');
-  sqlite.exec(migrationsSql());
+  sqlite.exec(migrationsSql({ jusqua }));
 
   function statement(sql, values = []) {
     // Comme D1 : « undefined » n'est pas une valeur SQL. Mieux vaut l'apprendre ici qu'en production.

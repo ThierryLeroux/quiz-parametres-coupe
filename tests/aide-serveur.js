@@ -32,10 +32,11 @@ export function fauxSite(remplacements = {}) {
 //   variables : variables du Worker en plus des secrets, ex. { MODE_TEST: '1' }
 //   codes     : les codes d'attestation à tirer, dans l'ordre (10 caractères de l'alphabet, D32) ; au hasard ensuite
 //   cleConsultation : la clé de consultation (D44) ; null = non configurée sur le serveur
-export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test', cleConsultation = 'cle-consultation-de-test', hote = 'https://quiz.example', variables = {}, codes = [] } = {}) {
+//   db        : une fausse D1 déjà construite (ex. fausseD1({ jusqua: 3 }), pour tester une migration sur des données réelles)
+export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test', cleConsultation = 'cle-consultation-de-test', hote = 'https://quiz.example', variables = {}, codes = [], db = fausseD1() } = {}) {
   const prevus = [...codes];
   const serveur = {
-    db: fausseD1(),
+    db,
     env: null,
     derniersEntetes: null,
     maintenant: new Date('2026-09-21T13:05:00.000Z'),

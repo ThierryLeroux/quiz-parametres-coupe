@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { fausseD1, migrationsSql } from './aide-d1.js';
+import { fausseD1, migrationSql, migrationsSql } from './aide-d1.js';
+import { MINUTE, SECONDE, serveurDeTest } from './aide-serveur.js';
 
 const colonnes = (db, table) => db.sqlite.prepare(`SELECT name FROM pragma_table_info('${table}')`).all().map((row) => row.name);
 
@@ -98,4 +99,103 @@ test('fausse D1 : un lot (batch) est une transaction, et undefined est refusé c
   await assert.rejects(db.batch([db.prepare(INSERER).bind(...SEANCE), db.prepare(INSERER).bind(...SEANCE)]), /UNIQUE/);
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM seances').first()).n, 0); // la première insertion est annulée aussi
   await assert.rejects(db.prepare('SELECT ? AS v').bind(undefined).first(), /D1_TYPE_ERROR/);
+});
+
+// --- Migration 0004 sur des données produites par le vrai serveur (D45) -------------------------------------------
+// Le schéma 0001 à 0003 reçoit des séances et des attestations par l'API — une annulée par remise à
+// zéro, une annulée et réémise par une correction d'identité, une séance en cours non réussie —,
+// puis la 0004 recrée la table attestations : tout doit survivre, codes et signatures compris, et
+// /verifier doit répondre exactement pareil avant et après.
+
+const M10 = 'm10-tournage-vc';
+const CAMILLE = { exercice: M10, prenom: 'Camille', nom: 'Tremblay', matricule: '2412345', nip: '4821' };
+const ALEX = { exercice: M10, prenom: 'Alex', nom: 'Roy', matricule: '2498765', nip: '1357' };
+const ZOE = { exercice: M10, prenom: 'Zoé', nom: 'Lévesque', matricule: '2455555', nip: '2468' };
+
+// Crée (ou reprend) la séance d'un étudiant et répond juste jusqu'à la réussite ; retourne le jeton.
+async function reussir(serveur, etudiant, reprise = false) {
+  const { status, corps } = await serveur.appel('POST', reprise ? '/api/reprise' : '/api/creation', { corps: etudiant });
+  assert.equal(status, 200, JSON.stringify(corps));
+  let etat = (await serveur.appel('POST', '/api/question', { jeton: corps.jeton, corps: { exercice: M10 } })).corps.seance;
+  while (etat.reussite_le === null) {
+    serveur.avancer(11 * SECONDE);
+    const reponse = await serveur.appel('POST', '/api/correction', { jeton: corps.jeton, corps: { exercice: M10, saisies: serveur.bonnesReponses(etudiant.matricule, M10) } });
+    assert.equal(reponse.status, 200, JSON.stringify(reponse.corps));
+    etat = reponse.corps.seance;
+  }
+  return corps.jeton;
+}
+
+test('migration 0004 sur des données réelles : séances, attestations (annulée, réémise), codes et signatures survivent ; /verifier répond pareil avant et après ; la séance devient facultative', async () => {
+  const db = fausseD1({ jusqua: 3 });
+  assert.equal(db.sqlite.prepare("SELECT sql FROM sqlite_master WHERE name = 'attestations'").get().sql.includes('ON DELETE CASCADE'), true);
+  const serveur = serveurDeTest({ db });
+
+  // Camille réussit, puis corrige son identité : la première attestation est annulée « identité corrigée », une seconde est émise.
+  const camille = await reussir(serveur, CAMILLE);
+  const { corps: premiere } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton: camille });
+  serveur.avancer(MINUTE);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton: camille, corps: { ...CAMILLE, prenom: 'Camila' } })).status, 200);
+  const { corps: seconde } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton: camille });
+  // Alex réussit, est remis à zéro par l'enseignant (attestation annulée), et réussit de nouveau (une autre).
+  await reussir(serveur, ALEX);
+  const { corps: connexion } = await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-admin-de-test' } });
+  assert.equal(connexion.enseignant, 'admin');
+  const cookie = serveur.derniersEntetes.get('set-cookie').match(/^prof=([^;]+)/)[1];
+  const entetes = { cookie: `prof=${cookie}` };
+  const alexId = serveur.seance(ALEX.matricule).id;
+  serveur.avancer(MINUTE);
+  assert.equal((await serveur.appel('POST', '/api/prof/remise-a-zero', { corps: { seance: alexId }, entetes })).status, 200);
+  const alex = await reussir(serveur, ALEX, true);
+  const { corps: alexNouvelle } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton: alex });
+  // Zoé commence sans réussir.
+  const zoe = (await serveur.appel('POST', '/api/creation', { corps: ZOE })).corps.jeton;
+  await serveur.appel('POST', '/api/question', { jeton: zoe, corps: { exercice: M10 } });
+
+  const tables = ['seances', 'corrections', 'corrections_identite', 'attestations', 'journal_enseignant'];
+  // (Sans la dernière activité ni l'expiration du jeton, que chaque appel authentifié de la photographie prolonge.)
+  const contenu = () => Object.fromEntries(tables.map((table) => [table, db.sqlite.prepare(`SELECT * FROM ${table} ORDER BY id`).all().map(({ derniere_activite, jeton_expire_le, ...row }) => row)]));
+  const codes = db.sqlite.prepare('SELECT code FROM attestations ORDER BY id').all().map((row) => row.code);
+  assert.equal(codes.length, 4);
+  assert.deepEqual(db.sqlite.prepare('SELECT annulation_motif FROM attestations ORDER BY id').all().map((row) => row.annulation_motif), ['identite_corrigee', null, 'remise_a_zero', null]);
+  const claims = (url) => Object.fromEntries(new URL(url).searchParams);
+  const photographie = async () => ({
+    tables: contenu(),
+    parCode: await Promise.all(codes.map((code) => serveur.appel('POST', '/api/verification', { corps: { code } }))),
+    parAdresse: await Promise.all([premiere, seconde, alexNouvelle].map((a) => serveur.appel('POST', '/api/verification', { corps: claims(a.url_verification) }))),
+    attestations: await Promise.all([camille, alex].map((jeton) => serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton }))),
+    tableau: await serveur.appel('GET', '/api/prof/seances', { entetes }),
+    identites: await serveur.appel('GET', '/api/prof/identites', { entetes }),
+  });
+  const avant = await photographie();
+  assert.deepEqual(avant.parCode.map((r) => r.corps.resultat), ['annulee', 'valide', 'annulee', 'valide']);
+  assert.deepEqual(avant.parAdresse.map((r) => r.corps.resultat), ['annulee', 'valide', 'valide']);
+  assert.deepEqual([avant.attestations[0].corps.code, avant.attestations[1].corps.code], [seconde.code, alexNouvelle.code]);
+
+  // La migration 0004, seule, sur cette base.
+  db.sqlite.exec(migrationSql(4));
+  assert.equal(db.sqlite.prepare("SELECT sql FROM sqlite_master WHERE name = 'attestations'").get().sql.includes('ON DELETE SET NULL'), true);
+  assert.equal(db.sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'attestations_nouvelle'").get(), undefined);
+  assert.deepEqual(db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'attestations' AND name NOT LIKE 'sqlite_%'").all().map((row) => row.name), ['attestations_par_seance']);
+
+  // Rien n'a changé : tables (identifiants, codes, signatures, annulations), vérifications, attestations rendues, tableau du professeur.
+  const apres = await photographie();
+  assert.deepEqual(apres, avant);
+  for (const [i, code] of codes.entries()) assert.equal(apres.tables.attestations[i].code, code);
+
+  // Le serveur continue sur la table recréée : Zoé réussit et reçoit l'attestation n° 5 ; Camille est supprimée (D45) — ses deux
+  // attestations restent, séance à NULL, la seconde annulée « séance supprimée », la première gardant « identité corrigée ».
+  await reussir(serveur, ZOE, true);
+  assert.equal(db.sqlite.prepare('SELECT MAX(id) AS id FROM attestations').get().id, 5);
+  const camilleId = serveur.seance(CAMILLE.matricule).id;
+  serveur.avancer(MINUTE);
+  assert.equal((await serveur.appel('POST', '/api/prof/suppression', { corps: { seance: camilleId }, entetes })).status, 200);
+  const restantes = db.sqlite.prepare('SELECT id, seance_id, code, signature, annulation_motif FROM attestations ORDER BY id').all().map((row) => ({ ...row }));
+  assert.deepEqual(restantes.slice(0, 2), [
+    { id: 1, seance_id: null, code: codes[0], signature: avant.tables.attestations[0].signature, annulation_motif: 'identite_corrigee' },
+    { id: 2, seance_id: null, code: codes[1], signature: avant.tables.attestations[1].signature, annulation_motif: 'seance_supprimee' },
+  ]);
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: claims(seconde.url_verification) })).corps.resultat, 'annulee');
+  assert.deepEqual((await serveur.appel('POST', '/api/verification', { corps: { code: codes[0] } })).corps, avant.parCode[0].corps);
+  assert.equal((await serveur.appel('POST', '/api/verification', { corps: { code: alexNouvelle.code } })).corps.resultat, 'valide');
 });
