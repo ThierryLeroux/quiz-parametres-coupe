@@ -168,3 +168,40 @@ export function purgeStudentData(confirmation, request) {
 export function listIdentityCorrections(request) {
   return call('GET', '/api/prof/identites', {}, request);
 }
+
+// --- L'éditeur (jalon 7a, D47 à D49) : rôle admin, même cookie que l'espace professeur ----------------------------
+
+const editor = (method, path, body, request) => call(method, `/api/prof/editeur/${path}`, body === undefined ? {} : { body }, request);
+
+// La liste des exercices : { exercices: [{ id, titre, modifie, derniere_version, publie_le, archive_le, seances, versions, liste }] }.
+export const editorListExercises = (request) => editor('GET', 'exercices', undefined, request);
+
+// Un exercice : { exercice: { id, brouillon, revision, … }, versions, derniere_version, tables, erreurs }. Erreur : 404.
+export const editorGetExercise = (id, request) => editor('GET', `exercice?id=${encodeURIComponent(id)}`, undefined, request);
+
+// Créer ({ id, titre }) ou dupliquer ({ id, depuis }) : { cree: true, id }. Erreurs : 400 identifiant ou titre ; 409 identifiant pris.
+export const editorCreateExercise = (body, request) => editor('POST', 'exercice/creer', body, request);
+
+// Enregistrer le brouillon : { enregistre: true, revision, erreurs }. Erreur : 409 enregistré ailleurs entre-temps (D48).
+export const editorSaveDraft = (id, revision, brouillon, request) => editor('POST', 'exercice/enregistrer', { id, revision, brouillon }, request);
+
+export const editorRenameExercise = (id, titre, request) => editor('POST', 'exercice/renommer', { id, titre }, request);
+export const editorArchiveExercise = (id, archive, request) => editor('POST', 'exercice/archiver', { id, archive }, request);
+export const editorDeleteExercise = (id, request) => editor('POST', 'exercice/supprimer', { id }, request);
+
+// Publier le brouillon : { publie: true, numero, publiee_le }. Erreurs : 400 erreurs de validation ; 409 révision périmée.
+export const editorPublish = (id, revision, request) => editor('POST', 'exercice/publier', { id, revision }, request);
+
+// Aperçu : { questions, champs_evalues } — du brouillon donné, ou d'une version ({ version: n }).
+export const editorPreview = (body, request) => editor('POST', 'apercu', body, request);
+
+// La banque : { outils: [{ id, outil, revision, rang, archive_le, exercices }], tables }.
+export const editorBank = (request) => editor('GET', 'banque', undefined, request);
+export const editorBankCreate = (body, request) => editor('POST', 'banque/creer', body, request);
+export const editorBankSave = (id, revision, outil, request) => editor('POST', 'banque/enregistrer', { id, revision, outil }, request);
+export const editorBankArchive = (id, archive, request) => editor('POST', 'banque/archiver', { id, archive }, request);
+
+// Sauvegarde : l'export complet ; la validation d'un export ({ erreurs, resume }) ; l'import ({ importe: true, resume }).
+export const editorExport = (request) => editor('GET', 'export', undefined, request);
+export const editorImportValidate = (exported, request) => editor('POST', 'import/valider', { export: exported }, request);
+export const editorImport = (exported, confirmation, request) => editor('POST', 'import', { export: exported, confirmation }, request);

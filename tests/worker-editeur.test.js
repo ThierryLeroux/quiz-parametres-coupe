@@ -4,7 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MINUTE, SECONDE, serveurDeTest } from './aide-serveur.js';
-import { EDITOR_ROUTES, IMPORT_WORD } from '../worker/index.js';
+import * as worker from '../worker/index.js';
+import { IMPORT_WORD } from '../worker/editeur.js';
+
+const EDITOR_ROUTES = worker.editorRoutes();
 import { lireFichier } from './aide.js';
 
 const M10 = 'm10-tournage-vc';
@@ -47,6 +50,12 @@ async function commencer(serveur, etudiant = CAMILLE) {
 }
 
 // --- Accès (B1) : rôle admin seulement, chaque action au journal --------------------------------------------------
+
+test('worker/index.js n’exporte que des fonctions et le gestionnaire : le Workers runtime refuse tout autre export du module d’entrée', () => {
+  for (const [name, value] of Object.entries(worker)) {
+    assert.ok(typeof value === 'function' || (name === 'default' && typeof value.fetch === 'function'), `export « ${name} » : ${typeof value}`);
+  }
+});
 
 test('chaque route de l’éditeur refuse le rôle consultation (403) et l’absence de cookie (401), sans rien écrire', async () => {
   const serveur = serveurDeTest();

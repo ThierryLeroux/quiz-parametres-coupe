@@ -1,0 +1,117 @@
+/* L'éditeur des exercices et de la banque d'outils (docs/UI.md §3.9, jalon 7a). Ordinateur d'abord,
+   utilisable à 390 px pour une retouche : les grilles passent à une colonne, les tableaux défilent
+   dans leur cadre (table-wrap, prof.css). Les composants (panneau, champ, bouton, onglets) viennent
+   de base.css et prof.css ; ici, seulement la disposition propre à l'éditeur. */
+
+.editeur { max-width: 1400px; }
+.editeur .panel + .panel { margin-top: var(--space-5); }
+
+/* Barre du haut d'un écran : titre à gauche, boutons à droite ; empilée sur téléphone. */
+.editeur-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.editeur-bar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+
+/* Grille de champs : trois colonnes sur ordinateur, une sur téléphone. */
+.editeur-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.editeur-grid .field--wide { grid-column: 1 / -1; }
+
+.editeur-grid textarea,
+.editeur-grid select {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border) solid var(--color-accent);
+  border-radius: 0;
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  font-family: var(--font-text);
+  font-size: var(--text-md);
+}
+
+.editeur-grid textarea { min-height: 120px; font-family: var(--font-number); font-size: var(--text-sm); resize: vertical; }
+.editeur-grid textarea:focus,
+.editeur-grid select:focus { outline: none; border-color: var(--color-accent-light); box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-light) 55%, transparent); }
+.editeur-grid input[readonly] { border-color: var(--color-input-provided-border); background: var(--color-input-provided-bg); color: var(--color-text-muted); }
+.editeur-grid .field[data-erreur='true'] textarea,
+.editeur-grid .field[data-erreur='true'] select { border-color: var(--color-wrong); box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--color-wrong) 40%, transparent); }
+.editeur-grid .field[data-erreur='true'] .field-note { color: var(--color-wrong); }
+.field-note.field-note--multi { white-space: pre-line; min-height: 0; }
+
+/* Cases à cocher (grandeurs, matières, groupes) : en colonnes serrées. */
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 4px var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choices label { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; font-size: var(--text-sm); font-weight: 400; cursor: pointer; }
+.choices input { width: 18px; height: 18px; accent-color: var(--color-accent); }
+.choices--inline { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+/* Un outil de l'exercice : un volet repliable, résumé en tête, formulaire dedans. */
+.outil-volet { margin-top: var(--space-3); border: 1px solid color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
+.outil-volet[data-erreur='true'] { border-color: var(--color-wrong); }
+.outil-volet summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  list-style: none;
+}
+.outil-volet summary::-webkit-details-marker { display: none; }
+.outil-volet summary::before { content: '▸'; color: var(--color-accent-light); }
+.outil-volet[open] summary::before { content: '▾'; }
+.outil-volet summary strong { font-weight: 600; }
+.outil-volet summary .muted { flex: 1 1 200px; }
+.outil-volet summary .outil-erreurs { color: var(--color-wrong); font-weight: 600; }
+.outil-corps { padding: 0 var(--space-3) var(--space-4); }
+.outil-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.outil-photo { width: 96px; height: 96px; object-fit: contain; background: #fff; border-radius: 4px; }
+.outil-photo-ligne { display: flex; align-items: center; gap: var(--space-3); }
+
+/* Ajouter un outil : deux sélecteurs et leur bouton. */
+.ajout-outil { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); margin-top: var(--space-4); }
+.ajout-outil .field { flex: 1 1 220px; max-width: 420px; }
+
+/* Erreurs générales, et confirmation de publication. */
+.editeur-erreurs { margin: var(--space-3) 0 0; padding-left: 1.4em; color: var(--color-wrong); font-size: var(--text-sm); }
+.editeur-diff { margin: var(--space-3) 0 0; padding-left: 1.4em; font-size: var(--text-sm); }
+.editeur-diff li + li { margin-top: 4px; }
+
+/* Versions : une ligne par version, avec son aperçu. */
+.versions-liste { margin: var(--space-3) 0 0; padding: 0; list-style: none; }
+.versions-liste li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); min-height: 40px; border-bottom: 1px solid color-mix(in srgb, var(--color-text-muted) 30%, transparent); font-size: var(--text-sm); }
+
+/* Aperçu : nombres en chasse fixe. */
+.apercu-table td.num { font-family: var(--font-number); }
+
+/* Sauvegarde. */
+.sauvegarde-etapes { margin: var(--space-4) 0 0; padding-left: 1.5em; display: grid; gap: var(--space-4); }
+.sauvegarde-etapes input[type='file'] { display: block; margin-top: var(--space-2); color: var(--color-text); font-family: var(--font-text); }
+
+/* Lien vers l'éditeur depuis l'espace professeur, et retour. */
+.prof-editeur-link { margin-top: var(--space-4); }
+
+@media (min-width: 720px) {
+  .editeur-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .editeur-grid .field--half { grid-column: span 2; }
+}

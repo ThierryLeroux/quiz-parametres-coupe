@@ -90,6 +90,9 @@ export function previewQuestions(exercise, data, random, count = 10) {
 //   received : le JSON de l'export ; existing : base.exportEditorData(db) ; tablesValid(tables) : erreurs des tables (validateData)
 export const EXPORT_FORMAT = 'quiz-parametres-coupe/editeur/1';
 
+// Le mot que la requête d'import doit porter, tel quel ; l'écran l'exige aussi (editeur.js du site).
+export const IMPORT_WORD = 'IMPORTER';
+
 export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) {
   const erreurs = [];
   const plan = { tables_ajoutees: [], banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [] };

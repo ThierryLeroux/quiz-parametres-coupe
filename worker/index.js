@@ -22,7 +22,7 @@ import * as base from './base.js';
 import { assembleDraft, loadLatest, loadVersion } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
-  EXPORT_FORMAT, cleanDraft, cleanTool, importDetails, importPlan, isExerciseId, isToolId, previewQuestions, sameContent,
+  EXPORT_FORMAT, IMPORT_WORD, cleanDraft, cleanTool, importDetails, importPlan, isExerciseId, isToolId, previewQuestions, sameContent,
 } from './editeur.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
@@ -840,8 +840,6 @@ async function editeurImportValider(request, env, { now }) {
 }
 
 // POST /api/prof/editeur/import — { export, confirmation: "IMPORTER" } : applique le plan, sans erreur seulement.
-export const IMPORT_WORD = 'IMPORTER';
-
 async function editeurImport(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request, EDITOR_BODY_MAX);
@@ -903,7 +901,11 @@ const ROUTES = {
 };
 
 // Les routes de l'éditeur, toutes réservées au rôle admin (tests : refus du rôle consultation sur chacune).
-export const EDITOR_ROUTES = Object.keys(ROUTES).filter((route) => route.includes('/api/prof/editeur/'));
+// Une fonction, pas une constante : le Workers runtime n'accepte comme exports du module d'entrée
+// que des fonctions et le gestionnaire (un test le vérifie).
+export function editorRoutes() {
+  return Object.keys(ROUTES).filter((route) => route.includes('/api/prof/editeur/'));
+}
 
 // Traite une requête. `tools` porte l'horloge et l'aléa — celui des tirages (random) et celui des
 // codes d'attestation (randomBytes, D32) —, que les tests remplacent.

@@ -181,7 +181,12 @@ function showDashboard() {
 }
 
 function headerAside() {
-  return [el('span', {}, roleLabel(state.role)), el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter')];
+  return [
+    el('span', {}, roleLabel(state.role)),
+    // L'éditeur des exercices (jalon 7a, D47) : rôle admin seulement — le serveur refuse de toute façon la clé de consultation.
+    ...(canAct(state.role) ? [el('a', { class: 'button-link', href: '/prof/editeur' }, 'Éditeur des exercices')] : []),
+    el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter'),
+  ];
 }
 
 // --- Effacement des données des étudiants (D46) : une page à part, rôle admin seulement ------------------------------
