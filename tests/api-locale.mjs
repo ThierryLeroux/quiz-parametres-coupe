@@ -10,7 +10,8 @@
 // attestation, vérification par l'adresse du QR et par le code, connexion professeur, remise à
 // zéro, attestation annulée — puis l'exercice « Vc et RPM » (D40) jusqu'à son attestation à deux
 // pages de questions (D41), la connexion en consultation (D44), la suppression d'une séance (D45) et
-// l'effacement des données des étudiants (D46) — en une minute au lieu de trois.
+// l'effacement des données des étudiants (D46), puis l'éditeur du jalon 7a (D47 à D49 : exercice lu dans
+// D1, version 2 publiée, séance épinglée, export et import) — en une minute au lieu de trois.
 //
 // Ce fichier ne finit pas par .test.js : « npm test » ne le lance pas.
 import assert from 'node:assert/strict';
@@ -376,6 +377,67 @@ try {
     for (const code of [attestation.code, attestationAlex.code]) assert.deepEqual((await appel('POST', '/api/verification', { corps: { code } })).corps, { resultat: 'aucune' });
     assert.deepEqual((await appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: CAMILLE.matricule } })).corps, { trouvee: false });
     assert.equal((await appel('POST', '/api/creation', { corps: CAMILLE })).status, 200); // l'exercice se sert comme avant
+  });
+
+  // --- Jalon 7a : l'exercice vient de D1, l'éditeur publie une version 2, la séance en cours reste épinglée (D47 à D49) ----
+
+  await etape('l’exercice est lu dans D1 (D47) : GET /api/exercice rend la version 1 avec ses copies d’outils et ses tables ; /api/exercices liste les deux M10', async () => {
+    const { status, corps } = await appel('GET', `/api/exercice?exercice=${M10}`);
+    assert.equal(status, 200, JSON.stringify(corps));
+    assert.deepEqual([corps.version, corps.archive, corps.exercice.version, corps.exercice.outils.length, corps.tables.materiaux.revision], [1, false, '1', 9, 'A2026_r0']);
+    assert.deepEqual((await appel('GET', '/api/exercices')).corps.exercices.map((e) => e.id), [M10, VC_RPM]);
+  });
+
+  let revision;
+  await etape('éditeur : la liste, le brouillon du M10 (révision 1, aucune erreur), le brouillon enregistré avec un nouveau titre, la clé de consultation refusée (403)', async () => {
+    const liste = await appel('GET', '/api/prof/editeur/exercices', { cookie });
+    assert.equal(liste.status, 200, JSON.stringify(liste.corps));
+    assert.deepEqual(liste.corps.exercices.map((e) => [e.id, e.modifie, e.derniere_version]), [[M10, false, 1], [VC_RPM, false, 1]]);
+    const page = await appel('GET', `/api/prof/editeur/exercice?id=${M10}`, { cookie });
+    assert.deepEqual([page.status, page.corps.exercice.revision, page.corps.erreurs], [200, 1, []]);
+    const brouillon = { ...page.corps.exercice.brouillon, titre: 'M10 — Tournage : vitesse de coupe (v2)' };
+    const enregistre = await appel('POST', '/api/prof/editeur/exercice/enregistrer', { corps: { id: M10, revision: 1, brouillon }, cookie });
+    assert.deepEqual([enregistre.status, enregistre.corps.revision, enregistre.corps.erreurs], [200, 2, []], JSON.stringify(enregistre.corps));
+    // Une révision périmée : 409, rien n'est écrasé.
+    assert.equal((await appel('POST', '/api/prof/editeur/exercice/enregistrer', { corps: { id: M10, revision: 1, brouillon: { ...brouillon, titre: 'périmé' } }, cookie })).status, 409);
+    revision = 2;
+    const consultation = await appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-consultation-du-test-api-locale' } });
+    assert.equal(consultation.status, 200);
+    const cookieConsultation = derniersEntetes.get('set-cookie').split(';')[0];
+    assert.equal((await appel('GET', '/api/prof/editeur/exercices', { cookie: cookieConsultation })).status, 403);
+    assert.equal((await appel('POST', '/api/prof/editeur/exercice/publier', { corps: { id: M10, revision }, cookie: cookieConsultation })).status, 403);
+  });
+
+  await etape('éditeur : aperçu de dix questions, puis publication de la version 2 ; Camille (séance créée sur la version 1) y reste épinglée, une nouvelle séance prend la 2', async () => {
+    const apercu = await appel('POST', '/api/prof/editeur/apercu', { corps: { id: M10 }, cookie });
+    assert.equal(apercu.status, 200, JSON.stringify(apercu.corps));
+    assert.equal(apercu.corps.questions.length, 10);
+    const publication = await appel('POST', '/api/prof/editeur/exercice/publier', { corps: { id: M10, revision }, cookie });
+    assert.deepEqual([publication.status, publication.corps.numero], [200, 2], JSON.stringify(publication.corps));
+    assert.equal((await appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.titre, 'M10 — Tournage : vitesse de coupe (v2)');
+    const reprise = await appel('POST', '/api/reprise', { corps: CAMILLE });
+    assert.equal(reprise.status, 200, JSON.stringify(reprise.corps));
+    assert.deepEqual(reprise.corps.seance.exercice, { id: M10, titre: 'M10 — Tournage : vitesse de coupe', version: '1' });
+    const nouvelle = await appel('POST', '/api/creation', { corps: { ...CAMILLE, prenom: 'Noa', nom: 'Gagnon', matricule: '2477777', nip: '9999' } });
+    assert.equal(nouvelle.corps.seance.exercice.version, '2');
+    const liste = (await appel('GET', '/api/prof/editeur/exercices', { cookie })).corps.exercices.find((e) => e.id === M10);
+    assert.deepEqual(liste.versions.map((v) => [v.numero, v.seances]), [[2, 1], [1, 1]]);
+  });
+
+  await etape('éditeur : export complet, import du même export validé puis appliqué (mot IMPORTER) ; l’export réimporté est identique, les séances intactes', async () => {
+    const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
+    assert.equal(exporte.status, 200);
+    assert.deepEqual([exporte.corps.format, exporte.corps.banque.length, exporte.corps.exercices.find((e) => e.id === M10).versions.length], ['quiz-parametres-coupe/editeur/1', 29, 2]);
+    const validation = await appel('POST', '/api/prof/editeur/import/valider', { corps: { export: exporte.corps }, cookie });
+    assert.deepEqual([validation.status, validation.corps.erreurs], [200, []], JSON.stringify(validation.corps));
+    assert.equal((await appel('POST', '/api/prof/editeur/import', { corps: { export: exporte.corps, confirmation: 'importer' }, cookie })).status, 400);
+    const importe = await appel('POST', '/api/prof/editeur/import', { corps: { export: exporte.corps, confirmation: 'IMPORTER' }, cookie });
+    assert.equal(importe.status, 200, JSON.stringify(importe.corps));
+    const apres = await appel('GET', '/api/prof/editeur/export', { cookie });
+    const sansDate = ({ exporte_le, ...rest }) => rest;
+    assert.deepEqual(sansDate(apres.corps), sansDate(exporte.corps));
+    assert.equal((await appel('GET', '/api/prof/seances', { cookie })).corps.seances.length, 2);
+    assert.equal((await appel('POST', '/api/reprise', { corps: CAMILLE })).corps.seance.exercice.version, '1');
   });
 
   await etape('déconnexion professeur : le cookie est effacé', async () => {
