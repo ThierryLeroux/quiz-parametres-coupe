@@ -31,7 +31,8 @@ export function fauxSite(remplacements = {}) {
 //   hote      : l'adresse à laquelle les requêtes sont faites — le mode test (D26) et la cadence réglable n'existent que sur localhost
 //   variables : variables du Worker en plus des secrets, ex. { MODE_TEST: '1' }
 //   codes     : les codes d'attestation à tirer, dans l'ordre (10 caractères de l'alphabet, D32) ; au hasard ensuite
-export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test', hote = 'https://quiz.example', variables = {}, codes = [] } = {}) {
+//   cleConsultation : la clé de consultation (D44) ; null = non configurée sur le serveur
+export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'secret-de-test', cleAdmin = 'cle-admin-de-test', cleConsultation = 'cle-consultation-de-test', hote = 'https://quiz.example', variables = {}, codes = [] } = {}) {
   const prevus = [...codes];
   const serveur = {
     db: fausseD1(),
@@ -75,7 +76,7 @@ export function serveurDeTest({ remplacements = {}, graine = 2026, secret = 'sec
       return formatParameters(computeParameters(JSON.parse(this.seance(matricule, exercice).question_courante), data));
     },
   };
-  serveur.env = { DB: serveur.db, ASSETS: fauxSite(remplacements), CLE_SECRETE: secret, CLE_ADMIN: cleAdmin, ...variables };
+  serveur.env = { DB: serveur.db, ASSETS: fauxSite(remplacements), CLE_SECRETE: secret, CLE_ADMIN: cleAdmin, ...(cleConsultation === null ? {} : { CLE_CONSULTATION: cleConsultation }), ...variables };
   return serveur;
 }
 

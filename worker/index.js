@@ -11,8 +11,8 @@
 import pkg from '../package.json' with { type: 'json' };
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
-  DISTINCT_PER_HOUR, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload, readCookie,
-  readProfSessionPayload, refusalLock,
+  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload,
+  readCookie, readProfSessionPayload, refusalLock,
 } from './acces.js';
 import { buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, readClaims, verificationUrl } from './attestation.js';
 import * as base from './base.js';
@@ -358,11 +358,13 @@ async function verification(request, env, { now }) {
   return json({ resultat: 'valide', attestation: row.enregistrement });
 }
 
-// --- Espace professeur : /api/prof/… (D34, D35) -----------------------------------------------------------
-// Une seule clé au jalon 5, CLE_ADMIN ; l'enseignant s'appelle « admin ». La séance est un cookie
-// signé (acces.js), que chaque route vérifie : aucune ne répond sans lui.
+// --- Espace professeur : /api/prof/… (D34, D35, D44) ------------------------------------------------------
+// Deux clés : CLE_ADMIN ouvre le rôle « admin », CLE_CONSULTATION (facultative) le rôle
+// « consultation », lecture seule. L'enseignant s'appelle comme son rôle, pour l'instant. La séance
+// est un cookie signé (acces.js) qui porte le rôle ; chaque route le vérifie : aucune ne répond sans
+// lui, et les routes d'action refusent le rôle consultation (403) — le serveur, pas seulement l'écran.
 
-const TEACHER = 'admin';
+const ACTION_RESERVED = "Cette action est réservée à la clé d'administration : la clé de consultation ne fait que lire.";
 
 async function requireTeacher(request, env, now) {
   const [payload, signature] = (readCookie(request.headers.get('cookie')) ?? '').split('.');
@@ -370,27 +372,44 @@ async function requireTeacher(request, env, now) {
   if (session === null || !sameText(await signProfSession(env.CLE_SECRETE, payload), signature)) {
     throw new HttpError(401, 'Connexion requise.');
   }
-  return session.teacher;
+  return session;
+}
+
+async function requireAdmin(request, env, now) {
+  const session = await requireTeacher(request, env, now);
+  if (!canAct(session.role)) throw new HttpError(403, ACTION_RESERVED);
+  return session;
+}
+
+// Le rôle qu'ouvre la clé présentée, ou null. Les deux clés sont toujours examinées, en temps
+// constant chacune (sameSecret). Sans CLE_CONSULTATION sur le serveur, seule CLE_ADMIN ouvre.
+async function roleForKey(key, env) {
+  const admin = await sameSecret(key, env.CLE_ADMIN);
+  const consultation = typeof env.CLE_CONSULTATION === 'string' && env.CLE_CONSULTATION !== '' && await sameSecret(key, env.CLE_CONSULTATION);
+  if (admin) return ADMIN;
+  return consultation ? CONSULTATION : null;
 }
 
 // POST /api/prof/connexion — { cle }. Comparaison en temps constant ; cinq essais ratés par adresse,
-// puis délai croissant ; chaque refus et chaque connexion sont journalisés.
+// puis délai croissant ; chaque refus et chaque connexion sont journalisés, avec le rôle ouvert.
 async function profConnexion(request, env, { now }) {
   const body = await readBody(request);
   const adresse = clientAddress(request);
   const lock = await base.findLock(env.DB, 'prof', adresse);
   if (isLocked(lock, now)) throw new HttpError(429, "Trop d'essais. Attends avant de réessayer.", { attendre_s: lockWait(lock, now) });
-  if (!await sameSecret(body.cle, env.CLE_ADMIN)) {
+  const role = await roleForKey(body.cle, env);
+  if (role === null) {
     const next = profFailureLock(lock, now);
     await base.setLock(env.DB, 'prof', adresse, next);
     await base.addTeacherLog(env.DB, { horodatage: now.toISOString(), enseignant: null, action: 'connexion_refusee', details: `adresse ${adresse}, échec ${next.echecs}` });
     throw new HttpError(401, 'Clé incorrecte.');
   }
+  const teacher = role; // l'identifiant d'enseignant est le nom du rôle, tant qu'il n'y a pas de table des enseignants
   await base.clearLock(env.DB, 'prof', adresse);
-  await base.addTeacherLog(env.DB, { horodatage: now.toISOString(), enseignant: TEACHER, action: 'connexion', details: `adresse ${adresse}` });
-  const { payload, expires } = profSessionPayload(TEACHER, now);
+  await base.addTeacherLog(env.DB, { horodatage: now.toISOString(), enseignant: teacher, action: 'connexion', details: `adresse ${adresse}, rôle ${role}` });
+  const { payload, expires } = profSessionPayload(teacher, role, now);
   const cookie = `${payload}.${await signProfSession(env.CLE_SECRETE, payload)}`;
-  return json({ enseignant: TEACHER, expire_le: expires }, 200, { 'set-cookie': profCookieHeader(cookie) });
+  return json({ enseignant: teacher, role, expire_le: expires }, 200, { 'set-cookie': profCookieHeader(cookie) });
 }
 
 // POST /api/prof/deconnexion — le cookie est effacé.
@@ -401,11 +420,12 @@ async function profDeconnexion() {
 // GET /api/prof/seances — toutes les séances, pour le tableau des réussites ; le tri, le filtre et
 // la recherche se font dans le navigateur (une classe, pas une base de données).
 async function profSeances(request, env, { now }) {
-  const teacher = await requireTeacher(request, env, now);
+  const { teacher, role } = await requireTeacher(request, env, now);
   const { exercises } = await loadCatalogue(env.ASSETS);
   const rows = await base.listSessions(env.DB);
   return json({
     enseignant: teacher,
+    role,
     exercices: [...exercises.values()].map((exercise) => ({ id: exercise.id, titre: exercise.titre })),
     seances: rows.map((row) => ({
       id: row.id,
@@ -425,7 +445,7 @@ async function profSeances(request, env, { now }) {
 // POST /api/prof/remise-a-zero — { seance } : la progression repart de zéro, la séance reste
 // (matricule, NIP) ; l'attestation en cours est annulée avec la date ; l'action est journalisée.
 async function profRemiseAZero(request, env, { now }) {
-  const teacher = await requireTeacher(request, env, now);
+  const { teacher } = await requireTeacher(request, env, now);
   const body = await readBody(request);
   const session = Number.isInteger(body.seance) ? await base.findSessionById(env.DB, body.seance) : null;
   if (session === null) throw new HttpError(404, "Cette séance n'existe pas.");
@@ -441,7 +461,7 @@ async function profRemiseAZero(request, env, { now }) {
 // POST /api/prof/reinitialisation-nip — { seance } : le NIP est effacé et le verrou tombe (D38) ;
 // l'étudiant choisit un nouveau NIP à sa prochaine reprise, comme à la création. Journalisée.
 async function profReinitialisationNip(request, env, { now }) {
-  const teacher = await requireTeacher(request, env, now);
+  const { teacher } = await requireTeacher(request, env, now);
   const body = await readBody(request);
   const session = Number.isInteger(body.seance) ? await base.findSessionById(env.DB, body.seance) : null;
   if (session === null) throw new HttpError(404, "Cette séance n'existe pas.");

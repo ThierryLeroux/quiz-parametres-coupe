@@ -56,10 +56,22 @@ export function profFailureLock(lock, now) {
   return { echecs: failures, jusqua: later(now, delay) };
 }
 
+// --- Rôles de l'espace professeur (D34, D44) ------------------------------------------------------------------
+// Deux clés, deux rôles : CLE_ADMIN ouvre le rôle « admin » (tout), CLE_CONSULTATION le rôle
+// « consultation » (lecture seule : tableau, export CSV, journal des corrections d'identité — aucune
+// action). L'identifiant d'enseignant que note le journal est, pour l'instant, le nom du rôle.
+
+export const ADMIN = 'admin';
+export const CONSULTATION = 'consultation';
+export const ROLES = [ADMIN, CONSULTATION];
+
+// Seul le rôle admin agit : remise à zéro, réinitialisation du NIP, suppression, effacement.
+export const canAct = (role) => role === ADMIN;
+
 // --- Cookie de séance professeur (D34) --------------------------------------------------------------------
 // Signé, sans état sur le serveur : « <charge>.<signature> », où la charge est l'identifiant de
-// l'enseignant et l'expiration, en base64url. La signature (crypto.js, sous-clé « prof ») est
-// recalculée à chaque requête et comparée en temps constant.
+// l'enseignant, son rôle et l'expiration, en base64url. La signature (crypto.js, sous-clé « prof »)
+// est recalculée à chaque requête et comparée en temps constant.
 
 export const PROF_COOKIE = 'prof';
 export const PROF_SESSION_MS = 12 * HOUR;
@@ -69,17 +81,18 @@ const toBase64url = (text) => btoa(String.fromCharCode(...new TextEncoder().enco
 const fromBase64url = (text) => new TextDecoder().decode(Uint8Array.from(atob(text.replaceAll('-', '+').replaceAll('_', '/')), (c) => c.charCodeAt(0)));
 
 // La charge d'une séance qui commence maintenant : { payload, expires }.
-export function profSessionPayload(teacher, now) {
+export function profSessionPayload(teacher, role, now) {
   const expires = later(now, PROF_SESSION_MS);
-  return { payload: toBase64url(`${teacher}|${expires}`), expires };
+  return { payload: toBase64url(`${teacher}|${role}|${expires}`), expires };
 }
 
-// Lit une charge : { teacher, expires }, ou null si elle est illisible ou expirée.
+// Lit une charge : { teacher, role, expires }, ou null si elle est illisible, d'un rôle inconnu ou
+// expirée. Une charge du jalon 5 (sans rôle) est illisible : l'enseignant se reconnecte.
 export function readProfSessionPayload(payload, now) {
   try {
-    const [teacher, expires] = fromBase64url(payload).split('|');
-    if (!teacher || !expires || expires <= now.toISOString()) return null;
-    return { teacher, expires };
+    const [teacher, role, expires] = fromBase64url(payload).split('|');
+    if (!teacher || !ROLES.includes(role) || !expires || expires <= now.toISOString()) return null;
+    return { teacher, role, expires };
   } catch {
     return null;
   }

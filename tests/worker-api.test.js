@@ -1002,7 +1002,7 @@ test('connexion professeur : clé fausse → 401 ; cinq échecs par adresse, pui
   serveur.avancer(4 * MINUTE);
   const { status, corps } = await essai('cle-admin-de-test');
   assert.equal(status, 200);
-  assert.deepEqual(corps, { enseignant: 'admin', expire_le: new Date(serveur.maintenant.getTime() + 12 * 60 * MINUTE).toISOString() });
+  assert.deepEqual(corps, { enseignant: 'admin', role: 'admin', expire_le: new Date(serveur.maintenant.getTime() + 12 * 60 * MINUTE).toISOString() });
   const cookie = serveur.derniersEntetes.get('set-cookie');
   assert.match(cookie, /^prof=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}; Path=\/api\/prof; HttpOnly; Secure; SameSite=Strict; Max-Age=43200$/);
   assert.equal(await essai('mauvaise').then((r) => r.status), 401); // le compte repart : pas de verrou au premier échec
@@ -1011,8 +1011,31 @@ test('connexion professeur : clé fausse → 401 ; cinq échecs par adresse, pui
   const journal = serveur.journalEnseignant();
   assert.deepEqual(journal.filter((l) => l.action === 'connexion_refusee').map((l) => [l.enseignant, l.details]).slice(0, 2), [[null, 'adresse 203.0.113.7, échec 1'], [null, 'adresse 203.0.113.7, échec 2']]);
   assert.equal(journal.filter((l) => l.action === 'connexion_refusee').length, 8);
-  assert.deepEqual(journal.filter((l) => l.action === 'connexion').map((l) => [l.enseignant, l.details]), [['admin', 'adresse 198.51.100.9'], ['admin', 'adresse 203.0.113.7'], ['admin', 'adresse 203.0.113.7']]);
+  assert.deepEqual(journal.filter((l) => l.action === 'connexion').map((l) => [l.enseignant, l.details]), [['admin', 'adresse 198.51.100.9, rôle admin'], ['admin', 'adresse 203.0.113.7, rôle admin'], ['admin', 'adresse 203.0.113.7, rôle admin']]);
   for (const ligne of journal) assert.match(ligne.horodatage, /^2026-/);
+});
+
+test('clé de consultation (D44) : ouvre le rôle consultation, dans le cookie et au journal ; mêmes verrous ; sans CLE_CONSULTATION sur le serveur, elle ne vaut rien', async () => {
+  const serveur = serveurDeTest();
+  const adresse = { 'cf-connecting-ip': '203.0.113.7' };
+  const { cookie, corps } = await seConnecter(serveur, 'cle-consultation-de-test');
+  assert.deepEqual(corps, { enseignant: 'consultation', role: 'consultation', expire_le: new Date(serveur.maintenant.getTime() + 12 * 60 * MINUTE).toISOString() });
+  const seances = await serveur.appel('GET', '/api/prof/seances', { entetes: { cookie: `prof=${cookie}` } });
+  assert.deepEqual([seances.status, seances.corps.enseignant, seances.corps.role], [200, 'consultation', 'consultation']);
+  assert.deepEqual(serveur.journalEnseignant().map((l) => [l.enseignant, l.action, l.details]), [['consultation', 'connexion', 'adresse 203.0.113.7, rôle consultation']]);
+
+  // Les essais ratés comptent ensemble, quelle que soit la clé visée : cinq échecs, puis le délai.
+  for (let n = 1; n <= 5; n += 1) assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'mauvaise' }, entetes: adresse })).status, 401);
+  assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-consultation-de-test' }, entetes: adresse })).status, 429);
+  assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-admin-de-test' }, entetes: adresse })).status, 429);
+
+  // Sans clé de consultation configurée, seule la clé d'administration ouvre ; la clé vide n'ouvre jamais.
+  const sansConsultation = serveurDeTest({ cleConsultation: null });
+  assert.equal((await sansConsultation.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-consultation-de-test' } })).status, 401);
+  assert.equal((await sansConsultation.appel('POST', '/api/prof/connexion', { corps: { cle: '' } })).status, 401);
+  assert.equal((await sansConsultation.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-admin-de-test' } })).status, 200);
+  const vide = serveurDeTest({ cleConsultation: '' });
+  assert.equal((await vide.appel('POST', '/api/prof/connexion', { corps: { cle: '' } })).status, 401);
 });
 
 test('connexion professeur : clé mal formée ou absente → 401 comme une clé fausse ; sans CLE_ADMIN sur le serveur → 500', async () => {

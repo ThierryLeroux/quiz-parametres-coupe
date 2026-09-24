@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DISTINCT_PER_HOUR, PROF_COOKIE_PATH, PROF_FREE_ATTEMPTS, PROF_SESSION_MS, REFUSAL_LOCK_MS, clientAddress, hourSlot, isLocked, lockWait,
-  profCookieHeader, profFailureLock, profSessionPayload, readCookie, readProfSessionPayload, refusalLock,
+  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PROF_COOKIE_PATH, PROF_FREE_ATTEMPTS, PROF_SESSION_MS, REFUSAL_LOCK_MS, ROLES, canAct, clientAddress, hourSlot,
+  isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload, readCookie, readProfSessionPayload, refusalLock,
 } from '../worker/acces.js';
 
 const NOW = new Date('2026-09-21T13:05:00.000Z');
@@ -53,15 +53,26 @@ test('connexion professeur : quatre échecs libres, puis 1, 2, 4… minutes, pla
 
 test('cookie professeur : charge signable de 12 h, relue tant qu’elle n’est pas expirée', () => {
   assert.equal(PROF_SESSION_MS, 12 * 60 * MINUTE);
-  const { payload, expires } = profSessionPayload('admin', NOW);
+  const { payload, expires } = profSessionPayload('admin', ADMIN, NOW);
   assert.equal(expires, '2026-09-22T01:05:00.000Z');
   assert.match(payload, /^[A-Za-z0-9_-]+$/);
-  assert.deepEqual(readProfSessionPayload(payload, NOW), { teacher: 'admin', expires });
-  assert.deepEqual(readProfSessionPayload(payload, new Date('2026-09-22T01:04:59.999Z')), { teacher: 'admin', expires });
+  assert.deepEqual(readProfSessionPayload(payload, NOW), { teacher: 'admin', role: 'admin', expires });
+  assert.deepEqual(readProfSessionPayload(payload, new Date('2026-09-22T01:04:59.999Z')), { teacher: 'admin', role: 'admin', expires });
   assert.equal(readProfSessionPayload(payload, new Date('2026-09-22T01:05:00.000Z')), null);
   assert.equal(readProfSessionPayload('pas du base64 !', NOW), null);
   assert.equal(readProfSessionPayload('', NOW), null);
   assert.equal(readProfSessionPayload(btoa('admin'), NOW), null); // sans expiration
+  assert.equal(readProfSessionPayload(btoa(`admin|${expires}`), NOW), null); // charge du jalon 5, sans rôle : on se reconnecte
+});
+
+test('rôles (D44) : la charge porte le rôle ; un rôle inconnu est refusé ; seul admin agit', () => {
+  assert.deepEqual(ROLES, ['admin', 'consultation']);
+  const { payload, expires } = profSessionPayload('consultation', CONSULTATION, NOW);
+  assert.deepEqual(readProfSessionPayload(payload, NOW), { teacher: 'consultation', role: 'consultation', expires });
+  assert.equal(readProfSessionPayload(btoa(`admin|superviseur|${expires}`), NOW), null);
+  assert.equal(canAct(ADMIN), true);
+  assert.equal(canAct(CONSULTATION), false);
+  assert.equal(canAct(undefined), false);
 });
 
 test('readCookie et profCookieHeader : HttpOnly, Secure, SameSite=Strict, chemin /api/prof, 12 h ; effacé avec Max-Age=0', () => {
