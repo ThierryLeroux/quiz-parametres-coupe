@@ -208,11 +208,12 @@ séance, avec une boîte de confirmation qui nomme l'étudiant :
 Et, sous le tableau, **Effacer les données des étudiants…** (décision D46) :
 la page à part qui vide la base **en fin de session**. Elle propose d'abord
 l'export CSV de tout, puis exige de taper le mot **EFFACER**. Toutes les
-séances, leurs journaux, les corrections d'identité et les attestations
-disparaissent ; les anciens codes d'attestation répondent ensuite « aucune
-attestation ne correspond ». Le journal des actions reste, avec les nombres
-effacés. Les exercices, la banque d'outils et les tables de référence ne sont
-jamais touchés : ils sont dans le dépôt, pas dans la base.
+séances, leurs journaux, les corrections d'identité, les attestations, les
+compteurs de débit et les verrous disparaissent ; les anciens codes
+d'attestation répondent ensuite « aucune attestation ne correspond ». Le journal
+des actions reste, anonymisé (noms, matricules et codes remplacés par « — »),
+avec les nombres effacés. Les exercices, la banque d'outils et les tables de
+référence ne sont jamais touchés : ils sont dans le dépôt, pas dans la base.
 
 ### La clé de consultation : la créer, la remettre, la remplacer
 

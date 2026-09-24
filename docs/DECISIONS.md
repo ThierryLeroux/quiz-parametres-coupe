@@ -1029,14 +1029,21 @@ et SPEC §9 le dit ; rien ne le faisait encore.
   Avant d'effacer, la page propose l'**export CSV de tout**, puis exige de taper le mot **EFFACER** ;
   le serveur exige le même mot dans la requête (400 sinon, rien n'est touché).
 - L'effacement supprime **toutes** les séances, journaux de corrections, corrections d'identité et
-  attestations, en un seul lot ; il **garde le journal des actions** — ses lignes sont détachées des
-  séances — et y inscrit les **nombres effacés** (`effacement`, « 3 séances · 40 corrections ·
-  1 correction d'identité · 2 attestations »). Les anciens codes d'attestation répondent ensuite
-  « aucune attestation ne correspond ». Le pied de page qui annonce l'effacement reste vrai.
+  attestations, **ainsi que les compteurs de débit et les verrous par adresse** (`debit`, `verrous` :
+  ils contiennent des matricules et des codes consultés, la promesse du pied de page vaut pour eux,
+  et perdre une heure de compteurs ne coûte rien), en un seul lot. Les anciens codes d'attestation
+  répondent ensuite « aucune attestation ne correspond ». Le pied de page qui annonce l'effacement
+  reste vrai.
+- Il **garde le journal des actions**, mais **anonymisé** : dans les détails des entrées existantes,
+  les noms, matricules et codes d'attestation sont remplacés par « — » ; la date, le rôle, l'action,
+  l'exercice et les nombres restent (« m10-tournage-vc · — · — · séance 7 »). Les lignes sont
+  détachées des séances. L'effacement y inscrit les **nombres effacés** (`effacement`, « 3 séances ·
+  40 corrections · 1 correction d'identité · 2 attestations · 12 compteurs de débit · 1 verrou ·
+  4 entrées du journal anonymisées »). Le journal reste utile sans les identités.
 - Les **exercices, la banque d'outils et les données de référence ne sont jamais touchés** : ils ne
-  sont pas en base (D22). Les compteurs de débit par adresse (`debit`, effacés au fil de l'eau par
-  tranche horaire) et les verrous (`verrous`) ne sont pas touchés non plus.
+  sont pas en base (D22).
 
-**Conséquences.** `POST /api/prof/effacement`, `base.countStudentData`, `base.purgeStudentData`,
-`PURGE_WORD` (le même dans `acces.js` et `prof-data.js`, un test le vérifie) ; SPEC §7, §8, §9 ;
-UI §3.8. L'éditeur du catalogue devient le jalon 7 (`PLAN.md`).
+**Conséquences.** `POST /api/prof/effacement`, `base.countStudentData`, `base.listTeacherLog`,
+`base.purgeStudentData`, `PURGE_WORD` et `anonymizedDetails` (`acces.js` ; le mot est le même dans
+`prof-data.js`, un test le vérifie) ; SPEC §7, §8, §9 ; UI §3.8. L'éditeur du catalogue devient le
+jalon 7 (`PLAN.md`).

@@ -279,7 +279,7 @@ ne reste rien à tirer. La séance note la version de l'exercice **au début** e
 | `corrections_identite` | le journal des corrections d'identité (D23) : séance, anciens et nouveaux prénom, nom et matricule, horodatage ; après la réussite, les codes de l'attestation annulée et de la nouvelle (D37) — pour l'espace professeur |
 | `corrections` | le journal : séance, outil, question (JSON), réponses (JSON), résultat champ par champ et valeurs attendues (JSON), réussie ou non, horodatage |
 | `attestations` | une ligne par attestation (D31, D35, D37, D45) : séance (NULL une fois la séance supprimée), code court, enregistrement figé (JSON, avec la liste des questions réussies qui comptent, D41), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`, `seance_supprimee`) |
-| `journal_enseignant` | les actions d'enseignant (D34, D35, D38, D44 à D46) : horodatage, enseignant (« admin » ou « consultation » : le rôle, D44), séance (NULL quand elle n'existe plus), action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`, `suppression`, `effacement`), détails |
+| `journal_enseignant` | les actions d'enseignant (D34, D35, D38, D44 à D46) : horodatage, enseignant (« admin » ou « consultation » : le rôle, D44), séance (NULL quand elle n'existe plus), action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`, `suppression`, `effacement`), détails — anonymisés à l'effacement (D46) |
 | `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
 
 Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **efface le
@@ -356,7 +356,7 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | `POST /api/prof/remise-a-zero` | cookie **admin**, `{ seance }` | `{ remise_a_zero: true, seance }` — D35 ; 404 séance inconnue |
 | `POST /api/prof/reinitialisation-nip` | cookie **admin**, `{ seance }` | `{ nip_reinitialise: true, seance }` — D38 : NIP effacé, verrou levé, progression intacte ; 404 séance inconnue |
 | `POST /api/prof/suppression` | cookie **admin**, `{ seance }` | `{ supprimee: true, seance }` — D45 : la séance et son journal disparaissent, ses attestations restent, annulées « séance supprimée » ; 404 séance inconnue |
-| `POST /api/prof/effacement` | cookie **admin**, `{ confirmation: "EFFACER" }` | `{ efface: true, nombres: { seances, corrections, corrections_identite, attestations } }` — D46 : tout est effacé sauf le journal des actions ; 400 sans le mot exact, rien n'est touché |
+| `POST /api/prof/effacement` | cookie **admin**, `{ confirmation: "EFFACER" }` | `{ efface: true, nombres: { seances, corrections, corrections_identite, attestations, debit, verrous, journal_anonymise } }` — D46 : tout est effacé sauf le journal des actions, gardé anonymisé ; 400 sans le mot exact, rien n'est touché |
 | `GET /api/prof/identites` | cookie | `{ corrections }` — le journal des corrections d'identité (D23), la plus récente en premier, avec l'exercice et le matricule actuel de la séance |
 
 Aucune route `/api/prof/*` ne répond sans cookie valide (401 « Connexion
@@ -682,11 +682,14 @@ corrections d'identité, ni durées. Elle est soumise aux limites de débit
 - **Effacement des données des étudiants** (D46), rôle admin, sur une page à
   part : export CSV de tout proposé d'abord, puis le mot **EFFACER** à taper,
   exigé aussi par le serveur (400 sinon). Toutes les séances, journaux de
-  corrections, corrections d'identité et attestations sont supprimés en un seul
-  lot ; le **journal des actions reste**, détaché des séances, et note les
-  nombres effacés. Les anciens codes d'attestation répondent ensuite « aucune
-  attestation ne correspond ». Exercices, banque d'outils et données de
-  référence ne sont pas en base : jamais touchés.
+  corrections, corrections d'identité et attestations, ainsi que les compteurs
+  de débit et les verrous par adresse (ci-dessous), sont supprimés en un seul
+  lot ; le **journal des actions reste**, détaché des séances et **anonymisé**
+  (dans ses détails, noms, matricules et codes d'attestation deviennent « — » ;
+  date, rôle, action, exercice et nombres restent), et note les nombres effacés.
+  Les anciens codes d'attestation répondent ensuite « aucune attestation ne
+  correspond ». Exercices, banque d'outils et données de référence ne sont pas
+  en base : jamais touchés.
 - **Journal des corrections d'identité** (D23) : la plus récente en premier,
   avec l'exercice, le matricule actuel, avant → après, l'attestation réémise
   s'il y en a une (D37), et la séance.
