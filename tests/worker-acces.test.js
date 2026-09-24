@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PROF_COOKIE_PATH, PROF_FREE_ATTEMPTS, PROF_SESSION_MS, REFUSAL_LOCK_MS, ROLES, canAct, clientAddress, hourSlot,
-  isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload, readCookie, readProfSessionPayload, refusalLock,
+  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PROF_COOKIE_PATH, PROF_FREE_ATTEMPTS, PROF_SESSION_MS, PURGE_WORD, REFUSAL_LOCK_MS, ROLES, canAct, clientAddress,
+  hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload, purgeDetails, readCookie, readProfSessionPayload, refusalLock,
 } from '../worker/acces.js';
 
 const NOW = new Date('2026-09-21T13:05:00.000Z');
@@ -63,6 +63,12 @@ test('cookie professeur : charge signable de 12 h, relue tant qu’elle n’est 
   assert.equal(readProfSessionPayload('', NOW), null);
   assert.equal(readProfSessionPayload(btoa('admin'), NOW), null); // sans expiration
   assert.equal(readProfSessionPayload(btoa(`admin|${expires}`), NOW), null); // charge du jalon 5, sans rôle : on se reconnecte
+});
+
+test('effacement (D46) : le mot exigé, et le détail des nombres pour le journal, au singulier comme au pluriel', () => {
+  assert.equal(PURGE_WORD, 'EFFACER');
+  assert.equal(purgeDetails({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2 }), "3 séances · 40 corrections · 1 correction d'identité · 2 attestations");
+  assert.equal(purgeDetails({ seances: 1, corrections: 0, corrections_identite: 0, attestations: 1 }), "1 séance · 0 correction · 0 correction d'identité · 1 attestation");
 });
 
 test('rôles (D44) : la charge porte le rôle ; un rôle inconnu est refusé ; seul admin agit', () => {

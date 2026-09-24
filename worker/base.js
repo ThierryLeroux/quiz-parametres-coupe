@@ -250,6 +250,30 @@ export async function deleteSession(db, seanceId, now, entry) {
   ]);
 }
 
+// --- Effacement des données des étudiants (D46) ---------------------------------------------------------------
+
+// Ce qu'il y a à effacer : { seances, corrections, corrections_identite, attestations }.
+export async function countStudentData(db) {
+  return db.prepare(`
+    SELECT (SELECT COUNT(*) FROM seances) AS seances, (SELECT COUNT(*) FROM corrections) AS corrections,
+           (SELECT COUNT(*) FROM corrections_identite) AS corrections_identite, (SELECT COUNT(*) FROM attestations) AS attestations`).first();
+}
+
+// Efface toutes les séances, journaux de corrections, corrections d'identité et attestations, et
+// inscrit l'action au journal des actions — qui reste, ses lignes détachées des séances (ON DELETE
+// SET NULL) — en un seul lot. Les exercices et le catalogue ne sont pas en base : jamais touchés.
+//   entry : la ligne du journal (addTeacherLog), dont les détails donnent les nombres effacés
+export async function purgeStudentData(db, entry) {
+  await db.batch([
+    db.prepare('DELETE FROM attestations'),
+    db.prepare('DELETE FROM corrections_identite'),
+    db.prepare('DELETE FROM corrections'),
+    db.prepare('DELETE FROM seances'),
+    db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, NULL, ?, ?)')
+      .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null),
+  ]);
+}
+
 // Le journal des corrections d'identité, la plus récente en premier, avec la séance telle qu'elle
 // est aujourd'hui (exercice, matricule actuel).
 export async function listIdentityCorrections(db) {

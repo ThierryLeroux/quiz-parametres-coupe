@@ -5,11 +5,11 @@
 // serveur ne répond qu'avec le cookie de séance posé à la connexion ; un 401 ramène à la connexion.
 // Ce qu'on montre est décidé par prof-data.js (pur, testé) : ici, on construit le DOM.
 
-import { deleteSession, listIdentityCorrections, listSessions, resetNip, resetSession, teacherLogin, teacherLogout } from '../api.js';
+import { deleteSession, listIdentityCorrections, listSessions, purgeStudentData, resetNip, resetSession, teacherLogin, teacherLogout } from '../api.js';
 import { el, showScreen } from './dom.js';
 import {
-  SESSION_COLUMNS, canAct, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, resetConfirmation, roleLabel, sessionCells,
-  sortSessions,
+  PURGE_WORD, SESSION_COLUMNS, canAct, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, purgeIntro, purgeSummary,
+  resetConfirmation, roleLabel, sessionCells, sortSessions,
 } from './prof-data.js';
 import { serverErrorMessage } from './text.js';
 
@@ -171,12 +171,64 @@ function showDashboard() {
         ]),
       ]) : '',
       content,
+      // La page d'effacement (D46) : rôle admin seulement, à part du tableau.
+      state.view === 'seances' && canAct(state.role)
+        ? el('p', { class: 'prof-purge-link' }, el('button', { class: 'button-link', type: 'button', onclick: () => showPurge() }, 'Effacer les données des étudiants…'))
+        : '',
     ]),
   ]);
-  showScreen(main, screen, {
-    title: 'Espace professeur',
-    aside: [el('span', {}, roleLabel(state.role)), el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter')],
-  }, state.view === 'seances' ? '#recherche' : 'h1');
+  showScreen(main, screen, { title: 'Espace professeur', aside: headerAside() }, state.view === 'seances' ? '#recherche' : 'h1');
+}
+
+function headerAside() {
+  return [el('span', {}, roleLabel(state.role)), el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter')];
+}
+
+// --- Effacement des données des étudiants (D46) : une page à part, rôle admin seulement ------------------------------
+// D'abord l'export CSV de tout, puis le mot EFFACER tapé en entier ; le serveur l'exige aussi. Après
+// l'effacement, la page reste et dit les nombres effacés.
+function showPurge(notice = '') {
+  const status = el('div', { class: 'server-message', role: 'status' }, notice);
+  const button = el('button', { class: 'button button--wrong', type: 'submit', disabled: true }, 'Effacer les données des étudiants');
+  const input = el('input', {
+    id: 'confirmation', name: 'confirmation', type: 'text', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': 'confirmation-note',
+    oninput: () => { button.disabled = input.value.trim() !== PURGE_WORD; },
+  });
+
+  async function submit(event) {
+    event.preventDefault();
+    if (button.disabled || input.value.trim() !== PURGE_WORD) return;
+    button.disabled = true;
+    try {
+      const { nombres } = await purgeStudentData(input.value.trim());
+      state.identites = null;
+      await reload();
+      showPurge(purgeSummary(nombres));
+    } catch (error) {
+      if (error.status === 401) { showLogin('Ta séance a expiré : connecte-toi de nouveau.'); return; }
+      status.textContent = serverErrorMessage(error);
+      input.value = '';
+      input.focus();
+    }
+  }
+
+  const screen = el('div', { class: 'screen screen--narrow prof' }, el('section', { class: 'panel panel--wrong' }, [
+    el('div', { class: 'eyebrow' }, `Espace professeur · ${roleLabel(state.role)}`),
+    el('h1', { tabindex: '-1' }, 'Effacer les données des étudiants'),
+    el('p', { class: 'small' }, purgeIntro(state.seances.length)),
+    el('ol', { class: 'purge-steps' }, [
+      el('li', {}, [
+        el('div', {}, "Exporter toutes les séances en CSV d'abord : c'est la dernière occasion."),
+        el('p', {}, el('button', { class: 'button-outline', type: 'button', onclick: () => download(csvFileName('', new Date()), csvOf(state.seances)) }, 'Exporter tout en CSV')),
+      ]),
+      el('li', {}, el('form', { novalidate: true, onsubmit: submit }, [
+        el('div', { class: 'field' }, [el('label', { for: 'confirmation' }, `Tape ${PURGE_WORD} pour confirmer`), input, el('div', { class: 'field-note', id: 'confirmation-note' }, 'En majuscules, tel quel. Le bouton ne s\'active qu\'avec le mot exact.')]),
+        el('div', { class: 'form-actions' }, [status, button]),
+      ])),
+    ]),
+    el('p', { class: 'prof-purge-link' }, el('button', { class: 'button-link', type: 'button', onclick: () => showDashboard() }, '← Retour aux réussites')),
+  ]));
+  showScreen(main, screen, { title: 'Espace professeur', aside: headerAside() }, '#confirmation');
 }
 
 async function switchView(view) {
@@ -201,15 +253,20 @@ async function logout() {
   showLogin('Déconnecté.');
 }
 
-// Charge les séances (et, si elles sont affichées, les corrections d'identité), puis affiche.
+// Recharge les séances (et, si elles sont affichées, les corrections d'identité) dans l'état.
+async function reload() {
+  const { enseignant, role, exercices, seances } = await listSessions();
+  state.teacher = enseignant;
+  state.role = role;
+  state.exercices = exercices;
+  state.seances = seances;
+  if (state.view === 'identites') state.identites = (await listIdentityCorrections()).corrections;
+}
+
+// Charge, puis affiche le tableau ; un 401 ramène à la connexion.
 async function loadAndShow() {
   try {
-    const { enseignant, role, exercices, seances } = await listSessions();
-    state.teacher = enseignant;
-    state.role = role;
-    state.exercices = exercices;
-    state.seances = seances;
-    if (state.view === 'identites') state.identites = (await listIdentityCorrections()).corrections;
+    await reload();
     showDashboard();
     return true;
   } catch (error) {

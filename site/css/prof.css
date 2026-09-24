@@ -125,6 +125,15 @@ th[aria-sort='descending'] .sort-button::after { content: '▼'; font-size: 0.7e
 
 .identity-arrow { color: var(--color-text-muted); padding: 0 6px; }
 
+/* Lien vers la page d'effacement (D46), sous le tableau, rôle admin seulement. */
+.prof-purge-link { margin-top: var(--space-5); }
+
+/* Page d'effacement : deux étapes numérotées — exporter, puis taper le mot. */
+.purge-steps { margin: var(--space-4) 0 0; padding-left: 1.5em; display: grid; gap: var(--space-4); }
+.purge-steps li { padding-left: var(--space-2); }
+.purge-steps .field { margin-top: var(--space-2); max-width: 320px; }
+.purge-steps .form-actions { margin-top: var(--space-3); }
+
 @media (max-width: 640px) {
   .prof-toolbar .field { max-width: none; }
   .prof-actions { margin-left: 0; }

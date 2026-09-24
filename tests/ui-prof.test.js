@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SESSION_COLUMNS, canAct, csvCell, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, plain, resetConfirmation, roleLabel,
-  sessionCells, sessionState, sortSessions,
+  PURGE_WORD, SESSION_COLUMNS, canAct, csvCell, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, plain, purgeIntro,
+  purgeSummary, resetConfirmation, roleLabel, sessionCells, sessionState, sortSessions,
 } from '../site/js/ui/prof-data.js';
+import { PURGE_WORD as SERVER_PURGE_WORD } from '../worker/acces.js';
 import { claimsFromInput } from '../site/js/ui/attestation-data.js';
 
 const at = (y, mo, d, h, mi, s = 0) => new Date(y, mo - 1, d, h, mi, s).toISOString(); // heure du poste
@@ -106,6 +107,18 @@ test('deleteConfirmation (D45) : rappelle le nom et le matricule, dit que c’es
   assert.match(deleteConfirmation(SEANCES[0]), /sans retour/);
   assert.match(deleteConfirmation(SEANCES[0]), /ABCDE-FGHJK restera vérifiable et répondra « annulée — séance supprimée »/);
   assert.doesNotMatch(deleteConfirmation(SEANCES[1]), /attestation/);
+});
+
+test('effacement (D46) : le même mot que le serveur ; l’annonce dit ce qui part et ce qui reste ; le bilan compte au singulier et au pluriel', () => {
+  assert.equal(PURGE_WORD, 'EFFACER');
+  assert.equal(PURGE_WORD, SERVER_PURGE_WORD);
+  assert.match(purgeIntro(3), /^La base contient 3 séances\. /);
+  assert.match(purgeIntro(1), /contient 1 séance\. /);
+  assert.match(purgeIntro(0), /contient aucune séance\. /);
+  assert.match(purgeIntro(3), /journal des actions reste/);
+  assert.match(purgeIntro(3), /exercices, la banque d'outils et les données de référence ne sont jamais touchés/);
+  assert.equal(purgeSummary({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2 }), "Effacé : 3 séances, 40 corrections, 1 correction d'identité et 2 attestations.");
+  assert.equal(purgeSummary({ seances: 0, corrections: 0, corrections_identite: 0, attestations: 0 }), "Effacé : 0 séance, 0 correction, 0 correction d'identité et 0 attestation.");
 });
 
 test('nipResetConfirmation : nomme l’étudiant et l’exercice, dit que la progression ne change pas', () => {

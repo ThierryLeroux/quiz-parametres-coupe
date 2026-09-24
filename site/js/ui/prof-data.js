@@ -142,6 +142,23 @@ export function nipResetConfirmation(session) {
   return `Réinitialiser le NIP de ${session.prenom} ${session.nom} (${session.matricule}, ${session.exercice.titre}) ? Le verrou tombe ; à sa prochaine reprise, le NIP qu'il ou elle entrera deviendra le nouveau. Sa progression ne change pas.`;
 }
 
+// --- Effacement des données des étudiants (D46) -------------------------------------------------------------------
+
+// Le mot à taper pour effacer ; le serveur exige le même (worker/acces.js).
+export const PURGE_WORD = 'EFFACER';
+
+// Ce que la page d'effacement annonce, avant : « La base contient 3 séances. … »
+export function purgeIntro(sessionCount) {
+  const count = sessionCount === 0 ? 'aucune séance' : `${sessionCount} séance${sessionCount > 1 ? 's' : ''}`;
+  return `La base contient ${count}. L'effacement supprime toutes les séances, leurs journaux de corrections, les corrections d'identité et les attestations, sans retour. Les anciens codes d'attestation répondront ensuite « aucune attestation ne correspond ». Le journal des actions reste et note les nombres effacés. Les exercices, la banque d'outils et les données de référence ne sont jamais touchés.`;
+}
+
+// Ce que la page dit après : « Effacé : 3 séances, 40 corrections, 1 correction d'identité et 2 attestations. »
+export function purgeSummary(nombres) {
+  const plural = (count, one, many) => `${count} ${count > 1 ? many : one}`; // en français, zéro reste au singulier
+  return `Effacé : ${plural(nombres.seances, 'séance', 'séances')}, ${plural(nombres.corrections, 'correction', 'corrections')}, ${plural(nombres.corrections_identite, "correction d'identité", "corrections d'identité")} et ${plural(nombres.attestations, 'attestation', 'attestations')}.`;
+}
+
 // Le texte de confirmation d'une suppression (D45) : rappelle le nom et le matricule, et ce qu'il advient de l'attestation.
 export function deleteConfirmation(session) {
   const attestation = session.code ? ` Son attestation ${session.code} restera vérifiable et répondra « annulée — séance supprimée ».` : '';

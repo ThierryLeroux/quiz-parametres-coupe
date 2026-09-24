@@ -11,8 +11,8 @@
 import pkg from '../package.json' with { type: 'json' };
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
-  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock, profSessionPayload,
-  readCookie, readProfSessionPayload, refusalLock,
+  ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PURGE_WORD, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader, profFailureLock,
+  profSessionPayload, purgeDetails, readCookie, readProfSessionPayload, refusalLock,
 } from './acces.js';
 import { buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, readClaims, verificationUrl } from './attestation.js';
 import * as base from './base.js';
@@ -491,6 +491,19 @@ async function profSuppression(request, env, { now }) {
   return json({ supprimee: true, seance: session.id });
 }
 
+// POST /api/prof/effacement — { confirmation: "EFFACER" } (D46) : efface toutes les séances, journaux
+// de corrections, corrections d'identité et attestations ; garde le journal des actions, où les
+// nombres effacés sont inscrits. Les anciens codes d'attestation répondent ensuite « aucune ». Rôle
+// admin seulement ; sans le mot exact, 400 et rien n'est touché. Exercices et catalogue ne sont pas en base.
+async function profEffacement(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  if (body.confirmation !== PURGE_WORD) throw new HttpError(400, `Pour effacer, la requête doit porter le mot ${PURGE_WORD}.`);
+  const nombres = await base.countStudentData(env.DB);
+  await base.purgeStudentData(env.DB, { horodatage: now.toISOString(), enseignant: teacher, action: 'effacement', details: purgeDetails(nombres) });
+  return json({ efface: true, nombres });
+}
+
 // GET /api/prof/identites — le journal des corrections d'identité, la plus récente en premier.
 async function profIdentites(request, env, { now }) {
   await requireTeacher(request, env, now);
@@ -524,6 +537,7 @@ const ROUTES = {
   'POST /api/prof/remise-a-zero': profRemiseAZero,
   'POST /api/prof/reinitialisation-nip': profReinitialisationNip,
   'POST /api/prof/suppression': profSuppression,
+  'POST /api/prof/effacement': profEffacement,
   'GET /api/prof/identites': profIdentites,
 };
 

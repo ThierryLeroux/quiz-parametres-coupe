@@ -146,6 +146,12 @@ export function deleteSession(seanceId, request) {
   return call('POST', '/api/prof/suppression', { body: { seance: seanceId } }, request);
 }
 
+// Effacement des données des étudiants (D46), avec le mot de confirmation tapé : { efface: true, nombres }.
+// Erreurs : 400 mot absent ou différent ; 401 ; 403 rôle consultation.
+export function purgeStudentData(confirmation, request) {
+  return call('POST', '/api/prof/effacement', { body: { confirmation } }, request);
+}
+
 // Le journal des corrections d'identité, la plus récente en premier : { corrections }.
 export function listIdentityCorrections(request) {
   return call('GET', '/api/prof/identites', {}, request);

@@ -686,7 +686,7 @@ async function reussir(serveur, etudiant = CAMILLE) {
 }
 
 // Les routes d'action de l'espace professeur, réservées au rôle admin (D44), avec le corps qu'elles attendent en plus de la séance.
-const ROUTES_ACTION = [['/api/prof/remise-a-zero', {}], ['/api/prof/reinitialisation-nip', {}], ['/api/prof/suppression', {}]];
+const ROUTES_ACTION = [['/api/prof/remise-a-zero', {}], ['/api/prof/reinitialisation-nip', {}], ['/api/prof/suppression', {}], ['/api/prof/effacement', { confirmation: 'EFFACER' }]];
 
 // Ouvre une séance professeur ; retourne l'en-tête Cookie à renvoyer.
 async function seConnecter(serveur, cle = 'cle-admin-de-test', adresse = '203.0.113.7') {
@@ -1068,7 +1068,10 @@ test('aucune route /api/prof/* ne répond sans cookie valide : absent, forgé, s
   const { cookie } = await seConnecter(serveur);
   const autre = serveurDeTest({ secret: 'autre-secret' });
   const { cookie: forge } = await seConnecter(autre);
-  const routes = [['GET', '/api/prof/seances'], ['POST', '/api/prof/remise-a-zero'], ['POST', '/api/prof/reinitialisation-nip'], ['POST', '/api/prof/suppression'], ['GET', '/api/prof/identites']];
+  const routes = [
+    ['GET', '/api/prof/seances'], ['POST', '/api/prof/remise-a-zero'], ['POST', '/api/prof/reinitialisation-nip'], ['POST', '/api/prof/suppression'],
+    ['POST', '/api/prof/effacement'], ['GET', '/api/prof/identites'],
+  ];
 
   for (const [methode, chemin] of routes) {
     for (const valeur of [undefined, 'n.importe.quoi', `${cookie.split('.')[0]}.${'x'.repeat(43)}`, forge, cookie.split('.')[0]]) {
@@ -1217,6 +1220,53 @@ test('suppression d’une séance (D45) : la séance, son journal et ses correct
   assert.equal(compte('attestations'), 2);
   assert.equal((await serveur.appel('POST', '/api/prof/suppression', { corps: { seance: avant.id }, entetes })).status, 404);
   assert.equal((await serveur.appel('POST', '/api/prof/suppression', { corps: { seance: 'x' }, entetes })).status, 404);
+});
+
+test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séances, journaux, corrections d’identité et attestations disparaissent ; le journal des actions reste, détaché, et note les nombres ; les anciens codes répondent « aucune » ; exercices intacts', async () => {
+  const serveur = serveurDeTest({ remplacements: DEUX_EXERCICES });
+  const { jeton } = await reussir(serveur); // 15 corrections, une attestation
+  serveur.avancer(MINUTE);
+  assert.equal((await serveur.appel('POST', '/api/identite', { jeton, corps: { ...CAMILLE, prenom: 'Camila' } })).status, 200); // une correction d'identité, deux attestations
+  const { jeton: alex } = await commencer(serveur, { ...CAMILLE, prenom: 'Alex', nom: 'Roy', matricule: '2498765' });
+  assert.equal((await repondre(serveur, alex, false, M10, '2498765')).status, 200); // 16 corrections
+  await commencer(serveur, { ...CAMILLE, exercice: ESSAI.id, nip: '777777' }); // trois séances
+  const { cookie } = await seConnecter(serveur);
+  const entetes = { cookie: `prof=${cookie}` };
+  const alexId = serveur.seance('2498765').id;
+  assert.equal((await serveur.appel('POST', '/api/prof/remise-a-zero', { corps: { seance: alexId }, entetes })).status, 200); // une ligne du journal liée à une séance
+  const codes = serveur.attestations().map((a) => a.code);
+  const compte = (table) => serveur.db.sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
+  const comptes = () => [compte('seances'), compte('corrections'), compte('corrections_identite'), compte('attestations')];
+  assert.deepEqual(comptes(), [3, 16, 1, 2]);
+  const journalAvant = serveur.journalEnseignant();
+  assert.deepEqual(journalAvant.map((l) => [l.action, l.seance_id]), [['connexion', null], ['remise_a_zero', alexId]]);
+
+  // Sans le mot exact : 400, rien n'est effacé, rien n'est journalisé.
+  for (const corps of [{}, { confirmation: 'effacer' }, { confirmation: ' EFFACER' }, { confirmation: 'OUI' }, { confirmation: 42 }]) {
+    const refus = await serveur.appel('POST', '/api/prof/effacement', { corps, entetes });
+    assert.deepEqual([refus.status, refus.corps.erreur], [400, 'Pour effacer, la requête doit porter le mot EFFACER.'], JSON.stringify(corps));
+  }
+  assert.deepEqual(comptes(), [3, 16, 1, 2]);
+  assert.equal(serveur.journalEnseignant().length, 2);
+
+  serveur.avancer(MINUTE);
+  const nombres = { seances: 3, corrections: 16, corrections_identite: 1, attestations: 2 };
+  assert.deepEqual(await serveur.appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, entetes }), { status: 200, corps: { efface: true, nombres } });
+  assert.deepEqual(comptes(), [0, 0, 0, 0]);
+  const journal = serveur.journalEnseignant();
+  assert.deepEqual(journal.map((l) => [l.action, l.seance_id, l.enseignant]), [['connexion', null, 'admin'], ['remise_a_zero', null, 'admin'], ['effacement', null, 'admin']]); // intact, détaché
+  assert.deepEqual([journal[2].details, journal[2].horodatage], ["3 séances · 16 corrections · 1 correction d'identité · 2 attestations", serveur.maintenant.toISOString()]);
+  for (const code of codes) assert.deepEqual((await serveur.appel('POST', '/api/verification', { corps: { code } })).corps, { resultat: 'aucune' });
+  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 401);
+  assert.deepEqual((await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule: '2412345' } })).corps, { trouvee: false });
+
+  // Les exercices et le catalogue ne sont pas en base : la liste des exercices est la même, et l'étudiant recommence.
+  const liste = await serveur.appel('GET', '/api/prof/seances', { entetes });
+  assert.deepEqual([liste.corps.seances, liste.corps.exercices.length], [[], index.exercices.length + 1]);
+  const { seance } = await commencer(serveur);
+  assert.equal(seance.progression.total_reussies, 0);
+  assert.deepEqual((await serveur.appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, entetes })).corps.nombres, { seances: 1, corrections: 0, corrections_identite: 0, attestations: 0 });
+  assert.equal(serveur.journalEnseignant().at(-1).details, '1 séance · 0 correction · 0 correction d\'identité · 0 attestation');
 });
 
 test('journal des corrections d’identité : la plus récente en premier, avant/après, matricule actuel et exercice de la séance', async () => {

@@ -118,6 +118,7 @@ a:hover { color: var(--color-link-hover); }
 .button:disabled::before { filter: none; }
 
 .button--gold { --button-color: var(--color-gold); }
+.button--wrong { --button-color: var(--color-wrong); }
 
 /* Bouton qui a l'air d'un lien : « ← Retour », « Quitter ». Garde une cible tactile de 44 px. */
 .button-link {

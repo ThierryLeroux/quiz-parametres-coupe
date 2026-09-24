@@ -68,6 +68,21 @@ export const ROLES = [ADMIN, CONSULTATION];
 // Seul le rôle admin agit : remise à zéro, réinitialisation du NIP, suppression, effacement.
 export const canAct = (role) => role === ADMIN;
 
+// --- Effacement des données des étudiants (D46) ---------------------------------------------------------------
+// Le mot que la requête doit porter, tel quel ; l'écran l'exige aussi (prof-data.js porte le même).
+export const PURGE_WORD = 'EFFACER';
+
+// Ce que le journal des actions note d'un effacement : « 3 séances · 40 corrections · 1 correction d'identité · 3 attestations ».
+export function purgeDetails(counts) {
+  const plural = (count, one, many) => `${count} ${count > 1 ? many : one}`; // en français, zéro reste au singulier
+  return [
+    plural(counts.seances, 'séance', 'séances'),
+    plural(counts.corrections, 'correction', 'corrections'),
+    plural(counts.corrections_identite, "correction d'identité", "corrections d'identité"),
+    plural(counts.attestations, 'attestation', 'attestations'),
+  ].join(' · ');
+}
+
 // --- Cookie de séance professeur (D34) --------------------------------------------------------------------
 // Signé, sans état sur le serveur : « <charge>.<signature> », où la charge est l'identifiant de
 // l'enseignant, son rôle et l'expiration, en base64url. La signature (crypto.js, sous-clé « prof »)
