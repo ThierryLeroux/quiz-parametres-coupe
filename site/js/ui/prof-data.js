@@ -17,6 +17,16 @@ export const SESSION_COLUMNS = [
   { key: 'code', label: 'Attestation', mono: true },
 ];
 
+// --- Rôles (D44) : la clé d'administration agit, la clé de consultation ne fait que lire -----------------------------
+
+// Le rôle consultation ne voit aucun bouton d'action ; le serveur refuse de toute façon (403).
+export const canAct = (role) => role === 'admin';
+
+// Ce que l'en-tête dit de la séance ouverte : « admin », ou « consultation (lecture seule) ».
+export function roleLabel(role) {
+  return canAct(role) ? 'admin' : `${role} (lecture seule)`;
+}
+
 // Minuscules, sans accent : pour chercher « levesque » et trouver « Lévesque ».
 export const plain = (text) => String(text ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 

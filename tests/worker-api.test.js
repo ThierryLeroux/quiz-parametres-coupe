@@ -685,6 +685,9 @@ async function reussir(serveur, etudiant = CAMILLE) {
   return { jeton, seance: etat };
 }
 
+// Les routes d'action de l'espace professeur, réservées au rôle admin (D44), avec le corps qu'elles attendent en plus de la séance.
+const ROUTES_ACTION = [['/api/prof/remise-a-zero', {}], ['/api/prof/reinitialisation-nip', {}]];
+
 // Ouvre une séance professeur ; retourne l'en-tête Cookie à renvoyer.
 async function seConnecter(serveur, cle = 'cle-admin-de-test', adresse = '203.0.113.7') {
   const { status, corps } = await serveur.appel('POST', '/api/prof/connexion', { corps: { cle }, entetes: { 'cf-connecting-ip': adresse } });
@@ -1028,6 +1031,20 @@ test('clé de consultation (D44) : ouvre le rôle consultation, dans le cookie e
   for (let n = 1; n <= 5; n += 1) assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'mauvaise' }, entetes: adresse })).status, 401);
   assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-consultation-de-test' }, entetes: adresse })).status, 429);
   assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-admin-de-test' }, entetes: adresse })).status, 429);
+
+  // Le rôle consultation lit (tableau, journal des corrections d'identité) et se déconnecte ; chaque
+  // route d'action le refuse, côté serveur, sans rien changer ni journaliser.
+  const { jeton } = await commencer(serveur);
+  await serveur.appel('POST', '/api/deconnexion', { jeton, corps: { exercice: M10 } });
+  const seance = serveur.seance();
+  assert.equal((await serveur.appel('GET', '/api/prof/identites', { entetes: { cookie: `prof=${cookie}` } })).status, 200);
+  for (const [chemin, corpsAction] of ROUTES_ACTION) {
+    const refus = await serveur.appel('POST', chemin, { corps: { seance: seance.id, ...corpsAction }, entetes: { cookie: `prof=${cookie}` } });
+    assert.deepEqual([refus.status, refus.corps.erreur], [403, "Cette action est réservée à la clé d'administration : la clé de consultation ne fait que lire."], chemin);
+  }
+  assert.deepEqual(serveur.seance(), seance);
+  assert.deepEqual(serveur.journalEnseignant().map((l) => l.action).filter((a) => !a.startsWith('connexion')), []);
+  assert.deepEqual((await serveur.appel('POST', '/api/prof/deconnexion', { entetes: { cookie: `prof=${cookie}` } })).corps, { deconnecte: true });
 
   // Sans clé de consultation configurée, seule la clé d'administration ouvre ; la clé vide n'ouvre jamais.
   const sansConsultation = serveurDeTest({ cleConsultation: null });

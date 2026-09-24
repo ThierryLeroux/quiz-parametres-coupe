@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SESSION_COLUMNS, csvCell, csvFileName, csvOf, filterSessions, identityRows, nipResetConfirmation, plain, resetConfirmation, sessionCells, sessionState, sortSessions,
+  SESSION_COLUMNS, canAct, csvCell, csvFileName, csvOf, filterSessions, identityRows, nipResetConfirmation, plain, resetConfirmation, roleLabel, sessionCells,
+  sessionState, sortSessions,
 } from '../site/js/ui/prof-data.js';
 import { claimsFromInput } from '../site/js/ui/attestation-data.js';
 
@@ -84,6 +85,14 @@ test('identityRows : lisible, avant → après, matricule actuel, séance, attes
   };
   assert.deepEqual(identityRows([{ ...base, ancien_code: null, nouveau_code: null }]), [{ id: 2, horodatage: '2026-09-21 13:07', exercice: 'm10-tournage-vc', matricule: '2412345', avant: 'Camile Tremblay · 2412354', apres: 'Camille Tremblay · 2412345', attestation: '', seance: 7 }]);
   assert.equal(identityRows([{ ...base, ancien_code: 'ABCDEFGHJK', nouveau_code: 'ZZZZZYYYYY' }])[0].attestation, 'ABCDE-FGHJK → ZZZZZ-YYYYY');
+});
+
+test('canAct et roleLabel (D44) : seul admin agit ; la consultation est dite « lecture seule »', () => {
+  assert.equal(canAct('admin'), true);
+  assert.equal(canAct('consultation'), false);
+  assert.equal(canAct(null), false);
+  assert.equal(roleLabel('admin'), 'admin');
+  assert.equal(roleLabel('consultation'), 'consultation (lecture seule)');
 });
 
 test('resetConfirmation : nomme l’étudiant, l’exercice, et prévient de l’annulation s’il y a une attestation', () => {

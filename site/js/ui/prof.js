@@ -1,12 +1,15 @@
-// Espace professeur (décisions D34, D35 ; UI §3.8) : connexion par la clé d'administration, tableau
-// des séances (filtre par exercice, tri par colonne, recherche, export CSV, remise à zéro) et journal
-// des corrections d'identité. Le client ne contient aucun secret : le serveur ne répond qu'avec le
-// cookie de séance posé à la connexion ; un 401 ramène à la connexion.
+// Espace professeur (décisions D34, D35, D44 ; UI §3.8) : connexion par la clé d'administration ou
+// la clé de consultation, tableau des séances (filtre par exercice, tri par colonne, recherche, export
+// CSV, remise à zéro) et journal des corrections d'identité. Le rôle consultation ne voit aucun
+// bouton d'action — et le serveur les refuse de toute façon. Le client ne contient aucun secret : le
+// serveur ne répond qu'avec le cookie de séance posé à la connexion ; un 401 ramène à la connexion.
 // Ce qu'on montre est décidé par prof-data.js (pur, testé) : ici, on construit le DOM.
 
 import { listIdentityCorrections, listSessions, resetNip, resetSession, teacherLogin, teacherLogout } from '../api.js';
 import { el, showScreen } from './dom.js';
-import { SESSION_COLUMNS, csvFileName, csvOf, filterSessions, identityRows, nipResetConfirmation, resetConfirmation, sessionCells, sortSessions } from './prof-data.js';
+import {
+  SESSION_COLUMNS, canAct, csvFileName, csvOf, filterSessions, identityRows, nipResetConfirmation, resetConfirmation, roleLabel, sessionCells, sortSessions,
+} from './prof-data.js';
 import { serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
@@ -14,6 +17,7 @@ const main = document.querySelector('#app');
 // L'état de l'écran : ce que le serveur a rendu, et ce que l'enseignant a choisi.
 const state = {
   teacher: null,
+  role: null, // 'admin' ou 'consultation' (D44)
   exercices: [],
   seances: [],
   identites: null, // chargées à la demande
@@ -36,8 +40,9 @@ function showLogin(notice = '') {
     button.disabled = true;
     status.textContent = '';
     try {
-      const { enseignant } = await teacherLogin(input.value);
+      const { enseignant, role } = await teacherLogin(input.value);
       state.teacher = enseignant;
+      state.role = role;
       await loadAndShow();
     } catch (error) {
       status.textContent = error.status === 429 && error.details.attendre_s ? `${error.message} (${error.details.attendre_s} s)` : serverErrorMessage(error);
@@ -49,9 +54,9 @@ function showLogin(notice = '') {
   const screen = el('div', { class: 'screen screen--narrow' }, el('section', { class: 'panel' }, [
     el('div', { class: 'eyebrow' }, 'Espace professeur'),
     el('h1', { tabindex: '-1' }, 'Connexion'),
-    el('p', { class: 'muted small' }, "Entre la clé d'administration du serveur de correction. La séance dure 12 h."),
+    el('p', { class: 'muted small' }, "Entre la clé d'administration ou la clé de consultation du serveur de correction. La séance dure 12 h."),
     el('form', { novalidate: true, onsubmit: submit }, [
-      el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, "Clé d'administration"), input, el('div', { class: 'field-note', id: 'cle-note' }, 'Cinq essais, puis un délai croissant.')])),
+      el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration, ou clé de consultation (lecture seule). Cinq essais, puis un délai croissant.")])),
       el('div', { class: 'form-actions' }, [status, button]),
     ]),
   ]));
@@ -87,28 +92,34 @@ async function act(button, confirmation, action) {
   }
 }
 
+// Les boutons d'action d'une séance — rôle admin seulement (D44) : la consultation n'a pas de colonne Actions.
+function actionButtons(session) {
+  const resetButton = el('button', { class: 'button-small', type: 'button' }, 'Remettre à zéro');
+  resetButton.addEventListener('click', () => act(resetButton, resetConfirmation(session), () => resetSession(session.id)));
+  const nipButton = el('button', { class: 'button-small button-small--neutral', type: 'button' }, 'Réinitialiser le NIP');
+  nipButton.addEventListener('click', () => act(nipButton, nipResetConfirmation(session), () => resetNip(session.id)));
+  return [nipButton, resetButton];
+}
+
 function sessionsTable() {
   const rows = visibleSessions();
+  const actions = canAct(state.role);
   const header = el('tr', {}, [
     ...SESSION_COLUMNS.map((column) => {
       const active = state.sort.key === column.key;
       return el('th', { class: column.num ? 'num' : null, 'aria-sort': active ? (state.sort.ascending ? 'ascending' : 'descending') : 'none' },
         el('button', { class: 'sort-button', type: 'button', onclick: () => { state.sort = { key: column.key, ascending: active ? !state.sort.ascending : true }; showDashboard(); } }, column.label));
     }),
-    el('th', {}, 'Actions'),
+    ...(actions ? [el('th', {}, 'Actions')] : []),
   ]);
   const body = rows.map((session) => {
     const cells = sessionCells(session);
-    const resetButton = el('button', { class: 'button-small', type: 'button' }, 'Remettre à zéro');
-    resetButton.addEventListener('click', () => act(resetButton, resetConfirmation(session), () => resetSession(session.id)));
-    const nipButton = el('button', { class: 'button-small button-small--neutral', type: 'button' }, 'Réinitialiser le NIP');
-    nipButton.addEventListener('click', () => act(nipButton, nipResetConfirmation(session), () => resetNip(session.id)));
     return el('tr', {}, [
       ...SESSION_COLUMNS.map((column) => {
         const classes = [column.num ? 'num' : '', column.mono ? 'mono' : '', column.date ? 'date' : '', column.key === 'etat' ? (session.reussite_le === null ? 'state--running' : 'state--done') : ''].filter(Boolean).join(' ');
         return el('td', { class: classes || null }, cells[column.key]);
       }),
-      el('td', { class: 'actions' }, [nipButton, resetButton]),
+      ...(actions ? [el('td', { class: 'actions' }, actionButtons(session))] : []),
     ]);
   });
   return [
@@ -146,7 +157,7 @@ function showDashboard() {
 
   const screen = el('div', { class: 'screen screen--wide prof' }, [
     el('section', { class: 'panel' }, [
-      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, `Espace professeur · ${state.teacher}`), el('div', { class: 'prof-tabs', role: 'tablist' }, tabs)]),
+      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, `Espace professeur · ${roleLabel(state.role)}`), el('div', { class: 'prof-tabs', role: 'tablist' }, tabs)]),
       el('h1', { tabindex: '-1' }, state.view === 'seances' ? 'Réussites par exercice' : "Journal des corrections d'identité"),
       state.view === 'seances' ? el('div', { class: 'prof-toolbar' }, [
         el('div', { class: 'field' }, [el('label', { for: 'exercice' }, 'Exercice'), exerciseSelect]),
@@ -161,7 +172,7 @@ function showDashboard() {
   ]);
   showScreen(main, screen, {
     title: 'Espace professeur',
-    aside: [el('span', {}, state.teacher), el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter')],
+    aside: [el('span', {}, roleLabel(state.role)), el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter')],
   }, state.view === 'seances' ? '#recherche' : 'h1');
 }
 
@@ -181,6 +192,7 @@ async function switchView(view) {
 async function logout() {
   try { await teacherLogout(); } catch { /* le cookie expirera seul */ }
   state.teacher = null;
+  state.role = null;
   state.seances = [];
   state.identites = null;
   showLogin('Déconnecté.');
@@ -189,8 +201,9 @@ async function logout() {
 // Charge les séances (et, si elles sont affichées, les corrections d'identité), puis affiche.
 async function loadAndShow() {
   try {
-    const { enseignant, exercices, seances } = await listSessions();
+    const { enseignant, role, exercices, seances } = await listSessions();
     state.teacher = enseignant;
+    state.role = role;
     state.exercices = exercices;
     state.seances = seances;
     if (state.view === 'identites') state.identites = (await listIdentityCorrections()).corrections;
