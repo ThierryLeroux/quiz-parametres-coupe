@@ -970,3 +970,73 @@ Points tranchés par Thierry, sur D40 et D41 :
 - **Réponses normalisées** au figeage : le nombre interprété (point ou virgule, espaces ignorés),
   écrit au format d'affichage de la grandeur (D10, D14 : point décimal, N entier, avances à
   4 décimales, 5 en filetage, Vf à 3). La frappe brute n'a pas de valeur.
+
+## D44 — Clé de consultation partagée et rôles de l'espace professeur (2026-09-24, décidée)
+
+**Contexte.** L'espace professeur (D34) n'avait qu'une clé, `CLE_ADMIN`, qui permet tout. Des
+collègues doivent pouvoir voir les réussites et les exporter sans pouvoir remettre à zéro,
+réinitialiser un NIP, supprimer ni effacer.
+
+**Décision.**
+
+- Une **seconde clé**, `CLE_CONSULTATION`, secret du Worker comme `CLE_ADMIN` (`wrangler secret put` ;
+  `.dev.vars` en local). Facultative : sans elle, seule la clé d'administration ouvre.
+- `/prof` accepte l'une ou l'autre. Le **cookie de séance porte le rôle** — `admin` ou `consultation` —
+  à côté de l'identifiant d'enseignant, qui est le nom du rôle tant qu'il n'y a pas de table des
+  enseignants. Une charge du jalon 5 (sans rôle) n'est plus lue : on se reconnecte. Le **journal des
+  actions note le rôle** à la connexion (colonne `enseignant`, et « rôle … » dans les détails).
+- **Mêmes verrous** d'essais et de délai : cinq échecs par adresse, quelle que soit la clé visée.
+- Rôle consultation, **lecture seule** : liste des réussites par exercice (filtre, tri, recherche),
+  export CSV, journal des corrections d'identité. **Aucun bouton d'action** à l'écran, et chaque route
+  d'action (`remise-a-zero`, `reinitialisation-nip`, `suppression`, `effacement`) **refuse ce rôle côté
+  serveur** (403), pas seulement à l'écran.
+- La clé est **partagée entre collègues** : `DEMARRAGE.md` §7 dit comment la créer, la remettre et la
+  remplacer si elle circule trop (`wrangler secret put CLE_CONSULTATION`, sans push).
+
+**Conséquences.** `worker/acces.js` (`ROLES`, `canAct`, charge à trois champs), `requireAdmin` dans
+`worker/index.js`, `prof-data.js` (`canAct`, `roleLabel`). Remplace « une seule clé » de D34 ; « une clé
+par enseignant » (D23, D34) reste à faire.
+
+## D45 — Suppression d'une séance : la séance et son journal disparaissent, les attestations restent, annulées (2026-09-24, décidée)
+
+**Contexte.** D23 et D34 prévoyaient de supprimer une séance ouverte par un autre au matricule d'un
+étudiant — farce visible aux horodatages — ; D35 ne fait que remettre à zéro.
+
+**Décision.**
+
+- **Rôle admin seulement** : bouton **Supprimer** par ligne, confirmation qui rappelle le nom, le
+  matricule et l'exercice, action **journalisée** (`suppression`, sans lien vers la séance, qui n'existe
+  plus : l'étudiant et le numéro de séance sont dans les détails).
+- La **séance disparaît** avec son journal des corrections et ses corrections d'identité (ON DELETE
+  CASCADE). Ses **attestations restent** : l'attestation en cours passe à **« annulée — séance
+  supprimée »** (motif `seance_supprimee`) avec la date, ce que `/verifier` dit ; une attestation déjà
+  annulée garde son motif et sa date. Migration `0004` : `attestations.seance_id` devient facultatif,
+  mis à NULL par la base à la suppression — la table est recréée, SQLite ne modifie pas une contrainte
+  en place.
+- L'étudiant peut recommencer de zéro au même matricule ; une nouvelle réussite donne une attestation neuve.
+
+**Conséquences.** `POST /api/prof/suppression`, `base.deleteSession` ; SPEC §7, §8 ; UI §3.7, §3.8.
+Ferme le point laissé ouvert par D23.
+
+## D46 — Effacement des données des étudiants en fin de session (2026-09-24, décidée)
+
+**Contexte.** Le pied de page promet depuis D19 « tes données sont effacées à la fin de la session »,
+et SPEC §9 le dit ; rien ne le faisait encore.
+
+**Décision.**
+
+- **Rôle admin seulement**, sur une **page à part** de `/prof` : « Effacer les données des étudiants ».
+  Avant d'effacer, la page propose l'**export CSV de tout**, puis exige de taper le mot **EFFACER** ;
+  le serveur exige le même mot dans la requête (400 sinon, rien n'est touché).
+- L'effacement supprime **toutes** les séances, journaux de corrections, corrections d'identité et
+  attestations, en un seul lot ; il **garde le journal des actions** — ses lignes sont détachées des
+  séances — et y inscrit les **nombres effacés** (`effacement`, « 3 séances · 40 corrections ·
+  1 correction d'identité · 2 attestations »). Les anciens codes d'attestation répondent ensuite
+  « aucune attestation ne correspond ». Le pied de page qui annonce l'effacement reste vrai.
+- Les **exercices, la banque d'outils et les données de référence ne sont jamais touchés** : ils ne
+  sont pas en base (D22). Les compteurs de débit par adresse (`debit`, effacés au fil de l'eau par
+  tranche horaire) et les verrous (`verrous`) ne sont pas touchés non plus.
+
+**Conséquences.** `POST /api/prof/effacement`, `base.countStudentData`, `base.purgeStudentData`,
+`PURGE_WORD` (le même dans `acces.js` et `prof-data.js`, un test le vérifie) ; SPEC §7, §8, §9 ;
+UI §3.8. L'éditeur du catalogue devient le jalon 7 (`PLAN.md`).

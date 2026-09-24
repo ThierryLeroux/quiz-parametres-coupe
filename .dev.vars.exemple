@@ -1,9 +1,12 @@
 # Modèle du fichier .dev.vars : les secrets LOCAUX du Worker, lus par « npm run dev ».
-# Copier ce fichier sous le nom « .dev.vars » (ignoré par git) et y mettre deux valeurs au hasard,
+# Copier ce fichier sous le nom « .dev.vars » (ignoré par git) et y mettre trois valeurs au hasard,
 # par exemple celles que donne :   node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
 # Ces valeurs n'ont aucun rapport avec les secrets de production (docs/DEMARRAGE.md, étape 5).
 CLE_SECRETE=remplacer-par-une-valeur-au-hasard
 CLE_ADMIN=remplacer-par-une-autre-valeur-au-hasard
+# Clé de consultation de l'espace professeur, lecture seule (décision D44). Facultative : sans elle,
+# seule CLE_ADMIN ouvre /prof.
+CLE_CONSULTATION=remplacer-par-une-troisieme-valeur-au-hasard
 
 # Mode test (décision D26) — sur le poste de développement SEULEMENT, jamais en production ni dans
 # wrangler.jsonc. Décommenter pour que le serveur joigne les réponses attendues à chaque question

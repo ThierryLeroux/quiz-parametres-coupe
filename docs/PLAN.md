@@ -83,8 +83,8 @@ Rapport de session : `docs/rapports/jalon-5-attestation.md`.
 - [x] **Limites de débit** (D36) : 100 matricules ou codes distincts par adresse et par heure, compteurs en D1, verrou de 10 minutes après refus
 - [x] Tests : signature et vérification (valide, falsifiée, inconnue, annulée), figeage et reconstitution, CSV, connexion (temps constant, verrou), routes sans cookie, remise à zéro, limites ; `test:api` étendu au cycle complet ; Chrome à 1280 et 390 px, média print (une page lettre), captures dans `captures/jalon-5/`
 - [x] Réponses au rapport (D37 à D39) : « Corriger mon identité » sur la page de l'attestation, qui annule et réémet l'attestation ; **réinitialisation du NIP** depuis le tableau des séances ; révision des tables dans l'attestation ; cadence réglable en local (`CADENCE_S`) pour `test:api`
-- [ ] **Suppression d'une séance** (farce visible aux horodatages) et **purge de fin de session** — depuis l'espace professeur (jalon 6)
-- [ ] Une **clé par enseignant** et la table des enseignants (D34 : avec les devoirs, jalon 6), avec une **table des séances professeur** pour pouvoir révoquer une séance (le cookie sans état du jalon 5 ne se révoque qu'à son expiration) ; la connexion professeur pourra alors ouvrir le **mode test** aux séances d'un professeur connecté (D26)
+- [x] **Suppression d'une séance** (farce visible aux horodatages) et **purge de fin de session** — depuis l'espace professeur : faits au jalon 6 (D45, D46)
+- [ ] Une **clé par enseignant** et la table des enseignants (D34 : avec les devoirs, jalon 7), avec une **table des séances professeur** pour pouvoir révoquer une séance (le cookie sans état du jalon 5 ne se révoque qu'à son expiration) ; la connexion professeur pourra alors ouvrir le **mode test** aux séances d'un professeur connecté (D26). La clé de consultation partagée (D44) en est le premier pas.
 - [ ] Essai avec un groupe d'étudiants ; correctifs
 - ~~Page de vérification : durée totale, temps médian, corrections d'identité~~ — abandonné (D33 : rien de plus que l'attestation imprimée ; les corrections d'identité sont dans l'espace professeur)
 
@@ -98,8 +98,18 @@ Rapport de session : `docs/rapports/exercice-vc-rpm.md`.
 - [x] Tests : restriction de matière, exercice complet en mode test, attestation avec liste et signature, deux pages, réémission, collision de code ; `test:api` étendu à l'exercice ; Chrome à 1280 et 390 px, média print (PDF de deux pages), captures dans `captures/exercice-vc-rpm/`, aucune requête externe
 - [x] Réponses au rapport (D43) : numéro 1 à n, titre « M10 — Tournage : Vc et RPM », repli sans troncature avec pagination par rang, constantes et police consignées dans UI §3.6, réponses normalisées au figeage
 
-## Jalon 6 — Éditeur web du catalogue et des exercices (décision D11)
-Rien n'en existe encore. Protégé par la connexion professeur du jalon 5 (UI §8).
+## Jalon 6 — Exploitation : clé de consultation, suppression, effacement (décisions D44 à D46)
+Rapport de session : `docs/rapports/jalon-6-exploitation.md`.
+
+- [x] **Clé de consultation partagée** (D44) : `CLE_CONSULTATION`, secret du Worker ; `/prof` accepte l'une ou l'autre clé ; le cookie porte le rôle (`admin` ou `consultation`), le journal des actions le note ; mêmes verrous d'essais et de délai
+- [x] **Rôle consultation, lecture seule** : tableau (filtre, tri, recherche), export CSV, journal des corrections d'identité ; aucun bouton d'action, et chaque route d'action refuse ce rôle côté serveur (403)
+- [x] `DEMARRAGE.md` §7 : créer la clé, la remettre, la remplacer si elle circule trop (`wrangler secret put`, sans push)
+- [x] **Suppression d'une séance** (D45, migration `0004`) : rôle admin, bouton par ligne, confirmation avec le nom et le matricule, journalisée ; la séance et son journal disparaissent, ses attestations restent « annulée — séance supprimée », ce que `/verifier` dit avec la date
+- [x] **Effacement des données des étudiants** (D46) : page à part de `/prof`, rôle admin, export CSV de tout proposé puis le mot EFFACER exigé (écran et serveur) ; séances, journaux, corrections d'identité et attestations effacés ; journal des actions gardé avec les nombres ; exercices et catalogue jamais touchés
+- [x] Tests : rôle consultation refusé sur chaque route d'action, suppression avec attestations annulées, effacement complet avec journal intact, mot de confirmation exigé, migration `0004` sur des attestations existantes ; `test:api` étendu à la connexion en consultation, à la suppression et à l'effacement ; Chrome à 1280 et 390 px pour les deux rôles, captures dans `captures/jalon-6/`, aucune requête externe
+
+## Jalon 7 — Éditeur web du catalogue et des exercices (décision D11)
+Rien n'en existe encore. Protégé par la connexion professeur du jalon 5, rôle admin (UI §8).
 
 - [ ] `site/editeur/` : **création de devoirs** — éditer un exercice (outils, réussites, champs évalués, restrictions par outil et matière d'outil pour tout l'exercice, D40), validé par `exercice.js` ; l'inscrire à l'index
 - [ ] Éditer les **outils** (`outils.json`), validé par `data.js` : dimensions, **gabarit de nomenclature** avec la liste des jetons et un aperçu (D24), **barres** d'un outil à deux diamètres (D25)

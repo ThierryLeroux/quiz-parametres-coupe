@@ -96,9 +96,9 @@ http://localhost:8787, avec une base D1 locale, sans compte Cloudflare.
 
 ## 5. Base de données et secrets du serveur (décision D22)
 
-Le serveur de correction a besoin d'une base **D1** et de deux **secrets**. À
-faire une seule fois, dans PowerShell, à la racine du dépôt (après
-`npm install`) :
+Le serveur de correction a besoin d'une base **D1** et de trois **secrets**
+(le troisième, la clé de consultation, est facultatif : étape 7). À faire une
+seule fois, dans PowerShell, à la racine du dépôt (après `npm install`) :
 
 1. **Se connecter à Cloudflare.**
    ```powershell
@@ -118,20 +118,25 @@ faire une seule fois, dans PowerShell, à la racine du dépôt (après
    La colonne `uuid` doit être identique à `database_id` dans `wrangler.jsonc`.
    Sinon (base recréée, autre compte), corriger `wrangler.jsonc` et commettre.
    Cet identifiant n'est pas un secret.
-4. **Poser les deux secrets sur le Worker.** Chaque commande demande la valeur,
-   qui ne s'affiche pas. Prendre deux longues valeurs au hasard, différentes,
-   par exemple celles que donne
+4. **Poser les secrets sur le Worker.** Chaque commande demande la valeur,
+   qui ne s'affiche pas. Prendre de longues valeurs au hasard, toutes
+   différentes, par exemple celles que donne
    `node -e "console.log(crypto.randomBytes(32).toString('base64url'))"`, et les
    ranger dans un gestionnaire de mots de passe — nulle part ailleurs.
    ```powershell
    npx wrangler secret put CLE_SECRETE
    npx wrangler secret put CLE_ADMIN
+   npx wrangler secret put CLE_CONSULTATION
    ```
    - `CLE_SECRETE` sert à toute la cryptographie du serveur (NIP, signature
      des attestations, cookie de l'espace professeur). **Ne jamais la
      changer** : plus aucun NIP ne serait reconnu, et les attestations déjà
      remises répondraient « signature invalide » à la vérification.
-   - `CLE_ADMIN` ouvre l'espace professeur (étape 7).
+   - `CLE_ADMIN` ouvre l'espace professeur avec **tous les droits** (étape 7).
+     Elle ne se partage pas.
+   - `CLE_CONSULTATION` ouvre le même espace en **lecture seule** (décision
+     D44) : c'est la clé qu'on remet aux collègues (étape 7). Facultative :
+     sans elle, seule `CLE_ADMIN` ouvre.
 5. **Donner le droit D1 au jeton d'API de GitHub.** `deploy.yml` applique les
    migrations de la base avant chaque déploiement : le jeton de l'étape 4 doit
    pouvoir écrire dans D1. Tableau de bord → *My Profile* → *API Tokens* →
@@ -139,7 +144,7 @@ faire une seule fois, dans PowerShell, à la racine du dépôt (après
    summary* → *Update token*. La valeur du jeton ne change pas : rien à refaire
    côté GitHub.
 6. **Secrets locaux**, pour `npm run dev` : copier `.dev.vars.exemple` sous le
-   nom `.dev.vars` et y mettre deux valeurs au hasard. Ce fichier est ignoré par
+   nom `.dev.vars` et y mettre trois valeurs au hasard. Ce fichier est ignoré par
    git ; ses valeurs n'ont aucun rapport avec celles de production.
 7. **Mode test** (décision D26), pour essayer le parcours sans calculer : ajouter
    la ligne `MODE_TEST=1` à `.dev.vars`, relancer `npm run dev`, puis ouvrir
@@ -164,26 +169,78 @@ Pour regarder la base de production (lecture seule, sans risque) :
 npx wrangler d1 execute quiz-parametres-coupe --remote --command "SELECT exercice_id, matricule, prenom, nom, debut, reussite_le FROM seances ORDER BY debut DESC LIMIT 20"
 ```
 
-## 7. Ouvrir l'espace professeur (décision D34)
+## 7. Ouvrir l'espace professeur (décisions D34, D44 à D46)
 
 L'espace professeur est à `https://quiz-parametres-coupe.<sous-domaine>.workers.dev/prof`
-(en local : http://localhost:8787/prof). Il demande **la clé d'administration**,
-c'est-à-dire la valeur de `CLE_ADMIN` posée à l'étape 5.4 (en local : celle de
-`.dev.vars`). Une fois la clé acceptée, le navigateur garde une séance de
-**12 h** (cookie) ; le bouton **Se déconnecter** l'efface — à faire sur un poste
-partagé. Cinq clés fausses depuis une même adresse verrouillent la connexion
-1 minute, puis 2, 4… jusqu'à une heure ; chaque refus est noté dans la table
-`journal_enseignant`.
+(en local : http://localhost:8787/prof). Il demande **une clé** — l'une des deux
+posées à l'étape 5.4 (en local : celles de `.dev.vars`) :
 
-On y trouve les réussites par exercice (filtre, tri, recherche, export CSV pour
-Excel), la remise à zéro d'une séance (la progression repart de zéro, le
-matricule et le NIP restent, l'attestation est annulée), la réinitialisation du
-NIP d'un étudiant qui l'a oublié (le verrou tombe, il en choisit un nouveau à sa
-prochaine reprise) et le journal des corrections d'identité. La page publique de vérification d'une attestation est
-à `…/verifier` : scanner le QR de l'attestation l'ouvre directement.
+- **`CLE_ADMIN`**, la clé d'administration : tous les droits. L'en-tête dit
+  « admin ».
+- **`CLE_CONSULTATION`**, la clé de consultation : **lecture seule**. L'en-tête
+  dit « consultation (lecture seule) » ; aucun bouton d'action n'apparaît, et le
+  serveur refuse de toute façon chaque action à cette clé.
 
-Pour changer la clé : `npx wrangler secret put CLE_ADMIN` de nouveau ; les
-séances professeur en cours restent valables jusqu'à leur expiration.
+Une fois la clé acceptée, le navigateur garde une séance de **12 h** (cookie) ;
+le bouton **Se déconnecter** l'efface — à faire sur un poste partagé. Cinq clés
+fausses depuis une même adresse, quelle que soit la clé visée, verrouillent la
+connexion 1 minute, puis 2, 4… jusqu'à une heure ; chaque refus et chaque
+connexion (avec son rôle) sont notés dans la table `journal_enseignant`.
+
+**Ce que les deux rôles voient** : les réussites par exercice (filtre, tri,
+recherche, export CSV pour Excel) et le journal des corrections d'identité. La
+page publique de vérification d'une attestation est à `…/verifier` : scanner le
+QR de l'attestation l'ouvre directement.
+
+**Ce que la clé d'administration seule permet**, dans le tableau, pour chaque
+séance, avec une boîte de confirmation qui nomme l'étudiant :
+
+- **Réinitialiser le NIP** d'un étudiant qui l'a oublié : le verrou tombe, il en
+  choisit un nouveau à sa prochaine reprise ; sa progression ne change pas.
+- **Remettre à zéro** : la progression repart de zéro, le matricule et le NIP
+  restent, l'attestation est annulée (l'ancien code répond « annulée »).
+- **Supprimer** (décision D45) : la séance et son journal disparaissent, sans
+  retour — pour une séance ouverte par un autre au matricule d'un étudiant, par
+  exemple. Ses attestations restent : elles répondent « annulée — séance
+  supprimée » à la vérification, avec la date. L'étudiant peut recommencer de
+  zéro avec le même matricule.
+
+Et, sous le tableau, **Effacer les données des étudiants…** (décision D46) :
+la page à part qui vide la base **en fin de session**. Elle propose d'abord
+l'export CSV de tout, puis exige de taper le mot **EFFACER**. Toutes les
+séances, leurs journaux, les corrections d'identité et les attestations
+disparaissent ; les anciens codes d'attestation répondent ensuite « aucune
+attestation ne correspond ». Le journal des actions reste, avec les nombres
+effacés. Les exercices, la banque d'outils et les tables de référence ne sont
+jamais touchés : ils sont dans le dépôt, pas dans la base.
+
+### La clé de consultation : la créer, la remettre, la remplacer
+
+La clé de consultation est **faite pour circuler** entre collègues ; la clé
+d'administration, jamais.
+
+1. **La créer** (ou la changer) : une longue valeur au hasard, comme à l'étape
+   5.4, puis
+   ```powershell
+   npx wrangler secret put CLE_CONSULTATION
+   ```
+   La commande demande la valeur et la pose sur le Worker de production **tout
+   de suite** : rien à commettre, rien à pousser, aucun déploiement. Garder la
+   valeur dans le gestionnaire de mots de passe.
+2. **La remettre** à un collègue : de vive voix, ou par un canal qui ne l'archive
+   pas — jamais dans un courriel de groupe, un document partagé ni un dépôt.
+   Lui donner l'adresse `…/prof` et lui dire que sa séance dure 12 h et qu'il
+   doit **se déconnecter** sur un poste partagé.
+3. **La remplacer** quand elle a trop circulé (fin de session, départ d'un
+   collègue, doute) : refaire l'étape 1 avec une nouvelle valeur, puis la
+   remettre à ceux qui en ont encore besoin. L'ancienne valeur ne vaut plus rien
+   à la connexion suivante ; les séances déjà ouvertes (cookies) restent
+   valables jusqu'à leur expiration, au plus 12 h. Pour fermer l'accès en
+   consultation tout à fait : `npx wrangler secret delete CLE_CONSULTATION`.
+
+Pour changer la clé d'administration : `npx wrangler secret put CLE_ADMIN` de
+nouveau, même règle : les séances professeur en cours restent valables jusqu'à
+leur expiration.
 
 ## 8. Ouvrir dans VS Code et lancer Claude Code
 

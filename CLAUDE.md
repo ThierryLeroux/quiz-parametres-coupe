@@ -24,7 +24,7 @@ la lisibilité priment sur l'élégance technique.**
 - `docs/PLAN.md` — jalons et tâches. Travailler dans l'ordre, une tâche à la fois.
 - `site/data/*.json` — le **catalogue** : données de référence (matériaux, opérations, outils), unique exemplaire (décision D8). Extraites du classeur ; l'en-tête `_source` de chaque fichier dit d'où. Y vivent aussi le **gabarit de nom** de chaque outil (`format_identifiant`, D24), les deux diamètres de la barre à aléser (D25), les débuts de famille (D27) et la révision des tables (D28).
 - `site/exercices/<id>.json` — les **exercices** configurables (décision D11, schéma dans SPEC §10) : outils évalués, réussites requises, champs évalués, restrictions (par outil, et matière d'outil pour tout l'exercice : D40). `test-complet` couvre tout le catalogue, pour les essais (D26).
-- `worker/` — le **serveur de correction** (décisions D19 à D22, D26, D31 à D39 ; API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles d'une séance (pur, testé), `attestation.js` celles de l'attestation (code, enregistrement figé, adresse du QR), `acces.js` celles de l'accès (limites de débit, verrous, cookie professeur), `base.js` tout le SQL, `crypto.js` le NIP, le jeton, les signatures, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
+- `worker/` — le **serveur de correction** (décisions D19 à D22, D26, D31 à D39, D44 à D46 ; API dans SPEC §7) : `index.js` reçoit les requêtes, `seance.js` porte les règles d'une séance (pur, testé), `attestation.js` celles de l'attestation (code, enregistrement figé, adresse du QR), `acces.js` celles de l'accès (limites de débit, verrous, cookie professeur et ses deux rôles, mot d'effacement), `base.js` tout le SQL, `crypto.js` le NIP, le jeton, les signatures, `catalogue.js` lit `site/data/` et `site/exercices/` par ASSETS. Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
 - `site/verifier.html` et `site/prof.html` — la page publique de vérification d'une attestation et l'espace professeur (SPEC §8) ; leurs écrans sont `site/js/ui/verifier.js` et `prof.js`, leurs règles `attestation-data.js` et `prof-data.js` (pures, testées).
 - `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js`) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
 - `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté.
@@ -40,8 +40,8 @@ la lisibilité priment sur l'élégance technique.**
   ressources statiques et expose l'API du **serveur de correction** sous `/api/`
   (D19 : l'état de séance, la correction et la signature de la réussite vivent
   sur le serveur ; le navigateur affiche). Base **D1** (liaison `DB`), secrets
-  `CLE_SECRETE` et `CLE_ADMIN` posés sur le Worker — en local : `.dev.vars`,
-  jamais commité. Déployé par GitHub Actions à chaque push sur `main` :
+  `CLE_SECRETE`, `CLE_ADMIN` et `CLE_CONSULTATION` (D44) posés sur le Worker —
+  en local : `.dev.vars`, jamais commité. Déployé par GitHub Actions à chaque push sur `main` :
   `npm test`, migrations D1, puis `wrangler deploy`.
 - Node.js ≥ 22.13 sert aux tests (`node --test` ; la base des tests du serveur
   est `node:sqlite`, sans dépendance) et à `wrangler`, **seule
@@ -56,7 +56,7 @@ site/              pages publiées : index.html (le quiz), verifier.html, prof.h
 site/data/         catalogue : JSON de référence, unique exemplaire (décisions D8, D11)
 site/exercices/    un JSON par exercice configurable (décision D11, SPEC §10)
 site/img/outils/   images des outils
-site/editeur/      éditeur web statique du catalogue et des exercices (jalon 6)
+site/editeur/      éditeur web statique du catalogue et des exercices (jalon 7)
 worker/            le Worker : API /api/… du serveur de correction (décisions D19, D20)
 migrations/        schéma de la base D1, un fichier SQL numéroté par changement
 wrangler.jsonc     configuration du Worker (nom, ressources statiques, base D1)
@@ -103,6 +103,6 @@ npm run deploy           # migrations de production puis wrangler deploy — nor
 - Envoyer des données d'étudiants ailleurs qu'au serveur de correction du projet (D19), ou charger quoi que ce soit d'un domaine externe.
 - Réécrire `legacy/`.
 - Modifier un fichier de `migrations/` déjà appliqué, ou toucher à la base de production (`--remote`) sans que Thierry le demande.
-- Écrire un secret (`CLE_SECRETE`, `CLE_ADMIN`, jeton Cloudflare) dans le dépôt, un test, un journal ou une conversation.
+- Écrire un secret (`CLE_SECRETE`, `CLE_ADMIN`, `CLE_CONSULTATION`, jeton Cloudflare) dans le dépôt, un test, un journal ou une conversation.
 - Mettre `MODE_TEST` dans `wrangler.jsonc`, dans le déploiement ou en production, ou l'activer depuis le navigateur (D26) : c'est le serveur local seul qui décide. Toute donnée ajoutée à `seance.question` se juge à la règle « rien de ce qui est à trouver ne part au navigateur » (SPEC §7).
 - Changer le format des JSON de données sans mettre à jour `SPEC.md` §3 et les tests de validation.

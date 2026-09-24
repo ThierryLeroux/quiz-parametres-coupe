@@ -3,7 +3,7 @@
 // tel quel. Une requête qui correspond à un fichier de site/ est servie directement ; toutes les
 // autres (dont /api/…) arrivent à worker/index.js.
 //
-// Les secrets (CLE_SECRETE, CLE_ADMIN) ne sont PAS ici : « wrangler secret put » en production,
+// Les secrets (CLE_SECRETE, CLE_ADMIN, CLE_CONSULTATION) ne sont PAS ici : « wrangler secret put » en production,
 // fichier .dev.vars en local (docs/DEMARRAGE.md, étape 5).
 {
   "$schema": "node_modules/wrangler/config-schema.json",

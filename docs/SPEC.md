@@ -1,6 +1,6 @@
 # Spécification fonctionnelle — Quiz de paramètres de coupe (version web)
 
-Statut : **brouillon v0.6** (2026-09-22). Rédigée à partir de l'analyse du classeur
+Statut : **brouillon v0.7** (2026-09-24). Rédigée à partir de l'analyse du classeur
 `Exercice M10 - tournage - vc seulement - version étudiant_r0.xlsm` et de son VBA
 (voir `legacy/vba/`). Un point marqué ❓ est à confirmer avec Thierry ; il n'y en a aucun en ce moment.
 
@@ -111,7 +111,7 @@ catalogue n'est pas encore utilisé.
    | `[Operation]` | `operation` de l'outil |
    | `[Matoutil]` | matériau d'outil tiré (ex. « Acier rapide ») |
 
-   Tout autre jeton, ou un jeton sans valeur pour l'outil, est une erreur **dès la validation du catalogue**. Les autres jetons du VBA (`[Couleur]`, `[FactVc]`, etc.) ne sont pas repris. Le gabarit résolu est le titre de la question, tel quel ; la progression garde le `nom` générique (`UI.md` §3.3). L'éditeur (jalon 6) permettra de le modifier.
+   Tout autre jeton, ou un jeton sans valeur pour l'outil, est une erreur **dès la validation du catalogue**. Les autres jetons du VBA (`[Couleur]`, `[FactVc]`, etc.) ne sont pas repris. Le gabarit résolu est le titre de la question, tel quel ; la progression garde le `nom` générique (`UI.md` §3.3). L'éditeur (jalon 7) permettra de le modifier.
 
 ## 5. Calcul des réponses attendues
 
@@ -278,13 +278,13 @@ ne reste rien à tirer. La séance note la version de l'exercice **au début** e
 | `seances` | une ligne par couple (exercice, matricule) : prénom et nom **de la première visite**, NIP haché, jeton haché et son expiration, début, dernière activité, dernière correction, version de l'exercice au début et à la réussite, compteurs (JSON), question en attente (JSON), date de réussite, essais de NIP et verrou |
 | `corrections_identite` | le journal des corrections d'identité (D23) : séance, anciens et nouveaux prénom, nom et matricule, horodatage ; après la réussite, les codes de l'attestation annulée et de la nouvelle (D37) — pour l'espace professeur |
 | `corrections` | le journal : séance, outil, question (JSON), réponses (JSON), résultat champ par champ et valeurs attendues (JSON), réussie ou non, horodatage |
-| `attestations` | une ligne par attestation (D31, D35, D37) : séance, code court, enregistrement figé (JSON, avec la liste des questions réussies qui comptent, D41), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`) |
-| `journal_enseignant` | les actions d'enseignant (D34, D35, D38) : horodatage, enseignant (« admin »), séance, action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`), détails |
+| `attestations` | une ligne par attestation (D31, D35, D37, D45) : séance (NULL une fois la séance supprimée), code court, enregistrement figé (JSON, avec la liste des questions réussies qui comptent, D41), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`, `seance_supprimee`) |
+| `journal_enseignant` | les actions d'enseignant (D34, D35, D38, D44 à D46) : horodatage, enseignant (« admin » ou « consultation » : le rôle, D44), séance (NULL quand elle n'existe plus), action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`, `suppression`, `effacement`), détails |
 | `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
 
-Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **purge le
-tout en fin de session** (page d'administration, §8) ; purger une séance efface
-son journal.
+Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **efface le
+tout en fin de session** (espace professeur, §8, D46) ; supprimer une séance
+efface son journal, mais ses attestations restent, annulées (D45).
 
 **Le navigateur ne conserve que** `{ matricule, prenom, jeton }`
 (`site/js/session.js`), dans `localStorage` sous une seule clé
@@ -295,11 +295,11 @@ stockage vide, illisible ou en panne → l'étudiant s'identifie, sans erreur.
 
 ### Secrets, NIP et jeton (décision D22)
 
-- Deux secrets, posés sur le Worker et jamais dans le dépôt : `CLE_SECRETE`,
-  pour toute la cryptographie du serveur, et `CLE_ADMIN`, pour l'administration
-  (jalon 5). En local : `.dev.vars` (`DEMARRAGE.md`, étape 5). Sans
-  `CLE_SECRETE`, le serveur refuse de travailler (500) plutôt que de hacher
-  sans secret.
+- Trois secrets, posés sur le Worker et jamais dans le dépôt : `CLE_SECRETE`,
+  pour toute la cryptographie du serveur ; `CLE_ADMIN`, pour l'administration ;
+  `CLE_CONSULTATION`, facultative, pour la consultation en lecture seule (D44).
+  En local : `.dev.vars` (`DEMARRAGE.md`, étape 5). Sans `CLE_SECRETE`, le
+  serveur refuse de travailler (500) plutôt que de hacher sans secret.
 - Une **sous-clé par usage** est dérivée de `CLE_SECRETE` par HKDF-SHA-256
   (`worker/crypto.js`) : « nip », « attestation » (signature des
   attestations, D32), « prof » (cookie de séance professeur, D34).
@@ -350,14 +350,18 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | `POST /api/deconnexion` | jeton, `{ exercice }` | `{ deconnecte: true }` — « Changer d'étudiant » : le jeton ne vaut plus rien |
 | `GET /api/attestation?exercice=<id>` | jeton | `{ attestation, code, signature, url_verification, annulee_le }` — l'attestation de la séance réussie (§8), créée à la première ouverture pour une séance réussie avant le jalon 5 ; 409 si l'exercice n'est pas réussi |
 | `POST /api/verification` | `{ code }`, ou tous les champs de l'adresse du QR | `{ resultat: "valide", attestation }`, `{ resultat: "annulee", attestation, annulee_le, motif }`, `{ resultat: "aucune" }` ou `{ resultat: "invalide" }` — public, sans jeton (§8) |
-| `POST /api/prof/connexion` | `{ cle }` | `{ enseignant, expire_le }` + cookie `prof` (HttpOnly, Secure, SameSite=Strict, chemin `/api/prof`, 12 h) ; 401 clé incorrecte ; 429 après cinq échecs par adresse, délai croissant |
+| `POST /api/prof/connexion` | `{ cle }` | `{ enseignant, role, expire_le }` + cookie `prof` (HttpOnly, Secure, SameSite=Strict, chemin `/api/prof`, 12 h) — `role` : `admin` (`CLE_ADMIN`) ou `consultation` (`CLE_CONSULTATION`, D44) ; 401 clé incorrecte ; 429 après cinq échecs par adresse, délai croissant |
 | `POST /api/prof/deconnexion` | — | `{ deconnecte: true }` + cookie effacé |
-| `GET /api/prof/seances` | cookie | `{ enseignant, exercices, seances: [ { id, exercice: { id, titre }, prenom, nom, matricule, debut, derniere_activite, reussite_le, questions_reussies, code } ] }` — toutes les séances ; ni NIP, ni jeton, ni question |
-| `POST /api/prof/remise-a-zero` | cookie, `{ seance }` | `{ remise_a_zero: true, seance }` — D35 ; 404 séance inconnue |
-| `POST /api/prof/reinitialisation-nip` | cookie, `{ seance }` | `{ nip_reinitialise: true, seance }` — D38 : NIP effacé, verrou levé, progression intacte ; 404 séance inconnue |
+| `GET /api/prof/seances` | cookie | `{ enseignant, role, exercices, seances: [ { id, exercice: { id, titre }, prenom, nom, matricule, debut, derniere_activite, reussite_le, questions_reussies, code } ] }` — toutes les séances ; ni NIP, ni jeton, ni question |
+| `POST /api/prof/remise-a-zero` | cookie **admin**, `{ seance }` | `{ remise_a_zero: true, seance }` — D35 ; 404 séance inconnue |
+| `POST /api/prof/reinitialisation-nip` | cookie **admin**, `{ seance }` | `{ nip_reinitialise: true, seance }` — D38 : NIP effacé, verrou levé, progression intacte ; 404 séance inconnue |
+| `POST /api/prof/suppression` | cookie **admin**, `{ seance }` | `{ supprimee: true, seance }` — D45 : la séance et son journal disparaissent, ses attestations restent, annulées « séance supprimée » ; 404 séance inconnue |
+| `POST /api/prof/effacement` | cookie **admin**, `{ confirmation: "EFFACER" }` | `{ efface: true, nombres: { seances, corrections, corrections_identite, attestations } }` — D46 : tout est effacé sauf le journal des actions ; 400 sans le mot exact, rien n'est touché |
 | `GET /api/prof/identites` | cookie | `{ corrections }` — le journal des corrections d'identité (D23), la plus récente en premier, avec l'exercice et le matricule actuel de la séance |
 
-Aucune route `/api/prof/*` ne répond sans cookie valide (401 « Connexion requise. »).
+Aucune route `/api/prof/*` ne répond sans cookie valide (401 « Connexion
+requise. ») ; les routes d'action (**admin**) refusent le rôle consultation
+(403, D44).
 
 `saisies` : les champs évalués, en texte, sous les noms du moteur —
 `{ vc, feedPerTooth, rpm, feedPerRev, feedRate }`. Tout le reste est ignoré.
@@ -426,7 +430,8 @@ Pour chaque champ :
 |---|---|
 | 400 | requête invalide : JSON illisible, exercice inconnu, identification mal formée (le message dit quoi) |
 | 401 | NIP incorrect (reprise, correction d'identité) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau ; espace professeur : clé incorrecte, ou cookie absent, forgé ou expiré |
-| 404 | adresse inconnue sous `/api/` ; reprise : aucune séance pour ce matricule dans cet exercice |
+| 403 | espace professeur : action réservée à la clé d'administration, refusée au rôle consultation (D44) |
+| 404 | adresse inconnue sous `/api/` ; reprise : aucune séance pour ce matricule dans cet exercice ; espace professeur : séance inconnue |
 | 409 | création ou correction d'identité : ce matricule a déjà une séance pour cet exercice ; correction : aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question ; attestation : l'exercice n'est pas encore réussi |
 | 429 | reprise et correction d'identité : 5 essais de NIP en 10 minutes → verrou de 10 minutes, même pour le bon NIP ; correction : moins de 10 s depuis la précédente (`attendre_s` dit combien) ; consultation et vérification : limite de débit par adresse (§8) ; connexion professeur : cinq échecs par adresse, puis délai croissant |
 | 500 | erreur du serveur ; le détail reste dans ses journaux |
@@ -502,10 +507,10 @@ silence (présentation : `UI.md` §3.2) :
   **déplacée, jamais copiée** : compteurs, question en attente et journal
   suivent. Chaque correction est **journalisée** (anciennes et nouvelles
   valeurs, horodatage) et sera montrée par la page de vérification (jalon 5).
-- Un NIP oublié est **remis à zéro par l'enseignant** (page d'administration,
-  jalon 5) : l'étudiant en choisit un nouveau à sa prochaine reprise. Une
+- Un NIP oublié est **remis à zéro par l'enseignant** (espace professeur,
+  D38) : l'étudiant en choisit un nouveau à sa prochaine reprise. Une
   séance ouverte par un autre au matricule d'un étudiant — farce visible aux
-  horodatages — se supprime de la même page.
+  horodatages — se **supprime** depuis le même espace (D45).
 - Le navigateur vérifie la forme des champs avant l'envoi
   (`site/js/identification.js`) ; le serveur revérifie tout.
 
@@ -623,8 +628,8 @@ ou la saisie du code court (ou d'une adresse collée entière). Le serveur
    l'enregistrement — sinon **invalide** (signature invalide ou contenu
    modifié). Une attestation ne se vérifie pas à moitié : une adresse qui porte
    autre chose que le code doit tout porter ;
-3. si l'attestation a été annulée — remise à zéro (D35) ou identité corrigée
-   (D37) → **annulée**, avec la date et le motif ;
+3. si l'attestation a été annulée — remise à zéro (D35), identité corrigée
+   (D37) ou séance supprimée (D45) → **annulée**, avec la date et le motif ;
 4. sinon **valide**, avec l'enregistrement complet tel que le serveur le
    détient, tableau des opérations et liste des questions réussies (D41)
    compris.
@@ -633,16 +638,22 @@ La page ne divulgue rien de plus que l'attestation imprimée : ni journal, ni
 corrections d'identité, ni durées. Elle est soumise aux limites de débit
 (ci-dessous).
 
-### Espace professeur (`/prof`, décisions D34, D35)
+### Espace professeur (`/prof`, décisions D34, D35, D38, D44 à D46)
 
-- **Une seule clé** au jalon 5 : `CLE_ADMIN`. La séance professeur porte un
-  identifiant d'enseignant, « admin », que le journal des actions note.
-- **Connexion** : saisie de la clé, comparée en temps constant après hachage ;
-  puis un **cookie de séance signé** (sous-clé « prof », charge = enseignant et
-  expiration ; `HttpOnly`, `Secure`, `SameSite=Strict`, chemin `/api/prof`,
-  12 h). **Se déconnecter** efface le cookie. **Cinq essais ratés par
-  adresse**, puis un délai qui double à chaque échec (1, 2, 4… minutes,
-  plafonné à une heure) ; chaque refus et chaque connexion sont journalisés.
+- **Deux clés, deux rôles** (D44) : `CLE_ADMIN` ouvre le rôle **admin** (tout),
+  `CLE_CONSULTATION` — facultative, partagée entre collègues — le rôle
+  **consultation**, lecture seule : tableau, filtre, tri, recherche, export
+  CSV, journal des corrections d'identité ; aucun bouton d'action, et chaque
+  route d'action refuse ce rôle côté serveur (403). La séance professeur porte
+  un identifiant d'enseignant (le nom du rôle, tant qu'il n'y a pas de table
+  des enseignants) et le rôle, que le journal des actions note.
+- **Connexion** : saisie de la clé, comparée en temps constant après hachage
+  aux deux clés ; puis un **cookie de séance signé** (sous-clé « prof »,
+  charge = enseignant, rôle et expiration ; `HttpOnly`, `Secure`,
+  `SameSite=Strict`, chemin `/api/prof`, 12 h). **Se déconnecter** efface le
+  cookie. **Cinq essais ratés par adresse**, quelle que soit la clé visée, puis
+  un délai qui double à chaque échec (1, 2, 4… minutes, plafonné à une heure) ;
+  chaque refus et chaque connexion sont journalisés.
 - **Réussites par exercice** : le tableau des séances (nom, prénom, matricule,
   exercice, début, dernière activité, réussi le … ou en cours, questions
   réussies, code de l'attestation), filtre par exercice, tri par colonne,
@@ -661,13 +672,28 @@ corrections d'identité, ni durées. Elle est soumise aux limites de débit
 - **Réinitialisation du NIP** (D38), avec confirmation : NIP effacé, essais et
   verrou levés, progression et jeton intacts ; l'étudiant choisit un nouveau NIP
   à sa prochaine reprise. Journalisée.
+- **Suppression d'une séance** (D45), rôle admin, avec une confirmation qui
+  rappelle le nom et le matricule : la séance disparaît avec son journal des
+  corrections et ses corrections d'identité ; ses **attestations restent**,
+  l'attestation en cours **annulée « séance supprimée »** avec la date, ce que
+  `/verifier` dit (une attestation déjà annulée garde son motif). Journalisée,
+  sans lien vers la séance : l'étudiant et le numéro de séance sont dans les
+  détails. L'étudiant peut recommencer de zéro.
+- **Effacement des données des étudiants** (D46), rôle admin, sur une page à
+  part : export CSV de tout proposé d'abord, puis le mot **EFFACER** à taper,
+  exigé aussi par le serveur (400 sinon). Toutes les séances, journaux de
+  corrections, corrections d'identité et attestations sont supprimés en un seul
+  lot ; le **journal des actions reste**, détaché des séances, et note les
+  nombres effacés. Les anciens codes d'attestation répondent ensuite « aucune
+  attestation ne correspond ». Exercices, banque d'outils et données de
+  référence ne sont pas en base : jamais touchés.
 - **Journal des corrections d'identité** (D23) : la plus récente en premier,
   avec l'exercice, le matricule actuel, avant → après, l'attestation réémise
   s'il y en a une (D37), et la séance.
 - Aucune route `/api/prof/*` ne répond sans cookie valide ; le client ne
   contient aucun secret. Ordinateur d'abord, lisible à 390 px.
-- Restent à faire (`PLAN.md`, jalon 6) : suppression d'une séance, purge de
-  fin de session, clé par enseignant avec une table des séances professeur.
+- Reste à faire (`PLAN.md`) : une clé par enseignant avec une table des
+  séances professeur, pour révoquer une séance avant son expiration.
 
 ### Limites de débit par adresse (décision D36)
 
@@ -707,8 +733,8 @@ ferme D6.
   classeur), tout comme le serveur (§7, « Tests »). Node ≥ 22.13 pour
   développer ; rien à installer pour l'étudiant.
 - **Données personnelles** : prénom, nom, matricule, NIP haché, réponses et
-  résultats ne vont qu'au serveur de correction du projet, et sont **purgés par l'enseignant
-  en fin de session** (§7). Rien n'est envoyé à un tiers, et la page ne charge
+  résultats ne vont qu'au serveur de correction du projet, et sont **effacés par l'enseignant
+  en fin de session** (§8, D46). Rien n'est envoyé à un tiers, et la page ne charge
   rien d'un domaine externe (polices auto-hébergées, `UI.md` §1). Le navigateur
   ne garde que `{ matricule, prenom, jeton }` (§7). Pied de page : « Tes
   réponses sont corrigées par un serveur ; tes données sont effacées à la fin de
@@ -770,7 +796,7 @@ Précisions :
   « dimensions ») lèverait sinon une restriction en silence. Seules les clés
   commençant par `_` (commentaires, comme `_source`) sont ignorées.
 - La validation (`site/js/exercice.js`) est la même pour les tests, le quiz et
-  l'éditeur (jalon 6).
+  l'éditeur (jalon 7).
 - **Index des exercices offerts** : un site statique ne peut pas lister un
   dossier ; `site/exercices/index.json` dit quels exercices proposer, dans
   l'ordre d'affichage : `{ "exercices": [ { "id", "titre" }, … ] }`.
