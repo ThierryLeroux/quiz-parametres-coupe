@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
-  FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates, fieldStatesText,
+  FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deducibleWarnings, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates, fieldStatesText,
   groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
@@ -155,6 +155,31 @@ test('fieldStates, statesToDraft, fieldStatesText (D52) : trois états par grand
   const avant = { ...brouillon() };
   const apres = { ...brouillon(), champs_masques: ['fz', 'f', 'vf'] };
   assert.deepEqual(diffLines(versionDiff(avant, apres)), ['Grandeurs : « Vc évaluée · fz fournie · N fournie · f fournie · Vf fournie » → « Vc évaluée · fz masquée · N fournie · f masquée · Vf masquée »']);
+});
+
+test('deducibleWarnings : une grandeur évaluée ou masquée qui se déduit des grandeurs fournies est dite, avec sa relation', () => {
+  // Le M10 « vitesse de coupe » : Vc évaluée, tout le reste fourni → Vc se lit dans N (sauf plafond).
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['vc'] }), ['Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur Vc), sauf si N est plafonné par la limite RPM.']);
+  // Le M10 « vitesse de coupe et RPM » : Vc et N évaluées → N se déduit de f et Vf fournies ; Vc de rien (N n'est pas fourni).
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['vc', 'n'] }), ['N se déduit de f et Vf fournies : N = Vf / f.']);
+  // Une grandeur masquée compte comme à trouver ; une grandeur évaluée n'est jamais une source.
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['vf'], champs_masques: ['n'] }), [
+    'N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur Vc, plafonné à la limite RPM.',
+  ]);
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['fz', 'f'] }), ['f se déduit de N et Vf fournis : f = Vf / N.']); // fz n'a pas de source (f est à trouver), mais f se lit dans N et Vf
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['fz'] }), ['fz se déduit de f fournie : fz = f / dents.']);
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['f'], champs_masques: ['n'] }), [
+    'N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur Vc, plafonné à la limite RPM.',
+    'f se déduit de fz fournie : f = fz × dents.',
+  ]);
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['vc'], champs_masques: ['fz', 'f', 'vf'] }), [
+    'Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur Vc), sauf si N est plafonné par la limite RPM.',
+  ]);
+  // Deux des trois de Vf = N × f fournies donnent la troisième ; l'ordre est celui de l'écran.
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['f'], champs_masques: ['fz'] }), ['f se déduit de N et Vf fournis : f = Vf / N.']); // fz masquée n'a pas f pour source : f est à trouver
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['vf'] }), ['Vf se déduit de N et f fournis : Vf = N × f.']);
+  // Sans effet sur la publication : publishState ne la connaît pas.
+  assert.deepEqual(publishState([], versionDiff(null, { ...brouillon(), champs_evalues: ['vc'] })), { enabled: true, label: 'Publier…' });
 });
 
 test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases', () => {

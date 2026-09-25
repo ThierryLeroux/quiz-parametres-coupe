@@ -13,7 +13,7 @@ import {
 import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
 import {
-  FIELD_CHOICES, FIELD_STATES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates,
+  FIELD_CHOICES, FIELD_STATES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, deducibleWarnings, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates,
   dimensionReadings, groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
@@ -394,12 +394,14 @@ async function showExercise(id, notice = '') {
   // Réglages généraux.
   const titre = el('input', { id: 'titre', type: 'text', autocomplete: 'off', value: draft.titre ?? '' });
   const fieldsChoice = fieldStateChoice(draft);
+  // Grandeurs déductibles : un avertissement sous les états, sans effet sur Publier ; rafraîchi par validate().
+  const warningsList = el('ul', { class: 'avertissements', id: 'grandeurs-deductibles' });
   const materialsChoice = checkboxes('matiere', TOOL_MATERIALS.map((key) => ({ key, label: key })), draft.materiaux_outil ?? TOOL_MATERIALS, { inline: true, swatchOf: materialSwatch, buttons: true });
   const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: groupSwatch, buttons: true });
   const listed = el('input', { id: 'liste', type: 'checkbox', checked: draft.liste !== false });
   const settings = {
     titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation.", 'field--half'),
-    champs_evalues: field('champs_evalues', 'Grandeurs : évaluée (à saisir), fournie (valeur montrée) ou masquée (« — », sans valeur)', fieldsChoice.element, 'Au moins une grandeur évaluée. Une grandeur masquée compte comme fournie pour la cohérence de Vf.', 'field--wide'),
+    champs_evalues: field('champs_evalues', 'Grandeurs : évaluée (à saisir), fournie (valeur montrée) ou masquée (« — », sans valeur)', el('div', {}, [fieldsChoice.element, warningsList]), 'Au moins une grandeur évaluée. Une grandeur masquée compte comme fournie pour la cohérence de Vf.', 'field--wide'),
     materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice", materialsChoice.element, 'Tout coché = aucune restriction ; se croise avec les matières de chaque outil.', 'field--wide'),
     groupes: field('groupes', 'Groupes de matériaux usinés permis pour tout l\'exercice', groupsChoice.element, 'Tout coché = aucune restriction ; se croise avec les groupes de chaque outil.', 'field--wide'),
     liste: field('liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'liste' }, el('li', {}, el('label', { for: 'liste' }, [listed, 'oui (sinon, joignable seulement par son lien)']))), ''),
@@ -445,6 +447,7 @@ async function showExercise(id, notice = '') {
       form.thumbnail.src = `/img/outils/${form.fields.image.control.value || form.read().id}.png`;
     });
     generalErrors.replaceChildren(...(map.get('') ?? []).map((message) => el('li', {}, message)));
+    warningsList.replaceChildren(...deducibleWarnings(current).map((line) => el('li', {}, line)));
     const ps = publishState(errors, versionDiff(page.derniere_version?.contenu ?? null, current));
     publishButton.disabled = !ps.enabled;
     publishButton.textContent = ps.label;
@@ -588,6 +591,10 @@ async function showExercise(id, notice = '') {
       el('h2', {}, `Publier la version ${numero} de « ${readDraft().titre} » ?`),
       el('p', { class: 'small' }, page.derniere_version === null ? "Première publication : l'exercice devient accessible aux étudiants par son lien." : `Différences avec la version ${page.derniere_version.numero} :`),
       el('ul', { class: 'editeur-diff' }, diffLines(diff).map((line) => el('li', {}, line))),
+      ...(deducibleWarnings(readDraft()).length > 0 ? [
+        el('p', { class: 'small' }, "Avertissement, sans effet sur la publication : une grandeur à trouver se déduit des grandeurs fournies."),
+        el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft()).map((line) => el('li', {}, line))),
+      ] : []),
       el('p', { class: 'muted smaller' }, 'Les séances déjà commencées gardent leur version ; seules les nouvelles séances prennent celle-ci. Une version publiée ne se modifie plus.'),
       el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
     ]));

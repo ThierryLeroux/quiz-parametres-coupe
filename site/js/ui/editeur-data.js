@@ -48,6 +48,26 @@ export function fieldStatesText(draft) {
   return FIELD_CHOICES.map(({ key }) => `${short[key]} ${FIELD_STATES.find((s) => s.key === states[key]).label}`).join(' · ');
 }
 
+// Une grandeur évaluée ou masquée qui se déduit des grandeurs fournies et des données de la question
+// (Ø, facteur Vc, limite RPM, nombre de dents) : l'étudiant peut la retrouver sans la table. Un
+// avertissement, sans effet sur la publication. Relations du moteur (calcul.js) : N = Vc × 4 / Ø × facteur
+// Vc, plafonné ; f = fz × dents ; Vf = N × f. Seules les grandeurs fournies servent de source (une
+// grandeur évaluée n'est pas connue de l'étudiant). Retourne les phrases dans l'ordre de l'écran.
+export function deducibleWarnings(draft) {
+  const states = fieldStates(draft);
+  const given = (key) => states[key] === 'fournie';
+  const sought = (key) => states[key] !== 'fournie'; // évaluée ou masquée
+  const lines = [];
+  if (sought('vc') && given('n')) lines.push('Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur Vc), sauf si N est plafonné par la limite RPM.');
+  if (sought('fz') && given('f')) lines.push('fz se déduit de f fournie : fz = f / dents.');
+  if (sought('n') && given('vc')) lines.push('N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur Vc, plafonné à la limite RPM.');
+  if (sought('n') && given('f') && given('vf')) lines.push('N se déduit de f et Vf fournies : N = Vf / f.');
+  if (sought('f') && given('fz')) lines.push('f se déduit de fz fournie : f = fz × dents.');
+  if (sought('f') && given('n') && given('vf')) lines.push('f se déduit de N et Vf fournis : f = Vf / N.');
+  if (sought('vf') && given('n') && given('f')) lines.push('Vf se déduit de N et f fournis : Vf = N × f.');
+  return lines;
+}
+
 // Les matières d'outil, dans l'ordre de la table des Vc.
 export const TOOL_MATERIALS = Object.keys(TOOL_MATERIAL_KEYS);
 

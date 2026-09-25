@@ -98,6 +98,12 @@
 .etat-ligne input[type='radio'] { width: 18px; height: 18px; accent-color: var(--color-accent); }
 .choices-actions .button-link { min-height: 32px; font-size: var(--text-xs); }
 
+/* Grandeurs déductibles : avertissement doré, non bloquant, sous les états et dans la confirmation. */
+.avertissements { margin: var(--space-2) 0 0; padding-left: var(--space-5); color: var(--color-gold); font-size: var(--text-sm); }
+.avertissements:empty { display: none; }
+.avertissements li { margin: var(--space-1) 0; }
+.avertissements li::marker { content: '⚠ '; }
+
 /* Un outil de l'exercice : une ligne (case, vignette, nom, erreurs, boutons) et son formulaire replié dessous. */
 .outil-ligne { margin-top: var(--space-3); border: 1px solid color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
 .outil-ligne[data-erreur='true'] { border-color: var(--color-wrong); }
