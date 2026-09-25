@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
-  FIELD_CHOICES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
+  FIELD_CHOICES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
   groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
@@ -92,6 +92,22 @@ test('dimensionsText et parseDimensions : une dimension par ligne, « libellé ;
   for (const tool of data.outils) {
     const thread = opsByName.get(tool.operation).avance_egale_pas_filetage;
     assert.deepEqual(parseDimensions(dimensionsText(tool.dimensions), thread), tool.dimensions, tool.id);
+  }
+});
+
+test('dimensionReadings : pour un filetage, le Ø et le pas tels que le moteur les lit (pouces, et mm en métrique) ; une ligne illisible est dite ; hors filetage, le Ø ou l’erreur', () => {
+  assert.deepEqual(dimensionReadings(['1/4- 20 UNC ; 0.25-20', 'M10 x 1.50 ; 10x1.5', 'M6 ; 6 x 1'].join('\n'), true), [
+    { libelle: '1/4- 20 UNC', lecture: 'Ø 0.25 po · pas 0.05 po (20 filets/po)', erreur: null },
+    { libelle: 'M10 x 1.50', lecture: 'Ø 10 mm = 0.3937 po · pas 1.5 mm = 0.05906 po', erreur: null },
+    { libelle: 'M6', lecture: null, erreur: 'filetage illisible : « 6 x 1 » (attendu « 0.25-20 » ou « 10x1.5 »)' },
+  ]);
+  assert.deepEqual(dimensionReadings(['Ø 1/4 po ; 0.25', 'Ø 3 po ; abc'].join('\n'), false), [
+    { libelle: 'Ø 1/4 po', lecture: 'Ø 0.25 po', erreur: null },
+    { libelle: 'Ø 3 po', lecture: null, erreur: 'Ø illisible : « abc » (attendu un Ø en pouces > 0)' },
+  ]);
+  // Les dimensions des tarauds et barres à fileter du catalogue se lisent toutes.
+  for (const tool of data.outils.filter((t) => opsByName.get(t.operation).avance_egale_pas_filetage)) {
+    assert.ok(dimensionReadings(dimensionsText(tool.dimensions), true).every((line) => line.erreur === null), tool.id);
   }
 });
 

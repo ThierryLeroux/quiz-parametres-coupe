@@ -146,6 +146,28 @@ export function parseDimensions(textValue, thread = false) {
   });
 }
 
+// Ce que le moteur lit de chaque ligne de dimension (retouche 5) : pour un filetage, le Ø et le pas en
+// pouces — et en mm pour le métrique — tels que parseThread les donne ; sinon le Ø en pouces ; ou l'erreur
+// quand la ligne ne se lit pas. Retourne [{ libelle, lecture, erreur }] dans l'ordre des lignes.
+//   thread : l'opération est un filetage
+export function dimensionReadings(textValue, thread) {
+  const inches = (value) => `${Number(value.toFixed(5))} po`;
+  const mm = (value) => `${Number((value * 25.4).toFixed(3))} mm`;
+  return parseDimensions(textValue, thread).map(({ libelle, valeur }) => {
+    if (thread) {
+      const read = parseThread(valeur);
+      if (read === null) return { libelle, lecture: null, erreur: `filetage illisible : « ${valeur} » (attendu « 0.25-20 » ou « 10x1.5 »)` };
+      const metric = /x/.test(String(valeur));
+      const lecture = metric
+        ? `Ø ${mm(read.diameter)} = ${inches(read.diameter)} · pas ${mm(read.pitch)} = ${inches(read.pitch)}`
+        : `Ø ${inches(read.diameter)} · pas ${inches(read.pitch)} (${Number((1 / read.pitch).toFixed(3))} filets/po)`;
+      return { libelle, lecture, erreur: null };
+    }
+    if (typeof valeur !== 'number' || !(valeur > 0)) return { libelle, lecture: null, erreur: `Ø illisible : « ${valeur} » (attendu un Ø en pouces > 0)` };
+    return { libelle, lecture: `Ø ${inches(valeur)}`, erreur: null };
+  });
+}
+
 // L'exemple composé du gabarit de nomenclature (D24), avec la première dimension, le moins de dents,
 // la première matière et la première barre qui entre : « MVLNR - Ø charioté: 1.000" ».
 export function exampleIdentifier(tool, opsByName) {

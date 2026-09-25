@@ -14,7 +14,7 @@ import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
 import {
   FIELD_CHOICES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  dimensionReadings, groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
@@ -242,7 +242,17 @@ function toolForm(tool, ctx) {
   const materials = checkboxes(`${p}-mat`, TOOL_MATERIALS.map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: materialSwatch, buttons: true });
   const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: groupSwatch, buttons: true });
   const template = el('input', { id: `${p}-format`, type: 'text', readonly: true, value: tool.format_identifiant ?? '' });
-  const exampleNote = () => `Exemple composé : ${exampleIdentifier(read(), ctx.opsByName)} — jetons : ${templateTokenList(template.value).join(', ') || 'aucun'}. Se modifie au jalon 7b.`;
+  const exampleNote = () => `Exemple composé : ${exampleIdentifier(read(), ctx.opsByName)} — jetons : ${templateTokenList(template.value).join(', ') || 'aucun'}. Se modifiera plus tard.`;
+
+  // Ce que le moteur lit de chaque ligne de dimension : pour un filetage, le Ø et le pas (pouces, et mm en
+  // métrique) ; sinon seulement les lignes illisibles. Mis à jour à la frappe.
+  const readings = el('ul', { class: 'dimension-lectures' });
+  const refreshReadings = () => {
+    const thread = isThread();
+    const lines = dimensionReadings(fields.dimensions.control.value, thread).filter((line) => thread || line.erreur !== null);
+    readings.replaceChildren(...lines.map((line) => el('li', { class: line.erreur ? 'dimension-lecture--erreur' : null }, [el('span', { class: 'mono' }, line.libelle), ' → ', line.erreur ?? line.lecture])));
+    readings.hidden = lines.length === 0;
+  };
 
   const fields = {
     id: field('id', 'Identifiant', el('input', { id: `${p}-id`, type: 'text', readonly: true, value: tool.id }), ctx.copy ? "Propre à l'exercice (dupliquer donne « _2 »)." : 'Définitif.'),
@@ -251,7 +261,7 @@ function toolForm(tool, ctx) {
     commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
     image: field('image', 'Photo', imageSelect, 'Parmi les images du site ; le téléversement viendra plus tard.'),
     format_identifiant: field('format_identifiant', 'Gabarit de nomenclature (lecture seule)', template, '', 'field--wide'),
-    dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false' }, dimensionsText(tool.dimensions)),
+    dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
       'Valeur : Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte : « 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 ».', 'field--half'),
     dimensions_barre: field('dimensions_barre', 'Barres (outil à deux diamètres) : libellé ; Ø en pouces', el('textarea', { id: `${p}-barres`, spellcheck: 'false' }, dimensionsText(tool.dimensions_barre)),
       'Vide = un seul diamètre. Sinon, avance proportionnelle au Ø de la barre ; N avec le Ø usiné.'),
@@ -272,7 +282,7 @@ function toolForm(tool, ctx) {
   const sections = [
     ['Identification', [fields.nom.element, fields.operation.element, fields.commentaire.element, fields.image.element, photoLine, fields.id.element]],
     ['Nomenclature', [fields.format_identifiant.element]],
-    ['Dimensions', [fields.dimensions.element, fields.dimensions_barre.element, fields.rapport_barre_max.element]],
+    ['Dimensions', [fields.dimensions.element, el('div', { class: 'field' }, [el('span', { class: 'field-label-text' }, 'Lecture par le moteur'), readings]), fields.dimensions_barre.element, fields.rapport_barre_max.element]],
     ['Dents', [fields.nb_dents_min.element, fields.nb_dents_max.element]],
     ['Facteurs', [fields.fact_vc.element, fields.fact_av.element]],
     ['Limites', [fields.limite_rpm.element, fields.limite_avance.element]],
@@ -322,6 +332,8 @@ function toolForm(tool, ctx) {
     }
   }
   fields.format_identifiant.noteEl.textContent = exampleNote();
+  operationSelect.addEventListener('change', refreshReadings);
+  refreshReadings();
   return { element, read, setErrors, fields, refreshExample: () => { fields.format_identifiant.noteEl.textContent = exampleNote(); } };
 }
 
