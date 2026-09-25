@@ -7,7 +7,7 @@
 
 import { el, showScreen } from './dom.js';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
-import { operationPicto } from './sheets-data.js';
+import { operationPicto, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
 
 // Pictogramme d'une grandeur (UI §5) : le fichier SVG sert de masque, la couleur est celle du texte.
@@ -65,7 +65,7 @@ function toolPanel(question) {
   return el('section', { class: 'panel tool-card', style: `--panel-color: var(${toolMaterialColor(outil.materiau)})` }, [
     el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Outil de coupe'), el('div', { class: 'swatch smaller' }, outil.materiau.toLowerCase())]),
     el('div', { class: 'tool-body' }, [
-      optionalImage(`img/outils/${outil.image ?? outil.id}.png`, 'tool-photo'),
+      optionalImage(toolPhotoUrl(outil), 'tool-photo'),
       el('div', {}, [
         el('h2', { class: 'tool-title' }, question.identifiant),
         el('p', { class: 'tool-operation small' }, [optionalImage(operationPicto(outil.operation), 'operation-picto'), `Opération : ${outil.operation}`]),

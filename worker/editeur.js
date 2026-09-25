@@ -101,8 +101,26 @@ export const importWord = (resume) => (resume?.banque?.retires?.length > 0 ? REP
 
 export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) {
   const erreurs = [];
-  const plan = { tables_ajoutees: [], banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [] };
+  const plan = { tables_ajoutees: [], banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [] };
   if (!isObject(received) || received.format !== EXPORT_FORMAT) return { erreurs: [`Ce fichier n'est pas un export de l'éditeur (format attendu : ${EXPORT_FORMAT}).`], plan, resume: null };
+
+  // Les images (D59) : leurs fiches seulement — le contenu voyage à part, une image par requête
+  // (images/importer), avant l'import. Une image de l'export absente de la base est « manquante »
+  // tant qu'elle n'a pas été envoyée ; une image présente garde son contenu (immuable sous son
+  // identifiant : une empreinte différente est une erreur) et prend le nom et l'état d'archivage de l'export.
+  const images = Array.isArray(received.images) ? received.images : [];
+  const existingImages = new Map((existing.images ?? []).map((i) => [i.id, i]));
+  const imagesManquantes = [];
+  const imagesPresentes = [];
+  images.forEach((i, n) => {
+    if (!isObject(i) || !IMAGE_ID.test(String(i.id)) || !isText(i.empreinte) || !isText(i.nom) || !['outil', 'operation'].includes(i.usage)) return erreurs.push(`Images, entrée ${n + 1} : fiche illisible (identifiant, nom, usage ou empreinte).`);
+    const known = existingImages.get(i.id);
+    if (known === undefined) return imagesManquantes.push(i.id);
+    if (known.empreinte !== i.empreinte) return erreurs.push(`Image « ${i.id} » : la base en a une autre sous le même identifiant ; une image ne change jamais sous le même identifiant.`);
+    imagesPresentes.push(i.id);
+    const archiveeLe = typeof i.archivee_le === 'string' ? i.archivee_le : null;
+    if (known.nom !== i.nom || (known.archivee_le ?? null) !== archiveeLe) plan.images_modifiees.push({ id: i.id, nom: i.nom, archivee_le: archiveeLe });
+  });
 
   const tables = Array.isArray(received.tables_reference) ? received.tables_reference : [];
   const tablesById = new Map(existing.tables_reference.map((t) => [t.id, t]));
@@ -163,12 +181,18 @@ export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) 
     exercices_remplaces: plan.exercices_remplaces.map((e) => e.id),
     versions_ajoutees: plan.versions_ajoutees.map((v) => `${v.exercice_id} v${v.numero}`),
     exercices_gardes: existing.exercices.filter((e) => !exercices.some((r) => r?.id === e.id)).map((e) => e.id),
+    images_manquantes: imagesManquantes,
+    images_presentes: imagesPresentes.length,
+    images_modifiees: plan.images_modifiees.map((i) => i.id),
   };
   return { erreurs, plan, resume };
 }
 
+// L'identifiant d'une image (images.js porte la même règle) : semence « mvlnr », « percage », téléversement « img-<empreinte> ».
+const IMAGE_ID = /^[a-z0-9]+([_-][a-z0-9]+)*$/;
+
 // Ce que le journal des actions note d'un import : « 1 table, 29 outils, 2 exercices ajoutés, 1 remplacé, 3 versions ».
 export function importDetails(resume) {
   const b = resume.banque;
-  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s)`;
+  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s) · images : ${resume.images_presentes ?? 0} présente(s), ${resume.images_modifiees?.length ?? 0} fiche(s) mise(s) à jour`;
 }

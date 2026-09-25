@@ -33,12 +33,14 @@ export function fausseD1({ jusqua = Infinity } = {}) {
   function statement(sql, values = []) {
     // Comme D1 : « undefined » n'est pas une valeur SQL. Mieux vaut l'apprendre ici qu'en production.
     const check = () => values.forEach((value, i) => { if (value === undefined) throw new Error(`D1_TYPE_ERROR : le paramètre ${i + 1} est undefined — ${sql}`); });
-    const rows = () => { check(); return sqlite.prepare(sql).all(...values).map((row) => ({ ...row })); };
+    // Comme D1, un BLOB se donne en ArrayBuffer ; node:sqlite veut un Uint8Array.
+    const bound = () => values.map((value) => (value instanceof ArrayBuffer ? new Uint8Array(value) : value));
+    const rows = () => { check(); return sqlite.prepare(sql).all(...bound()).map((row) => ({ ...row })); };
     const execute = () => {
       check();
       // Comme D1, une requête qui lit (SELECT) rend ses lignes, même dans un lot.
       if (/^\s*(SELECT|WITH)\b/i.test(sql)) return { success: true, results: rows(), meta: { changes: 0, last_row_id: 0 } };
-      const { changes, lastInsertRowid } = sqlite.prepare(sql).run(...values);
+      const { changes, lastInsertRowid } = sqlite.prepare(sql).run(...bound());
       return { success: true, results: [], meta: { changes: Number(changes), last_row_id: Number(lastInsertRowid) } };
     };
     return {

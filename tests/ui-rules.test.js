@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
-import { feedSheet, inches, operationPicto, operationSlug, vcSheet } from '../site/js/ui/sheets-data.js';
+import { feedSheet, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
@@ -186,12 +186,17 @@ test('inches : une avance comme sur la feuille de l’atelier', () => {
   assert.deepEqual([0.006, 0.0015, 0.01, 0.001, 0.00025].map(inches), ['.006"', '.0015"', '.010"', '.001"', '.00025"']);
 });
 
-test('operationSlug et pictogrammes : chaque opération du catalogue a son fichier SVG dans site/img/pictos/operations/', () => {
+test('operationSlug et pictogrammes : chaque opération du catalogue a son SVG de semence dans site/img/pictos/operations/, servi par /images/<slug> (D56)', () => {
   assert.equal(operationSlug('Chanfreinage / ébavurage'), 'chanfreinage_ebavurage');
   assert.equal(operationSlug("Alésage à l'alésoir"), 'alesage_a_l_alesoir');
   for (const operation of data.operations) {
-    assert.ok(existsSync(new URL(`../site/${operationPicto(operation.operation)}`, import.meta.url)), `${operationPicto(operation.operation)} est absent`);
+    assert.equal(operationPicto(operation.operation), `/images/${operationSlug(operation.operation)}`);
+    assert.ok(existsSync(new URL(`../site/img/pictos/operations/${operationSlug(operation.operation)}.svg`, import.meta.url)), `${operation.operation} : SVG de semence absent`);
   }
+  // Une opération qui nomme son pictogramme (partie B) : c'est lui qui est servi.
+  assert.equal(operationPicto('Perçage', { operation: 'Perçage', pictogramme: 'img-0123456789abcdef' }), '/images/img-0123456789abcdef');
+  assert.equal(toolPhotoUrl({ id: 'mvlnr' }), '/images/mvlnr');
+  assert.equal(toolPhotoUrl({ id: 'mvlnr_2', image: 'mvlnr' }), '/images/mvlnr');
 });
 
 test('pictogrammes de grandeurs : les six fichiers SVG de site/img/pictos/grandeurs/ (UI §5)', () => {
@@ -221,7 +226,7 @@ test('feedSheet : une opération par rang, barre proportionnelle à l’avance, 
   assert.equal(rang('Alésage à la barre').label, '.006" × Ø outil');
   assert.equal(rang('Rainurage interne').label, '.003" × Ø outil'); // D25, extension
   assert.deepEqual([rang('Taraudage').label, rang('Taraudage').bar], ['pas du filetage', null]);
-  assert.equal(rang('Perçage').picto, 'img/pictos/operations/percage.svg');
+  assert.equal(rang('Perçage').picto, '/images/percage');
   assert.equal(feuille.revision, data.revisions.operations);
   // La bande grise du classeur : les huit opérations à avance proportionnelle au Ø, et elles seules.
   assert.deepEqual(feuille.rows.filter((row) => row.proportional).map((row) => row.operation), [
@@ -247,6 +252,6 @@ test('feedSheet : une opération ajoutée au catalogue apparaît dans la feuille
   const lamage = { operation: 'Lamage', machine: 'Perceuse / Fraiseuse', direction_avance: 'Avance axiale', avance_po_rev: 0.003, avance_max_po_rev: 0.003, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false };
   const feuille = feedSheet({ ...data, operations: [...data.operations.slice(0, 9), lamage, ...data.operations.slice(9)] });
   assert.equal(feuille.rows.length, 20);
-  assert.deepEqual([feuille.rows[9].label, feuille.rows[9].picto], ['.003" / dent', 'img/pictos/operations/lamage.svg']);
+  assert.deepEqual([feuille.rows[9].label, feuille.rows[9].picto], ['.003" / dent', '/images/lamage']);
   assert.deepEqual(feuille.machines[1], { key: 'Perceuse / Fraiseuse', start: 4, span: 6 });
 });

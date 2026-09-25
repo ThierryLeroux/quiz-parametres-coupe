@@ -1,6 +1,8 @@
-# Images d'outils
+# Images d'outils — la semence
 
 Extraites du classeur (feuille « Liste d'outils », ligne 2), une par outil, nommée par l'`id` de l'outil dans `outils.json`. PNG tels quels (environ 100 px). Certains outils partagent la même photo dans le classeur (forets, alésoirs, barres à fileter, SDTMR).
+
+**Depuis le jalon 7b (décision D56), les images vivent dans la base D1** (table `images`, migration `0007`, servies par `/images/<id>`) : ces fichiers ne sont plus que **la semence** et les données des tests — comme les JSON de `site/data/`. Les ajouter, les changer ou les retirer ici ne change rien en production : c'est l'onglet **Images** de l'éditeur (`/prof/editeur`) qui téléverse, archive et supprime, et l'export de l'éditeur qui les sauvegarde. Un test vérifie que la semence est identique à ces fichiers.
 
 | id | outil | image d'origine |
 |---|---|---|

@@ -198,9 +198,7 @@ test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases'
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], [SERVER_IMPORT_WORD, SERVER_REPLACE_WORD]); // les mêmes mots des deux côtés
 });
 
-test('site/img/outils/index.json : la liste des photos est celle du dossier (l’éditeur ne peut pas lister un dossier)', async () => {
-  const manifest = await lireFichier('img/outils/index.json');
+test('site/img/outils/ : une photo de semence par outil du catalogue (la liste des images vient de la base, D56)', async () => {
   const files = (await readdir(new URL('../site/img/outils/', import.meta.url))).filter((name) => name.endsWith('.png')).sort();
-  assert.deepEqual([...manifest.images].sort(), files);
   for (const tool of data.outils) assert.ok(files.includes(`${tool.image ?? tool.id}.png`), `${tool.id} : photo manquante`);
 });

@@ -17,9 +17,13 @@ export function operationSlug(name) {
   return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
 
-// Les pictogrammes d'opérations sont les dessins vectoriels du classeur, convertis en SVG (D29 ;
-// reference/pictogrammes-du-classeur/).
-export const operationPicto = (name) => `img/pictos/operations/${operationSlug(name)}.svg`;
+// Les images vivent dans la base D1 et sont servies par /images/<id> (D56) : la photo d'un outil
+// (`image` de l'outil, sinon son identifiant) et le pictogramme d'une opération — son `pictogramme`
+// s'il en a un, sinon le slug de son nom, l'identifiant de la semence (les dessins du classeur
+// convertis en SVG, D29 ; site/img/pictos/operations/ n'en est plus que la semence).
+export const imageUrl = (id) => `/images/${encodeURIComponent(id)}`;
+export const toolPhotoUrl = (tool) => imageUrl(tool.image ?? tool.id);
+export const operationPicto = (name, operation = null) => imageUrl(operation?.pictogramme ?? operationSlug(name));
 
 // --- Vitesses de coupe -----------------------------------------------------------------------------------------
 // Toutes les classes et toutes les lignes, quel que soit l'exercice ; aucune ligne surlignée.
@@ -92,7 +96,7 @@ export function feedSheet(data) {
   return {
     rows: operations.map((operation) => ({
       operation: operation.operation,
-      picto: operationPicto(operation.operation),
+      picto: operationPicto(operation.operation, operation),
       label: feedLabel(operation),
       bar: operation.avance_egale_pas_filetage ? null : operation.avance_po_rev / longest,
       proportional: operation.avance_proportionnelle_diametre,

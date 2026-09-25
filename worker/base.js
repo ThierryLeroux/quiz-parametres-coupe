@@ -516,6 +516,73 @@ export async function archiveBankTool(db, id, archiveLe, entry) {
   await db.batch([db.prepare('UPDATE banque_outils SET archive_le = ? WHERE id = ?').bind(archiveLe, id), teacherLogStatement(db, entry)]);
 }
 
+// --- Images (jalon 7b, D56) : photos d'outils et pictogrammes, en blob ---
+
+const IMAGE_COLUMNS = 'id, nom, usage, type, taille, empreinte, creee_le, archivee_le';
+
+// Les fiches de toutes les images (sans le contenu), par usage puis par nom.
+export async function listImages(db) {
+  const { results } = await db.prepare(`SELECT ${IMAGE_COLUMNS} FROM images ORDER BY usage, nom, id`).all();
+  return results;
+}
+
+// Une image avec son contenu (BLOB : ArrayBuffer sur D1, Uint8Array sur node:sqlite — images.js, toBytes).
+export async function findImage(db, id) {
+  return db.prepare('SELECT * FROM images WHERE id = ?').bind(id).first();
+}
+
+export async function findImageMeta(db, id) {
+  return db.prepare(`SELECT ${IMAGE_COLUMNS} FROM images WHERE id = ?`).bind(id).first();
+}
+
+// L'image qui a déjà cette empreinte, ou null : un doublon exact n'est pas stocké deux fois.
+export async function findImageByHash(db, empreinte) {
+  return db.prepare(`SELECT ${IMAGE_COLUMNS} FROM images WHERE empreinte = ? ORDER BY creee_le, id LIMIT 1`).bind(empreinte).first();
+}
+
+// Enregistre une image et journalise, en un lot. Retourne false si l'identifiant est déjà pris.
+//   image : { id, nom, usage, type, taille, empreinte, contenu (ArrayBuffer), creee_le, archivee_le }
+export async function createImage(db, image, entry) {
+  try {
+    await db.batch([
+      db.prepare('INSERT INTO images (id, nom, usage, type, taille, empreinte, contenu, creee_le, archivee_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(image.id, image.nom, image.usage, image.type, image.taille, image.empreinte, image.contenu, image.creee_le, image.archivee_le ?? null),
+      teacherLogStatement(db, entry),
+    ]);
+    return true;
+  } catch (error) {
+    if (/UNIQUE/i.test(String(error?.message))) return false;
+    throw error;
+  }
+}
+
+// Archive (date) ou rétablit (null) une image, et journalise.
+export async function archiveImage(db, id, archiveeLe, entry) {
+  await db.batch([db.prepare('UPDATE images SET archivee_le = ? WHERE id = ?').bind(archiveeLe, id), teacherLogStatement(db, entry)]);
+}
+
+// Renomme une image (le nom lisible seulement : l'identifiant et le contenu ne changent jamais), et journalise.
+export async function renameImage(db, id, nom, entry) {
+  await db.batch([db.prepare('UPDATE images SET nom = ? WHERE id = ?').bind(nom, id), teacherLogStatement(db, entry)]);
+}
+
+// Supprime une image — l'appelant a vérifié qu'elle n'est utilisée nulle part —, et journalise.
+export async function deleteImage(db, id, entry) {
+  await db.batch([db.prepare('DELETE FROM images WHERE id = ?').bind(id), teacherLogStatement(db, entry)]);
+}
+
+// Toutes les versions publiées avec leur contenu, pour savoir où une image est utilisée.
+export async function listVersionContents(db) {
+  const { results } = await db.prepare('SELECT exercice_id, numero, contenu FROM versions_exercice ORDER BY exercice_id, numero').all();
+  return results.map((row) => ({ ...row, contenu: JSON.parse(row.contenu) }));
+}
+
+// Toutes les images avec leur contenu, pour l'export.
+export async function listImagesWithContent(db) {
+  const { results } = await db.prepare('SELECT * FROM images ORDER BY usage, nom, id').all();
+  return results;
+}
+
 // --- Sauvegarde : export complet, import par fusion (D49) ---
 
 // Tout ce que l'éditeur gère : tables de référence, banque, exercices avec toutes leurs versions.
@@ -548,6 +615,8 @@ export async function applyImport(db, plan, now, entry) {
     statements.push(db.prepare('INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le) VALUES (?, ?, ?, ?, ?)').bind(v.exercice_id, v.numero, JSON.stringify(v.contenu), v.tables_id, v.publiee_le ?? now));
     statements.push(db.prepare('UPDATE exercices SET publie_le = MAX(COALESCE(publie_le, ?), ?) WHERE id = ?').bind(v.publiee_le ?? now, v.publiee_le ?? now, v.exercice_id));
   }
+  // Les fiches d'images (nom, état d'archivage) : le contenu, lui, a voyagé à part (D59) et ne change jamais.
+  for (const i of plan.images_modifiees ?? []) statements.push(db.prepare('UPDATE images SET nom = ?, archivee_le = ? WHERE id = ?').bind(i.nom, i.archivee_le, i.id));
   statements.push(teacherLogStatement(db, entry));
   await db.batch(statements);
 }

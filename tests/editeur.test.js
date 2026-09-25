@@ -155,7 +155,7 @@ test('importPlan : format exigé ; tables, banque, exercices et versions compar�
   };
   const { erreurs, plan, resume } = importPlan(recu, existant, outils);
   assert.deepEqual(erreurs, []);
-  assert.deepEqual({ ...resume, banque: undefined }, { tables_ajoutees: ['A2027_r0'], banque: undefined, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [] });
+  assert.deepEqual({ ...resume, banque: undefined }, { tables_ajoutees: ['A2027_r0'], banque: undefined, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 0, images_modifiees: [] });
   // La banque reçue n'a que deux outils : les 27 autres disparaîtraient, nommés ; le mot exigé devient REMPLACER (D50).
   assert.deepEqual([resume.banque.ajoutes, resume.banque.modifies, resume.banque.gardes, resume.banque.retires.length], [[], [], 2, 27]);
   assert.deepEqual(resume.banque.retires[0], { id: 'foret_a_numero', nom: 'Foret à numéro' });

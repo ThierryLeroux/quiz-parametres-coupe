@@ -8,7 +8,7 @@
 
 import {
   editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankSave, editorCreateExercise, editorDeleteExercise, editorExport,
-  editorGetExercise, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft, teacherLogin, teacherLogout,
+  editorGetExercise, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft, teacherLogin, teacherLogout,
 } from '../api.js';
 import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
@@ -16,6 +16,7 @@ import {
   FIELD_CHOICES, FIELD_STATES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, deducibleWarnings, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates,
   dimensionReadings, groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
+import { imageUrl } from './sheets-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
@@ -29,7 +30,7 @@ function freeId(wanted, taken) {
 
 const state = {
   connected: false,
-  images: null, // les photos disponibles (site/img/outils/index.json)
+  images: null, // les identifiants des photos disponibles (images « outil » de la base, non archivées)
   dirty: false, // des modifications non enregistrées sur la page courante
 };
 
@@ -237,8 +238,8 @@ function toolForm(tool, ctx) {
   const operationSelect = el('select', { id: `${p}-operation` }, ops.map((op) => el('option', { value: op.operation, selected: op.operation === tool.operation }, op.operation)));
   const isThread = () => ctx.opsByName.get(operationSelect.value)?.avance_egale_pas_filetage === true;
   const imageSelect = el('select', { id: `${p}-image` }, [el('option', { value: '' }, '(aucune photo)'), ...ctx.images.map((name) => el('option', { value: name, selected: name === (tool.image ?? '') }, name))]);
-  const photo = el('img', { class: 'outil-photo', src: `/img/outils/${tool.image ?? tool.id}.png`, alt: '', onerror: () => { photo.style.visibility = 'hidden'; } });
-  imageSelect.addEventListener('change', () => { photo.style.visibility = 'visible'; photo.src = `/img/outils/${imageSelect.value}.png`; });
+  const photo = el('img', { class: 'outil-photo', src: imageUrl(tool.image ?? tool.id), alt: '', onerror: () => { photo.style.visibility = 'hidden'; } });
+  imageSelect.addEventListener('change', () => { photo.style.visibility = 'visible'; photo.src = imageUrl(imageSelect.value); });
   const materials = checkboxes(`${p}-mat`, TOOL_MATERIALS.map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: materialSwatch, buttons: true });
   const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: groupSwatch, buttons: true });
   const template = el('input', { id: `${p}-format`, type: 'text', readonly: true, value: tool.format_identifiant ?? '' });
@@ -337,15 +338,11 @@ function toolForm(tool, ctx) {
   return { element, read, setErrors, fields, refreshExample: () => { fields.format_identifiant.noteEl.textContent = exampleNote(); } };
 }
 
-// Les photos disponibles (chargées une fois).
+// Les photos disponibles : les images « outil » de la base, non archivées (chargées une fois par page).
 async function loadImages() {
   if (state.images === null) {
-    try {
-      const response = await fetch('/img/outils/index.json');
-      state.images = (await response.json()).images.map((name) => name.replace(/\.png$/, ''));
-    } catch {
-      state.images = [];
-    }
+    const response = await guarded(() => editorImages('outil'));
+    state.images = (response?.images ?? []).filter((image) => image.archivee_le === null).map((image) => image.id);
   }
   return state.images;
 }
@@ -444,7 +441,7 @@ async function showExercise(id, notice = '') {
       form.row.setAttribute('data-erreur', count > 0 ? 'true' : 'false');
       form.summaryErrors.textContent = count > 0 ? `${count} erreur${count > 1 ? 's' : ''}` : '';
       form.summaryName.textContent = `${form.fields.nom.control.value.trim() || '(sans nom)'} · ${form.fields.reussites_requises.control.value || '?'} réussite(s) de suite`;
-      form.thumbnail.src = `/img/outils/${form.fields.image.control.value || form.read().id}.png`;
+      form.thumbnail.src = imageUrl(form.fields.image.control.value || form.read().id);
     });
     generalErrors.replaceChildren(...(map.get('') ?? []).map((message) => el('li', {}, message)));
     warningsList.replaceChildren(...deducibleWarnings(current).map((line) => el('li', {}, line)));
@@ -477,7 +474,7 @@ async function showExercise(id, notice = '') {
       const form = toolForm(copy, { tables, opsByName, images, copy: true, prefix: `o${i}` });
       form.summaryName = el('span', { class: 'muted' }, '');
       form.summaryErrors = el('span', { class: 'outil-erreurs' }, '');
-      form.thumbnail = el('img', { class: 'outil-vignette', src: `/img/outils/${copy.image ?? copy.id}.png`, alt: '', onerror: () => { form.thumbnail.style.visibility = 'hidden'; } });
+      form.thumbnail = el('img', { class: 'outil-vignette', src: imageUrl(copy.image ?? copy.id), alt: '', onerror: () => { form.thumbnail.style.visibility = 'hidden'; } });
       form.checkbox = el('input', { type: 'checkbox', 'aria-label': `Sélectionner ${copy.id}`, checked: selected.has(copy.id), onchange: () => { if (form.checkbox.checked) selected.add(copy.id); else selected.delete(copy.id); refreshSelection(); } });
       const swap = (j) => { copies = forms.map((f) => f.read()); [copies[i], copies[j]] = [copies[j], copies[i]]; touch(); renderTools(); };
       const buttons = el('div', { class: 'outil-actions' }, [

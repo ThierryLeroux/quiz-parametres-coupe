@@ -147,7 +147,7 @@ export function copyOfTool(tool, entry = {}) {
   const copy = {};
   for (const key of TOOL_KEYS) if (tool[key] !== undefined) copy[key] = structuredClone(tool[key]);
   copy.id = entry.id ?? tool.id;
-  copy.image = tool.image ?? tool.id; // la photo de l'outil (site/img/outils/<image>.png) : une copie renommée garde la sienne
+  copy.image = tool.image ?? tool.id; // la photo de l'outil (l'image /images/<image>, D56) : une copie renommée garde la sienne
   copy.dimensions = keep(copy.dimensions, entry.dimensions, (d) => d.libelle);
   copy.materiaux_outil = keep(copy.materiaux_outil, entry.materiaux_outil);
   copy.groupes_materiaux_usinables = keep(copy.groupes_materiaux_usinables, entry.groupes);

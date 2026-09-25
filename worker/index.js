@@ -28,6 +28,9 @@ import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
   cadenceFor, gradeQuestion, isNipLocked, isQuestionValid, isTestMode, later, sessionView,
 } from './seance.js';
+import {
+  ImageError, UPLOAD_BODY_MAX, encodeBase64, imageHeaders, imageUsages, imageView, isImageId, isUsed, readUpload, toBlob, toBytes, usagesText,
+} from './images.js';
 
 // Réponse JSON, jamais mise en cache : une réponse de l'API ne vaut que pour l'instant présent.
 function json(body, status = 200, headers = {}) {
@@ -834,17 +837,144 @@ async function editeurBanqueArchiver(request, env, { now }) {
   return json({ archive: body.archive, id: record.id });
 }
 
-// GET /api/prof/editeur/export — la sauvegarde complète : tables, banque, exercices et toutes leurs versions.
+// --- Images (jalon 7b, D56) : photos d'outils et pictogrammes d'opérations, en blob dans D1 ---------------------------
+
+// GET /images/<id> — public, sans cookie : le quiz affiche les photos et les pictogrammes. Servie
+// avec son type exact, nosniff, un cache d'un an (une image ne change jamais sous le même identifiant)
+// et, pour un SVG, une politique sans script (images.js). Une image archivée est toujours servie.
+async function serveImage(request, env, id) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Méthode refusée', { status: 405 });
+  const row = isImageId(id) ? await base.findImage(env.DB, id) : null;
+  if (row === null) return new Response('Aucune image sous cet identifiant.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+  const headers = imageHeaders(row);
+  if (request.headers.get('if-none-match') === headers.etag) return new Response(null, { status: 304, headers });
+  return new Response(request.method === 'HEAD' ? null : toBytes(row.contenu), { status: 200, headers });
+}
+
+// Où chaque image est utilisée : versions publiées, brouillons, banque, tables (pictogrammes).
+async function imageContext(env) {
+  return {
+    versions: await base.listVersionContents(env.DB),
+    exercices: await base.listExercises(env.DB),
+    banque: await base.listBankTools(env.DB),
+    tables: await base.listTables(env.DB),
+  };
+}
+
+// GET /api/prof/editeur/images[?usage=outil|operation] — la liste des images avec où chacune est utilisée.
+async function editeurImages(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const usage = new URL(request.url).searchParams.get('usage');
+  const context = await imageContext(env);
+  const rows = (await base.listImages(env.DB)).filter((row) => usage === null || row.usage === usage);
+  return json({ images: rows.map((row) => ({ ...imageView(row), utilisations: imageUsages(row.id, context) })) });
+}
+
+const imageDetails = (image) => `${image.id} · ${image.nom} · ${image.usage} · ${image.type} · ${image.taille} octets`;
+
+// POST /api/prof/editeur/images/televerser — { nom, usage, type, contenu (base64) } : le navigateur a
+// déjà réduit l'image ; le serveur vérifie le type sur les octets, assainit un SVG, et ne stocke pas
+// deux fois le même contenu (empreinte) : un doublon rend l'image existante, avec « existante: true ».
+async function editeurImageTeleverser(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, UPLOAD_BODY_MAX);
+  let upload;
+  try {
+    upload = await readUpload(body);
+  } catch (error) {
+    if (error instanceof ImageError) throw new HttpError(400, error.message);
+    throw error;
+  }
+  const existing = await base.findImageByHash(env.DB, upload.empreinte);
+  if (existing !== null) return json({ image: imageView(existing), existante: true, retires: upload.retires });
+  const image = { id: upload.id, nom: upload.nom, usage: upload.usage, type: upload.type, taille: upload.taille, empreinte: upload.empreinte, contenu: toBlob(upload.bytes), creee_le: now.toISOString(), archivee_le: null };
+  const created = await base.createImage(env.DB, image, logEntry(teacher, now, 'editeur_image_televersement', imageDetails(image)));
+  if (!created) throw new HttpError(409, "Cette image vient d'être téléversée par une autre requête : recharge la liste.");
+  return json({ image: imageView(await base.findImageMeta(env.DB, image.id)), existante: false, retires: upload.retires });
+}
+
+// La fiche d'une image de l'éditeur, ou 404.
+async function editorImage(env, id) {
+  const row = isImageId(id) ? await base.findImageMeta(env.DB, id) : null;
+  if (row === null) throw new HttpError(404, "Cette image n'existe pas.");
+  return row;
+}
+
+// POST /api/prof/editeur/images/archiver — { id, archive: true|false } : retirée du choix, toujours servie.
+async function editeurImageArchiver(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const row = await editorImage(env, body.id);
+  if (typeof body.archive !== 'boolean') throw new HttpError(400, '« archive » doit être true ou false.');
+  await base.archiveImage(env.DB, row.id, body.archive ? now.toISOString() : null, logEntry(teacher, now, body.archive ? 'editeur_image_archivage' : 'editeur_image_retablissement', `${row.id} · ${row.nom}`));
+  return json({ archive: body.archive, id: row.id });
+}
+
+// POST /api/prof/editeur/images/renommer — { id, nom } : le nom lisible seulement.
+async function editeurImageRenommer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const row = await editorImage(env, body.id);
+  if (typeof body.nom !== 'string' || body.nom.trim() === '') throw new HttpError(400, 'Le nom est requis.');
+  const nom = body.nom.trim().slice(0, 80);
+  await base.renameImage(env.DB, row.id, nom, logEntry(teacher, now, 'editeur_image_renommage', `${row.id} · « ${row.nom} » → « ${nom} »`));
+  return json({ renomme: true, id: row.id, nom });
+}
+
+// POST /api/prof/editeur/images/supprimer — { id } : seulement si l'image n'est utilisée nulle part
+// (version publiée, brouillon, banque, tables) ; sinon 409, et c'est « archiver » qu'il faut.
+async function editeurImageSupprimer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const row = await editorImage(env, body.id);
+  const usages = imageUsages(row.id, await imageContext(env));
+  if (isUsed(usages)) throw new HttpError(409, `Cette image est utilisée (${usagesText(usages)}) : elle ne peut pas être supprimée, seulement archivée.`, { utilisations: usages });
+  await base.deleteImage(env.DB, row.id, logEntry(teacher, now, 'editeur_image_suppression', `${row.id} · ${row.nom}`));
+  return json({ supprimee: true, id: row.id });
+}
+
+// POST /api/prof/editeur/images/importer — { image: { id, nom, usage, type, empreinte, contenu (base64), creee_le, archivee_le } } :
+// une image d'un export, envoyée à part avant l'import (D59) pour rester sous la limite des requêtes.
+// L'identifiant et l'empreinte sont ceux de l'export ; le contenu doit avoir cette empreinte. Une image
+// déjà là sous cet identifiant avec la même empreinte ne change pas (rien à faire) ; avec une autre, refusée.
+async function editeurImageImporter(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, UPLOAD_BODY_MAX);
+  const image = body.image;
+  if (!isImageId(image?.id) || typeof image.empreinte !== 'string') throw new HttpError(400, "L'image de l'export est illisible (identifiant ou empreinte).");
+  let upload;
+  try {
+    upload = await readUpload({ nom: image.nom, usage: image.usage, type: image.type, contenu: image.contenu });
+  } catch (error) {
+    if (error instanceof ImageError) throw new HttpError(400, `Image « ${image.id} » : ${error.message}`);
+    throw error;
+  }
+  if (upload.empreinte !== image.empreinte) throw new HttpError(400, `Image « ${image.id} » : le contenu n'a pas l'empreinte annoncée par l'export.`);
+  const existing = await base.findImageMeta(env.DB, image.id);
+  if (existing !== null) {
+    if (existing.empreinte !== image.empreinte) throw new HttpError(409, `Image « ${image.id} » : la base en a une autre sous le même identifiant ; une image ne change jamais sous le même identifiant.`);
+    return json({ importee: false, id: image.id, existante: true });
+  }
+  const stored = { id: image.id, nom: upload.nom, usage: upload.usage, type: upload.type, taille: upload.taille, empreinte: upload.empreinte, contenu: toBlob(upload.bytes), creee_le: typeof image.creee_le === 'string' ? image.creee_le : now.toISOString(), archivee_le: typeof image.archivee_le === 'string' ? image.archivee_le : null };
+  const created = await base.createImage(env.DB, stored, logEntry(teacher, now, 'editeur_image_import', imageDetails(stored)));
+  if (!created) throw new HttpError(409, `Image « ${image.id} » : vient d'être créée par une autre requête.`);
+  return json({ importee: true, id: image.id, existante: false });
+}
+
+// GET /api/prof/editeur/export — la sauvegarde complète : tables, banque, exercices et toutes leurs versions, et les images (contenu en base64).
 async function editeurExport(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const data = await base.exportEditorData(env.DB);
-  await base.addTeacherLog(env.DB, logEntry(teacher, now, 'editeur_export', `${data.exercices.length} exercice(s) · ${data.banque.length} outil(s)`));
-  return json({ format: EXPORT_FORMAT, exporte_le: now.toISOString(), version_serveur: pkg.version, ...data });
+  const images = (await base.listImagesWithContent(env.DB)).map((row) => ({ ...imageView(row), contenu: encodeBase64(toBytes(row.contenu)) }));
+  await base.addTeacherLog(env.DB, logEntry(teacher, now, 'editeur_export', `${data.exercices.length} exercice(s) · ${data.banque.length} outil(s) · ${images.length} image(s)`));
+  return json({ format: EXPORT_FORMAT, exporte_le: now.toISOString(), version_serveur: pkg.version, ...data, images });
 }
 
-// Le plan d'un import, à partir d'un export reçu et de ce que la base contient.
+// Le plan d'un import, à partir d'un export reçu et de ce que la base contient. Les images de
+// l'export (fiches, sans contenu ou avec) sont comparées aux fiches en base : celles qui manquent
+// doivent être envoyées à part (images/importer) avant l'import.
 async function planImport(env, received) {
-  const existing = await base.exportEditorData(env.DB);
+  const existing = { ...await base.exportEditorData(env.DB), images: await base.listImages(env.DB) };
   return importPlan(received, existing, {
     tablesErrors: (t) => validateData({ materiaux: t.materiaux, operations: t.operations, outils: { outils: [] } }).filter((m) => !m.startsWith('outils')),
     draftErrorsOf: (contenu, tables) => draftErrors(contenu, tables),
@@ -867,6 +997,7 @@ async function editeurImport(request, env, { now }) {
   const body = await readBody(request, EDITOR_BODY_MAX);
   const { erreurs, plan, resume } = await planImport(env, body.export);
   if (erreurs.length > 0) throw new HttpError(400, "L'export a des erreurs : rien n'a été importé.", { erreurs });
+  if (resume.images_manquantes.length > 0) throw new HttpError(400, `${resume.images_manquantes.length} image(s) de l'export ne sont pas encore dans la base : elles doivent être envoyées d'abord (images/importer). Rien n'a été importé.`, { images_manquantes: resume.images_manquantes });
   const word = importWord(resume);
   if (body.confirmation !== word) {
     const why = resume.banque.retires.length > 0 ? ` — ${resume.banque.retires.length} outil(s) de la banque disparaîtraient : ${resume.banque.retires.map((t) => t.nom).join(', ')}` : '';
@@ -922,6 +1053,12 @@ const ROUTES = {
   'POST /api/prof/editeur/banque/creer': editeurBanqueCreer,
   'POST /api/prof/editeur/banque/enregistrer': editeurBanqueEnregistrer,
   'POST /api/prof/editeur/banque/archiver': editeurBanqueArchiver,
+  'GET /api/prof/editeur/images': editeurImages,
+  'POST /api/prof/editeur/images/televerser': editeurImageTeleverser,
+  'POST /api/prof/editeur/images/archiver': editeurImageArchiver,
+  'POST /api/prof/editeur/images/renommer': editeurImageRenommer,
+  'POST /api/prof/editeur/images/supprimer': editeurImageSupprimer,
+  'POST /api/prof/editeur/images/importer': editeurImageImporter,
   'GET /api/prof/editeur/export': editeurExport,
   'POST /api/prof/editeur/import/valider': editeurImportValider,
   'POST /api/prof/editeur/import': editeurImport,
@@ -940,6 +1077,16 @@ const REAL_TOOLS = () => ({ now: new Date(), random: Math.random, randomBytes: (
 
 export async function handle(request, env, tools = REAL_TOOLS()) {
   const { pathname } = new URL(request.url);
+  // /images/<id> : les photos et pictogrammes, lus dans D1 (D56). Tout le reste hors /api/ vient de site/.
+  const image = pathname.match(/^\/images\/([^/]+)$/);
+  if (image) {
+    try {
+      return await serveImage(request, env, decodeURIComponent(image[1]));
+    } catch (error) {
+      console.error(error);
+      return new Response('Erreur du serveur.', { status: 500, headers: { 'cache-control': 'no-store' } });
+    }
+  }
   if (pathname !== '/api' && !pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
 
   if (pathname === '/api/version' && request.method === 'GET') return json({ version: pkg.version });

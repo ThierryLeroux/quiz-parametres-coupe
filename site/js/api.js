@@ -203,6 +203,15 @@ export const editorBankCreate = (body, request) => editor('POST', 'banque/creer'
 export const editorBankSave = (id, revision, outil, request) => editor('POST', 'banque/enregistrer', { id, revision, outil }, request);
 export const editorBankArchive = (id, archive, request) => editor('POST', 'banque/archiver', { id, archive }, request);
 
+// Images (D56) : la liste avec les utilisations ({ images }), le téléversement ({ image, existante, retires }),
+// archiver, renommer, supprimer (409 si utilisée), et l'envoi d'une image d'un export avant l'import (D59).
+export const editorImages = (usage, request) => editor('GET', `images${usage ? `?usage=${encodeURIComponent(usage)}` : ''}`, undefined, request);
+export const editorImageUpload = (body, request) => editor('POST', 'images/televerser', body, request);
+export const editorImageArchive = (id, archive, request) => editor('POST', 'images/archiver', { id, archive }, request);
+export const editorImageRename = (id, nom, request) => editor('POST', 'images/renommer', { id, nom }, request);
+export const editorImageDelete = (id, request) => editor('POST', 'images/supprimer', { id }, request);
+export const editorImageImport = (image, request) => editor('POST', 'images/importer', { image }, request);
+
 // Sauvegarde : l'export complet ; la validation d'un export ({ erreurs, resume }) ; l'import ({ importe: true, resume }).
 export const editorExport = (request) => editor('GET', 'export', undefined, request);
 export const editorImportValidate = (exported, request) => editor('POST', 'import/valider', { export: exported }, request);
