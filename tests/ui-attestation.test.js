@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PAGE_LAYOUT, attestationFacts, materialColumnWidth, rowHeight, attestationFileName, attestationFooter, attestationRows, continuationLine, hasQuestions,
+  PAGE_LAYOUT, attestationFacts, exerciseVersionLabel, materialColumnWidth, rowHeight, attestationFileName, attestationFooter, attestationRows, continuationLine, hasQuestions,
   materialText, pageLabel, paginateQuestions, questionColumns, questionRows, tablesRevision, verificationMention, verificationOutcome,
 } from '../site/js/ui/attestation-data.js';
 import { qrModules } from '../site/js/ui/qr.js';
@@ -47,6 +47,14 @@ test('attestationFacts : le bloc d’informations, dans l’ordre, dates mises e
     { label: "Réussite de l'exercice", value: '2026-09-21 13:48' },
     { label: 'Questions réussies', value: '15' },
   ]);
+});
+
+test('exerciseVersionLabel (D50) : une version publiée numérotée s’écrit « version 1 » ; une attestation figée avant le jalon 7a garde « r0 »', () => {
+  assert.equal(exerciseVersionLabel('1'), 'version 1');
+  assert.equal(exerciseVersionLabel('12'), 'version 12');
+  assert.equal(exerciseVersionLabel('r0'), 'r0');
+  assert.deepEqual(attestationFacts({ ...RECORD, revision: '2' }).slice(1, 3), [{ label: "Version de l'exercice", value: 'version 2' }, { label: 'Révision des tables', value: 'A2026_r0' }]);
+  assert.deepEqual(attestationFacts(RECORD)[1], { label: "Version de l'exercice", value: 'r0' }); // inchangée
 });
 
 test('tablesRevision : une seule révision si les deux tables ont la même, les deux sinon, « — » sans révision (ancien enregistrement)', () => {

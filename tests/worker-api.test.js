@@ -751,7 +751,8 @@ test('réussite : l’attestation est figée à l’instant de la dernière réu
   assert.match(ligne.signature, /^[A-Za-z0-9_-]{43}$/);
   assert.deepEqual(ligne.enregistrement.etudiant, { prenom: 'Camille', nom: 'Tremblay', matricule: '2412346' });
   assert.deepEqual(ligne.enregistrement.exercice, { id: M10, titre: m10.titre });
-  assert.equal(ligne.enregistrement.revision, VERSION_1);
+  assert.equal(ligne.enregistrement.revision, VERSION_1); // le numéro de la version publiée (D47, D50 : affiché « version 1 »)
+  assert.deepEqual(ligne.enregistrement.revision_tables, { materiaux: 'A2026_r0', operations: 'A2026_r0' }); // la révision des tables de la version (D28, D50)
   assert.equal(ligne.enregistrement.questions_reussies, 15);
   assert.equal(ligne.enregistrement.reussite_le, seance.reussite_le);
   assert.equal(ligne.enregistrement.debut, seance.debut);

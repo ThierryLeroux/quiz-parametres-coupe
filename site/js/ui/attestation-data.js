@@ -12,12 +12,18 @@ export function tablesRevision(record) {
   return materiaux === operations ? materiaux : `vitesses ${materiaux} · avances ${operations}`;
 }
 
+// La version de l'exercice telle qu'elle s'affiche (D50) : depuis le jalon 7a, une version publiée est
+// un numéro (« 1 ») et s'écrit « version 1 » ; une attestation figée avant (« r0 ») reste telle quelle.
+export function exerciseVersionLabel(revision) {
+  return /^\d+$/.test(String(revision)) ? `version ${revision}` : String(revision);
+}
+
 // Lignes du bloc d'informations, dans l'ordre d'affichage : [libellé, valeur].
 //   mono : la valeur s'écrit en chasse fixe (matricule, code)
 export function attestationFacts(record) {
   return [
     { label: 'Exercice', value: record.exercice.titre },
-    { label: "Version de l'exercice", value: record.revision },
+    { label: "Version de l'exercice", value: exerciseVersionLabel(record.revision) },
     { label: 'Révision des tables', value: tablesRevision(record) },
     { label: 'Prénom', value: record.etudiant.prenom },
     { label: 'Nom', value: record.etudiant.nom },
