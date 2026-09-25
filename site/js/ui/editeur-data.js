@@ -20,6 +20,22 @@ export const FIELD_CHOICES = [
 // Les matières d'outil, dans l'ordre de la table des Vc.
 export const TOOL_MATERIALS = Object.keys(TOOL_MATERIAL_KEYS);
 
+// --- Couleurs de sens (UI §1), les mêmes que les feuilles de référence : les variables de tokens.css ----------------
+
+// La pastille d'une matière d'outil : la couleur de l'en-tête de colonne de la table des Vc.
+export function materialSwatch(label) {
+  const key = TOOL_MATERIAL_KEYS[label];
+  return { background: `var(--tool-${key.replaceAll('_', '-')})`, text: '#000000', letter: '' };
+}
+
+// La pastille d'un groupe de matériaux usinés : la lettre de sa classe ISO sur la couleur vive de la
+// classe (le rouge K éclairci pour le fond nuit, comme le panneau du matériau brut).
+export function groupSwatch(group) {
+  const letter = String(group).trim().charAt(0).toUpperCase();
+  const iso = letter.toLowerCase();
+  return { background: `var(--iso-${iso}${iso === 'k' ? '-night' : ''})`, text: `var(--iso-${iso}-text)`, letter };
+}
+
 // --- Liste des exercices --------------------------------------------------------------------------------------------
 
 // L'état d'un exercice, en clair : « Jamais publié », « Brouillon modifié », « À jour », « Archivé ».

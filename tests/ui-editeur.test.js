@@ -2,10 +2,11 @@
 // versions, dimensions en texte, exemple du gabarit, erreurs par champ, aperçu, sauvegarde — sans DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FIELD_CHOICES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  importSummaryLines, importWordFor, parseDimensions, previewColumns, previewRows, publishState, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
 import { IMPORT_WORD as SERVER_IMPORT_WORD, REPLACE_WORD as SERVER_REPLACE_WORD } from '../worker/editeur.js';
@@ -101,6 +102,18 @@ test('exampleIdentifier : le gabarit résolu avec la première dimension, la pre
   assert.equal(exampleIdentifier({}, opsByName), '');
   assert.deepEqual(templateTokenList('Alésoir [IdDia] - [NbDent] lèvres'), ['IdDia', 'NbDent']);
   assert.deepEqual(templateTokenList(null), []);
+});
+
+test('groupSwatch et materialSwatch : les couleurs de sens de tokens.css, celles des feuilles de référence (UI §1)', () => {
+  assert.deepEqual(groupSwatch('P - Acier non allié'), { background: 'var(--iso-p)', text: 'var(--iso-p-text)', letter: 'P' });
+  assert.deepEqual(groupSwatch('K - Fonte grise'), { background: 'var(--iso-k-night)', text: 'var(--iso-k-text)', letter: 'K' }); // le rouge éclairci sur fond nuit
+  assert.deepEqual(groupSwatch('O - Graphite').letter, 'O');
+  assert.deepEqual(materialSwatch('Acier rapide'), { background: 'var(--tool-acier-rapide)', text: '#000000', letter: '' });
+  assert.equal(materialSwatch('Insert de carbure de tungstène').background, 'var(--tool-insert-carbure)');
+  // Chaque variable existe dans tokens.css.
+  const tokens = readFileSync(new URL('../site/css/tokens.css', import.meta.url), 'utf8');
+  for (const group of data.materialsByGroup.keys()) assert.ok(tokens.includes(`${groupSwatch(group).background.slice(4, -1)}:`), group);
+  for (const label of TOOL_MATERIALS) assert.ok(tokens.includes(`${materialSwatch(label).background.slice(4, -1)}:`), label);
 });
 
 test('errorsByField : regroupe par champ ; un champ sans place à l’écran va dans la liste générale, avec son nom', () => {

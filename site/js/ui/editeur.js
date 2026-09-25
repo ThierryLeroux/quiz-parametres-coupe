@@ -14,7 +14,7 @@ import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
 import {
   FIELD_CHOICES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  importSummaryLines, importWordFor, parseDimensions, previewColumns, previewRows, publishState, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
@@ -207,9 +207,24 @@ const readNumber = (input) => {
 };
 
 // Une liste de cases à cocher : retourne { element, read() → les valeurs cochées dans l'ordre des choix }.
-function checkboxes(idPrefix, choices, checked, { inline = false } = {}) {
+//   swatchOf : (clé) → { background, text, letter } — la pastille de couleur devant le libellé (matières, groupes)
+//   buttons  : « Tout cocher » / « Tout décocher » sous la liste
+function checkboxes(idPrefix, choices, checked, { inline = false, swatchOf = null, buttons = false } = {}) {
   const inputs = choices.map((choice, i) => el('input', { id: `${idPrefix}-${i}`, type: 'checkbox', value: choice.key, checked: checked.includes(choice.key) }));
-  const element = el('ul', { class: `choices${inline ? ' choices--inline' : ''}` }, choices.map((choice, i) => el('li', {}, el('label', { for: `${idPrefix}-${i}` }, [inputs[i], choice.label]))));
+  const swatch = (choice) => {
+    if (swatchOf === null) return '';
+    const s = swatchOf(choice.key);
+    return el('span', { class: 'choice-swatch', 'aria-hidden': 'true', style: `background: ${s.background}; color: ${s.text}` }, s.letter);
+  };
+  const list = el('ul', { class: `choices${inline ? ' choices--inline' : ''}` }, choices.map((choice, i) => el('li', {}, el('label', { for: `${idPrefix}-${i}` }, [inputs[i], swatch(choice), choice.label]))));
+  const setAll = (value) => { inputs.forEach((input) => { input.checked = value; }); list.dispatchEvent(new Event('change', { bubbles: true })); };
+  const element = el('div', { class: 'choices-block' }, [
+    list,
+    buttons ? el('div', { class: 'choices-actions' }, [
+      el('button', { class: 'button-link', type: 'button', onclick: () => setAll(true) }, 'Tout cocher'),
+      el('button', { class: 'button-link', type: 'button', onclick: () => setAll(false) }, 'Tout décocher'),
+    ]) : '',
+  ]);
   return { element, read: () => inputs.filter((input) => input.checked).map((input) => input.value) };
 }
 
@@ -224,8 +239,8 @@ function toolForm(tool, ctx) {
   const imageSelect = el('select', { id: `${p}-image` }, [el('option', { value: '' }, '(aucune photo)'), ...ctx.images.map((name) => el('option', { value: name, selected: name === (tool.image ?? '') }, name))]);
   const photo = el('img', { class: 'outil-photo', src: `/img/outils/${tool.image ?? tool.id}.png`, alt: '', onerror: () => { photo.style.visibility = 'hidden'; } });
   imageSelect.addEventListener('change', () => { photo.style.visibility = 'visible'; photo.src = `/img/outils/${imageSelect.value}.png`; });
-  const materials = checkboxes(`${p}-mat`, TOOL_MATERIALS.map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true });
-  const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? []);
+  const materials = checkboxes(`${p}-mat`, TOOL_MATERIALS.map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: materialSwatch, buttons: true });
+  const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: groupSwatch, buttons: true });
   const template = el('input', { id: `${p}-format`, type: 'text', readonly: true, value: tool.format_identifiant ?? '' });
   const exampleNote = () => `Exemple composé : ${exampleIdentifier(read(), ctx.opsByName)} — jetons : ${templateTokenList(template.value).join(', ') || 'aucun'}. Se modifie au jalon 7b.`;
 
@@ -345,8 +360,8 @@ async function showExercise(id, notice = '') {
   // Réglages généraux.
   const titre = el('input', { id: 'titre', type: 'text', autocomplete: 'off', value: draft.titre ?? '' });
   const fieldsChoice = checkboxes('champ', FIELD_CHOICES, draft.champs_evalues ?? [], { inline: true });
-  const materialsChoice = checkboxes('matiere', TOOL_MATERIALS.map((key) => ({ key, label: key })), draft.materiaux_outil ?? TOOL_MATERIALS, { inline: true });
-  const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso);
+  const materialsChoice = checkboxes('matiere', TOOL_MATERIALS.map((key) => ({ key, label: key })), draft.materiaux_outil ?? TOOL_MATERIALS, { inline: true, swatchOf: materialSwatch, buttons: true });
+  const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: groupSwatch, buttons: true });
   const listed = el('input', { id: 'liste', type: 'checkbox', checked: draft.liste !== false });
   const settings = {
     titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation.", 'field--half'),
