@@ -440,6 +440,67 @@ try {
     assert.equal((await appel('POST', '/api/reprise', { corps: CAMILLE })).corps.seance.exercice.version, '1');
   });
 
+  // --- Jalon 7b : les images en D1 (D56, D57, D59), sur une vraie D1 locale (le BLOB passe par workerd) ----
+
+  let imageNeuve;
+  await etape('images (D56) : la semence est servie par /images/<id> avec ses en-têtes ; un PNG téléversé est stocké en blob et servi ; un doublon rend l’existante', async () => {
+    const photo = await fetch(`${ORIGIN}/images/mvlnr`);
+    assert.equal(photo.status, 200);
+    assert.deepEqual([photo.headers.get('content-type'), photo.headers.get('cache-control'), photo.headers.get('x-content-type-options')], ['image/png', 'public, max-age=31536000, immutable', 'nosniff']);
+    const mvlnr = await readFile(join(ROOT, 'site', 'img', 'outils', 'mvlnr.png'));
+    assert.equal(Buffer.compare(Buffer.from(await photo.arrayBuffer()), mvlnr), 0);
+    const picto = await fetch(`${ORIGIN}/images/percage`);
+    assert.deepEqual([picto.headers.get('content-type'), picto.headers.get('content-security-policy')], ['image/svg+xml; charset=utf-8', "default-src 'none'; style-src 'unsafe-inline'; sandbox"]);
+    assert.equal((await fetch(`${ORIGIN}/images/inconnue`)).status, 404);
+    // Un PNG neuf (la photo du MVLNR avec un octet de plus) : stocké, servi à l'identique ; le même contenu encore → l'existante.
+    const contenu = Buffer.concat([mvlnr, Buffer.from([0x2a])]);
+    const televerse = await appel('POST', '/api/prof/editeur/images/televerser', { corps: { nom: 'photo neuve.png', usage: 'outil', type: 'image/png', contenu: contenu.toString('base64') }, cookie });
+    assert.equal(televerse.status, 200, JSON.stringify(televerse.corps));
+    imageNeuve = televerse.corps.image;
+    assert.deepEqual([televerse.corps.existante, imageNeuve.nom, imageNeuve.type, imageNeuve.taille], [false, 'photo neuve', 'image/png', contenu.length]);
+    assert.match(imageNeuve.id, /^img-[0-9a-f]{16}$/);
+    const servie = await fetch(`${ORIGIN}/images/${imageNeuve.id}`);
+    assert.equal(servie.status, 200);
+    assert.equal(Buffer.compare(Buffer.from(await servie.arrayBuffer()), contenu), 0);
+    const doublon = await appel('POST', '/api/prof/editeur/images/televerser', { corps: { nom: 'autre.png', usage: 'outil', type: 'image/png', contenu: contenu.toString('base64') }, cookie });
+    assert.deepEqual([doublon.corps.existante, doublon.corps.image.id], [true, imageNeuve.id]);
+    const liste = await appel('GET', '/api/prof/editeur/images', { cookie });
+    assert.equal(liste.corps.images.length, 49);
+    assert.deepEqual(liste.corps.images.find((i) => i.id === imageNeuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [] });
+  });
+
+  await etape('images : un SVG piégé est refusé (400), un SVG assaini est servi ; supprimer une image utilisée → 409, jamais utilisée → supprimée', async () => {
+    const piege = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><script>alert(1)</script></svg>';
+    const refus = await appel('POST', '/api/prof/editeur/images/televerser', { corps: { nom: 'piege.svg', usage: 'operation', type: 'image/svg+xml', contenu: Buffer.from(piege).toString('base64') }, cookie });
+    assert.deepEqual([refus.status, refus.corps.erreur], [400, 'SVG refusé : élément <script> (svg > script)']);
+    const propre = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><metadata>m</metadata><rect width="4" height="4" fill="#00B0F0"/></svg>';
+    const ok = await appel('POST', '/api/prof/editeur/images/televerser', { corps: { nom: 'lamage.svg', usage: 'operation', type: 'image/svg+xml', contenu: Buffer.from(propre).toString('base64') }, cookie });
+    assert.equal(ok.status, 200, JSON.stringify(ok.corps));
+    assert.deepEqual(ok.corps.retires, ['élément <metadata>']);
+    assert.equal(await (await fetch(`${ORIGIN}/images/${ok.corps.image.id}`)).text(), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="4" height="4" fill="#00B0F0"/></svg>');
+    assert.equal((await appel('POST', '/api/prof/editeur/images/supprimer', { corps: { id: 'mvlnr' }, cookie })).status, 409);
+    assert.deepEqual((await appel('POST', '/api/prof/editeur/images/supprimer', { corps: { id: ok.corps.image.id }, cookie })).corps, { supprimee: true, id: ok.corps.image.id });
+    assert.equal((await fetch(`${ORIGIN}/images/${ok.corps.image.id}`)).status, 404);
+  });
+
+  await etape('images et sauvegarde (D59) : l’export porte les 49 images ; après suppression de la neuve, l’import la réclame, la reçoit à part, puis l’aller-retour est identique', async () => {
+    const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
+    assert.equal(exporte.corps.images.length, 49);
+    const neuve = exporte.corps.images.find((i) => i.id === imageNeuve.id);
+    assert.equal(typeof neuve.contenu, 'string');
+    assert.deepEqual((await appel('POST', '/api/prof/editeur/images/supprimer', { corps: { id: imageNeuve.id }, cookie })).corps.supprimee, true);
+    const fiches = { ...exporte.corps, images: exporte.corps.images.map(({ contenu, ...fiche }) => fiche) };
+    const validation = await appel('POST', '/api/prof/editeur/import/valider', { corps: { export: fiches }, cookie });
+    assert.deepEqual([validation.corps.erreurs, validation.corps.resume.images_manquantes], [[], [imageNeuve.id]]);
+    assert.equal((await appel('POST', '/api/prof/editeur/import', { corps: { export: fiches, confirmation: 'IMPORTER' }, cookie })).status, 400);
+    assert.deepEqual((await appel('POST', '/api/prof/editeur/images/importer', { corps: { image: neuve }, cookie })).corps, { importee: true, id: imageNeuve.id, existante: false });
+    assert.equal((await appel('POST', '/api/prof/editeur/import', { corps: { export: fiches, confirmation: 'IMPORTER' }, cookie })).status, 200);
+    const apres = await appel('GET', '/api/prof/editeur/export', { cookie });
+    const sansDate = ({ exporte_le, ...rest }) => rest;
+    assert.deepEqual(sansDate(apres.corps), sansDate(exporte.corps));
+    assert.equal((await fetch(`${ORIGIN}/images/${imageNeuve.id}`)).status, 200);
+  });
+
   await etape('déconnexion professeur : le cookie est effacé', async () => {
     const deconnexion = await appel('POST', '/api/prof/deconnexion', { cookie });
     assert.deepEqual(deconnexion.corps, { deconnecte: true });
