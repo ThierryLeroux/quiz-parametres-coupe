@@ -147,6 +147,19 @@
 
 .field-note div { margin-top: 2px; }
 
+/* Grandeur masquée (D52) : un tiret à la place de la case, sans valeur ni saisie. */
+.field--masked .field-dash {
+  display: flex;
+  align-items: center;
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-input-provided-border);
+  background: var(--color-input-provided-bg);
+  color: var(--color-text-muted);
+  font-family: var(--font-number);
+  font-size: var(--text-lg);
+}
+
 /* Aide contextuelle : la méthode, jamais la valeur. Apparaît quand une case reçoit le focus. */
 .help-line {
   display: flex;

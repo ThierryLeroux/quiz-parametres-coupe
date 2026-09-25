@@ -120,8 +120,18 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     help.hidden = false;
   }
 
-  const fields = question.champs.map(({ champ, evalue, texte }) => {
+  const fields = question.champs.map(({ champ, evalue, masque, texte }) => {
     const { name, symbol, unit, picto: pictoName } = FIELD_PARTS[champ];
+    // Grandeur masquée (D52) : « — », sans valeur ni champ de saisie.
+    if (masque) {
+      notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, 'non demandée');
+      boxes[champ] = el('div', { class: 'field field--number field--provided field--masked' }, [
+        el('div', { class: 'field-label' }, [picto(pictoName), el('span', {}, [el('span', { class: 'field-name' }, name), el('small', {}, `${symbol} · ${unit}`)])]),
+        el('div', { class: 'field-dash', 'aria-describedby': `${champ}-note` }, '—'),
+        notes[champ],
+      ]);
+      return boxes[champ];
+    }
     inputs[champ] = el('input', {
       id: champ,
       name: champ,
@@ -183,6 +193,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   function showCorrection({ correction, seance: next }) {
     const correctedAt = Date.now();
     for (const champ of correction.champs) {
+      if (!inputs[champ.champ]) continue; // grandeur masquée : rien à corriger ni à montrer
       inputs[champ.champ].readOnly = true;
       notes[champ.champ].replaceChildren(fieldResultNote(champ), champ.evalue && !champ.ok && champ.calcul ? el('div', {}, champ.calcul) : '');
       if (champ.evalue) boxes[champ.champ].classList.add(champ.ok ? 'field--correct' : 'field--wrong');

@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
-  FIELD_CHOICES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates, fieldStatesText,
+  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
 import { IMPORT_WORD as SERVER_IMPORT_WORD, REPLACE_WORD as SERVER_REPLACE_WORD } from '../worker/editeur.js';
@@ -139,10 +139,22 @@ test('errorsByField : regroupe par champ ; un champ sans place à l’écran va 
   assert.deepEqual([...map.entries()], [['titre', ['vide']], ['outils.1.fact_vc', ['> 0', 'encore']], ['', ['inconnue : clé inconnue']]]);
 });
 
-test('previewColumns et previewRows : une colonne par grandeur évaluée, le matériau usiné en clair', () => {
-  assert.deepEqual(previewColumns(['vc', 'n']), ['N°', 'Outil (nomenclature composée)', "Matière d'outil", 'Matériau usiné', 'Vitesse de coupe (Vc)', 'RPM (N)']);
-  const rows = previewRows([{ identifiant: 'MVLNR - Ø charioté: 2.000"', materiau_outil: 'Insert de carbure de tungstène', materiau: { classe: 'P', groupe: 1, materiau: 'Acier non allié', etat: 'Recuit' }, reponses: { vc: '400', rpm: '800' } }], ['vc', 'n']);
-  assert.deepEqual(rows, [['1', 'MVLNR - Ø charioté: 2.000"', 'Insert de carbure de tungstène', 'P 1 — Acier non allié, Recuit', '400', '800']]);
+test('previewColumns et previewRows : les cinq grandeurs avec leur état (D52) ; réponse attendue si évaluée, valeur si fournie, « — » si masquée', () => {
+  assert.deepEqual(previewColumns(['vc', 'n'], ['fz']), ['N°', 'Outil (nomenclature composée)', "Matière d'outil", 'Matériau usiné', 'Vitesse de coupe (Vc) · évaluée', 'Avance par dent (fz) · masquée', 'RPM (N) · évaluée', 'Avance par révolution (f) · fournie', "Vitesse d'avance (Vf) · fournie"]);
+  const question = { identifiant: 'MVLNR - Ø charioté: 2.000"', materiau_outil: 'Insert de carbure de tungstène', materiau: { classe: 'P', groupe: 1, materiau: 'Acier non allié', etat: 'Recuit' }, reponses: { vc: '400', rpm: '800' }, fournies: { feedPerRev: '0.0050', feedRate: '4.000' } };
+  assert.deepEqual(previewRows([question], ['vc', 'n'], ['fz']), [['1', 'MVLNR - Ø charioté: 2.000"', 'Insert de carbure de tungstène', 'P 1 — Acier non allié, Recuit', '400', '—', '800', '0.0050', '4.000']]);
+});
+
+test('fieldStates, statesToDraft, fieldStatesText (D52) : trois états par grandeur, aller-retour avec le brouillon', () => {
+  assert.deepEqual(FIELD_STATES.map((s) => s.key), ['evaluee', 'fournie', 'masquee']);
+  assert.deepEqual(fieldStates({ champs_evalues: ['vc', 'n'], champs_masques: ['f'] }), { vc: 'evaluee', fz: 'fournie', n: 'evaluee', f: 'masquee', vf: 'fournie' });
+  assert.deepEqual(fieldStates({ champs_evalues: ['vc'] }), { vc: 'evaluee', fz: 'fournie', n: 'fournie', f: 'fournie', vf: 'fournie' });
+  assert.deepEqual(statesToDraft({ vc: 'evaluee', fz: 'masquee', n: 'evaluee', f: 'fournie', vf: 'masquee' }), { champs_evalues: ['vc', 'n'], champs_masques: ['fz', 'vf'] });
+  assert.deepEqual(statesToDraft({ vc: 'evaluee', fz: 'fournie', n: 'fournie', f: 'fournie', vf: 'fournie' }), { champs_evalues: ['vc'] }); // sans clé champs_masques
+  assert.equal(fieldStatesText({ champs_evalues: ['vc', 'n'], champs_masques: ['f'] }), 'Vc évaluée · fz fournie · N évaluée · f masquée · Vf fournie');
+  const avant = { ...brouillon() };
+  const apres = { ...brouillon(), champs_masques: ['fz', 'f', 'vf'] };
+  assert.deepEqual(diffLines(versionDiff(avant, apres)), ['Grandeurs : « Vc évaluée · fz fournie · N fournie · f fournie · Vf fournie » → « Vc évaluée · fz masquée · N fournie · f masquée · Vf masquée »']);
 });
 
 test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases', () => {

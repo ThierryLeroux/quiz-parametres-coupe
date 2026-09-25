@@ -5,7 +5,7 @@
 
 import { computeParameters } from '../site/js/calcul.js';
 import { TOOL_KEYS } from '../site/js/data.js';
-import { DRAFT_KEYS, draftErrors, fieldsToGrade } from '../site/js/exercice.js';
+import { DRAFT_KEYS, draftErrors, fieldsToGrade, maskedFields } from '../site/js/exercice.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools } from '../site/js/progression.js';
 import { generateQuestion } from '../site/js/question.js';
@@ -65,6 +65,8 @@ function canonicalText(value) {
 export function previewQuestions(exercise, data, random, count = 10) {
   const tools = eligibleTools(exercise, data, { exerciceId: exercise.id, reussites: {}, totalReussies: 0 });
   const graded = fieldsToGrade(exercise);
+  const masked = maskedFields(exercise);
+  const provided = ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate'].filter((field) => !graded.includes(field) && !masked.includes(field));
   return Array.from({ length: count }, () => {
     const question = generateQuestion(data, tools, random);
     const displayed = formatParameters(computeParameters(question, data));
@@ -79,6 +81,7 @@ export function previewQuestions(exercise, data, random, count = 10) {
       materiau_outil: question.toolMaterial.label,
       materiau: { classe: question.material.iso, groupe: question.material.groupe, materiau: question.material.materiau, etat: question.material.etat },
       reponses: Object.fromEntries(graded.map((field) => [field, displayed[field]])),
+      fournies: Object.fromEntries(provided.map((field) => [field, displayed[field]])), // les grandeurs fournies (D52) ; les masquées n'y sont pas
     };
   });
 }

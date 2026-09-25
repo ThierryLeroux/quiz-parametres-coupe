@@ -1219,3 +1219,31 @@ Points tranchés par Thierry :
 
 **Conséquences.** `POST /api/prof/editeur/exercice/deplacer`, `base.renumberExercises`,
 `exercices.rang` dans les listes et l'export ; SPEC §7 (API), §10 ; UI §3.9 ; PLAN (7b) ; CLAUDE.md.
+
+## D52 — Trois états par grandeur : évaluée, fournie, masquée (2026-09-24, décidée)
+
+**Contexte.** Un exercice ne distinguait que les grandeurs évaluées (à saisir) des autres, toutes
+pré-remplies. Thierry veut pouvoir **masquer** une grandeur qui ne sert pas à l'exercice : ni
+saisie, ni valeur montrée.
+
+**Décision.**
+
+- Chaque grandeur (Vc, fz, N, f, Vf) prend un état : **évaluée** (saisie et corrigée), **fournie**
+  (valeur théorique montrée, comptée juste) ou **masquée**. Au moins une grandeur évaluée.
+- Une grandeur masquée s'affiche **« — »** dans l'écran Question, sans valeur, sans champ de saisie,
+  note « non demandée » ; **sa valeur ne figure nulle part dans les réponses de l'API** au
+  navigateur : ni dans la question (`texte` vide, `masque: true`), ni dans la correction (`attendu`
+  nul), ni dans les calculs en une ligne, où elle s'écrit « — » (« Vf = N × f = — × — »).
+- Pour la correction, une grandeur masquée se traite **comme une grandeur fournie** : sa valeur
+  théorique entre dans le contrôle de cohérence de Vf (SPEC §6, D15), et elle compte juste.
+- Format d'exercice (fichier et brouillon) : la clé facultative `champs_masques`, liste de
+  grandeurs du schéma, sans doublon, disjointe de `champs_evalues`. Les deux M10 semés n'en ont pas :
+  leurs grandeurs non évaluées restent fournies. L'export la porte (dans le brouillon) ; l'aperçu
+  indique l'état de chaque grandeur et ne porte ni réponse ni valeur pour une masquée ; la liste des
+  différences à la publication compare les états (« Grandeurs : « Vc évaluée · fz fournie … » → … »).
+- L'éditeur : une ligne par grandeur avec trois boutons radio (évaluée, fournie, masquée).
+
+**Conséquences.** `maskedFields` et `champs_masques` (`exercice.js`), `questionView` et
+`correctionView` (`seance.js`), l'écran Question (`field--masked`), `fieldStates`,
+`statesToDraft`, `previewColumns` (`editeur-data.js`) ; SPEC §7, §10 ; UI §3.3, §3.9. Tests :
+aucune valeur masquée dans les réponses de l'API, correction inchangée pour les M10.

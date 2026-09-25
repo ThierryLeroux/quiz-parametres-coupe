@@ -437,12 +437,16 @@ porte toute la sauvegarde).
     "dimension": "2.000\"",
     "materiau": { "iso", "groupe", "materiau", "composition", "etat", "durete", "exemple" },
     "champs": [ { "champ": "vc", "evalue": true, "texte": "" },
+                { "champ": "feedPerTooth", "evalue": false, "masque": true, "texte": "" },
                 { "champ": "rpm", "evalue": false, "texte": "800" } ]
   }
 }
 ```
 
-Un champ non évalué arrive avec sa valeur théorique mise en forme (§5, §10).
+Un champ non évalué arrive avec sa valeur théorique mise en forme (§5, §10) —
+sauf un champ **masqué** (D52, `masque: true`) : `texte` vide, et sa valeur ne
+figure nulle part, ni dans la question, ni dans la correction (`attendu` nul,
+« — » dans les calculs).
 `attendre_s` : secondes avant que la prochaine correction soit acceptée
 (cadence ; 0 en mode test) — le navigateur en fait un **compte à rebours** sur le
 bouton Vérifier (« Vérifier dans 7 s »), à la place d'un message ; un refus 429
@@ -841,6 +845,7 @@ second ; `engineExercise` rend le second au moteur.
 | `titre` | oui | texte affiché à l'étudiant et au rapport |
 | `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
 | `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
+| `champs_masques` | non | grandeurs **masquées** (D52) : « — » à l'écran, sans valeur, jamais envoyée au navigateur ; liste non vide, sans doublon, disjointe de `champs_evalues`. Absente = aucune |
 | `outils` | oui | au moins un ; chaque `id` une seule fois |
 | `liste` | non | `false` retire l'exercice de la liste de l'accueil (D18) ; il reste joignable par `?exercice=<id>`. Pour les exercices d'essai (D30). Absent = listé |
 | `materiaux_outil` | non | restreint le tirage du matériau d'outil pour **tous** les outils de l'exercice (D40) ; chacun doit être un matériau d'outil du catalogue (§3). Se croise avec les matériaux de chaque outil et avec `outils[].materiaux_outil` ; un outil qui n'aurait plus aucune matière permise rend l'exercice invalide (le message nomme l'outil, ce qu'il offre et ce que l'exercice permet) |
@@ -852,10 +857,13 @@ second ; `engineExercise` rend le second au moteur.
 
 Précisions :
 
-- **Champs évalués et pré-remplis.** Les cinq champs sont toujours affichés,
-  dans l'ordre Vc, fz, N, f, Vf. Ceux de `champs_evalues` sont saisis et
-  corrigés (§6) ; les autres sont **pré-remplis** avec la valeur théorique mise
-  en forme (§5) et comptent comme corrects. Correspondance avec le moteur :
+- **Champs évalués, fournis et masqués (D52).** Les cinq champs sont toujours
+  affichés, dans l'ordre Vc, fz, N, f, Vf. Ceux de `champs_evalues` sont saisis et
+  corrigés (§6) ; ceux de `champs_masques` s'affichent « — », sans valeur ni
+  saisie, et leur valeur ne part jamais au navigateur ; les autres sont
+  **fournis** : pré-remplis avec la valeur théorique mise en forme (§5). Fournis
+  et masqués comptent comme corrects, et leur valeur théorique sert au contrôle
+  de cohérence de Vf (§6). Correspondance avec le moteur :
   `vc` → `vc`, `fz` → `feedPerTooth`, `n` → `rpm`, `f` → `feedPerRev`,
   `vf` → `feedRate`.
 - **Restrictions absentes = aucune restriction** : toutes les dimensions, tous
@@ -917,8 +925,8 @@ immuables. Brouillon et version ont la même forme :
 }
 ```
 
-- `materiaux_outil`, `groupes` et `liste` sont facultatifs, avec le même sens que
-  dans le fichier d'exercice ; `titre`, `champs_evalues` et `outils` sont
+- `champs_masques`, `materiaux_outil`, `groupes` et `liste` sont facultatifs, avec le
+  même sens que dans le fichier d'exercice ; `titre`, `champs_evalues` et `outils` sont
   obligatoires ; la **version** n'est pas dans le contenu : c'est le numéro attribué
   à la publication.
 - Chaque entrée d'`outils` est une **copie complète** d'un outil (toutes les clés

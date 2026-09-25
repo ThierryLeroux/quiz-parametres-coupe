@@ -123,6 +123,7 @@ export const FIELD_PARTS = {
 // Note sous un champ corrigé (UI §3.4) : « Juste », « Juste (2496 attendu) » si la saisie diffère de
 // la valeur attendue mais est tolérée, « Faux — attendu 12.500 » ; un champ fourni garde sa mention.
 export function fieldResultNote(champ) {
+  if (champ.masque) return 'non demandée';
   if (!champ.evalue) return "fourni par l'exercice";
   if (!champ.ok) return `Faux — attendu ${champ.attendu}`;
   const typed = champ.saisie.replace(/\s/g, '').replace(',', '.');

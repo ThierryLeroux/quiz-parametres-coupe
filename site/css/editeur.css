@@ -90,6 +90,12 @@
 }
 
 .choices-actions { display: flex; gap: var(--space-4); margin-top: var(--space-1); }
+
+/* Un état par grandeur (D52) : le nom, puis trois boutons radio sur la même ligne. */
+.choices--etats { grid-template-columns: minmax(0, 1fr); }
+.etat-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.etat-nom { flex: 0 0 240px; font-size: var(--text-sm); font-weight: 600; }
+.etat-ligne input[type='radio'] { width: 18px; height: 18px; accent-color: var(--color-accent); }
 .choices-actions .button-link { min-height: 32px; font-size: var(--text-xs); }
 
 /* Un outil de l'exercice : une ligne (case, vignette, nom, erreurs, boutons) et son formulaire replié dessous. */

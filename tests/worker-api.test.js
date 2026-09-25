@@ -160,6 +160,50 @@ test('exercice « M10 — Tournage : Vc et RPM » (D40) en mode test : 22 questi
   assert.equal(serveur.journal().length, 22);
 });
 
+// --- Grandeurs masquées (D52) ----------------------------------------------------------------------------------
+
+test('grandeurs masquées (D52) : « — » sans valeur dans la question, la correction et la séance ; la valeur théorique ne part jamais ; la correction les traite comme fournies (cohérence de Vf) ; le M10 ne change pas', async () => {
+  const serveur = serveurDeTest();
+  // Vc et Vf évaluées ; fz, N et f masquées : l'étudiant doit tout de même calculer Vf avec N et f justes.
+  const MASQUE = { id: 'essai-masque', titre: 'Essai — masqué', version: 'r1', champs_evalues: ['vc', 'vf'], champs_masques: ['fz', 'n', 'f'], outils: [{ id: 'mvlnr', reussites_requises: 2 }] };
+  serveur.publierExercice(MASQUE);
+  const { jeton, seance } = await commencer(serveur, { ...CAMILLE, exercice: 'essai-masque' });
+  assert.deepEqual(seance.question.champs, [
+    { champ: 'vc', evalue: true, texte: '' },
+    { champ: 'feedPerTooth', evalue: false, masque: true, texte: '' },
+    { champ: 'rpm', evalue: false, masque: true, texte: '' },
+    { champ: 'feedPerRev', evalue: false, masque: true, texte: '' },
+    { champ: 'feedRate', evalue: true, texte: '' },
+  ]);
+  // Les valeurs théoriques des grandeurs masquées ne figurent dans aucune réponse de l'API.
+  const attendues = serveur.bonnesReponses('2412345', 'essai-masque');
+  const fuite = (corps) => [attendues.rpm, attendues.feedPerRev, attendues.feedPerTooth].filter((valeur) => JSON.stringify(corps).includes(`"${valeur}"`));
+  assert.deepEqual(fuite(seance), []);
+  assert.deepEqual(fuite((await serveur.appel('GET', '/api/seance?exercice=essai-masque', { jeton })).corps), []);
+  assert.deepEqual((await serveur.appel('GET', `/api/exercice?exercice=essai-masque`)).corps.exercice.champs_masques, ['fz', 'n', 'f']);
+
+  // Une Vf cohérente avec les N et f théoriques (D15, D52) : juste ; les masquées sortent sans valeur ni calcul.
+  serveur.avancer(11 * SECONDE);
+  const juste = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: 'essai-masque', saisies: { vc: attendues.vc, feedRate: attendues.feedRate } } });
+  assert.equal(juste.status, 200, JSON.stringify(juste.corps));
+  assert.equal(juste.corps.correction.reussie, true);
+  assert.deepEqual(juste.corps.correction.champs[2], { champ: 'rpm', evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null });
+  assert.deepEqual(fuite(juste.corps), []);
+  // Une Vf fausse : le calcul en une ligne cache N et f (« — »), et rien ne fuit.
+  serveur.avancer(11 * SECONDE);
+  const bonnes = serveur.bonnesReponses('2412345', 'essai-masque');
+  const faux = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: 'essai-masque', saisies: { vc: bonnes.vc, feedRate: '1' } } });
+  assert.equal(faux.corps.correction.reussie, false);
+  const vf = faux.corps.correction.champs[4];
+  assert.equal(vf.calcul, 'Vf = N × f = — × —');
+  assert.deepEqual(fuite(faux.corps), []);
+  assert.equal(vf.attendu, bonnes.feedRate); // la Vf attendue, elle, est dite (grandeur évaluée)
+
+  // Le M10, sans grandeur masquée : les champs non évalués restent fournis, avec leur valeur.
+  const m10Seance = await commencer(serveur, { ...CAMILLE, matricule: '2498765' });
+  assert.deepEqual(m10Seance.seance.question.champs.map((champ) => [champ.evalue, 'masque' in champ, champ.texte !== '']), [[true, false, false], [false, false, true], [false, false, true], [false, false, true], [false, false, true]]);
+});
+
 // --- Généralités ---------------------------------------------------------------------------------------
 
 test('GET /api/version, adresse inconnue (404, plus de 501), et le reste aux fichiers du site', async () => {

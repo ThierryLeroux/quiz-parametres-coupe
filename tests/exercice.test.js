@@ -31,6 +31,7 @@ const exerciceValide = () => ({
 
 test('validateExercise : l’exercice d’essai est valide', () => {
   assert.deepEqual(validateExercise(exerciceValide(), data), []);
+  assert.deepEqual(validateExercise({ ...exerciceValide(), champs_masques: ['fz', 'f'] }, data), []); // des grandeurs masquées (D52)
 });
 
 test('le M10 réel est valide et se charge', async () => {
@@ -51,6 +52,11 @@ const anomalies = [
   ['aucun champ évalué', (e) => { e.champs_evalues = []; }, /« champs_evalues » doit être une liste non vide/],
   ['champ évalué inconnu (nom du moteur au lieu du nom du schéma)', (e) => { e.champs_evalues = ['vc', 'rpm']; }, /champ évalué inconnu : « rpm » \(choix : vc, fz, n, f, vf\)/],
   ['champ évalué en double', (e) => { e.champs_evalues = ['vc', 'n', 'vc']; }, /champ évalué en double : « vc »/],
+  // Grandeurs masquées (D52).
+  ['champ masqué inconnu', (e) => { e.champs_masques = ['rpm']; }, /champ masqué inconnu : « rpm »/],
+  ['champ masqué en double', (e) => { e.champs_masques = ['fz', 'fz']; }, /champ masqué en double : « fz »/],
+  ['champ à la fois évalué et masqué', (e) => { e.champs_masques = ['n']; }, /« n » ne peut pas être à la fois évalué et masqué/],
+  ['liste des champs masqués vide', (e) => { e.champs_masques = []; }, /« champs_masques » doit être une liste non vide/],
   ['aucun outil', (e) => { e.outils = []; }, /« outils » doit être une liste non vide/],
   ['outil absent du catalogue', (e) => { e.outils[0].id = 'fraise_inconnue'; }, /outils\[0\] « fraise_inconnue » : cet outil n'existe pas dans le catalogue/],
   ['outil en double', (e) => { e.outils.push({ id: 'mvlnr', reussites_requises: 1 }); }, /outils\[2\] « mvlnr » : outil en double/],

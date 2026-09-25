@@ -17,6 +17,37 @@ export const FIELD_CHOICES = [
   { key: 'vf', label: "Vitesse d'avance (Vf)" },
 ];
 
+// Les trois états d'une grandeur (D52) : évaluée (saisie et corrigée), fournie (valeur théorique
+// montrée), masquée (« — », sans valeur, jamais envoyée au navigateur).
+export const FIELD_STATES = [
+  { key: 'evaluee', label: 'évaluée' },
+  { key: 'fournie', label: 'fournie' },
+  { key: 'masquee', label: 'masquée' },
+];
+
+// L'état de chaque grandeur d'un brouillon : { vc: 'evaluee', fz: 'fournie', n: 'masquee', … }.
+export function fieldStates(draft) {
+  const graded = draft.champs_evalues ?? [];
+  const masked = draft.champs_masques ?? [];
+  return Object.fromEntries(FIELD_CHOICES.map(({ key }) => [key, graded.includes(key) ? 'evaluee' : (masked.includes(key) ? 'masquee' : 'fournie')]));
+}
+
+// L'inverse : les états → { champs_evalues, champs_masques? } dans l'ordre de l'écran.
+export function statesToDraft(states) {
+  const keys = FIELD_CHOICES.map((f) => f.key);
+  const out = { champs_evalues: keys.filter((key) => states[key] === 'evaluee') };
+  const masked = keys.filter((key) => states[key] === 'masquee');
+  if (masked.length > 0) out.champs_masques = masked;
+  return out;
+}
+
+// « Vc évaluée · fz fournie · N masquée · f fournie · Vf fournie » — pour la liste des différences.
+export function fieldStatesText(draft) {
+  const states = fieldStates(draft);
+  const short = { vc: 'Vc', fz: 'fz', n: 'N', f: 'f', vf: 'Vf' };
+  return FIELD_CHOICES.map(({ key }) => `${short[key]} ${FIELD_STATES.find((s) => s.key === states[key]).label}`).join(' · ');
+}
+
 // Les matières d'outil, dans l'ordre de la table des Vc.
 export const TOOL_MATERIALS = Object.keys(TOOL_MATERIAL_KEYS);
 
@@ -81,7 +112,7 @@ const text = (value) => {
 function settingsDiff(before, after) {
   const compare = [
     ['titre', 'Titre', (d) => d.titre],
-    ['champs_evalues', 'Grandeurs évaluées', (d) => d.champs_evalues.join(', ')],
+    ['champs_evalues', 'Grandeurs', (d) => fieldStatesText(d)],
     ['materiaux_outil', "Matières d'outil permises", (d) => listText(d.materiaux_outil)],
     ['groupes', 'Groupes de matériaux permis', (d) => listText(d.groupes)],
     ['liste', "Proposé à l'accueil", (d) => (d.liste === false ? 'non' : 'oui')],
@@ -218,18 +249,26 @@ export function publishState(errors, diff) {
 
 // --- Aperçu -----------------------------------------------------------------------------------------------------------
 
-// Les colonnes du tableau d'aperçu : Outil, Matière, Matériau usiné, une par grandeur évaluée.
-export function previewColumns(champs) {
-  return ['N°', 'Outil (nomenclature composée)', "Matière d'outil", 'Matériau usiné', ...champs.map((key) => FIELD_CHOICES.find((f) => f.key === key)?.label ?? key)];
+// Les colonnes du tableau d'aperçu : Outil, Matière, Matériau usiné, puis les cinq grandeurs, chacune
+// avec son état (D52) : « RPM (N) · évaluée », « … · fournie », « … · masquée ».
+export function previewColumns(champsEvalues, champsMasques = []) {
+  const states = fieldStates({ champs_evalues: champsEvalues, champs_masques: champsMasques });
+  return ['N°', 'Outil (nomenclature composée)', "Matière d'outil", 'Matériau usiné', ...FIELD_CHOICES.map(({ key, label }) => `${label} · ${FIELD_STATES.find((s) => s.key === states[key]).label}`)];
 }
 
-export function previewRows(questions, champs) {
+// Les lignes : la réponse attendue d'une grandeur évaluée, la valeur d'une grandeur fournie, « — » pour une masquée.
+export function previewRows(questions, champsEvalues, champsMasques = []) {
+  const states = fieldStates({ champs_evalues: champsEvalues, champs_masques: champsMasques });
   return questions.map((q, i) => [
     String(i + 1),
     q.identifiant,
     q.materiau_outil,
     `${q.materiau.classe} ${q.materiau.groupe} — ${q.materiau.materiau}${q.materiau.etat ? `, ${q.materiau.etat}` : ''}`,
-    ...champs.map((key) => q.reponses[GRADED_FIELD_KEYS[key]] ?? ''),
+    ...FIELD_CHOICES.map(({ key }) => {
+      const engineKey = GRADED_FIELD_KEYS[key];
+      if (states[key] === 'masquee') return '—';
+      return (states[key] === 'evaluee' ? q.reponses[engineKey] : q.fournies?.[engineKey]) ?? '';
+    }),
   ]);
 }
 

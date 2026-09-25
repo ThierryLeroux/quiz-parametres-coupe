@@ -13,8 +13,8 @@ import {
 import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
 import {
-  FIELD_CHOICES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  dimensionReadings, groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  FIELD_CHOICES, FIELD_STATES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates,
+  dimensionReadings, groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
@@ -350,10 +350,26 @@ async function loadImages() {
   return state.images;
 }
 
+// Un état par grandeur (D52) : une ligne par grandeur, trois boutons radio. Retourne { element, read() → { champs_evalues, champs_masques? } }.
+function fieldStateChoice(draft) {
+  const states = fieldStates(draft);
+  const inputs = {};
+  const element = el('ul', { class: 'choices choices--etats' }, FIELD_CHOICES.map(({ key, label }) => el('li', { class: 'etat-ligne' }, [
+    el('span', { class: 'etat-nom' }, label),
+    ...FIELD_STATES.map((state) => {
+      const input = el('input', { id: `etat-${key}-${state.key}`, type: 'radio', name: `etat-${key}`, value: state.key, checked: states[key] === state.key });
+      inputs[`${key}:${state.key}`] = input;
+      return el('label', { for: `etat-${key}-${state.key}` }, [input, state.label]);
+    }),
+  ])));
+  const read = () => statesToDraft(Object.fromEntries(FIELD_CHOICES.map(({ key }) => [key, FIELD_STATES.find((state) => inputs[`${key}:${state.key}`].checked)?.key ?? 'fournie'])));
+  return { element, read };
+}
+
 // Une table de résultats d'aperçu.
 function previewTable(response) {
-  const columns = previewColumns(response.champs_evalues);
-  const rows = previewRows(response.questions, response.champs_evalues);
+  const columns = previewColumns(response.champs_evalues, response.champs_masques ?? []);
+  const rows = previewRows(response.questions, response.champs_evalues, response.champs_masques ?? []);
   return el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table apercu-table' }, [
     el('thead', {}, el('tr', {}, columns.map((label, i) => el('th', { class: i >= 4 ? 'num' : null }, label)))),
     el('tbody', {}, rows.map((row) => el('tr', {}, row.map((cell, i) => el('td', { class: i === 0 || i >= 4 ? 'num' : null }, cell))))),
@@ -377,13 +393,13 @@ async function showExercise(id, notice = '') {
 
   // Réglages généraux.
   const titre = el('input', { id: 'titre', type: 'text', autocomplete: 'off', value: draft.titre ?? '' });
-  const fieldsChoice = checkboxes('champ', FIELD_CHOICES, draft.champs_evalues ?? [], { inline: true });
+  const fieldsChoice = fieldStateChoice(draft);
   const materialsChoice = checkboxes('matiere', TOOL_MATERIALS.map((key) => ({ key, label: key })), draft.materiaux_outil ?? TOOL_MATERIALS, { inline: true, swatchOf: materialSwatch, buttons: true });
   const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: groupSwatch, buttons: true });
   const listed = el('input', { id: 'liste', type: 'checkbox', checked: draft.liste !== false });
   const settings = {
     titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation.", 'field--half'),
-    champs_evalues: field('champs_evalues', 'Grandeurs évaluées (les autres sont fournies)', fieldsChoice.element, '', 'field--wide'),
+    champs_evalues: field('champs_evalues', 'Grandeurs : évaluée (à saisir), fournie (valeur montrée) ou masquée (« — », sans valeur)', fieldsChoice.element, 'Au moins une grandeur évaluée. Une grandeur masquée compte comme fournie pour la cohérence de Vf.', 'field--wide'),
     materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice", materialsChoice.element, 'Tout coché = aucune restriction ; se croise avec les matières de chaque outil.', 'field--wide'),
     groupes: field('groupes', 'Groupes de matériaux usinés permis pour tout l\'exercice', groupsChoice.element, 'Tout coché = aucune restriction ; se croise avec les groupes de chaque outil.', 'field--wide'),
     liste: field('liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'liste' }, el('li', {}, el('label', { for: 'liste' }, [listed, 'oui (sinon, joignable seulement par son lien)']))), ''),
@@ -393,7 +409,7 @@ async function showExercise(id, notice = '') {
   let forms = [];
 
   function readDraft() {
-    const out = { titre: titre.value.trim(), champs_evalues: fieldsChoice.read(), outils: forms.map((f) => f.read()) };
+    const out = { titre: titre.value.trim(), ...fieldsChoice.read(), outils: forms.map((f) => f.read()) };
     const materials = materialsChoice.read();
     if (materials.length !== TOOL_MATERIALS.length) out.materiaux_outil = materials;
     const groups = groupsChoice.read();
@@ -410,10 +426,10 @@ async function showExercise(id, notice = '') {
   function validate() {
     const current = readDraft();
     const errors = draftErrors(current, tables);
-    const known = (champ) => champ in settings || /^outils\.\d+\.[a-z_]+$/.test(champ);
+    const known = (champ) => champ in settings || champ === 'champs_masques' || /^outils\.\d+\.[a-z_]+$/.test(champ);
     const map = errorsByField(errors, known);
     for (const [name, s] of Object.entries(settings)) {
-      const messages = map.get(name) ?? [];
+      const messages = [...(map.get(name) ?? []), ...(name === 'champs_evalues' ? map.get('champs_masques') ?? [] : [])];
       s.element.setAttribute('data-erreur', messages.length > 0 ? 'true' : 'false');
       s.noteEl.textContent = messages.length > 0 ? messages.join('\n') : s.note;
     }

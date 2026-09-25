@@ -11,7 +11,7 @@
 
 import pkg from '../package.json' with { type: 'json' };
 import { validateData } from '../site/js/data.js';
-import { draftErrors } from '../site/js/exercice.js';
+import { draftErrors, maskedFields } from '../site/js/exercice.js';
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
   ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PURGE_WORD, anonymizedDetails, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader,
@@ -392,7 +392,7 @@ async function correction(request, env, { now, random, randomBytes }) {
   // La dernière réussite exigée vient d'être obtenue : l'attestation est figée tout de suite (D31).
   if (updated.reussite_le !== null) await ensureAttestation(env, updated, exercise, data, now, { randomBytes });
   return json({
-    correction: correctionView(asked, answers, graded.result, before, graded.counters, data),
+    correction: correctionView(asked, answers, graded.result, before, graded.counters, data, maskedFields(exercise)),
     seance: sessionView(updated, exercise, data, viewOptions(request, env, now)),
   });
 }
@@ -771,7 +771,7 @@ async function editeurApercu(request, env, { now, random }) {
     if (erreurs.length > 0) throw new HttpError(400, "Le brouillon a des erreurs : corrige-les avant l'aperçu.", { erreurs });
     assembledExercise = await assembleDraft(env.DB, record.id, brouillon);
   }
-  return json({ questions: previewQuestions(assembledExercise.exercise, assembledExercise.data, random, 10), champs_evalues: assembledExercise.exercise.champs_evalues });
+  return json({ questions: previewQuestions(assembledExercise.exercise, assembledExercise.data, random, 10), champs_evalues: assembledExercise.exercise.champs_evalues, champs_masques: assembledExercise.exercise.champs_masques ?? [] });
 }
 
 // GET /api/prof/editeur/banque — les outils de la banque, avec le nombre d'exercices qui en ont une copie (brouillons).

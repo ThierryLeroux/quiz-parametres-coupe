@@ -345,12 +345,17 @@ test('aperçu : dix questions avec la nomenclature composée et les réponses at
     assert.match(q.identifiant, /^MCLNR - Ø charioté: /);
     assert.deepEqual([q.outil_id, q.outil, q.operation, q.barre, q.dents], ['mclnr', 'MCLNR', 'Chariotage ébauche', null, 1]);
     assert.deepEqual(Object.keys(q.reponses), ['vc', 'rpm']);
+    assert.deepEqual(Object.keys(q.fournies), ['feedPerTooth', 'feedPerRev', 'feedRate']); // les grandeurs fournies (D52)
     assert.match(q.reponses.rpm, /^\d+$/);
     assert.deepEqual(Object.keys(q.materiau), ['classe', 'groupe', 'materiau', 'etat']);
   }
   const version = await serveur.editeur('POST', 'apercu', { id: M10, version: 1 });
   assert.equal(version.corps.questions.length, 10);
-  assert.deepEqual(version.corps.champs_evalues, ['vc']);
+  assert.deepEqual([version.corps.champs_evalues, version.corps.champs_masques], [['vc'], []]);
+  // Des grandeurs masquées (D52) : l'aperçu le dit, et ne porte ni réponse ni valeur pour elles.
+  const masque = await serveur.editeur('POST', 'apercu', { id: M10, brouillon: { ...brouillon, champs_masques: ['fz', 'f'] } });
+  assert.deepEqual(masque.corps.champs_masques, ['fz', 'f']);
+  assert.deepEqual([Object.keys(masque.corps.questions[0].reponses), Object.keys(masque.corps.questions[0].fournies)], [['vc', 'rpm'], ['feedRate']]);
   assert.ok(new Set(version.corps.questions.map((q) => q.outil_id)).size > 1);
   assert.equal((await serveur.editeur('POST', 'apercu', { id: M10, version: 9 })).status, 404);
   assert.equal((await serveur.editeur('POST', 'apercu', { id: M10, brouillon: { ...brouillon, outils: [] } })).status, 400);

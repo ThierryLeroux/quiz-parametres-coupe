@@ -98,6 +98,7 @@ test('fieldResultNote : Juste, Juste (… attendu), Faux — attendu …, fourni
   assert.equal(fieldResultNote({ evalue: true, ok: true, saisie: '2500', attendu: '2496' }), 'Juste (2496 attendu)');
   assert.equal(fieldResultNote({ evalue: true, ok: false, saisie: '', attendu: '12.500' }), 'Faux — attendu 12.500');
   assert.equal(fieldResultNote({ evalue: false, ok: true, saisie: '', attendu: '12.500' }), "fourni par l'exercice");
+  assert.equal(fieldResultNote({ evalue: false, masque: true, ok: true, saisie: '', attendu: null }), 'non demandée'); // D52
 });
 
 test('correctionBanner : bonne réponse, compteur qui retombe, compteur qui reste à zéro', () => {

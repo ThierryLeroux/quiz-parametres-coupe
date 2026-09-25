@@ -8,7 +8,7 @@
 
 import { computeParameters } from '../site/js/calcul.js';
 import { ANSWER_FIELDS, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
-import { fieldsToGrade } from '../site/js/exercice.js';
+import { fieldsToGrade, maskedFields } from '../site/js/exercice.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools, isComplete, recordResult } from '../site/js/progression.js';
 import { generateQuestion } from '../site/js/question.js';
@@ -140,6 +140,7 @@ export const NIP_CLEARED = { essais_nip: 0, essais_nip_debut: null, verrou_nip_j
 export function questionView(question, exercise, data, { testMode = false } = {}) {
   const tool = data.outils.find((entry) => entry.id === question.tool.id);
   const graded = fieldsToGrade(exercise);
+  const masked = maskedFields(exercise); // D52 : ni valeur, ni saisie — « — » à l'écran
   const displayed = formatParameters(computeParameters(question, data));
   const { vc_pi_min: _vc, ...material } = question.material;
   return {
@@ -159,9 +160,11 @@ export function questionView(question, exercise, data, { testMode = false } = {}
     },
     dimension: question.dimension.label,
     materiau: material,
-    champs: ANSWER_FIELDS.map((field) => (graded.includes(field)
-      ? { champ: field, evalue: true, texte: '' }
-      : { champ: field, evalue: false, texte: displayed[field] })),
+    champs: ANSWER_FIELDS.map((field) => {
+      if (graded.includes(field)) return { champ: field, evalue: true, texte: '' };
+      if (masked.includes(field)) return { champ: field, evalue: false, masque: true, texte: '' };
+      return { champ: field, evalue: false, texte: displayed[field] };
+    }),
     ...(testMode ? { reponses_test: Object.fromEntries(graded.map((field) => [field, displayed[field]])) } : {}),
   };
 }
@@ -196,7 +199,8 @@ function calculationLine(field, question, expected, shown, tool, operation) {
 // Pour Vf, la valeur attendue est N × f AVEC les N et f saisis (cohérence interne, D15), pas la
 // valeur théorique : c'est sur elle que Vf a été jugée.
 //   before : compteur de l'outil avant cette correction (« le compteur retombe à zéro (2 → 0) »)
-export function correctionView(question, answers, result, before, counters, data) {
+//   masked : les champs masqués de l'exercice (D52, maskedFields) — sans valeur attendue, et « — » dans les calculs
+export function correctionView(question, answers, result, before, counters, data, masked = []) {
   const expected = result.attendu;
   const tool = data.outils.find((entry) => entry.id === question.tool.id);
   const operation = data.operationByName.get(tool.operation);
@@ -204,12 +208,13 @@ export function correctionView(question, answers, result, before, counters, data
   const typed = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, parseAnswer(answers[field])]));
   const reference = { ...expected, feedRate: (typed.rpm ?? expected.rpm) * (typed.feedPerRev ?? expected.feedPerRev) };
   const displayed = formatParameters(reference);
-  const shown = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, typed[field] === null ? displayed[field] : answers[field].replace(',', '.')]));
+  const shown = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, masked.includes(field) ? '—' : (typed[field] === null ? displayed[field] : answers[field].replace(',', '.'))]));
 
   return {
     reussie: result.success,
     outil: { id: question.tool.id, nom: question.tool.name, avant: before, apres: counters.reussites[question.tool.id] ?? 0 },
     champs: ANSWER_FIELDS.map((field) => {
+      if (masked.includes(field)) return { champ: field, evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null };
       const evaluated = result.fields[field].min !== null;
       const gap = evaluated && typed[field] !== null && reference[field] !== 0 ? (typed[field] - reference[field]) / reference[field] : null;
       return {

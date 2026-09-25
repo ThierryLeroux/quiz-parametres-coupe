@@ -16,7 +16,7 @@ export const GRADED_FIELD_KEYS = {
 };
 
 const EXERCISE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/; // minuscules, chiffres et tirets : c'est aussi le nom du fichier
-const EXERCISE_KEYS = ['id', 'titre', 'version', 'champs_evalues', 'outils', 'liste', 'materiaux_outil', 'groupes'];
+const EXERCISE_KEYS = ['id', 'titre', 'version', 'champs_evalues', 'champs_masques', 'outils', 'liste', 'materiaux_outil', 'groupes'];
 const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes'];
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -89,6 +89,8 @@ export function validateExercise(exercise, data) {
     if (!(field in GRADED_FIELD_KEYS)) errors.push(`${where} : champ évalué inconnu : « ${field} » (choix : ${Object.keys(GRADED_FIELD_KEYS).join(', ')})`);
     else if (fields.indexOf(field) !== i) errors.push(`${where} : champ évalué en double : « ${field} »`);
   });
+  // Grandeurs masquées (D52) : ni saisies ni montrées ; jamais évaluées en même temps.
+  for (const message of maskedFieldErrors(exercise.champs_masques, fields)) errors.push(`${where} : ${message}`);
 
   const entries = Array.isArray(exercise.outils) ? exercise.outils : [];
   if (entries.length === 0) errors.push(`${where} : « outils » doit être une liste non vide`);
@@ -133,7 +135,7 @@ export function validateExercise(exercise, data) {
 // Ses dimensions, ses matières et ses groupes SONT ce que l'exercice permet : plus de restrictions
 // par outil (elles s'appliquent en retirant de la copie), seules restent celles de tout l'exercice.
 
-export const DRAFT_KEYS = ['titre', 'champs_evalues', 'materiaux_outil', 'groupes', 'liste', 'outils'];
+export const DRAFT_KEYS = ['titre', 'champs_evalues', 'champs_masques', 'materiaux_outil', 'groupes', 'liste', 'outils'];
 export const COPY_KEYS = [...TOOL_KEYS, 'reussites_requises', 'origine'];
 
 // La copie d'un outil du catalogue pour un exercice, avec les restrictions d'une entrée
@@ -158,6 +160,7 @@ export function copyOfTool(tool, entry = {}) {
 // ainsi que la semence de la base (migration 0005) et les tests convertissent les exercices JSON.
 export function draftFromExercise(exercise, tools) {
   const draft = { titre: exercise.titre, champs_evalues: [...exercise.champs_evalues] };
+  if (exercise.champs_masques) draft.champs_masques = [...exercise.champs_masques];
   if (exercise.materiaux_outil) draft.materiaux_outil = [...exercise.materiaux_outil];
   if (exercise.groupes) draft.groupes = [...exercise.groupes];
   if (exercise.liste === false) draft.liste = false;
@@ -176,6 +179,7 @@ export function draftFromExercise(exercise, tools) {
 export function engineExercise(id, version, draft) {
   const tools = draft.outils.map(({ reussites_requises: _r, origine: _o, ...tool }) => tool);
   const exercise = { id, titre: draft.titre, version: String(version), champs_evalues: draft.champs_evalues, outils: draft.outils.map((copy) => ({ id: copy.id, reussites_requises: copy.reussites_requises })) };
+  if (draft.champs_masques) exercise.champs_masques = draft.champs_masques;
   if (draft.materiaux_outil) exercise.materiaux_outil = draft.materiaux_outil;
   if (draft.groupes) exercise.groupes = draft.groupes;
   if (draft.liste === false) exercise.liste = false;
@@ -204,6 +208,7 @@ export function draftErrors(draft, tables) {
     if (!(field in GRADED_FIELD_KEYS)) error('champs_evalues', `grandeur inconnue : « ${field} » (choix : ${Object.keys(GRADED_FIELD_KEYS).join(', ')})`);
     else if (fields.indexOf(field) !== i) error('champs_evalues', `grandeur en double : « ${field} »`);
   });
+  for (const message of maskedFieldErrors(draft.champs_masques, fields)) error('champs_masques', message);
   const listErrors = (list, key, available, label) => {
     if (list === undefined) return;
     if (!Array.isArray(list) || list.length === 0) return error(key, `${label} : la liste doit être non vide, ou absente (aucune restriction).`);
@@ -233,6 +238,20 @@ export function draftErrors(draft, tables) {
     if (Array.isArray(tool.groupes_materiaux_usinables) && Array.isArray(draft.groupes) && draft.groupes.length > 0 && allowedGroups(draft, {}, tool).length === 0) {
       error(at('groupes_materiaux_usinables'), `plus aucun groupe de matériaux permis — l'outil usine ${tool.groupes_materiaux_usinables.join(', ')} ; l'exercice permet ${draft.groupes.join(', ')}`);
     }
+  });
+  return errors;
+}
+
+// Les erreurs de « champs_masques » (D52) : liste facultative de grandeurs du schéma, sans doublon, et
+// disjointe des grandeurs évaluées. Absente = aucune grandeur masquée.
+function maskedFieldErrors(masked, graded) {
+  if (masked === undefined) return [];
+  if (!Array.isArray(masked) || masked.length === 0) return ['« champs_masques » doit être une liste non vide (ou être absente : aucune grandeur masquée)'];
+  const errors = [];
+  masked.forEach((field, i) => {
+    if (!(field in GRADED_FIELD_KEYS)) errors.push(`champ masqué inconnu : « ${field} » (choix : ${Object.keys(GRADED_FIELD_KEYS).join(', ')})`);
+    else if (masked.indexOf(field) !== i) errors.push(`champ masqué en double : « ${field} »`);
+    else if (graded.includes(field)) errors.push(`« ${field} » ne peut pas être à la fois évalué et masqué`);
   });
   return errors;
 }
@@ -294,4 +313,10 @@ export async function loadExerciseIndex(baseUrl = 'exercices/', readJson = fetch
 // Champs à corriger, avec les noms du moteur : à passer tel quel à gradeAnswers (correction.js).
 export function fieldsToGrade(exercise) {
   return exercise.champs_evalues.map((field) => GRADED_FIELD_KEYS[field]);
+}
+
+// Champs masqués (D52), avec les noms du moteur : ni saisis, ni montrés, ni envoyés au navigateur ;
+// pour la correction, traités comme des champs fournis (valeur théorique).
+export function maskedFields(exercise) {
+  return (exercise.champs_masques ?? []).map((field) => GRADED_FIELD_KEYS[field]);
 }
