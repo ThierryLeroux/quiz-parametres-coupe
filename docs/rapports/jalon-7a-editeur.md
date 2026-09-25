@@ -242,8 +242,83 @@ Chrome : Monter / Descendre dans la liste, l'accueil qui suit, « Aucune différ
 Commits : 12. publication identique refusée ; 13. rang des exercices (migration 0006) ; 14. docs (D51,
 SPEC, UI, PLAN, CLAUDE.md) et rapport.
 
+## Retouches (avant la fusion, D52 et D53)
+
+Huit commits de plus, branche poussée. `npm test` : 510 tests, `fail 0` ; `test:api` : 25 étapes ;
+Chrome à 1280 et 390 px : 22 vérifications, 10 captures de plus (`27` à `36` dans
+`captures/jalon-7a/`), aucune requête externe, aucune exception.
+
+1. **Aucun numéro de décision dans les textes visibles.** Trois libellés de l'éditeur en portaient
+   (les barres à deux diamètres, les réussites de suite, la matière d'outil de l'exercice) ; corrigés. Le test
+   `tests/textes-visibles.test.js` cherche « D » suivi d'un à trois chiffres dans toutes les chaînes
+   des fichiers de `site/js`, `site/js/ui`, `worker` et des pages HTML (commentaires exclus) : un
+   « D19 » dans un texte affiché le ferait échouer. Chrome : l'écran Question, l'éditeur, /prof et
+   /verifier n'affichent aucun « Dnn ».
+2. **Pastilles de couleur.** Chaque groupe porte une pastille avec la lettre ISO sur la couleur de
+   sa classe, chaque matière d'outil une pastille de sa couleur. **Les couleurs viennent de
+   `site/css/tokens.css`**, celles des feuilles de référence et des pastilles du quiz (`--iso-p`,
+   `--iso-m`… ; `--tool-acier-rapide`, `--tool-carbure-solide`, `--tool-insert-carbure`) : rien n'a
+   été pris dans le classeur ni inventé. Une seule nuance : le K prend `--iso-k-night`, le rouge K
+   éclairci pour le fond nuit (celui du panneau du matériau brut dans le quiz, contraste AA), plutôt
+   que le rouge pur des feuilles. **Tout cocher / Tout décocher** sous les matières et sous les groupes, dans les
+   réglages de l'exercice comme dans le formulaire d'outil (`groupSwatch`, `materialSwatch`,
+   testés).
+3. **Liste des outils d'un exercice.** Une ligne par copie, repliée : case à cocher, vignette de la
+   photo, nom, opération, réussites, erreurs ; Dupliquer, ↑, ↓, Retirer accessibles sans déplier ;
+   Tout cocher et Retirer la sélection avec une confirmation qui nomme les outils
+   (`removeSelectionConfirmation`, testée). Toujours un changement du brouillon seulement. Chrome :
+   neuf outils après une duplication, sept après un retrait de sélection de deux.
+4. **Formulaire d'outil par thèmes** : Identification, Nomenclature, Dimensions, Dents (min et max
+   côte à côte), Facteurs, Limites (RPM max, Limite d'avance « non utilisée »), Matières et groupes
+   permis, Exercice (réussites de suite, copie seulement). Même formulaire dans la banque. À 390 px,
+   chaque groupe passe à une colonne.
+5. **Lecture des filetages.** Pour un outil dont l'opération est de la famille filetage, une liste
+   « Lecture par le moteur » à droite des dimensions donne, par ligne, le Ø et le pas tels que le
+   moteur les lit (pouces ; et mm en métrique), ou l'erreur de lecture en rouge
+   (`dimensionReadings`, testée : 1/4-20 UNC, M10 x 1.50, une ligne illisible, et un outil hors
+   filetage).
+   Elle se rafraîchit à la frappe.
+6. **Trois états par grandeur (D52).** Chaque grandeur (Vc, fz, N, f, Vf) est évaluée, fournie ou
+   masquée, en boutons radio dans les réglages ; au moins une évaluée. Une grandeur masquée s'écrit
+   « — » dans l'écran Question, sans valeur ni champ, note « non demandée » ; **sa valeur ne figure
+   nulle part dans les réponses de l'API** (question : `texte` vide et `masque: true` ; correction :
+   `attendu` nul, « — » dans les calculs en une ligne). Pour la correction, elle est traitée comme
+   fournie : sa valeur théorique entre dans la cohérence de Vf (SPEC §6). Format : clé facultative
+   `champs_masques`, disjointe de `champs_evalues` ; les deux M10 n'en ont pas et leur correction
+   est inchangée (test). L'export la porte, l'aperçu montre l'état de chaque grandeur dans l'en-tête
+   et « — » pour une masquée, la liste des différences à la publication compare les états. Tests :
+   aucune valeur masquée dans les réponses de l'API d'une séance (question, correction, réussite),
+   anomalies du schéma, écran Question.
+7. Chrome, captures et cette section ; UI §3.9 décrit les lignes d'outils, le formulaire par thèmes
+   et la lecture des filetages.
+8. **Vf en filetage à ±0,01 % (D53).** `FEED_RATE_TOLERANCES` par famille dans `correction.js` :
+   filetage 0,01 %, avance fixe et proportionnelle 0,5 % ; la plage (N ± demi-unité) × (f ±
+   demi-unité) et la demi-unité de Vf restent appliquées ; la ligne de correction dit « ±0.01 % de
+   N × f ». Les quatre tests demandés sur le taraud M10 x 1.50 (N = 1000 plafonné, f affiché
+   0.05906, Vf 59.055) : Vf sur le pas exact acceptée, Vf sur le pas arrondi (59.06) acceptée, Vf
+   décalée de 0,1 % (59.119) refusée alors que ±0,5 % l'acceptait, Vf cohérente avec N = 1002
+   acceptée pour Vf et refusée pour N. Les cas limites existants du filetage (D15) recalculés ;
+   les autres familles gardent ±0,5 % (test). SPEC §6 (tableau et précisions), DECISIONS.
+
+Points douteux :
+
+- **Vf déductible d'une grandeur masquée.** Si N est masqué et que f et Vf sont fournis, l'étudiant
+  lit N = Vf / f dans les valeurs montrées ; de même Vc depuis N si N est fourni. Le masquage cache
+  la valeur, pas la relation. À l'enseignant de choisir des états cohérents ; l'éditeur ne prévient
+  pas.
+- **Lecture des filetages** affichée seulement pour la famille filetage : pour les autres outils,
+  une valeur illisible est déjà signalée par l'erreur sous le champ, sans liste à droite.
+- **Couleur du K** : `--iso-k-night` (le rouge éclairci du panneau du matériau brut) plutôt que
+  `--iso-k` (le rouge pur des feuilles), pour le contraste sur le fond nuit de l'éditeur ; à confirmer.
+- Les retraits par sélection ne demandent qu'une confirmation, sans annulation : la page reste
+  modifiée et non enregistrée jusqu'à Enregistrer le brouillon, on peut donc recharger la page pour
+  tout reprendre.
+
+Commits : 15. textes visibles ; 16. pastilles ; 17. lignes d'outils ; 18. formulaire par thèmes ;
+19. lecture des filetages ; 20. trois états (D52) ; 21. Vf en filetage (D53) ; 22. UI et rapport.
+
 ## Reste
 
-Relire D47 à D51, les migrations `0005` (générée) et `0006`, UI §3.9 ; fusionner ; après le
+Relire D47 à D53, les migrations `0005` (générée) et `0006`, UI §3.9 ; fusionner ; après le
 déploiement (les deux migrations s'appliquent seules, section D), vérifier l'éditeur en production et
 faire le premier export. Le jalon 7b est décrit dans `PLAN.md`.
