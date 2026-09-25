@@ -51,6 +51,10 @@
   --color-print-stage: #2a2f3a;   /* gris autour de la page lettre, à l'écran */
 
   /* --- Couleurs de sens, identiques aux feuilles Excel ----------------------------------- */
+  /* Depuis le jalon 7b (D61), ces couleurs VIVENT DANS LES TABLES DE RÉFÉRENCE (classes_iso,
+     materiaux_outil de la version en usage) et chaque page les pose sur :root à partir de sa version
+     (applyTableColors, site/js/ui/dom.js). Les valeurs ci-dessous sont les valeurs PAR DÉFAUT — la
+     semence — que site/js/tables.js reprend à l'identique (un test le vérifie). */
   /* Matériau d'outil : en-tête de colonne de la table des Vc, panneau de l'outil.
      Les noms reprennent les clés de vc_pi_min dans materiaux.json. */
   --tool-acier-rapide: #b4c7e7;

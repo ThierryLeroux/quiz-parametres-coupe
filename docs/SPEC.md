@@ -108,6 +108,28 @@ puis assaini par liste blanche ou refusé), renomme, archive (retirée des galer
 toujours servie) ou supprime (jamais utilisée seulement) ; un doublon exact n'est
 pas stocké deux fois (empreinte SHA-256).
 
+**Tables versionnées (décisions D61 à D63).** Depuis la partie B du jalon 7b, les
+tables s'éditent dans l'éditeur : **un brouillon unique** (`brouillon_tables`,
+migration `0008`) et des **versions publiées immuables** (`tables_reference`),
+chacune avec sa **révision** saisie à la publication (suggérée : la dernière
+incrémentée, « A2026_r0 » → « A2026_r1 » ; unique). Le format de `materiaux.json`
+est complété par deux listes facultatives, valeurs par défaut (celles de
+`tokens.css`) si elles manquent :
+
+| Clé | Contenu |
+|---|---|
+| `classes_iso` | les classes ISO 513 : `code` (une lettre majuscule, unique), `nom`, `couleur` (vive : lettre, panneau du matériau), `couleur_texte` (le texte posé dessus), `couleur_ligne` (la teinte de ligne de la feuille) — « #rrggbb » |
+| `materiaux_outil` | les trois matières d'outil : `cle` (celle de `vc_pi_min`, fixe : `acier_rapide`, `carbure_solide`, `insert_carbure`, une fois chacune), `nom` (celui que les outils nomment et que l'étudiant lit, unique), `couleur` (la colonne de la table des Vc) |
+
+et `operations[].pictogramme` (facultatif : l'identifiant d'une image de la base ;
+sinon le slug du nom de l'opération, les images de la semence). `groupes_iso` est
+**dérivé des lignes** par l'éditeur (« classe - matériau », dans l'ordre d'apparition).
+Chaque matériau a une classe de `classes_iso` ; chaque outil nomme ses matières
+parmi les noms de `materiaux_outil` de **sa** version de tables (D62) : renommer
+une matière met en erreur, nommément, les outils qui la nomment. **Les couleurs de
+sens vivent dans les tables** : le quiz, les feuilles et l'éditeur les lisent de la
+version en usage.
+
 ## 4. Génération d'une question
 
 1. **Outil** : tirage uniforme parmi les outils *encore à évaluer* de l'exercice (voir §7 et §10). Les restrictions de l'exercice (dimensions, matériaux d'outil, groupes) s'appliquent aux tirages 3, 4 et 5.
@@ -308,9 +330,10 @@ base) est retirée et remplacée.
 | `attestations` | une ligne par attestation (D31, D35, D37, D45) : séance (NULL une fois la séance supprimée), code court, enregistrement figé (JSON, avec la liste des questions réussies qui comptent, D41), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`, `seance_supprimee`) |
 | `journal_enseignant` | les actions d'enseignant (D34, D35, D38, D44 à D46) : horodatage, enseignant (« admin » ou « consultation » : le rôle, D44), séance (NULL quand elle n'existe plus), action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`, `suppression`, `effacement`), détails — anonymisés à l'effacement (D46) |
 | `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
-| `tables_reference` | les versions des tables de référence (D47) : identifiant (la révision, « A2026_r0 »), `materiaux` et `operations` (JSON, le contenu des deux fichiers de §3), date ; immuables — une seule pour l'instant |
+| `tables_reference` | les versions des tables de référence (D47, D61) : identifiant (la révision, « A2026_r0 »), `materiaux` et `operations` (JSON, le contenu des deux fichiers de §3, complété à la lecture pour une version d'avant le 7b), date ; immuables ; la plus récente est la dernière insérée |
+| `brouillon_tables` | le brouillon unique des tables (D61, migration `0008`) : `contenu` (JSON `{ materiaux, operations }`), numéro de révision (contrôle optimiste), date, `base_id` (la version dont il est parti) |
 | `banque_outils` | la banque d'outils (D47) : un outil par ligne (JSON au format d'`outils.json`), rang, numéro de révision (D48), date de modification, date d'archivage |
-| `exercices` | les exercices (D47) : l'identifiant d'URL (définitif), le **brouillon** (JSON, §10), son numéro de révision (D48), dates de modification, de dernière publication, d'archivage, de création, et le **rang** dans la liste (D51, migration `0006`) |
+| `exercices` | les exercices (D47) : l'identifiant d'URL (définitif), le **brouillon** (JSON, §10), son numéro de révision (D48), dates de modification, de dernière publication, d'archivage, de création, le **rang** dans la liste (D51, migration `0006`) et la **version de tables** du brouillon (`tables_id`, D62, migration `0008`) |
 | `versions_exercice` | les versions publiées (D47) : exercice, numéro (1, 2, 3…), contenu (JSON, la même forme que le brouillon, **figé**), version des tables de référence, date |
 | `images` | les images (D56, migration `0007`) : identifiant, nom lisible, usage (`outil`, `operation`), type, taille, empreinte SHA-256, contenu (BLOB), date, date d'archivage ; semée avec les photos et pictogrammes du dépôt |
 
@@ -382,6 +405,7 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | `GET /api/version` | — | `{ version }` (celle de `package.json`) |
 | `GET /api/exercice?exercice=<id>[&version=<n>]` | — | `{ exercice, tables, version, archive }` — la dernière version publiée de l'exercice (ou la version `n`, celle d'une séance) : l'exercice au format du moteur avec ses copies d'outils (chacune avec `reussites_requises`), les deux tables de référence, le numéro, et si l'exercice est archivé ; 400 inconnu ou jamais publié, 404 version inconnue (D47) |
 | `GET /api/exercices` | — | `{ exercices: [ { id, titre } ] }` — la liste de l'accueil (D18) : publiés, non archivés, sans `"liste": false` |
+| `GET /api/tables?version=<id>` | — | `{ tables: { id, creee_le, materiaux, operations } }` — une version publiée des tables, complétée (D63 : la page `/tables?version=`) ; 404 inconnue |
 | `GET /images/<id>` | — | l'image (pas du JSON) : photo d'outil ou pictogramme (D56), avec son type exact, `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=31536000, immutable`, `ETag` (304 si `If-None-Match` correspond) et, pour un SVG, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` (D57) ; une image archivée est servie ; 404 sinon |
 | `POST /api/consultation` | `{ exercice, matricule }` | `{ trouvee: false }`, ou `{ trouvee: true, prenom, initiale }` — **rien d'autre ne sort** |
 | `POST /api/creation` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, seance }` — crée la séance ; ne reprend **jamais** une séance existante (409) |
@@ -414,17 +438,22 @@ porte toute la sauvegarde).
 | Appel | Requête | Réponse |
 |---|---|---|
 | `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) |
-| `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, erreurs }` — `erreurs` : celles du brouillon (`draftErrors`), chacune avec son `champ` ; 404 inconnu |
-| `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié ; 400 identifiant ou titre, 409 identifiant pris |
+| `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le, tables_id }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, tables_versions, derniere_tables, erreurs }` — `tables` : la version de tables du brouillon (D62), `derniere_tables` : la plus récente ; `erreurs` : celles du brouillon contre ses tables (`draftErrors`), chacune avec son `champ` ; 404 inconnu |
+| `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié, sur la version de tables la plus récente (une copie garde celle de sa source, D62) ; 400 identifiant ou titre, 409 identifiant pris |
+| `POST /api/prof/editeur/exercice/tables` | `{ id, revision, tables_id }` | `{ change: true, tables_id, revision, erreurs }` — le brouillon passe à cette version des tables (D62), `erreurs` = celles du brouillon contre elle ; 404 version inconnue, 409 révision périmée |
 | `POST /api/prof/editeur/exercice/enregistrer` | `{ id, revision, brouillon }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur ; **409** si la révision n'est plus celle lue (D48, `revision_actuelle` jointe), rien n'est écrasé |
 | `POST /api/prof/editeur/exercice/renommer` | `{ id, titre }` | `{ renomme: true, titre }` — le titre du brouillon (à publier) |
 | `POST /api/prof/editeur/exercice/deplacer` | `{ id, rang, direction: "monter" \| "descendre" }` | `{ deplace: true, id, rang }` — l'ordre de la liste et de l'accueil (D51) ; `rang` est celui que l'écran a vu : 409 s'il a changé (`rang_actuel` joint) ; 400 déjà en tête ou en queue |
 | `POST /api/prof/editeur/exercice/archiver` | `{ id, archive }` | `{ archive, id }` |
 | `POST /api/prof/editeur/exercice/supprimer` | `{ id }` | `{ supprime: true, id }` — 409 s'il a des séances (archiver alors) |
-| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante ; 400 s'il a des erreurs (`erreurs` jointes) ou s'il est identique à la dernière version (D51), 409 révision périmée |
+| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; 400 s'il a des erreurs (`erreurs` jointes) ou s'il est identique à la dernière version, tables comprises (D51, D62), 409 révision périmée |
 | `POST /api/prof/editeur/apercu` | `{ id, brouillon }` ou `{ id, version }` | `{ questions: [ { identifiant, outil_id, outil, operation, dimension, barre, dents, materiau_outil, materiau, reponses } ], champs_evalues }` — dix questions, rien d'enregistré (D49) ; 400 brouillon en erreur |
 | `GET /api/prof/editeur/banque` | cookie admin | `{ outils: [ { id, outil, revision, rang, archive_le, modifie_le, exercices } ], tables }` — `exercices` : ceux dont le brouillon a une copie de cet outil |
-| `GET /api/prof/editeur/tables` | cookie admin | `{ tables: { id, materiaux, operations } }` — les tables les plus récentes |
+| `GET /api/prof/editeur/tables` | cookie admin | `{ brouillon: { contenu, revision, modifie_le, base_id }, modifie, erreurs, versions: [ { id, creee_le, utilisations: { versions_exercice, brouillons } } ], derniere, suggestion }` — le brouillon des tables complété, s'il diffère de la version dont il est parti, ses erreurs (`validateTables`), les versions de la plus récente à la plus ancienne, la révision suggérée (D61) |
+| `GET /api/prof/editeur/tables/version?id=<id>` | cookie admin | `{ tables: { id, creee_le, materiaux, operations } }` — une version publiée, complétée ; 404 |
+| `POST /api/prof/editeur/tables/enregistrer` | `{ revision, contenu: { materiaux, operations } }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur ; 409 révision périmée (D48) ; 400 mal formé |
+| `POST /api/prof/editeur/tables/publier` | `{ revision, id }` | `{ publie: true, id, publiee_le }` — le brouillon devient la version `id` (sa révision est posée dans les deux JSON), le brouillon repart de là ; 400 révision mal formée, brouillon en erreur (`erreurs`) ou identique à la version dont il est parti ; 409 révision périmée ou identifiant déjà pris (immuable) |
+| `POST /api/prof/editeur/tables/apercu` | `{ contenu, exercice }` | `{ questions, champs_evalues, champs_masques }` — dix questions du brouillon de cet exercice avec ces tables, rien d'enregistré (D63) ; 400 tables en erreur ou exercice en erreur avec elles (le message nomme l'erreur) ; 404 exercice inconnu |
 | `POST /api/prof/editeur/banque/creer` | `{ id, outil }` ou `{ id, depuis }` | `{ cree: true, id }` |
 | `POST /api/prof/editeur/banque/enregistrer` | `{ id, revision, outil }` | `{ enregistre: true, revision, erreurs }` — 409 révision périmée |
 | `POST /api/prof/editeur/banque/archiver` | `{ id, archive }` | `{ archive, id }` |
@@ -434,7 +463,7 @@ porte toute la sauvegarde).
 | `POST /api/prof/editeur/images/archiver` | `{ id, archive }` | `{ archive, id }` — retirée des galeries, toujours servie |
 | `POST /api/prof/editeur/images/supprimer` | `{ id }` | `{ supprimee: true, id }` — 409 si l'image est utilisée (version, brouillon, banque, tables ; `utilisations` joint) : archiver alors |
 | `POST /api/prof/editeur/images/importer` | `{ image: { id, nom, usage, type, empreinte, contenu, creee_le, archivee_le } }` | `{ importee, id, existante }` — une image d'un export, envoyée à part avant l'import (D59) ; 400 si le contenu n'a pas l'empreinte annoncée, 409 si la base a une autre image sous cet identifiant |
-| `GET /api/prof/editeur/export` | cookie admin | `{ format, exporte_le, version_serveur, tables_reference, banque, exercices: [ { id, brouillon, archive_le, cree_le, publie_le, versions } ], images: [ { …fiche, contenu } ] }` — la sauvegarde complète, images comprises (contenu en base64, D59), sans données d'étudiants (D49) |
+| `GET /api/prof/editeur/export` | cookie admin | `{ format, exporte_le, version_serveur, tables_reference, brouillon_tables: { contenu, base_id }, banque, exercices: [ { id, brouillon, tables_id, archive_le, cree_le, publie_le, versions } ], images: [ { …fiche, contenu } ] }` — la sauvegarde complète : toutes les versions des tables et leur brouillon (D61), la version de tables de chaque exercice (D62), images comprises (contenu en base64, D59), sans données d'étudiants (D49) |
 | `POST /api/prof/editeur/import/valider` | `{ export }` (les images sans leur contenu suffisent) | `{ erreurs, resume }` — ce que l'import ferait, rien n'est écrit ; `resume.banque` = `{ ajoutes, modifies, retires, gardes }`, les trois listes par `{ id, nom }` (D50) ; `resume.images_manquantes` : les images de l'export à envoyer d'abord (`images/importer`, D59), `images_presentes`, `images_modifiees` (nom ou archivage) |
 | `POST /api/prof/editeur/import` | `{ export, confirmation }` | `{ importe: true, resume }` — fusion en un seul lot (D49) ; le mot attendu est **IMPORTER**, ou **REMPLACER** si des outils de la banque disparaîtraient (D50) ; 400 sans le mot attendu (`mot` joint, le message nomme les outils), avec des erreurs, ou tant qu'une image manque (`images_manquantes` joint) : rien n'est touché |
 
@@ -629,7 +658,8 @@ par une correction, ou constatée à la demande de question quand l'exercice a
   le numéro de la version publiée (« 1 »), affiché « version 1 » (D50) ; une attestation figée
   avant porte « r0 » et s'affiche telle quelle ;
   `revision_tables` : la révision de chaque table de référence (clé `revision`
-  de `materiaux.json` et `operations.json`, D28) ;
+  de `materiaux.json` et `operations.json`, D28) — celle de la version de tables
+  de la version d'exercice de la séance (D62 ; testé sur une version 2 : « A2026_r1 ») ;
 - `outils` : exactement `progression.outils` tel que le serveur le montre à
   l'écran (§7) — `nom`, `operation` et `plage` (celle que l'exercice permet,
   D30) **copiés à cet instant** et plus jamais relus ; `reussites` est le
@@ -967,10 +997,18 @@ immuables. Brouillon et version ont la même forme :
   règles du fichier d'exercice, plus celles de `validateData` pour chaque copie
   (`toolErrors`), chaque erreur nommant son champ (« outils.1.fact_vc »). Un
   brouillon en erreur s'enregistre, mais ne se publie pas.
-- **Publier** = copier le brouillon tel quel comme version suivante, avec la
-  version des tables de référence la plus récente. Un brouillon identique à la
-  dernière version ne se publie pas (D51). Le brouillon reste, modifiable.
-  Le serveur sert la dernière version ; une séance garde la sienne (§7).
+- **Version de tables** (D62) : le brouillon porte la sienne (`tables_id`, hors du
+  contenu), la plus récente à sa création ; il est validé contre elle (un matériau,
+  un groupe ou une matière qu'elle n'a plus : erreur nommée). Quand une plus
+  récente existe, la page le dit et offre d'y passer, en montrant d'abord ce que
+  ça change pour cet exercice (erreurs, Vc, avances, pictogrammes, matériaux de
+  ses groupes).
+- **Publier** = copier le brouillon tel quel comme version suivante, avec **la
+  version de tables du brouillon** (D62). Un brouillon identique à la dernière
+  version, tables comprises, ne se publie pas (D51) ; un changement de tables est
+  une différence (« Tables de référence : « A2026_r0 » → « A2026_r1 » »). Le
+  brouillon reste, modifiable. Le serveur sert la dernière version ; une séance
+  garde la sienne, tables comprises (§7).
 - **Rang** (D51) : chaque exercice a un rang, celui de la liste de l'éditeur et de
   l'accueil ; un exercice créé prend le dernier ; Monter / Descendre réécrivent
   les rangs 1 à n.
@@ -987,7 +1025,11 @@ immuables. Brouillon et version ont la même forme :
   sont envoyées **une par requête** avant l'import, qui les exige ; une image
   présente garde son contenu (nom et archivage mis à jour). La validation
   résume ce qui change dans la banque, outil par outil ; si des outils
-  disparaissaient, l'import exige le mot REMPLACER, écran et serveur (D50).
+  disparaissaient, l'import exige le mot REMPLACER, écran et serveur (D50). Les
+  **versions des tables** absentes sont ajoutées (une version différente sous une
+  révision existante est refusée), le **brouillon des tables** est remplacé par
+  celui de l'export, et chaque exercice reprend sa **version de tables** (un export
+  d'avant, sans elle : la plus récente) (D61, D62).
 
 ## 11. Questions ouvertes (résumé)
 

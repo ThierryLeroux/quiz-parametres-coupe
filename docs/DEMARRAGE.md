@@ -217,6 +217,16 @@ et une séance commencée garde la sienne jusqu'à la fin. « Publier » résume
 différences avant de créer la version ; « Aperçu » tire dix questions avec leurs
 réponses. Mode d'emploi : `docs/UI.md` §3.9.
 
+Les **tables de référence** (onglet **Tables de référence**, décisions D61 à D63) : les vitesses
+de coupe, les avances, les classes ISO et leurs couleurs, les matières d'outil, les
+pictogrammes — un seul brouillon, qu'on **publie** sous une révision (« A2026_r1 »
+est suggérée). Publier une version des tables **ne change aucun exercice** : chaque
+exercice a sa version de tables, et sa page dit quand une plus récente existe
+(**Passer à A2026_r1…** montre d'abord ce que ça change pour lui, puis c'est sa
+prochaine publication qui prend ces tables). Les séances commencées gardent leurs
+tables jusqu'à la fin. « Feuilles imprimables », dans la liste des versions, ouvre les
+trois feuilles d'une version (`/tables?version=A2026_r1`), prêtes pour l'atelier.
+
 Les **images** (onglet **Images**, décision D56) : les photos d'outils et les pictogrammes
 d'opérations sont dans la base, et c'est là qu'on en ajoute — depuis le formulaire d'un
 outil (**Choisir une image…**, puis **Téléverser une image**) ou depuis l'onglet. Une photo

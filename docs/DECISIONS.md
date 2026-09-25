@@ -1442,3 +1442,93 @@ Points tranchés par Thierry, sur D55 à D59 :
 
 **Conséquences.** `uploadPlan(usage, isSvg, transparent)` et `hasTransparency` (`editeur-data.js`, testés),
 `prepareUpload` (`images-picker.js`) ; SPEC §3 ; UI §3.9 ; DEMARRAGE §7.
+
+## D61 — Les tables de référence s'éditent et se publient : un brouillon unique, des versions immuables avec leur révision, les couleurs et les pictogrammes dans les tables (2026-09-25, décidée)
+
+**Contexte.** Depuis D47, les tables de référence (matériaux, opérations) vivent en D1 comme versions
+immuables, mais une seule existait (« A2026_r0 », la semence) et rien ne permettait d'en publier une
+autre. Les couleurs de sens (classes ISO, matières d'outil) étaient des variables de `tokens.css`
+(UI §1), et les pictogrammes d'opérations étaient trouvés par le nom de l'opération.
+
+**Décision.**
+
+- **Un brouillon unique des tables** (table `brouillon_tables`, migration `0008`, semé depuis la
+  version la plus récente), modifiable, avec un contrôle optimiste (D48) ; **des versions publiées
+  immuables** (`tables_reference`), comme les exercices. Le brouillon note la version dont il est
+  parti (`base_id`). Chaque action est au journal (`editeur_tables_enregistrement`, `_publication`).
+- **Ce qu'une version contient** — le format de SPEC §3, complété : les **classes ISO**
+  (`classes_iso` : code, nom, couleur vive, couleur du texte, teinte de ligne), les **matières d'outil**
+  (`materiaux_outil` : la clé de `vc_pi_min`, fixe — `acier_rapide`, `carbure_solide`,
+  `insert_carbure` —, le nom que les outils nomment et que l'étudiant lit, la couleur de la colonne),
+  les **matériaux usinés** (avec `debut_famille`, D27), les **opérations** (machine, direction,
+  famille d'avance, avances, et `pictogramme` : l'identifiant d'une image, D56). Les groupes ISO
+  (`groupes_iso`) sont **dérivés des lignes** (« classe - matériau », dans l'ordre d'apparition), plus
+  saisis. **Les couleurs passent dans les tables** : `tokens.css` ne garde que les valeurs par défaut,
+  et une version d'avant (« A2026_r0 ») est **complétée à la lecture** avec ces valeurs
+  (`completeTables`, `site/js/tables.js`) — la ligne en base ne change pas, la semence reste identique
+  aux JSON, un export d'avant s'importe encore. **Le quiz, les feuilles et l'éditeur lisent les couleurs
+  et les matières de la version en usage** (`data.classesIso`, `data.toolMaterials`,
+  `data.toolMaterialKeys` ; les variables CSS sont posées sur la page par `applyTableColors`) ; le
+  rouge K de nuit (D30) est composé de la couleur de la classe (64 % couleur, 36 % blanc). Renommer
+  une matière d'outil est permis : les outils qui nomment l'ancien nom passent en erreur, nommée.
+- **La révision** (D28) est **saisie à la publication**, avec une **suggestion** qui incrémente la
+  dernière (« A2026_r0 » → « A2026_r1 » ; sans suffixe, « _r1 »), **unique** (409 sinon) ; elle est
+  posée dans les deux JSON de la version. La publication exige un brouillon sans erreur
+  (`validateTables`, 400 avec les erreurs jointes), refuse un brouillon identique à la version dont il
+  est parti (400) et une révision périmée (409), et montre d'abord les **différences valeur par
+  valeur** (`tablesDiff` : « Acier non allié (groupe 1), Insert de carbure de tungstène : 400 → 999
+  pi/min », « Classe P — couleur : … », « Opération « Perçage » — avance (po/rév) : … », matériaux et
+  opérations ajoutés, retirés, réordonnés). Une nouvelle version **ne change aucun exercice toute
+  seule** (D62).
+- **La version la plus récente** est la dernière publiée ou importée (l'ordre d'insertion, pas la
+  date : une horloge fausse ne fait pas remonter une vieille version).
+
+**Conséquences.** `site/js/tables.js` (pur : valeurs par défaut, complétion, variables CSS, révision
+suivante, différences), `data.js` (`validateTables`, `assembleTables`, index des couleurs et des
+matières), `question.js` (la clé de la matière d'après les tables), `sheets-data.js` et
+`reference-screen.js` (couleurs des tables), `base.js`, `index.js` (routes `tables`), l'onglet
+**Tables de référence** de l'éditeur ; SPEC §3, §7, §10 ; UI §1, §3.5, §3.9.
+
+## D62 — Le brouillon d'un exercice choisit sa version de tables ; une séance garde celles de sa version d'exercice (2026-09-25, décidée)
+
+**Décision.**
+
+- Chaque exercice porte la **version de tables de son brouillon** (`exercices.tables_id`, migration
+  `0008`) : la plus récente à sa création (une copie garde celle de sa source) ; les exercices
+  existants sont sur « A2026_r0 ». **Le brouillon est validé contre cette version** : un matériau, un
+  groupe ou une matière d'outil qu'elle n'a plus est une **erreur nommée** (« groupe de matériaux
+  inconnu : « K - Fonte grise » », « matériau d'outil inconnu : « Acier rapide » (les tables offrent
+  HSS, …) »), qui bloque la publication. **La publication prend cette version** — plus « la plus
+  récente » (remplace ce point de D47 et D49) — et **un changement de tables est une différence à
+  publier**, même à contenu identique (« Tables de référence : « A2026_r0 » → « A2026_r1 » »).
+- Quand une version plus récente existe, **la page de l'exercice le signale** et offre d'y passer ;
+  le bouton montre d'abord **ce que ça change pour cet exercice** (`exerciseTablesImpact`) : les
+  erreurs qui apparaîtraient, les Vc qui changent dans les groupes et matières que ses outils tirent,
+  les avances et pictogrammes de ses opérations, les matériaux ajoutés ou retirés dans ses groupes ; puis
+  le passage (`POST exercice/tables`, contrôle optimiste, journalisé). Le brouillon seul change ; les
+  versions publiées et les séances en cours gardent leurs tables.
+- **Une séance utilise toujours les tables de sa version d'exercice** (D47) : questions, correction,
+  feuilles de référence et couleurs à l'écran, révision des tables sur l'attestation (D28) — vérifié :
+  une séance commencée avant la publication de « A2026_r1 » garde ses réponses attendues ; l'attestation
+  d'une séance sur une version 2 inscrit « A2026_r1 ».
+
+**Conséquences.** `exerciseTables` et `editeurExerciceTables` (`index.js`), `base.setExerciseTables`,
+`exerciseTablesImpact`, `tablesNotice`, `versionDiff(…, tables)` (`editeur-data.js`) ; l'export porte
+`tables_id` par exercice (un export d'avant : la plus récente) ; SPEC §7, §10 ; UI §3.9.
+
+## D63 — Feuilles imprimables par version de tables, aperçu d'un brouillon de tables (2026-09-25, décidée)
+
+**Décision.**
+
+- **`/tables?version=<révision>`** : les trois feuilles de référence d'une version publiée, telles que
+  l'étudiant les voit, avec les couleurs de cette version, la révision au pied et dans la barre, sans
+  retour à une question — la même couche que dans le quiz (`createReference`, `standalone`), sur une
+  page lettre à l'impression. Publique (`GET /api/tables?version=`) : ce sont les feuilles de
+  l'atelier. Ouverte depuis l'éditeur (liste des versions, « Feuilles imprimables »).
+- **Aperçu d'un brouillon de tables** : depuis l'onglet, le choix d'un exercice et **dix questions** de
+  son brouillon tirées avec les tables **telles qu'à l'écran** (même non enregistrées), avec leurs
+  réponses ; rien n'est enregistré, rien au journal. Un exercice en erreur avec ces tables est refusé,
+  et le message nomme l'erreur.
+
+**Conséquences.** `site/tables.html`, `site/js/ui/tables.js`, `assembleTables` (`data.js`),
+`GET /api/tables`, `POST /api/prof/editeur/tables/apercu` ; UI §3.5, §3.9.

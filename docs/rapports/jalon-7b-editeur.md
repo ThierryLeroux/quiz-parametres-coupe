@@ -180,9 +180,134 @@ Un commit de plus sur la branche, poussée. `npm test` : 526 tests (le test des 
    dessin aplati sur fond opaque arrive en JPEG. SPEC §3, UI §3.9, DEMARRAGE §7, notes de l'éditeur.
 3. Thierry fusionne la partie A dans `main` avant la partie B.
 
-## Partie B (attendre le feu vert)
+## Partie B — tables de référence versionnées (points 10 à 16, D61 à D63)
 
-Décrite dans `PLAN.md` (jalon 7b, partie B) : onglet Tables de référence (brouillon unique, versions immuables,
-couleurs dans les tables), révision saisie à la publication avec suggestion, choix de la version de tables par
-le brouillon d'un exercice avec l'aperçu de ce que ça change, séance toujours sur les tables de sa version,
-feuilles imprimables par version, aperçu d'une version de tables en brouillon, export et import, tests.
+Session du 2026-09-25, à partir de `main` à jour (qui était la branche elle-même après ta fusion). Quatre commits
+de plus, branche poussée. `npm test` : 541 tests (+ 15), `fail 0` ; `npm run test:api` : 30 étapes (+ 2) ;
+Chrome à 1280 et 390 px : 25 vérifications de plus, 9 captures (`14` à `22` dans `captures/jalon-7b/`), aucune
+requête externe, aucune exception.
+
+### 10. Onglet Tables de référence (D61)
+
+- **Modèle** : migration `0008` — `brouillon_tables` (une seule ligne : contenu `{ materiaux, operations }`,
+  révision optimiste, `base_id` = la version dont le brouillon est parti ; semée depuis A2026_r0) et
+  `exercices.tables_id` (la version de tables du brouillon de chaque exercice ; les deux M10 sur A2026_r0).
+  Les versions publiées restent les lignes de `tables_reference` (D47), immuables.
+- **Contenu d'une version** : le format de SPEC §3 complété par `classes_iso` (code, nom, couleur vive, couleur du
+  texte, teinte de ligne), `materiaux_outil` (clé fixe de `vc_pi_min`, nom, couleur) et `operations[].pictogramme`
+  (l'identifiant d'une image, D56). `groupes_iso` est dérivé des lignes (« classe - matériau », l'ordre du
+  classeur est bien celui d'apparition : testé). **Les couleurs passent dans les tables** : `tokens.css` ne
+  garde que les valeurs par défaut, reprises à l'identique dans `site/js/tables.js` (`DEFAULT_ISO_CLASSES`,
+  `DEFAULT_TOOL_MATERIALS` ; un test compare aux variables de `tokens.css`). **Une version d'avant (A2026_r0) est
+  complétée à la lecture** plutôt que réécrite : la ligne en base ne change pas, la semence reste identique aux
+  JSON, un export d'avant s'importe encore ; le brouillon semé l'est aussi.
+- **Le quiz et les feuilles lisent la version en usage** : `assembleData` expose `classesIso`, `toolMaterials` et
+  `toolMaterialKeys` (nom → clé) ; `question.js` prend la clé de la matière dans les tables ; la feuille des Vc
+  colore ses en-têtes et ses lignes avec les valeurs de la version ; les écrans du quiz et de l'éditeur posent
+  les variables CSS (`applyTableColors`) à partir de leur version — le rouge K de nuit (D30) est composé de la
+  couleur de la classe (64 % couleur, 36 % blanc = #ff5c5c, la valeur d'origine). Vu dans Chrome : la classe P
+  passée à #0099cc dans le brouillon suit à la frappe, la version A2026_r1 la sert, la page du M10 sur A2026_r0
+  garde le bleu d'origine, puis prend le nouveau une fois passée à A2026_r1, comme la séance de Camille.
+- **L'onglet** : des tableaux de saisie (classes, matières, 47 matériaux, 19 opérations avec la famille d'avance
+  en liste et le pictogramme par la galerie compacte de la partie A), ↑ ↓ Retirer, Ajouter ; validation
+  continue (`validateTables` : classes, couleurs, les trois clés, noms uniques, matériaux, opérations,
+  pictogramme) ; Enregistrer avec contrôle optimiste (409 testé) ; la liste des versions avec leurs utilisations
+  et « Feuilles imprimables ». À 390 px, les tableaux défilent dans leur cadre.
+
+### 11. Révision, validation, différences (D61)
+
+Publier enregistre, puis montre les **différences valeur par valeur** avec la version dont le brouillon est parti
+(`tablesDiff`, testée : « Acier non allié (groupe 1), Insert de carbure de tungstène : 400 → 999 pi/min »,
+« Classe P — couleur : #00b0f0 → #0099cc », « Opération « Perçage » — avance (po/rév) : 0.006 → 0.008 »,
+matière renommée, matériaux et opérations ajoutés, retirés, réordonnés) et le champ **Révision**, prérempli de la
+**suggestion** (`nextRevision` : « A2026_r0 » → « A2026_r1 », « H2025_r12 » → « H2025_r13 », sans suffixe
+« _r1 »). Le serveur refuse : une révision mal formée (400), prise (409, « une version publiée ne se remplace
+pas »), périmée (409), un brouillon en erreur (400, erreurs jointes) ou identique à sa version de départ (400).
+La révision est posée dans les deux JSON de la version ; le brouillon repart de la version publiée. **La version
+la plus récente est la dernière insérée** (ordre d'insertion, pas la date) — l'horloge fictive des tests
+(2026-09-21) est antérieure à la semence (2026-09-24), ce qui aurait fait remonter A2026_r0 devant A2026_r1.
+
+### 12. L'exercice choisit sa version de tables (D62)
+
+Un exercice créé prend la plus récente ; une copie garde celle de sa source. La page dit sa version (barre) et,
+quand une plus récente existe, l'**avis doré** avec **Passer à A2026_r1…** : enregistre, puis montre **ce que ça
+change pour cet exercice** (`exerciseTablesImpact`, testée sur les deux M10 : les erreurs qui apparaîtraient —
+groupe retiré, matière renommée —, les Vc des groupes et matières que ses outils tirent et rien d'autre — le
+carbure solide doublé partout ne change rien pour le M10 « vitesse de coupe », qui ne le tire pas —, les
+avances et pictogrammes de ses opérations, les matériaux ajoutés ou retirés dans ses groupes). Le brouillon est
+validé contre **sa** version (`draftErrors` reçoit les noms de matières de la version : « matériau d'outil
+inconnu : « Acier rapide » (les tables offrent HSS, …) », « groupe de matériaux inconnu : « K - Fonte grise » »),
+la publication est refusée tant qu'il reste une erreur, et la version publiée prend la version de tables du
+brouillon. **Un changement de tables est une différence à publier** même à contenu identique (serveur et écran :
+« Tables de référence : « A2026_r0 » → « A2026_r1 » »). Route `POST exercice/tables` (contrôle optimiste,
+journalisée).
+
+### 13. Séance, feuilles imprimables, attestation (D62, D63)
+
+Rien à changer pour la séance : elle était déjà épinglée à sa version d'exercice, donc à sa version de tables
+(D47) ; testé : Camille commence sur la version 1 (A2026_r0), A2026_r1 est publiée (carbure doublé), sa question
+en attente et sa réponse attendue ne bougent pas, sa correction dit l'ancienne valeur ; Alex, sur la version 2
+(A2026_r1), a ses Vc de carbure doublées et **son attestation inscrit « A2026_r1 »** comme révision des tables.
+Les feuilles de référence de l'étudiant sont celles de sa version (vu dans Chrome : Vc 999 et « révision
+A2026_r1 » au pied). **`/tables?version=<révision>`** : la même couche que dans le quiz, seule et toujours
+ouverte, sans « Retour à la question », la révision dans la barre ; imprimée en une page lettre (PDF vérifié) ;
+route publique `GET /api/tables?version=`.
+
+### 14. Aperçu d'un brouillon de tables (D63)
+
+Dans l'onglet, le choix d'un exercice et **Dix questions** : `POST tables/apercu` tire dix questions du
+brouillon de l'exercice avec les tables **telles qu'à l'écran** (même non enregistrées), sans rien enregistrer
+ni journaliser (testé) ; un exercice en erreur avec ces tables est refusé et le message nomme l'erreur.
+
+### 15. Export et import (D61, D62)
+
+L'export porte `brouillon_tables` (contenu, `base_id`) et `tables_id` par exercice ; l'import ajoute les versions
+absentes (une version différente sous une révision prise est refusée, D49), remplace le brouillon des tables,
+donne à chaque exercice sa version (inconnue : erreur nommée ; absente — un export d'avant — : la plus récente).
+Aller-retour identique, testé sous Node et par HTTP.
+
+### 16. Tests, docs, Chrome
+
+- Tests (15 de plus) : `tests/tables.test.js` (complétion, validation, variables CSS contre `tokens.css`,
+  révision suivante, différences), `tests/worker-tables.test.js` (8 : brouillon, publication, exercice et tables,
+  matière et groupe retirés, **séance qui garde ses tables et réponses attendues qui ne changent que là où les
+  valeurs ont changé** — même graine, aperçu de `test-complet` sur A2026_r0 et A2026_r1 : mêmes questions,
+  seules les Vc du carbure diffèrent —, attestation sur une version 2, aperçu, export et import, migration
+  0008), `ui-editeur.test.js` (famille d'avance, groupes dérivés, impact, ligne des tables, avis, résumé
+  d'import). Les tests existants restent verts : **les deux M10 posent les mêmes questions qu'avant sur
+  A2026_r0** (`semence.test.js`, inchangé), la semence est identique aux JSON, les 29 outils et les 47 lignes se
+  valident comme avant. `test:api` : étapes 28 et 29.
+- Docs : DECISIONS D61 à D63 ; SPEC §3 (tables versionnées, format complété), §7 (tables, brouillon, API), §8
+  (révision des tables de la version), §10 (version de tables, publication, sauvegarde) ; UI §1 (les couleurs
+  vivent dans les tables), §3.5 (feuilles par version, couleurs), §3.9 (onglet Tables de référence, page d'un
+  exercice, publication), §8 ; DEMARRAGE §7 ; CLAUDE.md ; PLAN ; `tokens.css` (valeurs par défaut).
+- Chrome : onglet Tables (1280, 390), erreur bloquante, confirmation de publication avec les différences et la
+  révision suggérée, aperçu, avis et impact sur la page du M10, publication avec la ligne des tables, `/tables`
+  pour A2026_r1 et A2026_r0 (PDF d'une page), quiz sur la version 2 aux couleurs et aux tables de A2026_r1.
+
+### Commits de la partie B
+
+7. Tables de référence versionnées, côté serveur (points 10 à 15) ; 8. l'onglet, la page d'un exercice, la page
+`/tables`, les couleurs ; 9. `test:api` étendu ; 10. docs et rapport.
+
+### Points douteux de la partie B, à trancher
+
+1. **Les couleurs d'une version d'avant (A2026_r0) sont complétées à la lecture**, pas écrites en base : sa
+   ligne est identique à la semence. Si tu préfères que la migration écrive les couleurs dans A2026_r0, c'est une
+   migration `0009` qui réécrit le JSON ; le test de semence changerait.
+2. **Les matières d'outil restent au nombre de trois, clés fixes** (`acier_rapide`, `carbure_solide`,
+   `insert_carbure`) : le nom et la couleur s'éditent, pas la liste — la feuille, `vc_pi_min` et le VBA ont
+   trois colonnes. En ajouter demanderait de toucher au format des matériaux et à la feuille.
+3. **Les classes ISO s'ajoutent et se retirent** (lettre majuscule unique) ; retirer une classe encore utilisée
+   par un matériau est une erreur de validation, dite.
+4. **Renommer une matière d'outil** met en erreur chaque outil (banque, brouillons) qui nomme l'ancien nom, et
+   la restriction `materiaux_outil` des exercices : c'est voulu (« une matière retirée devient une erreur
+   nommée »), mais c'est du travail outil par outil. Un renommage en masse n'existe pas.
+5. **Une copie d'exercice garde la version de tables de sa source**, pas la plus récente (le point 12 dit « la
+   plus récente à sa création » pour un exercice créé).
+6. **La suppression d'une version de tables n'existe pas** (immuable, comme une version d'exercice) ; les
+   versions inutilisées restent listées avec « aucune utilisation ».
+7. **La famille d'avance d'une opération** se règle en liste (fixe, proportionnelle, filetage) ; en filetage, les
+   avances sont grisées et enregistrées à null, comme le format l'exige.
+8. **Choix visuels non maquettés** : tableaux de cases de saisie, `<input type="color">` du navigateur pour les
+   couleurs, avis doré sur la page de l'exercice, panneau d'impact.
