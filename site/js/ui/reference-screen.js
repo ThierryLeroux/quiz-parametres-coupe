@@ -140,32 +140,34 @@ function formulasPage() {
   ]);
 }
 
-// Crée la couche des feuilles, une fois, et l'accroche à la page. Retourne { open(feuille), close() }.
-export function createReference(data) {
+// Crée la couche des feuilles, une fois, et l'accroche à la page. Retourne { open(feuille), close(), destroy() }.
+//   standalone : la page /tables (D63) — les feuilles seules, toujours ouvertes, sans retour à une question ;
+//                le titre nomme la révision des tables
+export function createReference(data, { standalone = false } = {}) {
   const pages = { vc: () => vcPage(data), avances: () => feedPage(data), formules: formulasPage };
   const stage = el('div', { class: 'print-stage sheets-stage' });
   const title = el('div', { class: 'app-title' }, 'Tables de référence');
   const tabs = TABS.map(({ id, label }) => el('button', { class: 'tab', type: 'button', role: 'tab', 'data-tab': id, onclick: () => show(id) }, label));
   let returnFocus = null;
 
-  const layer = el('div', { class: 'sheets', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Tables de référence', hidden: true }, [
+  const layer = el('div', { class: 'sheets', role: standalone ? null : 'dialog', 'aria-modal': standalone ? null : 'true', 'aria-label': 'Tables de référence', hidden: true }, [
     el('div', { class: 'sheets-bar no-print' }, [
       title,
       el('div', { class: 'sheets-actions' }, [
         el('button', { class: 'button button--gold', type: 'button', onclick: () => window.print() }, 'Imprimer / PDF'),
-        el('button', { class: 'button-link', type: 'button', onclick: close }, '← Retour à la question'),
+        standalone ? el('span', { class: 'muted small' }, `révision ${data.revisions.materiaux}`) : el('button', { class: 'button-link', type: 'button', onclick: close }, '← Retour à la question'),
       ]),
     ]),
     el('div', { class: 'sheets-tabs no-print', role: 'tablist' }, tabs),
     stage,
   ]);
-  layer.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
+  if (!standalone) layer.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
   document.body.append(layer);
 
   function show(id) {
     const tab = TABS.find((entry) => entry.id === id) ?? TABS[0];
     tabs.forEach((button) => button.setAttribute('aria-selected', String(button.dataset.tab === tab.id)));
-    title.textContent = `Tables de référence — ${tab.label}`;
+    title.textContent = `Tables de référence — ${tab.label}${standalone ? ` (${data.revisions.materiaux})` : ''}`;
     stage.replaceChildren(pages[tab.id]());
     stage.scrollTo(0, 0);
   }
@@ -179,10 +181,17 @@ export function createReference(data) {
   }
 
   function close() {
+    if (standalone) return;
     layer.hidden = true;
     document.body.classList.remove('sheets-open');
     returnFocus?.focus?.(); // on revient à la case qu'on était en train de remplir
   }
 
-  return { open, close };
+  // Retire la couche de la page (une autre version d'exercice, avec d'autres tables, la remplace).
+  function destroy() {
+    close();
+    layer.remove();
+  }
+
+  return { open, close, destroy };
 }

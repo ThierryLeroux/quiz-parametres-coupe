@@ -177,6 +177,23 @@
 .exemple-nomenclature { color: var(--color-text); }
 .exemple-nomenclature .button-link { min-height: 28px; font-size: var(--text-xs); }
 
+/* L'onglet Tables de référence (D61) : des tableaux de cases de saisie, compacts ; la galerie compacte dans une cellule. */
+.tables-edit td { padding: 4px 6px; vertical-align: middle; }
+.tables-edit input[type='text'], .tables-edit select { width: 100%; min-width: 90px; min-height: 36px; padding: 0 var(--space-2); border: 1px solid var(--color-accent); border-radius: 0; background: var(--color-input-bg); color: var(--color-text); font: inherit; font-size: var(--text-sm); }
+.tables-edit input.input-court { min-width: 64px; width: 72px; }
+.tables-edit input.input-moyen { min-width: 90px; width: 110px; }
+.tables-edit input[type='color'] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--color-accent); background: var(--color-input-bg); cursor: pointer; }
+.tables-edit input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--color-accent); }
+.tables-edit input:disabled { opacity: 0.4; }
+.tables-edit .ligne-famille td { border-top: 2px solid var(--color-text-muted); }
+.tables-edit .picto-cell { min-width: 220px; }
+.image-picker--compact { gap: var(--space-1); }
+.image-picker--compact .image-picker-preview { width: 40px; height: 40px; }
+.image-picker--compact .image-picker-current .outil-actions { margin-top: 2px; }
+.image-picker--compact .image-gallery { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); max-height: 220px; }
+.avis-tables { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-gold); color: var(--color-gold); font-size: var(--text-sm); }
+.tables-version { font-family: var(--font-number); color: var(--color-text); }
+
 /* L'onglet Images : la vignette, le nom et l'identifiant, l'état. */
 .images-table td { vertical-align: middle; }
 .image-archivee td { opacity: 0.7; }

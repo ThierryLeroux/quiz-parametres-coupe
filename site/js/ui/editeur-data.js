@@ -150,9 +150,11 @@ function copyDiff(before, after) {
 
 // Les différences entre la dernière version publiée et le brouillon : ce que la confirmation résume.
 //   before : le contenu de la version (ou null : première publication) ; after : le brouillon
-// Retourne { premiere, reglages: [...], ajoutes: [copies], retires: [copies], modifies: [{ id, nom, champs }] }.
-export function versionDiff(before, after) {
-  if (before === null) return { premiere: true, reglages: [], ajoutes: after.outils, retires: [], modifies: [] };
+//   tables : { avant, apres } — la version de tables de la dernière version publiée et celle du brouillon (D62) ; null = sans
+// Retourne { premiere, reglages: [...], ajoutes: [copies], retires: [copies], modifies: [{ id, nom, champs }], tables }.
+export function versionDiff(before, after, tables = null) {
+  const tablesChange = tables !== null && tables.avant !== tables.apres ? { avant: tables.avant, apres: tables.apres } : null;
+  if (before === null) return { premiere: true, reglages: [], ajoutes: after.outils, retires: [], modifies: [], tables: tablesChange };
   const byId = (list) => new Map(list.map((copy) => [copy.id, copy]));
   const avant = byId(before.outils);
   const apres = byId(after.outils);
@@ -163,6 +165,7 @@ export function versionDiff(before, after) {
     retires: before.outils.filter((copy) => !apres.has(copy.id)),
     modifies: after.outils.filter((copy) => avant.has(copy.id)).map((copy) => ({ id: copy.id, nom: copy.nom, champs: copyDiff(avant.get(copy.id), copy) })).filter((entry) => entry.champs.length > 0),
     reordonnes: before.outils.filter((copy) => apres.has(copy.id)).map((copy) => copy.id).join(',') !== after.outils.filter((copy) => avant.has(copy.id)).map((copy) => copy.id).join(','),
+    tables: tablesChange,
   };
 }
 
@@ -170,6 +173,7 @@ export function versionDiff(before, after) {
 export function diffLines(diff) {
   if (diff.premiere) return [`Première publication : ${diff.ajoutes.length} outil${diff.ajoutes.length > 1 ? 's' : ''}.`];
   const lines = [];
+  if (diff.tables) lines.push(`Tables de référence : « ${diff.tables.avant} » → « ${diff.tables.apres} »`);
   for (const r of diff.reglages) lines.push(`${r.label} : « ${r.avant} » → « ${r.apres} »`);
   for (const copy of diff.ajoutes) lines.push(`Outil ajouté : ${copy.nom} (${copy.id}), ${copy.reussites_requises} réussite${copy.reussites_requises > 1 ? 's' : ''} de suite`);
   for (const copy of diff.retires) lines.push(`Outil retiré : ${copy.nom} (${copy.id})`);
@@ -178,6 +182,103 @@ export function diffLines(diff) {
   if (lines.length === 0) lines.push('Aucune différence avec la version précédente.');
   return lines;
 }
+
+// --- Tables de référence versionnées (D61 à D63) ----------------------------------------------------------------------
+
+// La famille d'avance d'une opération, et l'inverse : « fixe », « proportionnelle » (au Ø), « filetage » (le pas).
+export const FEED_FAMILIES = [
+  { key: 'fixe', label: 'fixe (la valeur de la table)' },
+  { key: 'proportionnelle', label: 'proportionnelle au Ø de l\'outil' },
+  { key: 'filetage', label: 'filetage (l\'avance est le pas)' },
+];
+export function feedFamilyOf(operation) {
+  if (operation?.avance_egale_pas_filetage === true) return 'filetage';
+  if (operation?.avance_proportionnelle_diametre === true) return 'proportionnelle';
+  return 'fixe';
+}
+export const feedFamilyFlags = (family) => ({ avance_egale_pas_filetage: family === 'filetage', avance_proportionnelle_diametre: family === 'proportionnelle' });
+
+// Les groupes ISO d'une table de matériaux, dérivés des lignes (« P - Acier non allié »), dans l'ordre d'apparition :
+// c'est ce que les outils nomment dans « groupes_materiaux_usinables ».
+export function deriveGroups(materials) {
+  const groups = [];
+  for (const m of materials) {
+    const group = `${m.iso} - ${m.materiau}`;
+    if (!groups.includes(group)) groups.push(group);
+  }
+  return groups;
+}
+
+// « 2 versions d'exercice · 1 brouillon », « aucune utilisation » — la colonne des versions de tables.
+export function tablesUsageLabel({ versions_exercice: versions, brouillons }) {
+  const parts = [];
+  if (versions > 0) parts.push(`${versions} version${versions > 1 ? 's' : ''} d'exercice`);
+  if (brouillons > 0) parts.push(`${brouillons} brouillon${brouillons > 1 ? 's' : ''}`);
+  return parts.length === 0 ? 'aucune utilisation' : parts.join(' · ');
+}
+
+// Ce qu'un changement de version de tables change POUR CET EXERCICE (D62) : les erreurs qui
+// apparaîtraient (matière, groupe ou opération que la nouvelle version n'a plus), les Vc qui changent
+// dans les groupes et matières que ses outils tirent, les avances et pictogrammes des opérations de
+// ses outils, les matériaux ajoutés ou retirés dans ses groupes. Retourne { erreurs, lignes }.
+//   draft : le brouillon de l'exercice ; before, after : les deux versions de tables (complétées ou non)
+//   draftErrorsOf : (draft, tables) → [{ champ, message }] (draftErrors d'exercice.js, injectée : pas de cycle d'import)
+export function exerciseTablesImpact(draft, before, after, draftErrorsOf) {
+  const key = (e) => `${e.champ} : ${e.message}`;
+  const known = new Set(draftErrorsOf(draft, before).map(key));
+  const erreurs = draftErrorsOf(draft, after).map(key).filter((e) => !known.has(e));
+
+  const tools = Array.isArray(draft.outils) ? draft.outils : [];
+  const permitted = (list, item) => !Array.isArray(list) || list.includes(item);
+  const usedGroups = new Set(tools.flatMap((t) => (t.groupes_materiaux_usinables ?? []).filter((g) => permitted(draft.groupes, g))));
+  const usedMaterials = new Set(tools.flatMap((t) => (t.materiaux_outil ?? []).filter((m) => permitted(draft.materiaux_outil, m))));
+  const usedOperations = new Set(tools.map((t) => t.operation));
+
+  const a = completeTablesLike(before);
+  const b = completeTablesLike(after);
+  const lignes = [];
+  const text = (v) => (v === undefined || v === null ? '—' : String(v));
+  const rowsA = new Map(a.materiaux.materiaux.map((m) => [m.groupe, m]));
+  const rowsB = new Map(b.materiaux.materiaux.map((m) => [m.groupe, m]));
+  const toolsB = new Map(b.materiaux.materiaux_outil.map((m) => [m.nom, m.cle]));
+  const toolsA = new Map(a.materiaux.materiaux_outil.map((m) => [m.nom, m.cle]));
+  for (const [groupe, row] of rowsB) {
+    const group = `${row.iso} - ${row.materiau}`;
+    if (!usedGroups.has(group)) continue;
+    const old = rowsA.get(groupe);
+    if (!old) { lignes.push(`Matériau ajouté dans un groupe de l'exercice : ${group} (groupe ${groupe})`); continue; }
+    for (const name of usedMaterials) {
+      const was = old.vc_pi_min?.[toolsA.get(name)];
+      const now = row.vc_pi_min?.[toolsB.get(name)];
+      if (was !== now) lignes.push(`${row.materiau} (groupe ${groupe}), ${name} : ${text(was)} → ${text(now)} pi/min`);
+    }
+  }
+  for (const [groupe, row] of rowsA) {
+    if (!rowsB.has(groupe) && usedGroups.has(`${row.iso} - ${row.materiau}`)) lignes.push(`Matériau retiré d'un groupe de l'exercice : ${row.iso} - ${row.materiau} (groupe ${groupe})`);
+  }
+  const opsA = new Map(a.operations.operations.map((op) => [op.operation, op]));
+  const opsB = new Map(b.operations.operations.map((op) => [op.operation, op]));
+  for (const name of usedOperations) {
+    const old = opsA.get(name);
+    const now = opsB.get(name);
+    if (!old || !now) continue; // absente : c'est une erreur, déjà dite
+    for (const [field, label] of [['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø'], ['pictogramme', 'pictogramme']]) {
+      if (JSON.stringify(old[field] ?? null) !== JSON.stringify(now[field] ?? null)) lignes.push(`Opération « ${name} » — ${label} : ${text(old[field])} → ${text(now[field])}`);
+    }
+  }
+  return { erreurs, lignes };
+}
+
+// Les tables complétées, sans dépendre de tables.js pour les tests de cet écran (la même règle : valeurs par défaut).
+function completeTablesLike(tables) {
+  return {
+    materiaux: { ...tables.materiaux, classes_iso: tables.materiaux.classes_iso ?? DEFAULT_ISO_CLASSES, materiaux_outil: tables.materiaux.materiaux_outil ?? DEFAULT_TOOL_MATERIALS },
+    operations: tables.operations,
+  };
+}
+
+// Le nom d'une version de tables sur la page d'un exercice, et l'avis quand une plus récente existe.
+export const tablesNotice = (current, latest) => (current === latest ? null : `Une version plus récente des tables de référence existe : ${latest}. Cet exercice est sur ${current}.`);
 
 // --- Formulaire d'outil ---------------------------------------------------------------------------------------------
 
@@ -411,7 +512,7 @@ export function importSummaryLines(resume) {
   const manquantes = resume.images_manquantes ?? [];
   return [
     `Images : ${resume.images_presentes ?? 0} déjà dans la base ; ${manquantes.length === 0 ? 'aucune à envoyer' : `${manquantes.length} à envoyer avant l'import (une par requête)`}${(resume.images_modifiees ?? []).length > 0 ? ` ; ${resume.images_modifiees.length} fiche(s) mise(s) à jour (nom, archivage)` : ''}.`,
-    `Tables de référence ajoutées : ${list(resume.tables_ajoutees)}.`,
+    `Tables de référence ajoutées : ${list(resume.tables_ajoutees)}${resume.brouillon_tables ? ' ; le brouillon des tables est remplacé' : ''}.`,
     `Banque d'outils — ajoutés : ${names(b.ajoutes)} ; modifiés : ${names(b.modifies)} ; inchangés : ${b.gardes}.`,
     b.retires.length > 0
       ? `Banque d'outils — DISPARAÎTRAIENT : ${names(b.retires)}. Les copies déjà faites dans les exercices ne changent pas, mais ces outils ne pourront plus être ajoutés. Pour importer quand même, il faudra taper ${REPLACE_WORD}.`

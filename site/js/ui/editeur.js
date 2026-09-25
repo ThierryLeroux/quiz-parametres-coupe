@@ -4,18 +4,23 @@
 // validation est celle du quiz (draftErrors, site/js/exercice.js) ; ici, on construit le DOM.
 //
 // Écrans : connexion → liste des exercices → page d'un exercice (réglages, outils, versions,
-// aperçu, publication) ; banque d'outils → fiche d'un outil ; images (galerie, téléversement,
-// archivage) ; sauvegarde (export, import — les images voyagent à part, une par requête).
+// aperçu, publication, version des tables) ; banque d'outils → fiche d'un outil ; tables de
+// référence (brouillon, publication d'une version avec sa révision, aperçu, feuilles imprimables) ;
+// images (galerie, téléversement, archivage) ; sauvegarde (export, import — les images voyagent à
+// part, une par requête).
 
 import {
   editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankSave, editorCreateExercise, editorDeleteExercise, editorExport,
-  editorGetExercise, editorImageArchive, editorImageDelete, editorImageImport, editorImageRename, editorImageUpload, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft, teacherLogin, teacherLogout,
+  editorExerciseTables, editorGetExercise, editorImageArchive, editorImageDelete, editorImageImport, editorImageRename, editorImageUpload, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft,
+  editorTables, editorTablesPreview, editorTablesPublish, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
 } from '../api.js';
+import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors } from '../exercice.js';
-import { el, showScreen } from './dom.js';
+import { tablesDiff } from '../tables.js';
+import { applyTableColors, el, showScreen } from './dom.js';
 import {
-  FIELD_CHOICES, FIELD_STATES, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deleteConfirmation, deducibleWarnings, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates,
-  dimensionReadings, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
+  FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, USAGE_LABELS, archiveConfirmation, canDeleteImage, deleteConfirmation, deducibleWarnings, deriveGroups, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates,
+  dimensionReadings, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { imageUrl } from './sheets-data.js';
@@ -97,9 +102,9 @@ function headerAside() {
   ];
 }
 
-// Les onglets : Exercices, Banque d'outils, Images, Sauvegarde.
+// Les onglets : Exercices, Banque d'outils, Tables de référence, Images, Sauvegarde.
 function tabs(current) {
-  return el('div', { class: 'prof-tabs', role: 'tablist' }, [['exercices', 'Exercices', showList], ['banque', "Banque d'outils", showBank], ['images', 'Images', showImages], ['sauvegarde', 'Sauvegarde', showBackup]]
+  return el('div', { class: 'prof-tabs', role: 'tablist' }, [['exercices', 'Exercices', showList], ['banque', "Banque d'outils", showBank], ['tables', 'Tables de référence', showTables], ['images', 'Images', showImages], ['sauvegarde', 'Sauvegarde', showBackup]]
     .map(([key, label, open]) => el('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(current === key), onclick: () => leave(open) }, label)));
 }
 
@@ -242,8 +247,9 @@ function toolForm(tool, ctx) {
   // La photo (D56) : la galerie des images « outil » de la base, avec téléversement sur place ; un
   // changement dans la galerie vaut un changement du formulaire (validation, brouillon modifié).
   const picker = imagePicker({ usage: 'outil', images: ctx.images, value: tool.image ?? null, upload: (file) => uploadImage(file, 'outil'), onChange: () => element.dispatchEvent(new Event('change', { bubbles: true })), idPrefix: `${p}-image` });
-  const materials = checkboxes(`${p}-mat`, TOOL_MATERIALS.map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: materialSwatch, buttons: true });
-  const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: groupSwatch, buttons: true });
+  // Les matières d'outil et les couleurs sont celles de la version de tables de la page (D61).
+  const materials = checkboxes(`${p}-mat`, toolMaterialNames(ctx.tables.materiaux).map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: (label) => materialSwatch(label, ctx.tables.materiaux), buttons: true });
+  const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: (group) => groupSwatch(group, ctx.tables.materiaux), buttons: true });
 
   // Le gabarit de nomenclature (D24, D58) : éditable ; les boutons insèrent un jeton permis pour cet
   // outil au curseur ; l'exemple composé suit la frappe, « Autre exemple » le tire au hasard dans l'outil.
@@ -440,8 +446,10 @@ async function showExercise(id, notice = '') {
   const fieldsChoice = fieldStateChoice(draft);
   // Grandeurs déductibles : un avertissement sous les états, sans effet sur Publier ; rafraîchi par validate().
   const warningsList = el('ul', { class: 'avertissements', id: 'grandeurs-deductibles' });
-  const materialsChoice = checkboxes('matiere', TOOL_MATERIALS.map((key) => ({ key, label: key })), draft.materiaux_outil ?? TOOL_MATERIALS, { inline: true, swatchOf: materialSwatch, buttons: true });
-  const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: groupSwatch, buttons: true });
+  const toolMaterials = toolMaterialNames(tables.materiaux); // celles de la version de tables de cet exercice (D62)
+  applyTableColors(tables.materiaux);
+  const materialsChoice = checkboxes('matiere', toolMaterials.map((key) => ({ key, label: key })), draft.materiaux_outil ?? toolMaterials, { inline: true, swatchOf: (label) => materialSwatch(label, tables.materiaux), buttons: true });
+  const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: (group) => groupSwatch(group, tables.materiaux), buttons: true });
   const listed = el('input', { id: 'liste', type: 'checkbox', checked: draft.liste !== false });
   const settings = {
     titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation.", 'field--half'),
@@ -457,7 +465,7 @@ async function showExercise(id, notice = '') {
   function readDraft() {
     const out = { titre: titre.value.trim(), ...fieldsChoice.read(), outils: forms.map((f) => f.read()) };
     const materials = materialsChoice.read();
-    if (materials.length !== TOOL_MATERIALS.length) out.materiaux_outil = materials;
+    if (materials.length !== toolMaterials.length) out.materiaux_outil = materials;
     const groups = groupsChoice.read();
     if (groups.length !== tables.materiaux.groupes_iso.length) out.groupes = groups;
     if (!listed.checked) out.liste = false;
@@ -492,7 +500,7 @@ async function showExercise(id, notice = '') {
     });
     generalErrors.replaceChildren(...(map.get('') ?? []).map((message) => el('li', {}, message)));
     warningsList.replaceChildren(...deducibleWarnings(current).map((line) => el('li', {}, line)));
-    const ps = publishState(errors, versionDiff(page.derniere_version?.contenu ?? null, current));
+    const ps = publishState(errors, versionDiff(page.derniere_version?.contenu ?? null, current, { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id }));
     publishButton.disabled = !ps.enabled;
     publishButton.textContent = ps.label;
     return { current, errors };
@@ -616,7 +624,7 @@ async function showExercise(id, notice = '') {
   const dialogSlot = el('div');
   publishButton.addEventListener('click', async () => {
     if (!(await save())) return;
-    const diff = versionDiff(page.derniere_version?.contenu ?? null, readDraft());
+    const diff = versionDiff(page.derniere_version?.contenu ?? null, readDraft(), { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id });
     const numero = (page.derniere_version?.numero ?? 0) + 1;
     const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
       confirm.disabled = true;
@@ -639,7 +647,7 @@ async function showExercise(id, notice = '') {
         el('p', { class: 'small' }, "Avertissement, sans effet sur la publication : une grandeur à trouver se déduit des grandeurs fournies."),
         el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft()).map((line) => el('li', {}, line))),
       ] : []),
-      el('p', { class: 'muted smaller' }, 'Les séances déjà commencées gardent leur version ; seules les nouvelles séances prennent celle-ci. Une version publiée ne se modifie plus.'),
+      el('p', { class: 'muted smaller' }, `Cette version sera sur les tables de référence ${page.exercice.tables_id}. Les séances déjà commencées gardent leur version ; seules les nouvelles séances prennent celle-ci. Une version publiée ne se modifie plus.`),
       el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
     ]));
     dialogSlot.scrollIntoView({ block: 'nearest' });
@@ -663,6 +671,40 @@ async function showExercise(id, notice = '') {
     }
   }
 
+  // Une version plus récente des tables existe (D62) : le dire, et proposer d'y passer en montrant d'abord
+  // ce que ça change pour cet exercice (erreurs qui apparaîtraient, Vc et avances de ses outils).
+  const tablesAdvice = tablesNotice(page.exercice.tables_id, page.derniere_tables);
+  const tablesNoticePanel = tablesAdvice === null ? el('div') : el('div', { class: 'avis-tables' }, [
+    el('span', {}, tablesAdvice),
+    el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: async () => {
+      if (!(await save())) return;
+      try {
+        const { tables: newer } = await guarded(() => editorTablesVersion(page.derniere_tables)) ?? {};
+        if (!newer) return;
+        const impact = exerciseTablesImpact(readDraft(), tables, newer, draftErrors);
+        const go = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
+          go.disabled = true;
+          try {
+            const result = await guarded(() => editorExerciseTables(id, revision, newer.id));
+            if (result === null) return;
+            state.dirty = false;
+            showExercise(id, `L'exercice est maintenant sur les tables ${result.tables_id}${result.erreurs.length > 0 ? ` — ${result.erreurs.length} erreur(s) à corriger avant de publier` : ''}.`);
+          } catch (error) { dialogSlot.replaceChildren(); status.textContent = serverErrorMessage(error); }
+        } }, `Passer à ${newer.id}`);
+        dialogSlot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
+          el('div', { class: 'eyebrow' }, 'Changement de tables de référence'),
+          el('h2', {}, `Passer cet exercice de ${page.exercice.tables_id} à ${newer.id} ?`),
+          el('p', { class: 'small' }, impact.erreurs.length === 0 && impact.lignes.length === 0 ? 'Rien ne change pour cet exercice : ses outils tirent les mêmes valeurs dans les deux versions.' : 'Ce que ça change pour cet exercice :'),
+          ...(impact.erreurs.length > 0 ? [el('p', { class: 'small' }, `${impact.erreurs.length} erreur${impact.erreurs.length > 1 ? 's' : ''} apparaîtrai${impact.erreurs.length > 1 ? 'en' : ''}t (à corriger avant de publier) :`), el('ul', { class: 'editeur-erreurs' }, impact.erreurs.map((line) => el('li', {}, line)))] : []),
+          el('ul', { class: 'editeur-diff' }, impact.lignes.map((line) => el('li', {}, line))),
+          el('p', { class: 'muted smaller' }, 'Le brouillon seul change de tables ; les versions publiées et les séances en cours gardent les leurs. La prochaine publication prendra ces tables.'),
+          el('div', { class: 'form-actions' }, [go, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
+        ]));
+        dialogSlot.scrollIntoView({ block: 'nearest' });
+      } catch (error) { status.textContent = serverErrorMessage(error); }
+    } }, `Passer à ${page.derniere_tables}…`),
+  ]);
+
   const versionsList = el('ul', { class: 'versions-liste' }, page.versions.length === 0 ? [el('li', {}, 'Aucune version publiée : les étudiants ne voient pas encore cet exercice.')] : page.versions.map((v) => el('li', {}, [
     el('strong', {}, `Version ${v.numero}`), el('span', { class: 'muted' }, `publiée le ${formatDateStamp(v.publiee_le)} · tables ${v.tables_id} · ${v.seances} séance${v.seances > 1 ? 's' : ''}`),
     el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => preview({ version: v.numero }, `de la version ${v.numero}`) }, 'Aperçu'),
@@ -677,6 +719,7 @@ async function showExercise(id, notice = '') {
           `Identifiant ${id} · lien étudiant : `, el('span', { class: 'mono' }, studentLink(location.origin, id)),
           page.exercice.archive_le !== null ? ' · archivé' : '',
           ` · brouillon modifié le ${formatDateStamp(page.exercice.brouillon_modifie_le)}`,
+          ' · tables de référence ', el('strong', { class: 'tables-version' }, page.exercice.tables_id),
         ]),
         el('div', { class: 'editeur-bar-actions' }, [
           el('button', { class: 'button-link', type: 'button', onclick: () => leave(showList) }, '← Exercices'),
@@ -686,6 +729,7 @@ async function showExercise(id, notice = '') {
         ]),
       ]),
       status,
+      tablesNoticePanel,
       generalErrors,
       dialogSlot,
     ]),
@@ -774,6 +818,7 @@ async function showBankTool(id, notice = '') {
   const opsByName = new Map(tables.operations.operations.map((op) => [op.operation, op]));
   let { revision } = row;
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
+  applyTableColors(tables.materiaux);
   const form = toolForm(row.outil, { tables, opsByName, images, copy: false, prefix: 'b' });
   const generalErrors = el('ul', { class: 'editeur-erreurs' });
 
@@ -899,6 +944,280 @@ async function showBackup(notice = '') {
       el('li', {}, [el('div', {}, "Importer un export : il est d'abord validé et résumé ; rien n'est écrit avant la confirmation."), el('div', { class: 'field' }, [el('label', { for: 'fichier' }, 'Fichier JSON'), fileInput]), summary, el('div', { class: 'form-actions' }, importButton)]),
     ]),
   ]));
+  showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
+}
+
+// --- Tables de référence (D61 à D63) : le brouillon unique, sa publication, l'aperçu, les versions ------------------------
+
+// Un champ de tableau : une case de saisie compacte (texte, nombre, couleur, case à cocher, liste).
+function cell(input, className = '') {
+  return el('td', { class: className || null }, input);
+}
+const textInput = (id, value, attrs = {}) => el('input', { id, type: 'text', autocomplete: 'off', value: value === null || value === undefined ? '' : String(value), ...attrs });
+const colorInput = (id, value) => el('input', { id, type: 'color', value: /^#[0-9a-f]{6}$/i.test(String(value)) ? String(value).toLowerCase() : '#000000' });
+const readNum = (input) => { const text = input.value.trim().replace(',', '.'); return text === '' ? null : (Number.isFinite(Number(text)) ? Number(text) : text); };
+// La valeur d'une case texte qui peut être un nombre (dureté, exemple) : nombre si ça en est un, sinon le texte, null si vide.
+const readMixed = (input) => { const text = input.value.trim(); if (text === '') return null; const n = Number(text.replace(',', '.')); return Number.isFinite(n) && /^[\d.,-]+$/.test(text) ? n : text; };
+
+// Une liste de lignes éditables (classes, matériaux, opérations) : construire une ligne, la lire, monter, descendre, retirer, ajouter.
+//   rows : les objets de départ ; build(row, i) → { tr, read() } ; blank() → un objet neuf ; onChange : après un mouvement
+function editableRows(rows, build, blank, onChange) {
+  let items = rows.map((row) => structuredClone(row));
+  let built = [];
+  const body = el('tbody');
+  function render() {
+    built = items.map((row, i) => {
+      const { tr, read } = build(row, i);
+      tr.append(el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
+        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter', onclick: () => { items = built.map((b) => b.read()); [items[i - 1], items[i]] = [items[i], items[i - 1]]; render(); onChange(); } }, '↑'),
+        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === items.length - 1, title: 'Descendre', onclick: () => { items = built.map((b) => b.read()); [items[i], items[i + 1]] = [items[i + 1], items[i]]; render(); onChange(); } }, '↓'),
+        el('button', { class: 'button-small', type: 'button', title: 'Retirer', onclick: () => { items = built.map((b) => b.read()); items.splice(i, 1); render(); onChange(); } }, 'Retirer'),
+      ])));
+      return { tr, read };
+    });
+    body.replaceChildren(...built.map((b) => b.tr));
+  }
+  render();
+  return {
+    body,
+    read: () => built.map((b) => b.read()),
+    add: (after = null) => { items = built.map((b) => b.read()); const at = after === null ? items.length : after + 1; items.splice(at, 0, blank(items[after] ?? items.at(-1) ?? null)); render(); onChange(); },
+  };
+}
+
+async function showTables(notice = '') {
+  const page = await guarded(() => editorTables());
+  if (page === null) return;
+  const pictos = await loadImages('operation');
+  if (pictos === null) return;
+  const exercises = (await guarded(() => editorListExercises()))?.exercices ?? [];
+  let { revision } = page.brouillon;
+  const draft = page.brouillon.contenu;
+  const status = el('div', { class: 'server-message', role: 'status' }, notice);
+  const errorsList = el('ul', { class: 'editeur-erreurs' });
+  const dialogSlot = el('div');
+  const touch = () => { state.dirty = true; };
+
+  // --- Classes ISO : code, nom, trois couleurs.
+  const classes = editableRows(draft.materiaux.classes_iso, (c, i) => {
+    const code = textInput(`cl-${i}-code`, c.code, { maxlength: '1', class: 'input-court mono' });
+    const nom = textInput(`cl-${i}-nom`, c.nom);
+    const couleur = colorInput(`cl-${i}-couleur`, c.couleur);
+    const texte = colorInput(`cl-${i}-texte`, c.couleur_texte);
+    const ligne = colorInput(`cl-${i}-ligne`, c.couleur_ligne);
+    const swatch = el('span', { class: 'choice-swatch', 'aria-hidden': 'true' }, c.code);
+    const paint = () => { swatch.style.background = couleur.value; swatch.style.color = texte.value; swatch.textContent = code.value.toUpperCase(); };
+    for (const input of [code, couleur, texte]) input.addEventListener('input', paint);
+    paint();
+    return {
+      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne)]),
+      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value }),
+    };
+  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }), () => { touch(); validate(); });
+
+  // --- Matières d'outil : clé fixe, nom, couleur.
+  const toolMaterialRows = draft.materiaux.materiaux_outil.map((m, i) => {
+    const nom = textInput(`mo-${i}-nom`, m.nom);
+    const couleur = colorInput(`mo-${i}-couleur`, m.couleur);
+    return { tr: el('tr', {}, [cell(el('span', { class: 'mono smaller' }, m.cle)), cell(nom), cell(couleur)]), read: () => ({ cle: m.cle, nom: nom.value.trim(), couleur: couleur.value }) };
+  });
+
+  // --- Matériaux usinés : une ligne par groupe.
+  const classCodes = () => classes.read().map((c) => c.code).filter((c) => c !== '');
+  const materials = editableRows(draft.materiaux.materiaux, (m, i) => {
+    const iso = el('select', { id: `ma-${i}-iso` }, [...new Set([...classCodes(), m.iso])].filter(Boolean).map((code) => el('option', { value: code, selected: code === m.iso }, code)));
+    const groupe = textInput(`ma-${i}-groupe`, m.groupe, { inputmode: 'numeric', class: 'input-court' });
+    const materiau = textInput(`ma-${i}-materiau`, m.materiau);
+    const composition = textInput(`ma-${i}-composition`, m.composition);
+    const etat = textInput(`ma-${i}-etat`, m.etat);
+    const durete = textInput(`ma-${i}-durete`, m.durete, { class: 'input-court' });
+    const exemple = textInput(`ma-${i}-exemple`, m.exemple, { class: 'input-moyen' });
+    const vc = toolMaterialRows.map((row, j) => textInput(`ma-${i}-vc-${j}`, m.vc_pi_min?.[row.read().cle], { inputmode: 'decimal', class: 'input-court mono' }));
+    const famille = el('input', { id: `ma-${i}-famille`, type: 'checkbox', checked: m.debut_famille === true, title: 'Début de famille : un trait fin au-dessus de cette ligne dans la feuille' });
+    return {
+      tr: el('tr', { class: m.debut_famille === true ? 'ligne-famille' : null }, [cell(iso), cell(groupe, 'num'), cell(materiau), cell(composition), cell(etat), cell(durete, 'num'), cell(exemple), ...vc.map((input) => cell(input, 'num')), cell(famille, 'num')]),
+      read: () => {
+        const out = { iso: iso.value, groupe: readNum(groupe), materiau: materiau.value.trim(), composition: readMixed(composition), etat: readMixed(etat), durete: readMixed(durete), exemple: readMixed(exemple), vc_pi_min: Object.fromEntries(toolMaterialRows.map((row, j) => [row.read().cle, readNum(vc[j])])) };
+        if (famille.checked) out.debut_famille = true;
+        for (const key of Object.keys(m)) if (!(key in out) && key !== 'debut_famille') out[key] = m[key]; // ce qu'on ne montre pas est gardé
+        return out;
+      },
+    };
+  }, (previous) => ({ iso: previous?.iso ?? 'P', groupe: (Number(previous?.groupe) || 0) + 1, materiau: previous?.materiau ?? '', composition: null, etat: null, durete: null, exemple: null, vc_pi_min: Object.fromEntries(toolMaterialRows.map((row) => [row.read().cle, null])) }), () => { touch(); validate(); });
+
+  // --- Opérations : nom, machine, direction, famille d'avance, avances, pictogramme (galerie).
+  const operations = editableRows(draft.operations.operations, (op, i) => {
+    const nom = textInput(`op-${i}-nom`, op.operation);
+    const machine = textInput(`op-${i}-machine`, op.machine);
+    const direction = textInput(`op-${i}-direction`, op.direction_avance);
+    const famille = el('select', { id: `op-${i}-famille` }, FEED_FAMILIES.map((f) => el('option', { value: f.key, selected: f.key === feedFamilyOf(op) }, f.label)));
+    const avance = textInput(`op-${i}-avance`, op.avance_po_rev, { inputmode: 'decimal', class: 'input-court mono' });
+    const avanceMax = textInput(`op-${i}-avance-max`, op.avance_max_po_rev, { inputmode: 'decimal', class: 'input-court mono' });
+    const refreshFeeds = () => { const thread = famille.value === 'filetage'; avance.disabled = thread; avanceMax.disabled = thread; };
+    famille.addEventListener('change', refreshFeeds);
+    refreshFeeds();
+    const picker = imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: () => { touch(); validate(); }, idPrefix: `op-${i}-picto`, compact: true });
+    return {
+      tr: el('tr', {}, [cell(nom), cell(machine), cell(direction), cell(famille), cell(avance, 'num'), cell(avanceMax, 'num'), cell(picker.element, 'picto-cell')]),
+      read: () => {
+        const flags = feedFamilyFlags(famille.value);
+        const out = { operation: nom.value.trim(), machine: machine.value.trim(), direction_avance: direction.value.trim(), avance_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avance), avance_max_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avanceMax), ...flags };
+        const picto = picker.read();
+        if (picto !== null) out.pictogramme = picto;
+        for (const key of Object.keys(op)) if (!(key in out) && key !== 'pictogramme') out[key] = op[key];
+        return out;
+      },
+    };
+  }, (previous) => ({ operation: '', machine: previous?.machine ?? 'Tour', direction_avance: previous?.direction_avance ?? 'Avance longitudinale', avance_po_rev: 0.005, avance_max_po_rev: 0.005, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false }), () => { touch(); validate(); });
+
+  // Le brouillon tel qu'à l'écran : les groupes ISO sont dérivés des lignes ; les commentaires « _… » et la révision sont gardés.
+  function readTables() {
+    const rows = materials.read();
+    const keep = (source, out) => { for (const key of Object.keys(source)) if (key.startsWith('_')) out[key] = source[key]; return out; };
+    return {
+      materiaux: keep(draft.materiaux, { revision: draft.materiaux.revision, classes_iso: classes.read(), materiaux_outil: toolMaterialRows.map((r) => r.read()), groupes_iso: deriveGroups(rows), materiaux: rows }),
+      operations: keep(draft.operations, { revision: draft.operations.revision, operations: operations.read() }),
+    };
+  }
+
+  const saveButton = el('button', { class: 'button', type: 'button' }, 'Enregistrer le brouillon');
+  const publishButton = el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
+  function validate() {
+    const current = readTables();
+    const errors = validateTables(current);
+    errorsList.replaceChildren(...errors.map((message) => el('li', {}, message)));
+    publishButton.disabled = errors.length > 0;
+    publishButton.textContent = errors.length > 0 ? `Publier (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` : 'Publier…';
+    applyTableColors(current.materiaux); // les couleurs de l'écran suivent le brouillon
+    return { current, errors };
+  }
+
+  async function save() {
+    const { current, errors } = validate();
+    saveButton.disabled = true;
+    try {
+      const result = await guarded(() => editorTablesSave(revision, current));
+      if (result === null) return false;
+      revision = result.revision;
+      state.dirty = false;
+      status.textContent = `Brouillon des tables enregistré à ${formatDateStamp(new Date().toISOString()).slice(11)} (révision ${revision})${errors.length > 0 ? ` — ${errors.length} erreur(s) restent à corriger avant de publier` : ''}.`;
+      return true;
+    } catch (error) {
+      if (error.status === 409) status.replaceChildren(el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { state.dirty = false; showTables(); } }, 'Recharger la page'));
+      else status.textContent = serverErrorMessage(error);
+      return false;
+    } finally {
+      saveButton.disabled = false;
+    }
+  }
+  saveButton.addEventListener('click', save);
+
+  // Publier : enregistrer, montrer les différences avec la version dont le brouillon est parti, saisir la révision, confirmer.
+  publishButton.addEventListener('click', async () => {
+    if (!(await save())) return;
+    try {
+      const previous = page.brouillon.base_id === null ? null : (await guarded(() => editorTablesVersion(page.brouillon.base_id)))?.tables;
+      const lines = previous ? tablesDiff(previous, readTables()) : ['Première version des tables.'];
+      const idInput = el('input', { id: 'tables-revision', type: 'text', autocomplete: 'off', spellcheck: 'false', value: page.suggestion, class: 'mono' });
+      const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
+        confirm.disabled = true;
+        try {
+          const result = await guarded(() => editorTablesPublish(revision, idInput.value.trim()));
+          if (result === null) return;
+          state.dirty = false;
+          showTables(`Version ${result.id} des tables publiée le ${formatDateStamp(result.publiee_le)} : les exercices y passent un à un, depuis leur page ; les séances en cours gardent leurs tables.`);
+        } catch (error) {
+          confirm.disabled = false;
+          status.textContent = serverErrorMessage(error);
+        }
+      } }, 'Publier cette version');
+      dialogSlot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
+        el('div', { class: 'eyebrow' }, 'Confirmation'),
+        el('h2', {}, previous ? `Publier une nouvelle version des tables, depuis ${previous.id} ?` : 'Publier la première version des tables ?'),
+        el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence avec la version précédente : rien à publier.' : `Différences avec ${previous?.id ?? '—'} (${lines.length}) :`),
+        el('ul', { class: 'editeur-diff' }, lines.map((line) => el('li', {}, line))),
+        el('div', { class: 'field field--half' }, [el('label', { for: 'tables-revision' }, 'Révision de cette version'), idInput, el('div', { class: 'field-note' }, `Suggérée : ${page.suggestion}. Unique ; inscrite au pied des feuilles et sur les attestations. Lettres, chiffres, « _ », « . », « - ».`)]),
+        el('p', { class: 'muted smaller' }, 'Une version publiée ne se modifie plus. Aucun exercice ne change de tables tout seul : chaque exercice y passe depuis sa page, et ses séances en cours gardent les leurs.'),
+        el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
+      ]));
+      dialogSlot.scrollIntoView({ block: 'nearest' });
+    } catch (error) { status.textContent = serverErrorMessage(error); }
+  });
+
+  // Aperçu : dix questions d'un exercice avec les tables telles qu'à l'écran (D63).
+  const previewSelect = el('select', { id: 'apercu-exercice' }, exercises.map((e) => el('option', { value: e.id }, e.titre)));
+  async function preview() {
+    const exercice = previewSelect.value;
+    if (!exercice) return;
+    try {
+      const result = await guarded(() => editorTablesPreview(readTables(), exercice));
+      if (result === null) return;
+      dialogSlot.replaceChildren(el('section', { class: 'panel' }, [
+        el('div', { class: 'eyebrow' }, 'Aperçu'),
+        el('h2', {}, `Dix questions de « ${exercises.find((e) => e.id === exercice)?.titre ?? exercice} » avec ces tables`),
+        el('p', { class: 'muted small' }, "Le brouillon de l'exercice, tiré avec le brouillon des tables tel qu'il est à l'écran. Rien n'est enregistré."),
+        previewTable(result),
+        el('div', { class: 'form-actions' }, [el('button', { class: 'button-outline', type: 'button', onclick: preview }, 'Dix autres'), el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Fermer')]),
+      ]));
+      dialogSlot.scrollIntoView({ block: 'nearest' });
+    } catch (error) {
+      status.textContent = error.status === 400 ? error.message : serverErrorMessage(error);
+    }
+  }
+
+  const versionsList = el('ul', { class: 'versions-liste' }, page.versions.map((v) => el('li', {}, [
+    el('strong', {}, v.id), el('span', { class: 'muted' }, `publiée le ${formatDateStamp(v.creee_le)} · ${tablesUsageLabel(v.utilisations)}`),
+    el('a', { class: 'button-small button-small--neutral', href: `/tables?version=${encodeURIComponent(v.id)}`, target: '_blank', rel: 'noopener' }, 'Feuilles imprimables'),
+  ])));
+
+  const table = (headers, body, className = '') => el('div', { class: 'table-wrap' }, el('table', { class: `prof-table tables-edit ${className}`.trim() }, [el('thead', {}, el('tr', {}, [...headers, 'Actions'].map((h) => el('th', {}, h)))), body]));
+  const screen = el('div', { class: 'screen screen--wide prof editeur', oninput: () => { touch(); validate(); }, onchange: () => { touch(); validate(); } }, [
+    el('section', { class: 'panel' }, [
+      panelHead('tables de référence', 'tables'),
+      el('h1', { tabindex: '-1' }, 'Tables de référence'),
+      el('p', { class: 'muted small' }, "Un seul brouillon, modifiable ; des versions publiées immuables, chacune avec sa révision. Une version publiée ne change aucun exercice tout seul : chaque exercice choisit sa version de tables depuis sa page, et une séance commencée garde celles de sa version d'exercice."),
+      el('div', { class: 'editeur-bar' }, [
+        el('div', { class: 'muted small' }, [`Brouillon parti de la version ${page.brouillon.base_id ?? '—'} · modifié le ${formatDateStamp(page.brouillon.modifie_le)}`, page.modifie ? ' · différent de cette version' : ' · identique à cette version']),
+        el('div', { class: 'editeur-bar-actions' }, [
+          el('label', { for: 'apercu-exercice', class: 'muted small' }, 'Aperçu avec :'), previewSelect,
+          el('button', { class: 'button-outline', type: 'button', onclick: preview }, 'Dix questions'),
+          saveButton,
+          publishButton,
+        ]),
+      ]),
+      status,
+      errorsList,
+      dialogSlot,
+    ]),
+    el('section', { class: 'panel' }, [
+      el('div', { class: 'eyebrow' }, 'Classes ISO'),
+      el('p', { class: 'muted small' }, 'La lettre de classe, son nom, et ses couleurs : celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe.'),
+      table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne'], classes.body),
+      el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe')),
+    ]),
+    el('section', { class: 'panel' }, [
+      el('div', { class: 'eyebrow' }, "Matières d'outil"),
+      el('p', { class: 'muted small' }, "Les trois colonnes de la table des vitesses de coupe. Renommer une matière oblige à renommer la matière dans chaque outil qui la nomme : les exercices le signaleront."),
+      el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table tables-edit' }, [el('thead', {}, el('tr', {}, ['Clé', 'Nom', 'Couleur'].map((h) => el('th', {}, h)))), el('tbody', {}, toolMaterialRows.map((r) => r.tr))])),
+    ]),
+    el('section', { class: 'panel' }, [
+      el('div', { class: 'eyebrow' }, 'Matériaux usinés'),
+      el('p', { class: 'muted small' }, "Une ligne par groupe, dans l'ordre de la feuille. Le groupe ISO d'un outil est « classe - matériau » (« P - Acier non allié ») : retirer le dernier matériau d'un groupe retire le groupe, et les exercices qui l'utilisent le signaleront. « Famille » : un trait fin au-dessus de la ligne (changement de matériau usiné)."),
+      table(['Classe', 'Groupe', 'Matériau usiné', 'Composition', 'État', 'Dureté', 'Exemple', ...toolMaterialRows.map((r) => `Vc ${r.read().nom}`), 'Famille'], materials.body, 'tables-edit--materiaux'),
+      el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => materials.add() }, 'Ajouter un matériau')),
+    ]),
+    el('section', { class: 'panel' }, [
+      el('div', { class: 'eyebrow' }, 'Opérations'),
+      el('p', { class: 'muted small' }, "Une ligne par opération, dans l'ordre de la feuille des avances : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces ; sans objet en filetage), le pictogramme."),
+      table(['Opération', 'Machine-outil', "Direction d'avance", 'Famille', 'Avance', 'Avance max', 'Pictogramme'], operations.body, 'tables-edit--operations'),
+      el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => operations.add() }, 'Ajouter une opération')),
+    ]),
+    el('section', { class: 'panel' }, [
+      el('div', { class: 'eyebrow' }, 'Versions publiées'),
+      versionsList,
+    ]),
+  ]);
+  validate();
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
 }
 

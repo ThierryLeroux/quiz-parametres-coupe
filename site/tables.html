@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tables de référence — Quiz paramètres de coupe</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/question.css">
+  <link rel="stylesheet" href="css/sheets.css">
+</head>
+<body>
+  <!-- Les feuilles de référence d'une version des tables, seules et imprimables (décision D63) :
+       ?version=<révision>, ouverte depuis l'éditeur. js/ui/tables.js. -->
+  <header class="app-header no-print">
+    <div class="app-brand">
+      <img class="app-logo" src="img/logo-cvm.png" alt="Cégep du Vieux Montréal">
+      <div class="app-title" id="header-title">Tables de référence</div>
+    </div>
+    <div class="app-aside" id="header-aside">TGM-TMI</div>
+  </header>
+
+  <main class="app-main" id="app">
+    <p class="muted">Chargement des tables…</p>
+  </main>
+
+  <footer class="app-footer no-print">
+    <div class="app-department">
+      <div>Techniques de génie mécanique</div>
+      <div>Technique du génie de la maintenance industrielle</div>
+      <div>(fiabilité des systèmes de production)</div>
+    </div>
+    <div>TGM-TMI · Les feuilles d'une version des tables de référence, telles que les étudiants les voient.</div>
+  </footer>
+
+  <noscript><p class="app-noscript">Cette page a besoin de JavaScript pour fonctionner.</p></noscript>
+  <script type="module" src="js/ui/tables.js"></script>
+</body>
+</html>

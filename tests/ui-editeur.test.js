@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
-  FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates, fieldStatesText,
-  filterImages, fittedSize, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
+  filterImages, fittedSize, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
-import { draftFromExercise } from '../site/js/exercice.js';
+import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS } from '../site/js/tables.js';
 import { IMPORT_WORD as SERVER_IMPORT_WORD, REPLACE_WORD as SERVER_REPLACE_WORD } from '../worker/editeur.js';
@@ -16,6 +16,10 @@ import { aleaAGraine, data, lireFichier } from './aide.js';
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
 const brouillon = () => draftFromExercise(m10, data.outils);
+const materiauxJson = await lireFichier('data/materiaux.json');
+const operationsJson = await lireFichier('data/operations.json');
+const materiaux = () => structuredClone(materiauxJson);
+const operations = () => structuredClone(operationsJson.operations);
 const opsByName = data.operationByName;
 const at = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi).toISOString();
 
@@ -283,6 +287,66 @@ test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agr
   assert.match(imageDeleteConfirmation({ id: 'img-abc', nom: 'Fraise' }), /^Supprimer l'image « Fraise » \(img-abc\)/);
   assert.match(imageArchiveConfirmation({ id: 'mvlnr', nom: 'MVLNR' }), /toujours/);
   assert.deepEqual(Object.keys(USAGE_LABELS), ['outil', 'operation']);
+});
+
+test('tables de référence (D61, D62) : famille d’avance et drapeaux, groupes dérivés des lignes, libellés des utilisations, avis de version, ligne des tables dans les différences d’une publication', () => {
+  assert.deepEqual(operations().map(feedFamilyOf).filter((f, i, all) => all.indexOf(f) === i), ['proportionnelle', 'fixe', 'filetage']);
+  assert.deepEqual(feedFamilyFlags('filetage'), { avance_egale_pas_filetage: true, avance_proportionnelle_diametre: false });
+  assert.deepEqual(feedFamilyFlags('proportionnelle'), { avance_egale_pas_filetage: false, avance_proportionnelle_diametre: true });
+  assert.deepEqual(feedFamilyFlags('fixe'), { avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false });
+  assert.equal(feedFamilyOf(undefined), 'fixe');
+  assert.deepEqual(FEED_FAMILIES.map((f) => f.key), ['fixe', 'proportionnelle', 'filetage']);
+  assert.deepEqual(deriveGroups(materiaux().materiaux), materiaux().groupes_iso); // les 20 groupes du classeur, dans l'ordre
+  assert.deepEqual(deriveGroups([{ iso: 'P', materiau: 'Acier' }, { iso: 'P', materiau: 'Acier' }, { iso: 'K', materiau: 'Fonte' }]), ['P - Acier', 'K - Fonte']);
+  assert.equal(tablesUsageLabel({ versions_exercice: 2, brouillons: 1 }), "2 versions d'exercice · 1 brouillon");
+  assert.equal(tablesUsageLabel({ versions_exercice: 0, brouillons: 0 }), 'aucune utilisation');
+  assert.equal(tablesNotice('A2026_r0', 'A2026_r0'), null);
+  assert.equal(tablesNotice('A2026_r0', 'A2026_r1'), 'Une version plus récente des tables de référence existe : A2026_r1. Cet exercice est sur A2026_r0.');
+  // Un changement de version de tables est une différence à publier, même à contenu identique (D62).
+  const same = versionDiff(brouillon(), brouillon(), { avant: 'A2026_r0', apres: 'A2026_r1' });
+  assert.deepEqual(diffLines(same), ['Tables de référence : « A2026_r0 » → « A2026_r1 »']);
+  assert.deepEqual(publishState([], same), { enabled: true, label: 'Publier…' });
+  assert.deepEqual(diffLines(versionDiff(brouillon(), brouillon(), { avant: 'A2026_r0', apres: 'A2026_r0' })), ['Aucune différence avec la version précédente.']);
+  assert.equal(versionDiff(null, brouillon(), { avant: null, apres: 'A2026_r1' }).tables.apres, 'A2026_r1');
+  assert.match(importSummaryLines({ tables_ajoutees: ['A2026_r1'], banque: { ajoutes: [], modifies: [], retires: [], gardes: 0 }, exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], exercices_gardes: [], brouillon_tables: true })[1], /^Tables de référence ajoutées : A2026_r1 ; le brouillon des tables est remplacé\.$/);
+});
+
+test('exerciseTablesImpact (D62) : ce qu’un changement de version de tables change pour un exercice — erreurs qui apparaissent, Vc de ses groupes et matières, avances de ses opérations, matériaux ajoutés ou retirés dans ses groupes ; rien ailleurs', async () => {
+  const before = { materiaux: materiaux(), operations: structuredClone(operationsJson) };
+  const draft = brouillon(); // le M10 : chariotage, tronçonnage, filetage, rainurage, alésage à la barre ; inserts et acier rapide
+  assert.deepEqual(exerciseTablesImpact(draft, before, before, draftErrors), { erreurs: [], lignes: [] });
+  const after = structuredClone(before);
+  // La Vc du carbure solide doublée partout : le M10 « vitesse de coupe » ne tire jamais le carbure solide → rien pour lui.
+  after.materiaux.materiaux = after.materiaux.materiaux.map((m) => ({ ...m, vc_pi_min: { ...m.vc_pi_min, carbure_solide: m.vc_pi_min.carbure_solide * 2 } }));
+  assert.deepEqual(exerciseTablesImpact(draft, before, after, draftErrors), { erreurs: [], lignes: [] });
+  // La Vc de l'insert du groupe 1 (P - Acier non allié, que le MCLNR tire) change ; l'avance du perçage (aucun outil du M10) aussi ; celle du chariotage finition (MVLNR) aussi.
+  const p1 = before.materiaux.materiaux.find((m) => m.groupe === 1);
+  after.materiaux.materiaux = after.materiaux.materiaux.map((m) => (m.groupe === 1 ? { ...m, vc_pi_min: { ...m.vc_pi_min, insert_carbure: 999 } } : m));
+  after.operations.operations = after.operations.operations.map((op) => (op.operation === 'Perçage' ? { ...op, avance_po_rev: 0.009 } : op.operation === 'Chariotage finition' ? { ...op, avance_po_rev: 0.007, pictogramme: 'img-0123456789abcdef' } : op));
+  const impact = exerciseTablesImpact(draft, before, after, draftErrors);
+  assert.deepEqual(impact.erreurs, []);
+  assert.deepEqual(impact.lignes, [
+    `Acier non allié (groupe 1), Insert de carbure de tungstène : ${p1.vc_pi_min.insert_carbure} → 999 pi/min`,
+    'Opération « Chariotage finition » — avance (po/rév) : 0.005 → 0.007',
+    'Opération « Chariotage finition » — pictogramme : — → img-0123456789abcdef',
+  ]);
+  // Un groupe retiré (K - Fonte grise, que le MCLNR usine) et une matière renommée : des erreurs nommées, et le matériau retiré est dit.
+  const removed = structuredClone(before);
+  removed.materiaux.materiaux = removed.materiaux.materiaux.filter((m) => m.materiau !== 'Fonte grise');
+  removed.materiaux.groupes_iso = removed.materiaux.groupes_iso.filter((g) => g !== 'K - Fonte grise');
+  removed.materiaux.materiaux_outil = [{ cle: 'acier_rapide', nom: 'HSS', couleur: '#b4c7e7' }, { cle: 'carbure_solide', nom: 'Carbure de tungstène solide', couleur: '#a6a6a6' }, { cle: 'insert_carbure', nom: 'Insert de carbure de tungstène', couleur: '#ffc000' }];
+  const broken = exerciseTablesImpact(draft, before, removed, draftErrors);
+  assert.ok(broken.erreurs.some((e) => /^outils\.\d+\.groupes_materiaux_usinables : groupe de matériaux inconnu : « K - Fonte grise »/.test(e)), broken.erreurs.join('\n'));
+  assert.ok(!broken.erreurs.some((e) => /Acier rapide/.test(e))); // le M10 « vitesse de coupe » ne nomme pas l'acier rapide : rien pour lui
+  const rpm = draftFromExercise(await lireFichier('exercices/m10-tournage-vc-rpm.json'), data.outils); // lui, si : l'exercice et ses outils la nomment
+  const renamed = exerciseTablesImpact(rpm, before, removed, draftErrors);
+  assert.ok(renamed.erreurs.some((e) => /^materiaux_outil : Matières d'outil permises : « Acier rapide » n'existe pas/.test(e)), renamed.erreurs.join('\n'));
+  assert.ok(renamed.erreurs.some((e) => /^outils\.\d+\.materiaux_outil : matériau d'outil inconnu : « Acier rapide » \(les tables offrent HSS/.test(e)));
+  assert.ok(broken.lignes.some((l) => /^Matériau retiré d'un groupe de l'exercice : K - Fonte grise \(groupe \d+\)$/.test(l)), broken.lignes.join('\n'));
+  // Un matériau ajouté dans un groupe de l'exercice.
+  const added = structuredClone(before);
+  added.materiaux.materiaux.push({ ...p1, groupe: 99, etat: 'Nouveau' });
+  assert.deepEqual(exerciseTablesImpact(draft, before, added, draftErrors).lignes, ["Matériau ajouté dans un groupe de l'exercice : P - Acier non allié (groupe 99)"]);
 });
 
 test('site/img/outils/ : une photo de semence par outil du catalogue (la liste des images vient de la base, D56)', async () => {

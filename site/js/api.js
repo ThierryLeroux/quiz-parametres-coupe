@@ -59,6 +59,11 @@ export function getExercise(exerciseId, version, request) {
   return call('GET', `/api/exercice?${query}`, {}, request);
 }
 
+// Une version des tables de référence (D63, les feuilles imprimables par version) : { tables: { id, creee_le, materiaux, operations } }. 404 inconnue.
+export function getTables(version, request) {
+  return call('GET', `/api/tables?version=${encodeURIComponent(version)}`, {}, request);
+}
+
 // Les exercices offerts à l'accueil (D18, D47) : { exercices: [{ id, titre }] }.
 export function listOfferedExercises(request) {
   return call('GET', '/api/exercices', {}, request);
@@ -202,6 +207,16 @@ export const editorBank = (request) => editor('GET', 'banque', undefined, reques
 export const editorBankCreate = (body, request) => editor('POST', 'banque/creer', body, request);
 export const editorBankSave = (id, revision, outil, request) => editor('POST', 'banque/enregistrer', { id, revision, outil }, request);
 export const editorBankArchive = (id, archive, request) => editor('POST', 'banque/archiver', { id, archive }, request);
+
+// Tables de référence versionnées (D61 à D63) : la page du brouillon ({ brouillon, modifie, erreurs, versions, derniere, suggestion }),
+// une version ({ tables }), enregistrer ({ enregistre, revision, erreurs } ; 409 conflit), publier ({ publie, id } ; 400 erreurs
+// ou sans différence, 409 révision périmée ou prise), l'aperçu d'un exercice avec ces tables, et le changement de version d'un exercice.
+export const editorTables = (request) => editor('GET', 'tables', undefined, request);
+export const editorTablesVersion = (id, request) => editor('GET', `tables/version?id=${encodeURIComponent(id)}`, undefined, request);
+export const editorTablesSave = (revision, contenu, request) => editor('POST', 'tables/enregistrer', { revision, contenu }, request);
+export const editorTablesPublish = (revision, id, request) => editor('POST', 'tables/publier', { revision, id }, request);
+export const editorTablesPreview = (contenu, exercice, request) => editor('POST', 'tables/apercu', { contenu, exercice }, request);
+export const editorExerciseTables = (id, revision, tablesId, request) => editor('POST', 'exercice/tables', { id, revision, tables_id: tablesId }, request);
 
 // Images (D56) : la liste avec les utilisations ({ images }), le téléversement ({ image, existante, retires }),
 // archiver, renommer, supprimer (409 si utilisée), et l'envoi d'une image d'un export avant l'import (D59).

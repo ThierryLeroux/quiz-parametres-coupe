@@ -8,6 +8,7 @@ import { clearSession, loadSession, saveSession } from '../session.js';
 import { renderAttestation, renderAttestationError } from './attestation-screen.js';
 import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
+import { applyTableColors } from './dom.js';
 import { renderQuestion } from './question-screen.js';
 import { createReference } from './reference-screen.js';
 import { toolLabels } from './rules.js';
@@ -21,11 +22,14 @@ let labels; // noms à afficher des outils de l'exercice (« SDTMR (métrique) �
 let reference; // feuilles de référence, ouvertes par-dessus l'écran Question
 let archived = false; // l'exercice n'est plus offert : plus de nouvelle séance
 
-// Adopte une version d'exercice : catalogue, noms des outils, feuilles de référence.
+// Adopte une version d'exercice : catalogue, noms des outils, feuilles de référence, et les couleurs
+// de sens de sa version des tables (D61).
 function useExercise(loaded) {
   exercise = loaded.exercise;
   data = loaded.data;
   labels = toolLabels(exercise, data);
+  applyTableColors({ classes_iso: data.classesIso, materiaux_outil: data.toolMaterials });
+  reference?.destroy?.();
   reference = createReference(data);
 }
 

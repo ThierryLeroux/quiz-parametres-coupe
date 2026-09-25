@@ -58,7 +58,7 @@ export async function prepareUpload(file, usage) {
 //   upload   : async (file) → la fiche de l'image téléversée (l'appelant fait l'appel au serveur et tient la liste)
 //   onChange : () → appelée après chaque changement (l'appelant relit read())
 //   idPrefix : pour les identifiants des contrôles
-export function imagePicker({ usage, images, value, upload, onChange, idPrefix }) {
+export function imagePicker({ usage, images, value, upload, onChange, idPrefix, compact = false }) {
   let list = images;
   let current = value ?? null;
   const nameOf = (id) => list.find((image) => image.id === id)?.nom ?? id;
@@ -82,6 +82,7 @@ export function imagePicker({ usage, images, value, upload, onChange, idPrefix }
       preview.src = imageUrl(current);
       caption.textContent = `${nameOf(current)} (${current})`;
     }
+    if (panel.hidden) return; // la galerie n'est dessinée qu'une fois dépliée
     const shown = filterImages(list, { usage, query: search.value, current });
     gallery.replaceChildren(...shown.map((image) => el('li', {}, el('button', {
       class: 'image-choice',
@@ -97,7 +98,7 @@ export function imagePicker({ usage, images, value, upload, onChange, idPrefix }
   toggle.addEventListener('click', () => {
     panel.hidden = !panel.hidden;
     toggle.setAttribute('aria-expanded', String(!panel.hidden));
-    if (!panel.hidden) search.focus();
+    if (!panel.hidden) { refresh(); search.focus(); }
   });
   fileInput.addEventListener('change', async (event) => {
     event.stopPropagation();
@@ -126,7 +127,7 @@ export function imagePicker({ usage, images, value, upload, onChange, idPrefix }
     status,
     gallery,
   );
-  const element = el('div', { class: 'image-picker' }, [
+  const element = el('div', { class: `image-picker${compact ? ' image-picker--compact' : ''}` }, [
     el('div', { class: 'image-picker-current' }, [preview, el('div', {}, [caption, el('div', { class: 'outil-actions' }, [
       toggle,
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => { current = null; refresh(); onChange(); } }, 'Aucune'),
