@@ -197,12 +197,23 @@ export function previewRows(questions, champs) {
 // Le nom du fichier d'export : « quiz-parametres-coupe-exercices-2026-09-24.json ».
 export const exportFileName = (now) => `quiz-parametres-coupe-exercices-${formatDateStamp(now.toISOString()).slice(0, 10)}.json`;
 
-// Ce que l'import ferait, en phrases.
+// Les mots de confirmation d'un import (les mêmes que le serveur, worker/editeur.js) : IMPORTER, ou
+// REMPLACER quand des outils de la banque disparaîtraient (D50).
+export const IMPORT_WORD = 'IMPORTER';
+export const REPLACE_WORD = 'REMPLACER';
+export const importWordFor = (resume) => (resume.banque.retires.length > 0 ? REPLACE_WORD : IMPORT_WORD);
+
+// Ce que l'import ferait, en phrases : la banque outil par outil (ajoutés, modifiés, retirés par nom, D50).
 export function importSummaryLines(resume) {
   const list = (items) => (items.length === 0 ? 'aucun' : items.join(', '));
+  const names = (items) => (items.length === 0 ? 'aucun' : items.map((t) => `${t.nom} (${t.id})`).join(', '));
+  const b = resume.banque;
   return [
     `Tables de référence ajoutées : ${list(resume.tables_ajoutees)}.`,
-    `Banque d'outils : remplacée par les ${resume.banque} outils de l'export.`,
+    `Banque d'outils — ajoutés : ${names(b.ajoutes)} ; modifiés : ${names(b.modifies)} ; inchangés : ${b.gardes}.`,
+    b.retires.length > 0
+      ? `Banque d'outils — DISPARAÎTRAIENT : ${names(b.retires)}. Les copies déjà faites dans les exercices ne changent pas, mais ces outils ne pourront plus être ajoutés. Pour importer quand même, il faudra taper ${REPLACE_WORD}.`
+      : "Banque d'outils — aucun outil ne disparaît.",
     `Exercices ajoutés : ${list(resume.exercices_ajoutes)}.`,
     `Brouillons remplacés : ${list(resume.exercices_remplaces)}.`,
     `Versions publiées ajoutées : ${list(resume.versions_ajoutees)}.`,

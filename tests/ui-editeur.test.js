@@ -4,10 +4,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir } from 'node:fs/promises';
 import {
-  FIELD_CHOICES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  importSummaryLines, parseDimensions, previewColumns, previewRows, publishState, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  FIELD_CHOICES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
+  importSummaryLines, importWordFor, parseDimensions, previewColumns, previewRows, publishState, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
+import { IMPORT_WORD as SERVER_IMPORT_WORD, REPLACE_WORD as SERVER_REPLACE_WORD } from '../worker/editeur.js';
 import { data, lireFichier } from './aide.js';
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
@@ -115,9 +116,18 @@ test('previewColumns et previewRows : une colonne par grandeur évaluée, le mat
 
 test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases', () => {
   assert.equal(exportFileName(new Date(2026, 8, 24, 13, 5)), 'quiz-parametres-coupe-exercices-2026-09-24.json');
-  const lines = importSummaryLines({ tables_ajoutees: [], banque: 29, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [] });
-  assert.deepEqual(lines.slice(0, 3), ['Tables de référence ajoutées : aucun.', "Banque d'outils : remplacée par les 29 outils de l'export.", 'Exercices ajoutés : nouveau.']);
+  const banque = { ajoutes: [{ id: 'x', nom: 'Fraise X' }], modifies: [], retires: [], gardes: 28 };
+  const resume = { tables_ajoutees: [], banque, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [] };
+  const lines = importSummaryLines(resume);
+  assert.deepEqual(lines.slice(0, 4), ['Tables de référence ajoutées : aucun.', "Banque d'outils — ajoutés : Fraise X (x) ; modifiés : aucun ; inchangés : 28.", "Banque d'outils — aucun outil ne disparaît.", 'Exercices ajoutés : nouveau.']);
   assert.equal(lines.at(-1), 'Les séances, les journaux et les attestations ne sont pas touchés.');
+  assert.equal(importWordFor(resume), IMPORT_WORD);
+  // Des outils disparaîtraient (D50) : nommés, et le mot devient REMPLACER.
+  const perte = { ...resume, banque: { ...banque, retires: [{ id: 'mvlnr', nom: 'MVLNR' }, { id: 'alesoir', nom: 'Alésoir' }] } };
+  assert.match(importSummaryLines(perte)[2], /^Banque d'outils — DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
+  assert.equal(importWordFor(perte), REPLACE_WORD);
+  assert.deepEqual([IMPORT_WORD, REPLACE_WORD], ['IMPORTER', 'REMPLACER']);
+  assert.deepEqual([IMPORT_WORD, REPLACE_WORD], [SERVER_IMPORT_WORD, SERVER_REPLACE_WORD]); // les mêmes mots des deux côtés
 });
 
 test('site/img/outils/index.json : la liste des photos est celle du dossier (l’éditeur ne peut pas lister un dossier)', async () => {

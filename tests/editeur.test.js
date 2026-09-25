@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TOOL_KEYS, toolErrors } from '../site/js/data.js';
 import { COPY_KEYS, DRAFT_KEYS, copyOfTool, draftErrors, draftFromExercise, engineExercise } from '../site/js/exercice.js';
-import { EXPORT_FORMAT, cleanDraft, cleanTool, freeId, importPlan, isExerciseId, isToolId, previewQuestions, sameContent } from '../worker/editeur.js';
+import { EXPORT_FORMAT, IMPORT_WORD, REPLACE_WORD, cleanDraft, cleanTool, freeId, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent } from '../worker/editeur.js';
 import { aleaAGraine, data, lireFichier } from './aide.js';
 
 const materiaux = await lireFichier('data/materiaux.json');
@@ -155,7 +155,17 @@ test('importPlan : format exigé ; tables, banque, exercices et versions compar�
   };
   const { erreurs, plan, resume } = importPlan(recu, existant, outils);
   assert.deepEqual(erreurs, []);
-  assert.deepEqual(resume, { tables_ajoutees: ['A2027_r0'], banque: 2, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [] });
+  assert.deepEqual({ ...resume, banque: undefined }, { tables_ajoutees: ['A2027_r0'], banque: undefined, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [] });
+  // La banque reçue n'a que deux outils : les 27 autres disparaîtraient, nommés ; le mot exigé devient REMPLACER (D50).
+  assert.deepEqual([resume.banque.ajoutes, resume.banque.modifies, resume.banque.gardes, resume.banque.retires.length], [[], [], 2, 27]);
+  assert.deepEqual(resume.banque.retires[0], { id: 'foret_a_numero', nom: 'Foret à numéro' });
+  assert.equal(importWord(resume), REPLACE_WORD);
+  assert.match(importDetails(resume), /banque : 0 ajouté\(s\), 0 modifié\(s\), 27 retiré\(s\) \(foret_a_numero, /);
+  // Une banque complète, avec un outil modifié et un nouveau : rien ne disparaît, le mot reste IMPORTER.
+  const complete = { ...recu, banque: [...existant.banque.map((b) => (b.id === 'mvlnr' ? { ...b, outil: { ...b.outil, nom: 'MVLNR bis' } } : b)), { id: 'nouvel_outil', outil: { ...existant.banque[0].outil, id: 'nouvel_outil', nom: 'Nouvel outil' } }] };
+  const complet = importPlan(complete, existant, outils).resume.banque;
+  assert.deepEqual([complet.ajoutes, complet.modifies, complet.retires, complet.gardes], [[{ id: 'nouvel_outil', nom: 'Nouvel outil' }], [{ id: 'mvlnr', nom: 'MVLNR bis' }], [], 28]);
+  assert.equal(importWord(importPlan(complete, existant, outils).resume), IMPORT_WORD);
   assert.deepEqual(plan.versions_ajoutees.map((v) => [v.exercice_id, v.numero, v.tables_id]), [['m10', 2, 'A2027_r0']]);
   assert.deepEqual(plan.exercices_remplaces[0].brouillon.titre, 'v2');
 

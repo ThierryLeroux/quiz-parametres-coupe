@@ -22,7 +22,7 @@ import * as base from './base.js';
 import { assembleDraft, loadLatest, loadVersion } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
-  EXPORT_FORMAT, IMPORT_WORD, cleanDraft, cleanTool, importDetails, importPlan, isExerciseId, isToolId, previewQuestions, sameContent,
+  EXPORT_FORMAT, cleanDraft, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
 } from './editeur.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
@@ -839,13 +839,19 @@ async function editeurImportValider(request, env, { now }) {
   return json({ erreurs, resume });
 }
 
-// POST /api/prof/editeur/import — { export, confirmation: "IMPORTER" } : applique le plan, sans erreur seulement.
+// POST /api/prof/editeur/import — { export, confirmation } : applique le plan, sans erreur seulement.
+// Le mot attendu est IMPORTER ; REMPLACER si des outils de la banque disparaissent (D50) — le serveur
+// l'exige, pas seulement l'écran.
 async function editeurImport(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request, EDITOR_BODY_MAX);
-  if (body.confirmation !== IMPORT_WORD) throw new HttpError(400, `Pour importer, la requête doit porter le mot ${IMPORT_WORD}.`);
   const { erreurs, plan, resume } = await planImport(env, body.export);
   if (erreurs.length > 0) throw new HttpError(400, "L'export a des erreurs : rien n'a été importé.", { erreurs });
+  const word = importWord(resume);
+  if (body.confirmation !== word) {
+    const why = resume.banque.retires.length > 0 ? ` — ${resume.banque.retires.length} outil(s) de la banque disparaîtraient : ${resume.banque.retires.map((t) => t.nom).join(', ')}` : '';
+    throw new HttpError(400, `Pour importer, la requête doit porter le mot ${word}${why}.`, { mot: word });
+  }
   await base.applyImport(env.DB, plan, now.toISOString(), logEntry(teacher, now, 'editeur_import', importDetails(resume)));
   return json({ importe: true, resume });
 }

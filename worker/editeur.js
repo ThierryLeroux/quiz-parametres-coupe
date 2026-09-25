@@ -91,7 +91,10 @@ export function previewQuestions(exercise, data, random, count = 10) {
 export const EXPORT_FORMAT = 'quiz-parametres-coupe/editeur/1';
 
 // Le mot que la requête d'import doit porter, tel quel ; l'écran l'exige aussi (editeur.js du site).
+// Si des outils de la banque disparaîtraient, c'est REMPLACER qu'il faut (D50) : importWord.
 export const IMPORT_WORD = 'IMPORTER';
+export const REPLACE_WORD = 'REMPLACER';
+export const importWord = (resume) => (resume?.banque?.retires?.length > 0 ? REPLACE_WORD : IMPORT_WORD);
 
 export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) {
   const erreurs = [];
@@ -141,9 +144,18 @@ export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) 
     if (known === undefined) plan.exercices_ajoutes.push(entry);
     else plan.exercices_remplaces.push(entry);
   }
+  // La banque est remplacée entière : ce qui y apparaît, y change, y disparaît — par nom (D50).
+  const existingBank = new Map(existing.banque.map((b) => [b.id, b]));
+  const named = (b) => ({ id: b.id, nom: b.outil?.nom ?? b.id });
+  const banqueDiff = {
+    ajoutes: plan.banque.filter((b) => !existingBank.has(b.id)).map(named),
+    modifies: plan.banque.filter((b) => existingBank.has(b.id) && !sameContent(existingBank.get(b.id).outil, b.outil)).map(named),
+    retires: existing.banque.filter((b) => !bankIds.has(b.id)).map(named),
+    gardes: plan.banque.filter((b) => existingBank.has(b.id) && sameContent(existingBank.get(b.id).outil, b.outil)).length,
+  };
   const resume = {
     tables_ajoutees: plan.tables_ajoutees.map((t) => t.id),
-    banque: plan.banque.length,
+    banque: banqueDiff,
     exercices_ajoutes: plan.exercices_ajoutes.map((e) => e.id),
     exercices_remplaces: plan.exercices_remplaces.map((e) => e.id),
     versions_ajoutees: plan.versions_ajoutees.map((v) => `${v.exercice_id} v${v.numero}`),
@@ -154,5 +166,6 @@ export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) 
 
 // Ce que le journal des actions note d'un import : « 1 table, 29 outils, 2 exercices ajoutés, 1 remplacé, 3 versions ».
 export function importDetails(resume) {
-  return `${resume.tables_ajoutees.length} table(s) de référence · ${resume.banque} outil(s) de banque · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s)`;
+  const b = resume.banque;
+  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s)`;
 }

@@ -14,13 +14,12 @@ import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
 import {
   FIELD_CHOICES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  importSummaryLines, parseDimensions, previewColumns, previewRows, publishState, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  importSummaryLines, importWordFor, parseDimensions, previewColumns, previewRows, publishState, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
 const TITLE = 'Éditeur des exercices';
-const IMPORT_WORD = 'IMPORTER';
 
 // Un identifiant libre parmi ceux pris : « mvlnr », « mvlnr_2 »…
 function freeId(wanted, taken) {
@@ -699,11 +698,14 @@ async function showBackup(notice = '') {
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const summary = el('div');
   let received = null;
+  let resume = null; // le résumé de la validation : dit quel mot la confirmation exige (D50)
   const importButton = el('button', { class: 'button button--wrong', type: 'button', disabled: true, onclick: async () => {
-    if (window.prompt(`Pour importer, tape ${IMPORT_WORD} :`) !== IMPORT_WORD) return;
+    const word = importWordFor(resume);
+    const warning = resume.banque.retires.length > 0 ? `${resume.banque.retires.length} outil(s) de la banque disparaîtront : ${resume.banque.retires.map((t) => t.nom).join(', ')}. ` : '';
+    if (window.prompt(`${warning}Pour importer, tape ${word} :`) !== word) return;
     importButton.disabled = true;
     try {
-      const result = await guarded(() => editorImport(received, IMPORT_WORD));
+      const result = await guarded(() => editorImport(received, word));
       if (result === null) return;
       showBackup(`Import terminé : ${importSummaryLines(result.resume).slice(0, 5).join(' ')}`);
     } catch (error) {
@@ -712,6 +714,7 @@ async function showBackup(notice = '') {
   } }, 'Importer');
   const fileInput = el('input', { id: 'fichier', type: 'file', accept: 'application/json,.json', onchange: async () => {
     received = null;
+    resume = null;
     importButton.disabled = true;
     summary.replaceChildren();
     const [file] = fileInput.files;
@@ -724,7 +727,9 @@ async function showBackup(notice = '') {
         result.erreurs.length > 0 ? el('ul', { class: 'editeur-erreurs' }, result.erreurs.map((e) => el('li', {}, e))) : '',
         result.erreurs.length === 0 ? el('ul', { class: 'editeur-diff' }, importSummaryLines(result.resume).map((line) => el('li', {}, line))) : el('p', { class: 'small' }, "L'export a des erreurs : rien ne sera importé."),
       );
+      resume = result.resume;
       importButton.disabled = result.erreurs.length > 0;
+      importButton.textContent = result.erreurs.length === 0 && result.resume.banque.retires.length > 0 ? 'Importer et remplacer la banque' : 'Importer';
     } catch (error) {
       summary.replaceChildren(el('p', { class: 'small' }, error.status === undefined ? "Ce fichier n'est pas un JSON lisible." : serverErrorMessage(error)));
     }

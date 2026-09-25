@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MINUTE, SECONDE, serveurDeTest } from './aide-serveur.js';
 import * as worker from '../worker/index.js';
-import { IMPORT_WORD } from '../worker/editeur.js';
+import { IMPORT_WORD, REPLACE_WORD } from '../worker/editeur.js';
 
 const EDITOR_ROUTES = worker.editorRoutes();
 import { lireFichier } from './aide.js';
@@ -336,7 +336,7 @@ test('export puis import : l’export réimporté ne change rien (aller-retour i
   const validation = await serveur.editeur('POST', 'import/valider', { export: exporte });
   assert.equal(validation.status, 200, JSON.stringify(validation.corps));
   assert.deepEqual(validation.corps.erreurs, []);
-  assert.deepEqual(validation.corps.resume, { tables_ajoutees: [], banque: 29, exercices_ajoutes: [], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [], exercices_gardes: [] });
+  assert.deepEqual(validation.corps.resume, { tables_ajoutees: [], banque: { ajoutes: [], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: [], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [], exercices_gardes: [] });
   assert.equal((await serveur.editeur('POST', 'import', { export: exporte, confirmation: 'oui' })).status, 400);
   const avant = ['seances', 'corrections', 'attestations'].map((t) => serveur.db.sqlite.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all().map((r) => ({ ...r })));
   const importe = await serveur.editeur('POST', 'import', { export: exporte, confirmation: IMPORT_WORD });
@@ -366,7 +366,7 @@ test('import par fusion (D49) : ajoute les exercices, versions et tables absents
   assert.equal((await cible.editeur('POST', 'exercice/creer', { id: 'local', titre: 'Local' })).status, 200);
   const validation = await cible.editeur('POST', 'import/valider', { export: exporte });
   assert.deepEqual(validation.corps.erreurs, []);
-  assert.deepEqual({ ...validation.corps.resume, versions_ajoutees: [...validation.corps.resume.versions_ajoutees].sort() }, { tables_ajoutees: [], banque: 30, exercices_ajoutes: ['nouveau'], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [`${M10} v2`, 'nouveau v1'], exercices_gardes: ['local'] });
+  assert.deepEqual({ ...validation.corps.resume, versions_ajoutees: [...validation.corps.resume.versions_ajoutees].sort() }, { tables_ajoutees: [], banque: { ajoutes: [{ id: 'alesoir_3', nom: 'Alésoir (copie)' }], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: ['nouveau'], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [`${M10} v2`, 'nouveau v1'], exercices_gardes: ['local'] });
   assert.equal((await cible.editeur('POST', 'import', { export: exporte, confirmation: IMPORT_WORD })).status, 200);
   const liste = (await cible.editeur('GET', 'exercices')).corps.exercices;
   const parId = (id) => liste.find((e) => e.id === id);
@@ -388,6 +388,32 @@ test('import par fusion (D49) : ajoute les exercices, versions et tables absents
   assert.match((await cible.editeur('POST', 'import/valider', { export: invalide })).corps.erreurs[0], /version 2 : outils\.0\.fact_vc/);
   invalide.exercices.find((e) => e.id === M10).versions[1].tables_id = 'inconnue';
   assert.match((await cible.editeur('POST', 'import/valider', { export: invalide })).corps.erreurs[0], /tables de référence « inconnue » inconnues/);
+});
+
+test('import qui ferait disparaître des outils de la banque (D50) : la validation les nomme, IMPORTER est refusé (400, le mot attendu est dit), REMPLACER passe ; les copies des exercices ne changent pas', async () => {
+  const serveur = await editeurDeTest();
+  const { corps: exporte } = await serveur.editeur('GET', 'export');
+  const ampute = { ...exporte, banque: exporte.banque.filter((b) => !['mvlnr', 'alesoir'].includes(b.id)).map((b) => (b.id === 'mclnr' ? { ...b, outil: { ...b.outil, nom: 'MCLNR bis' } } : b)) };
+  const validation = await serveur.editeur('POST', 'import/valider', { export: ampute });
+  assert.deepEqual(validation.corps.erreurs, []);
+  assert.deepEqual(validation.corps.resume.banque, { ajoutes: [], modifies: [{ id: 'mclnr', nom: 'MCLNR bis' }], retires: [{ id: 'alesoir', nom: 'Alésoir' }, { id: 'mvlnr', nom: 'MVLNR' }], gardes: 26 });
+  const refus = await serveur.editeur('POST', 'import', { export: ampute, confirmation: IMPORT_WORD });
+  assert.equal(refus.status, 400);
+  assert.equal(refus.corps.erreur, 'Pour importer, la requête doit porter le mot REMPLACER — 2 outil(s) de la banque disparaîtraient : Alésoir, MVLNR.');
+  assert.equal(refus.corps.mot, REPLACE_WORD);
+  assert.equal((await serveur.editeur('GET', 'banque')).corps.outils.length, 29); // rien n'a été touché
+  const ok = await serveur.editeur('POST', 'import', { export: ampute, confirmation: REPLACE_WORD });
+  assert.equal(ok.status, 200, JSON.stringify(ok.corps));
+  const banque = (await serveur.editeur('GET', 'banque')).corps.outils;
+  assert.equal(banque.length, 27);
+  assert.deepEqual(banque.some((b) => b.id === 'mvlnr'), false);
+  assert.equal(banque.find((b) => b.id === 'mclnr').outil.nom, 'MCLNR bis');
+  // Le M10 garde ses copies du MVLNR et du MCLNR telles quelles.
+  const { exercice } = await ouvrir(serveur, M10);
+  assert.deepEqual(exercice.brouillon.outils.slice(0, 2).map((c) => c.nom), ['MCLNR', 'MVLNR']);
+  assert.match(serveur.journalEnseignant().at(-1).details, /2 retiré\(s\) \(alesoir, mvlnr\)/);
+  // REMPLACER sur un import sans disparition : c'est IMPORTER qui est attendu.
+  assert.equal((await serveur.editeur('POST', 'import', { export: exporte, confirmation: REPLACE_WORD })).status, 400);
 });
 
 // --- Les tables pour l'éditeur ---------------------------------------------------------------------------------------
