@@ -118,9 +118,10 @@ Rapport de session : `docs/rapports/jalon-7a-editeur.md`. Thierry est le seul au
 - [x] Tests : migration et semence, séance épinglée, copie indépendante, refus du rôle consultation sur chaque route, conflit d'enregistrement, publication bloquée, aller-retour export-import, `worker/index.js` n'exporte que des fonctions ; `test:api` étendu (25 étapes) ; Chrome à 1280 et 390 px, captures dans `captures/jalon-7a/`, aucune requête externe
 
 ## Jalon 7b — Images, gabarits de nomenclature, tables de référence versionnées
-À concevoir sur les tables de `0005` : une nouvelle version des tables = une nouvelle ligne de `tables_reference` (immuable), que les publications suivantes prennent ; le brouillon d'un exercice pourra choisir sa version de tables.
+À concevoir sur les tables de `0005` : une nouvelle version des tables = une nouvelle ligne de `tables_reference` (immuable), que les publications suivantes prennent ; **le brouillon d'un exercice choisira sa version de tables** (D51).
 
-- [ ] **Téléversement d'images** : photo d'un outil et pictogramme d'une opération (où les stocker : D1 en blob, ou R2 ; `image` de la copie et `operationPicto` pointent déjà sur un nom de fichier)
+- [ ] **Téléversement d'images** (D51) : photo d'un outil et pictogramme d'une opération, **stockées dans D1 en blob** — pas dans R2, qui exige une carte de crédit —, **réduites dans le navigateur avant l'envoi** ; le manifeste `site/img/outils/index.json` fait à la main est remplacé par la liste des images en base ; `image` de la copie et `operationPicto` pointent déjà sur un nom
+- [ ] **`limite_avance`** (D51) : à trancher avec les exercices d'avances ; jusque-là, éditable et marquée « non utilisée »
 - [ ] **Gabarit de nomenclature** (D24) : édition avec la liste des jetons et l'exemple composé (déjà affiché en lecture seule), validation des jetons (`toolErrors`)
 - [ ] **Tables de référence versionnées** : vitesses de coupe (matériaux, groupes ISO, `debut_famille` D27), avances et opérations (avec leur pictogramme), matériaux d'outil, **révision** (D28) ; publier une version des tables ; l'attestation inscrit déjà la révision des tables (D28)
 - [ ] Une clé par enseignant et la table des séances professeur (D34), le mode test ouvert au professeur connecté (D26)

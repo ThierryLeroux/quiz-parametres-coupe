@@ -1190,3 +1190,32 @@ Points tranchés par Thierry, sur D47 à D49 :
 **Conséquences.** `importWord`, `REPLACE_WORD` (`worker/editeur.js` ; les mêmes mots dans
 `editeur-data.js`, un test le vérifie), le résumé d'import `banque: { ajoutes, modifies, retires,
 gardes }` ; SPEC §7 (API), §8, §10 ; UI §3.6, §3.9 ; DEMARRAGE §7.
+
+## D51 — Réponses aux huit points ouverts du rapport du jalon 7a (2026-09-24, décidée)
+
+Points tranchés par Thierry :
+
+- **Publier une version identique à la précédente est refusé.** Le bouton se désactive avec « Aucune
+  différence à publier » (`publishState`), et le serveur refuse aussi (400 « Aucune différence à
+  publier : le brouillon est identique à la version n. », comparaison structurelle `sameContent`,
+  sans l'ordre des clés ni les commentaires). Remplace « une publication sans différence est permise » de D49.
+- **Ordre manuel des exercices** : un `rang` sur chaque exercice (migration `0006`), avec **Monter /
+  Descendre** dans la liste de l'éditeur ; **l'accueil des étudiants suit le même ordre**
+  (`GET /api/exercices`). Les deux M10 semés prennent les rangs 1 (vitesse de coupe) et 2 (Vc et
+  RPM) ; un exercice créé, dupliqué ou importé prend le dernier rang, un exercice remplacé par un import
+  garde le sien. Un déplacement réécrit les rangs 1 à n en un seul lot, est **journalisé**
+  (`editeur_deplacement`, « id · rang 3 → 2 ») et porte un **contrôle optimiste** : la requête dit le
+  rang que l'écran a vu ; s'il a changé ailleurs, 409 et rien ne bouge. Déjà en tête ou en queue : 400.
+- **`limite_avance`** reste telle quelle dans le formulaire, marquée « non utilisée » ; elle sera
+  tranchée avec les exercices d'avances.
+- **Jalon 7b** (`PLAN.md`) : les images téléversées seront stockées **dans D1 en blob**, pas dans R2
+  (qui exige une carte de crédit), **réduites dans le navigateur avant l'envoi** ; le manifeste
+  `site/img/outils/index.json` fait à la main sera remplacé. Le **brouillon choisira sa version des
+  tables** de référence au 7b.
+- Points 11 (`site/prof/` à côté de `prof.html`), 12 (corps jusqu'à 4 Mo), 13 (exports du module
+  d'entrée) et 14 (choix visuels) : acceptés tels quels.
+- **Flux git** : à la fin d'une session, la branche de travail est **poussée** (`git push`, jamais
+  `main`, jamais de fusion) ; Thierry relit les rapports sur GitHub. Inscrit dans `CLAUDE.md`.
+
+**Conséquences.** `POST /api/prof/editeur/exercice/deplacer`, `base.renumberExercises`,
+`exercices.rang` dans les listes et l'export ; SPEC §7 (API), §10 ; UI §3.9 ; PLAN (7b) ; CLAUDE.md.

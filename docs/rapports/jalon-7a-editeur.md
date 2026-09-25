@@ -214,8 +214,36 @@ Commits : 8. DEMARRAGE (changer l'adresse d'un exercice) ; 9. attestation « ver
 tables ; 10. import avec les outils de la banque nommés et REMPLACER ; 11. docs (D50, SPEC, UI,
 DEMARRAGE) et rapport.
 
+## Suites données, deuxième partie (réponses aux huit points ouverts, D51)
+
+Quatre commits de plus, branche poussée. `npm test` : 495 tests, `fail 0` ; `test:api` : 25 étapes ;
+Chrome : Monter / Descendre dans la liste, l'accueil qui suit, « Aucune différence à publier »
+(5 vérifications, 2 captures de plus).
+
+1. *Point 5* : une version identique à la précédente ne se publie pas. Le bouton se désactive avec
+   « Aucune différence à publier » (`publishState`) et le serveur refuse (400, comparaison
+   structurelle `sameContent` : ni l'ordre des clés ni un commentaire « _… » ne font une différence).
+   Testé : rien de créé, rien au journal. D49 corrigée par D51.
+2. *Point 8* : **ordre manuel des exercices**. Migration `0006` : colonne `rang`, les deux M10 semés en
+   1 et 2 ; un exercice créé, dupliqué ou importé prend le dernier rang, un exercice remplacé par un
+   import garde le sien. Route `POST /api/prof/editeur/exercice/deplacer` (`{ id, rang, direction }`) :
+   les rangs sont réécrits 1 à n en un lot, journalisés (`editeur_deplacement`, « id · rang 3 → 2 »),
+   avec un contrôle optimiste sur le rang que l'écran a vu (409 sinon, rien ne bouge ; 400 en tête ou
+   en queue). `GET /api/exercices` (l'accueil) suit le même ordre. Dans la liste : colonne Rang, boutons
+   ↑ ↓ désactivés aux bords. Testé par l'API et dans Chrome ; l'export porte le rang et un export
+   réimporté garde l'ordre ; le test de migration sur données réelles applique aussi la 0006.
+3. *Point 7* : `limite_avance` inchangée, marquée « non utilisée » ; à trancher avec les exercices d'avances (PLAN 7b).
+4. *Points 9 et 10* : inscrits dans la description du 7b — images téléversées stockées dans D1 en blob
+   (pas R2, carte de crédit), réduites dans le navigateur avant l'envoi, manifeste `index.json`
+   remplacé ; le brouillon choisira sa version des tables.
+5. *Points 11 à 14* : acceptés tels quels.
+6. CLAUDE.md : à la fin d'une session, pousser la branche de travail, jamais `main`.
+
+Commits : 12. publication identique refusée ; 13. rang des exercices (migration 0006) ; 14. docs (D51,
+SPEC, UI, PLAN, CLAUDE.md) et rapport.
+
 ## Reste
 
-Relire D47 à D50, la migration `0005` (générée) et UI §3.9 ; les huit points ouverts du rapport ;
-fusionner ; après le déploiement, vérifier l'éditeur en production et faire le premier export
-(section D). Le jalon 7b est décrit dans `PLAN.md`.
+Relire D47 à D51, les migrations `0005` (générée) et `0006`, UI §3.9 ; fusionner ; après le
+déploiement (les deux migrations s'appliquent seules, section D), vérifier l'éditeur en production et
+faire le premier export. Le jalon 7b est décrit dans `PLAN.md`.

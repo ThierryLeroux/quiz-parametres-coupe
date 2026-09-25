@@ -294,7 +294,7 @@ base) est retirée et remplacée.
 | `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
 | `tables_reference` | les versions des tables de référence (D47) : identifiant (la révision, « A2026_r0 »), `materiaux` et `operations` (JSON, le contenu des deux fichiers de §3), date ; immuables — une seule pour l'instant |
 | `banque_outils` | la banque d'outils (D47) : un outil par ligne (JSON au format d'`outils.json`), rang, numéro de révision (D48), date de modification, date d'archivage |
-| `exercices` | les exercices (D47) : l'identifiant d'URL (définitif), le **brouillon** (JSON, §10), son numéro de révision (D48), dates de modification, de dernière publication, d'archivage, de création |
+| `exercices` | les exercices (D47) : l'identifiant d'URL (définitif), le **brouillon** (JSON, §10), son numéro de révision (D48), dates de modification, de dernière publication, d'archivage, de création, et le **rang** dans la liste (D51, migration `0006`) |
 | `versions_exercice` | les versions publiées (D47) : exercice, numéro (1, 2, 3…), contenu (JSON, la même forme que le brouillon, **figé**), version des tables de référence, date |
 
 Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **efface les
@@ -395,14 +395,15 @@ porte toute la sauvegarde).
 
 | Appel | Requête | Réponse |
 |---|---|---|
-| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, titre, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — `modifie` : le brouillon diffère de la dernière version (ou jamais publié) |
+| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) |
 | `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, erreurs }` — `erreurs` : celles du brouillon (`draftErrors`), chacune avec son `champ` ; 404 inconnu |
 | `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié ; 400 identifiant ou titre, 409 identifiant pris |
 | `POST /api/prof/editeur/exercice/enregistrer` | `{ id, revision, brouillon }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur ; **409** si la révision n'est plus celle lue (D48, `revision_actuelle` jointe), rien n'est écrasé |
 | `POST /api/prof/editeur/exercice/renommer` | `{ id, titre }` | `{ renomme: true, titre }` — le titre du brouillon (à publier) |
+| `POST /api/prof/editeur/exercice/deplacer` | `{ id, rang, direction: "monter" \| "descendre" }` | `{ deplace: true, id, rang }` — l'ordre de la liste et de l'accueil (D51) ; `rang` est celui que l'écran a vu : 409 s'il a changé (`rang_actuel` joint) ; 400 déjà en tête ou en queue |
 | `POST /api/prof/editeur/exercice/archiver` | `{ id, archive }` | `{ archive, id }` |
 | `POST /api/prof/editeur/exercice/supprimer` | `{ id }` | `{ supprime: true, id }` — 409 s'il a des séances (archiver alors) |
-| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante ; 400 s'il a des erreurs (`erreurs` jointes), 409 révision périmée |
+| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante ; 400 s'il a des erreurs (`erreurs` jointes) ou s'il est identique à la dernière version (D51), 409 révision périmée |
 | `POST /api/prof/editeur/apercu` | `{ id, brouillon }` ou `{ id, version }` | `{ questions: [ { identifiant, outil_id, outil, operation, dimension, barre, dents, materiau_outil, materiau, reponses } ], champs_evalues }` — dix questions, rien d'enregistré (D49) ; 400 brouillon en erreur |
 | `GET /api/prof/editeur/banque` | cookie admin | `{ outils: [ { id, outil, revision, rang, archive_le, modifie_le, exercices } ], tables }` — `exercices` : ceux dont le brouillon a une copie de cet outil |
 | `GET /api/prof/editeur/tables` | cookie admin | `{ tables: { id, materiaux, operations } }` — les tables les plus récentes |
@@ -872,7 +873,8 @@ Précisions :
 - La validation (`site/js/exercice.js`) est la même pour les tests, le quiz et
   l'éditeur.
 - **Liste des exercices offerts** : le serveur la compose (`GET /api/exercices`, D47)
-  — les exercices publiés, non archivés, sans `"liste": false` —, et
+  — les exercices publiés, non archivés, sans `"liste": false`, **dans l'ordre des
+  rangs** de l'éditeur (D51) —, et
   `site/exercices/index.json` ne sert plus qu'aux tests et à la semence.
   `?exercice=<id>` dans l'adresse choisit un exercice **publié**. Il n'y a **pas
   d'exercice par défaut** (décision D18) : `?exercice=` absent → l'accueil affiche
@@ -931,8 +933,12 @@ immuables. Brouillon et version ont la même forme :
   (`toolErrors`), chaque erreur nommant son champ (« outils.1.fact_vc »). Un
   brouillon en erreur s'enregistre, mais ne se publie pas.
 - **Publier** = copier le brouillon tel quel comme version suivante, avec la
-  version des tables de référence la plus récente. Le brouillon reste, modifiable.
+  version des tables de référence la plus récente. Un brouillon identique à la
+  dernière version ne se publie pas (D51). Le brouillon reste, modifiable.
   Le serveur sert la dernière version ; une séance garde la sienne (§7).
+- **Rang** (D51) : chaque exercice a un rang, celui de la liste de l'éditeur et de
+  l'accueil ; un exercice créé prend le dernier ; Monter / Descendre réécrivent
+  les rangs 1 à n.
 - **Semence** (migration `0005`) : les deux M10 du dépôt, convertis par
   `draftFromExercise`, version 1 ; `test-complet` n'est pas semé (il ne sert
   qu'aux tests, où il est publié à la volée).

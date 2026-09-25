@@ -85,6 +85,8 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 4. **Petits commits** en français, un sujet par commit (`Ajoute le calcul de N avec plafond RPM`).
    Un commit n'est créé que si `npm test` affiche `fail 0`. Un commit local non
    poussé qui s'avère rouge est **amendé**, jamais suivi d'un commit de réparation.
+   **À la fin d'une session, pousser la branche de travail** (`git push -u origin <branche>`),
+   **jamais `main`**, jamais de fusion : Thierry relit les rapports sur GitHub et fusionne lui-même (D51).
 5. **Ne pas modifier `site/data/*.json`** pour faire passer un test : si une donnée semble fausse, le signaler à Thierry (c'est lui qui connaît le métier). Depuis D47, une correction de donnée se fait **dans l'éditeur, en production** (banque, exercices) ; le JSON du dépôt reste la semence d'origine et ne se retouche que pour les tests, jamais pour « corriger la production ».
 6. Quand la SPEC est ambiguë : proposer une interprétation, l'écrire en commentaire `// ❓` et le signaler en fin de session — ne pas décider en silence.
 7. Vérifier que `node --test` passe et que `site/index.html`, servi par `npm run dev`, s'ouvre sans erreur console avant de conclure une tâche.
