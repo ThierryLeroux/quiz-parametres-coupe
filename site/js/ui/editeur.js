@@ -248,32 +248,38 @@ function toolForm(tool, ctx) {
     id: field('id', 'Identifiant', el('input', { id: `${p}-id`, type: 'text', readonly: true, value: tool.id }), ctx.copy ? "Propre à l'exercice (dupliquer donne « _2 »)." : 'Définitif.'),
     nom: field('nom', 'Nom', el('input', { id: `${p}-nom`, type: 'text', autocomplete: 'off', value: tool.nom ?? '' }), 'Le nom générique, celui de la progression et de l\'attestation.'),
     operation: field('operation', 'Opération', operationSelect, 'Fixe la famille d\'avance (table des avances).'),
+    commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
+    image: field('image', 'Photo', imageSelect, 'Parmi les images du site ; le téléversement viendra plus tard.'),
     format_identifiant: field('format_identifiant', 'Gabarit de nomenclature (lecture seule)', template, '', 'field--wide'),
-    commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), '', 'field--half'),
-    image: field('image', 'Photo', imageSelect, 'Parmi les images du site ; le téléversement viendra au jalon 7b.'),
-    fact_vc: field('fact_vc', 'Facteur de vitesse (× Vc)', numberInput(`${p}-fact-vc`, tool.fact_vc), '1 = aucun ; 0.25 pour un alésoir.'),
-    fact_av: field('fact_av', "Facteur d'avance (× avance)", numberInput(`${p}-fact-av`, tool.fact_av), '1 sauf sur une avance proportionnelle au Ø.'),
-    limite_rpm: field('limite_rpm', 'RPM max de la machine', numberInput(`${p}-limite-rpm`, tool.limite_rpm), 'rév/min'),
-    nb_dents_min: field('nb_dents_min', 'Dents, minimum', numberInput(`${p}-dents-min`, tool.nb_dents_min), 'Le nombre de dents est tiré entre les deux.'),
-    nb_dents_max: field('nb_dents_max', 'Dents, maximum', numberInput(`${p}-dents-max`, tool.nb_dents_max), ''),
-    limite_avance: field('limite_avance', "Limite d'avance (non utilisée)", numberInput(`${p}-limite-avance`, tool.limite_avance), 'po/rév ; vide = aucune. Donnée du classeur, ignorée par le moteur.'),
-    materiaux_outil: field('materiaux_outil', "Matières d'outil possibles", materials.element, '', 'field--wide'),
-    groupes_materiaux_usinables: field('groupes_materiaux_usinables', 'Groupes de matériaux usinables', groupChoices.element, '', 'field--wide'),
     dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false' }, dimensionsText(tool.dimensions)),
       'Valeur : Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte : « 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 ».', 'field--half'),
     dimensions_barre: field('dimensions_barre', 'Barres (outil à deux diamètres) : libellé ; Ø en pouces', el('textarea', { id: `${p}-barres`, spellcheck: 'false' }, dimensionsText(tool.dimensions_barre)),
       'Vide = un seul diamètre. Sinon, avance proportionnelle au Ø de la barre ; N avec le Ø usiné.'),
+    rapport_barre_max: field('rapport_barre_max', 'Rapport Ø barre / Ø usiné maximal', numberInput(`${p}-rapport`, tool.rapport_barre_max), 'Ex. 0.75 : une barre entre si Ø barre ≤ 0.75 × Ø usiné.'),
+    nb_dents_min: field('nb_dents_min', 'Dents, minimum', numberInput(`${p}-dents-min`, tool.nb_dents_min), 'Le nombre de dents est tiré entre les deux.'),
+    nb_dents_max: field('nb_dents_max', 'Dents, maximum', numberInput(`${p}-dents-max`, tool.nb_dents_max), ''),
+    fact_vc: field('fact_vc', 'Facteur de vitesse (× Vc)', numberInput(`${p}-fact-vc`, tool.fact_vc), '1 = aucun ; 0.25 pour un alésoir.'),
+    fact_av: field('fact_av', "Facteur d'avance (× avance)", numberInput(`${p}-fact-av`, tool.fact_av), '1 sauf sur une avance proportionnelle au Ø.'),
+    limite_rpm: field('limite_rpm', 'RPM max de la machine', numberInput(`${p}-limite-rpm`, tool.limite_rpm), 'rév/min'),
+    limite_avance: field('limite_avance', "Limite d'avance (non utilisée)", numberInput(`${p}-limite-avance`, tool.limite_avance), 'po/rév ; vide = aucune. Donnée du classeur, ignorée par le moteur.'),
+    materiaux_outil: field('materiaux_outil', "Matières d'outil possibles", materials.element, '', 'field--wide'),
+    groupes_materiaux_usinables: field('groupes_materiaux_usinables', 'Groupes de matériaux usinables', groupChoices.element, '', 'field--wide'),
   };
-  fields.rapport_barre_max = field('rapport_barre_max', 'Rapport Ø barre / Ø usiné maximal', numberInput(`${p}-rapport`, tool.rapport_barre_max), 'Ex. 0.75 : une barre entre si Ø barre ≤ 0.75 × Ø usiné.');
   if (ctx.copy) fields.reussites_requises = field('reussites_requises', 'Réussites de suite exigées', numberInput(`${p}-reussites`, tool.reussites_requises, { inputmode: 'numeric' }), 'Un échec remet le compteur de cet outil à zéro.');
 
-  const order = ctx.copy
-    ? ['nom', 'reussites_requises', 'operation', 'format_identifiant', 'commentaire', 'image', 'fact_vc', 'fact_av', 'limite_rpm', 'nb_dents_min', 'nb_dents_max', 'limite_avance', 'materiaux_outil', 'groupes_materiaux_usinables', 'dimensions', 'dimensions_barre', 'rapport_barre_max', 'id']
-    : ['id', 'nom', 'operation', 'format_identifiant', 'commentaire', 'image', 'fact_vc', 'fact_av', 'limite_rpm', 'nb_dents_min', 'nb_dents_max', 'limite_avance', 'materiaux_outil', 'groupes_materiaux_usinables', 'dimensions', 'dimensions_barre', 'rapport_barre_max'];
-  const element = el('div', { class: 'editeur-grid' }, [
-    ...order.map((name) => fields[name].element),
-    el('div', { class: 'field field--wide outil-photo-ligne' }, [photo, el('span', { class: 'muted smaller' }, 'La photo, telle que l\'étudiant la voit sur le panneau de l\'outil.')]),
-  ]);
+  // Les champs, regroupés par thème (UI §3.9) : un intertitre par groupe ; la même disposition pour la banque.
+  const photoLine = el('div', { class: 'field outil-photo-ligne' }, [photo, el('span', { class: 'muted smaller' }, 'La photo, telle que l\'étudiant la voit.')]);
+  const sections = [
+    ['Identification', [fields.nom.element, fields.operation.element, fields.commentaire.element, fields.image.element, photoLine, fields.id.element]],
+    ['Nomenclature', [fields.format_identifiant.element]],
+    ['Dimensions', [fields.dimensions.element, fields.dimensions_barre.element, fields.rapport_barre_max.element]],
+    ['Dents', [fields.nb_dents_min.element, fields.nb_dents_max.element]],
+    ['Facteurs', [fields.fact_vc.element, fields.fact_av.element]],
+    ['Limites', [fields.limite_rpm.element, fields.limite_avance.element]],
+    ['Matières et groupes permis', [fields.materiaux_outil.element, fields.groupes_materiaux_usinables.element]],
+    ...(ctx.copy ? [['Exercice', [fields.reussites_requises.element]]] : []),
+  ];
+  const element = el('div', { class: 'outil-formulaire' }, sections.map(([title, members]) => el('fieldset', { class: 'editeur-groupe' }, [el('legend', {}, title), el('div', { class: 'editeur-grid' }, members)])));
 
   function read() {
     const bars = parseDimensions(fields.dimensions_barre.control.value, false);
