@@ -217,6 +217,13 @@ et une séance commencée garde la sienne jusqu'à la fin. « Publier » résume
 différences avant de créer la version ; « Aperçu » tire dix questions avec leurs
 réponses. Mode d'emploi : `docs/UI.md` §3.9.
 
+L'**identifiant d'URL** d'un exercice (`?exercice=<id>`, le lien sur Léa) est
+définitif : « Renommer » ne change que le titre. Pour changer l'adresse d'un
+exercice, le **dupliquer** sous le nouvel identifiant (« Dupliquer » dans la
+liste), publier la copie, donner le nouveau lien sur Léa, puis **archiver**
+l'ancien : ses séances en cours finissent, ses attestations restent vérifiables,
+et il n'apparaît plus dans la liste de l'accueil.
+
 **Sauvegarde et restauration** (onglet **Sauvegarde** de l'éditeur, décision D49) :
 
 - **Sauvegarder** : **Exporter tout en JSON** télécharge
