@@ -1286,3 +1286,26 @@ chaque changement, et repris dans la confirmation de publication. Les deux M10 s
 
 **Conséquences.** `deducibleWarnings` (`editeur-data.js`, pure, testée) ; `editeur.js` l'affiche ;
 UI §3.9.
+
+## D55 — Un seul auteur : ni clé par enseignant, ni table des séances professeur, ni mode test pour le professeur (2026-09-24, décidée)
+
+**Contexte.** D23, D34, D38 et D44 gardaient en réserve « une clé par enseignant », une table des
+enseignants et une table des séances professeur (pour révoquer un cookie avant ses 12 h) ; D26
+prévoyait d'ouvrir plus tard le mode test aux séances d'un professeur connecté. Depuis, Thierry est le
+seul auteur des exercices (D47), les collègues ont la clé de consultation partagée en lecture seule
+(D44), et l'éditeur offre l'aperçu (D49) : dix questions avec leurs réponses, derrière la clé
+d'administration, sans séance ni trace.
+
+**Décision.** Ces trois chantiers sont **abandonnés** :
+
+- **pas de clé par enseignant ni de table des enseignants** : deux clés, deux rôles (D44), point final ;
+  l'identifiant d'enseignant du journal reste le nom du rôle ;
+- **pas de table des séances professeur** : le cookie signé sans état (D34) reste, et se révoque en
+  changeant la clé (`wrangler secret put`, `DEMARRAGE.md` §7) — les séances ouvertes expirent
+  d'elles-mêmes, au plus 12 h après ;
+- **le mode test reste local** (D26, inchangé pour le poste de développement) ; pour le professeur en
+  production, **l'aperçu de l'éditeur le remplace**. Il ne sera pas ouvert à une séance d'étudiant,
+  même celle d'un professeur connecté.
+
+**Conséquences.** Remplace le « plus tard » de D26 et le « reste à faire » de D34, D38, D44 ; ferme
+la piste « une clé par enseignant » de D23. `PLAN.md` (jalons 5 et 7b), SPEC §7 (mode test) et §8.

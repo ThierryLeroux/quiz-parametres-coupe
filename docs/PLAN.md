@@ -84,7 +84,7 @@ Rapport de session : `docs/rapports/jalon-5-attestation.md`.
 - [x] Tests : signature et vérification (valide, falsifiée, inconnue, annulée), figeage et reconstitution, CSV, connexion (temps constant, verrou), routes sans cookie, remise à zéro, limites ; `test:api` étendu au cycle complet ; Chrome à 1280 et 390 px, média print (une page lettre), captures dans `captures/jalon-5/`
 - [x] Réponses au rapport (D37 à D39) : « Corriger mon identité » sur la page de l'attestation, qui annule et réémet l'attestation ; **réinitialisation du NIP** depuis le tableau des séances ; révision des tables dans l'attestation ; cadence réglable en local (`CADENCE_S`) pour `test:api`
 - [x] **Suppression d'une séance** (farce visible aux horodatages) et **purge de fin de session** — depuis l'espace professeur : faits au jalon 6 (D45, D46)
-- [ ] Une **clé par enseignant** et la table des enseignants (D34 : avec les devoirs, jalon 7), avec une **table des séances professeur** pour pouvoir révoquer une séance (le cookie sans état du jalon 5 ne se révoque qu'à son expiration) ; la connexion professeur pourra alors ouvrir le **mode test** aux séances d'un professeur connecté (D26). La clé de consultation partagée (D44) en est le premier pas.
+- ~~Une clé par enseignant et la table des enseignants, avec une table des séances professeur pour révoquer une séance ; le mode test ouvert au professeur connecté~~ — abandonné (D55) : Thierry est le seul auteur, les collègues ont la clé de consultation (D44), et l'aperçu de l'éditeur (D49) remplace le mode test pour le professeur.
 - [ ] Essai avec un groupe d'étudiants ; correctifs
 - ~~Page de vérification : durée totale, temps médian, corrections d'identité~~ — abandonné (D33 : rien de plus que l'attestation imprimée ; les corrections d'identité sont dans l'espace professeur)
 
@@ -118,13 +118,28 @@ Rapport de session : `docs/rapports/jalon-7a-editeur.md`. Thierry est le seul au
 - [x] Tests : migration et semence, séance épinglée, copie indépendante, refus du rôle consultation sur chaque route, conflit d'enregistrement, publication bloquée, aller-retour export-import, `worker/index.js` n'exporte que des fonctions ; `test:api` étendu (25 étapes) ; Chrome à 1280 et 390 px, captures dans `captures/jalon-7a/`, aucune requête externe
 
 ## Jalon 7b — Images, gabarits de nomenclature, tables de référence versionnées
+Rapport de session : `docs/rapports/jalon-7b-editeur.md`. Deux parties ; la B attend le feu vert de Thierry après la A.
 À concevoir sur les tables de `0005` : une nouvelle version des tables = une nouvelle ligne de `tables_reference` (immuable), que les publications suivantes prennent ; **le brouillon d'un exercice choisira sa version de tables** (D51).
 
-- [ ] **Téléversement d'images** (D51) : photo d'un outil et pictogramme d'une opération, **stockées dans D1 en blob** — pas dans R2, qui exige une carte de crédit —, **réduites dans le navigateur avant l'envoi** ; le manifeste `site/img/outils/index.json` fait à la main est remplacé par la liste des images en base ; `image` de la copie et `operationPicto` pointent déjà sur un nom
+**Partie A — images et nomenclature**
+- [ ] **Téléversement d'images** (D51, D56) : photo d'un outil et pictogramme d'une opération, rôle admin, **stockées dans D1 en blob** — pas dans R2, qui exige une carte de crédit —, **réduites dans le navigateur avant l'envoi** (plus grand côté 800 px pour une photo) ; chaque image a un nom lisible, un type, une taille, une empreinte (un doublon exact n'est pas stocké deux fois) et une date
+- [ ] **Une seule liste d'images** pour l'éditeur (D56) : les fichiers de `site/img/outils/` et de `site/img/pictos/operations/` **semés dans D1** (migration `0007`), servis par une même route avec des en-têtes de cache (une image ne change jamais sous le même identifiant) ; le manifeste `site/img/outils/index.json` disparaît
+- [ ] **Archiver ou supprimer** (D56) : une image utilisée par une version publiée s'archive (retirée du choix, toujours servie) ; une image jamais utilisée peut être supprimée
+- [ ] **SVG assaini** côté serveur (D57) : liste blanche d'éléments et d'attributs, aucun script, gestionnaire d'événement, lien ni ressource externe, ou refusé ; servi avec Content-Type exact, nosniff et une Content-Security-Policy sans script ; tests avec un SVG piégé
+- [ ] **Choix de l'image** dans le formulaire d'outil : galerie de vignettes avec recherche par nom, « Téléverser » sur place ; le même choix pour le pictogramme d'une opération (partie B)
+- [ ] **Gabarit de nomenclature éditable** (D24, D58) : champ de texte, boutons qui insèrent les jetons permis pour cet outil, exemple composé en direct et « Autre exemple » ; un jeton inconnu ou sans valeur est une erreur sous le champ (`toolErrors`) qui bloque Publier
+- [ ] **Export et import avec les images** (D59) : les images font partie de la sauvegarde, envoyées à part, une par requête, pour rester sous la limite ; l'aller-retour reste identique
+- [ ] Tests, docs (SPEC, UI §3.9, DEMARRAGE), Chrome à 1280 et 390 px, captures dans `captures/jalon-7b/`, rapport de la partie A ; branche poussée
 - [ ] **`limite_avance`** (D51) : à trancher avec les exercices d'avances ; jusque-là, éditable et marquée « non utilisée »
-- [ ] **Gabarit de nomenclature** (D24) : édition avec la liste des jetons et l'exemple composé (déjà affiché en lecture seule), validation des jetons (`toolErrors`)
-- [ ] **Tables de référence versionnées** : vitesses de coupe (matériaux, groupes ISO, `debut_famille` D27), avances et opérations (avec leur pictogramme), matériaux d'outil, **révision** (D28) ; publier une version des tables ; l'attestation inscrit déjà la révision des tables (D28)
-- [ ] Une clé par enseignant et la table des séances professeur (D34), le mode test ouvert au professeur connecté (D26)
+
+**Partie B — tables de référence versionnées** (attendre le feu vert)
+- [ ] Onglet **Tables de référence** : un brouillon unique des tables, modifiable, et des versions publiées immuables, comme les exercices — matériaux usinés (nom, groupe ISO, Vc par matériau d'outil, `debut_famille` D27), groupes ISO (code, nom, couleur), matériaux d'outil (nom, couleur), opérations (famille, avances, pictogramme) ; les couleurs passent dans les tables, semées depuis `tokens.css` ; le quiz et les feuilles les lisent de la version en usage
+- [ ] Chaque version porte sa **révision** (D28), saisie à la publication, avec une suggestion qui incrémente la dernière (A2026_r0 → A2026_r1), unique ; publication avec validation complète, contrôle optimiste et résumé des différences valeur par valeur
+- [ ] Le **brouillon d'un exercice choisit sa version de tables** (par défaut la plus récente à sa création) ; quand une plus récente existe, la page le signale, avec un bouton pour y passer qui montre d'abord ce que ça change ; un exercice est validé contre la version qu'il a choisie (un matériau, un groupe ou une matière retirée = une erreur nommée) ; le changement de tables figure dans les différences à la publication
+- [ ] Une séance utilise toujours les tables de sa version d'exercice : questions, correction, feuilles de référence ; les feuilles ont une vue imprimable par version de tables, accessible depuis l'éditeur ; l'attestation inscrit la révision de ces tables (à vérifier sur une séance en version 2)
+- [ ] Aperçu d'une version de tables en brouillon : dix questions d'un exercice au choix avec ces tables, sans rien enregistrer
+- [ ] Export et import couvrent les versions de tables et leur brouillon
+- [ ] Tests : une séance en cours garde ses tables après la publication d'une nouvelle version ; un exercice passé à la nouvelle version change de questions attendues seulement là où les valeurs ont changé ; une matière retirée devient une erreur sur les exercices qui l'utilisent ; les deux M10 donnent les mêmes questions qu'avant sur A2026_r0 ; docs (DECISIONS, SPEC, UI, PLAN, DEMARRAGE), Chrome à 1280 et 390 px, captures, rapport complété
 
 ## Finition
 - [ ] Graphique de progression par opération

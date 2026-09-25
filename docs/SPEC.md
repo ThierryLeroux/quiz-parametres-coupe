@@ -530,10 +530,11 @@ requête adressée au poste lui-même (`cadenceFor`, `worker/seance.js`) ; aille
 la cadence reste 10 s. `npm run test:api` s'en sert (`CADENCE_S:1`) pour le
 cycle complet, après avoir vérifié la cadence réelle.
 
-L'exercice `test-complet` (§10) sert à cet essai. Plus tard, le mode pourra
-s'ouvrir aux séances d'un **professeur connecté** (jalon 5 ou 6) ; pour toute
-séance d'étudiant, la règle « rien de ce qui est à trouver ne part au
-navigateur » reste entière.
+L'exercice `test-complet` (§10) sert à cet essai. Le mode ne sera **jamais**
+ouvert à une séance en production, pas même celle d'un professeur connecté
+(D55) : pour voir des questions avec leurs réponses, le professeur a l'aperçu
+de l'éditeur (§10, D49) ; pour toute séance d'étudiant, la règle « rien de ce
+qui est à trouver ne part au navigateur » reste entière.
 
 **Tests.** `npm test` fait tourner le vrai Worker sur une base SQLite en mémoire
 (`node:sqlite`) où les vraies migrations sont appliquées, avec une horloge
@@ -761,8 +762,9 @@ corrections d'identité, ni durées. Elle est soumise aux limites de débit
   §3.9) : la même connexion, **rôle admin seulement** — la clé de consultation est
   refusée à la connexion et par chaque route. Exercices (brouillon, versions,
   aperçu, publication), banque d'outils, sauvegarde (export, import) : §10.
-- Reste à faire (`PLAN.md`) : une clé par enseignant avec une table des
-  séances professeur, pour révoquer une séance avant son expiration.
+- Il n'y aura ni clé par enseignant ni table des séances professeur (D55) :
+  une séance professeur se révoque en changeant la clé (`DEMARRAGE.md` §7), et
+  expire d'elle-même au plus 12 h après.
 
 ### Limites de débit par adresse (décision D36)
 
