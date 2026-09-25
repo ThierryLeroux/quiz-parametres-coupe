@@ -5,12 +5,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
-  FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deducibleWarnings, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates, fieldStatesText,
-  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
+  FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates, fieldStatesText,
+  filterImages, fittedSize, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
+import { fittingBars } from '../site/js/data.js';
 import { IMPORT_WORD as SERVER_IMPORT_WORD, REPLACE_WORD as SERVER_REPLACE_WORD } from '../worker/editeur.js';
-import { data, lireFichier } from './aide.js';
+import { aleaAGraine, data, lireFichier } from './aide.js';
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
 const brouillon = () => draftFromExercise(m10, data.outils);
@@ -182,20 +183,84 @@ test('deducibleWarnings : une grandeur évaluée ou masquée qui se déduit des 
   assert.deepEqual(publishState([], versionDiff(null, { ...brouillon(), champs_evalues: ['vc'] })), { enabled: true, label: 'Publier…' });
 });
 
-test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases', () => {
+test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases, images à envoyer avant l’import (D59)', () => {
   assert.equal(exportFileName(new Date(2026, 8, 24, 13, 5)), 'quiz-parametres-coupe-exercices-2026-09-24.json');
   const banque = { ajoutes: [{ id: 'x', nom: 'Fraise X' }], modifies: [], retires: [], gardes: 28 };
-  const resume = { tables_ajoutees: [], banque, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [] };
+  const resume = { tables_ajoutees: [], banque, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 48, images_modifiees: [] };
   const lines = importSummaryLines(resume);
-  assert.deepEqual(lines.slice(0, 4), ['Tables de référence ajoutées : aucun.', "Banque d'outils — ajoutés : Fraise X (x) ; modifiés : aucun ; inchangés : 28.", "Banque d'outils — aucun outil ne disparaît.", 'Exercices ajoutés : nouveau.']);
+  assert.deepEqual(lines.slice(0, 5), ['Images : 48 déjà dans la base ; aucune à envoyer.', 'Tables de référence ajoutées : aucun.', "Banque d'outils — ajoutés : Fraise X (x) ; modifiés : aucun ; inchangés : 28.", "Banque d'outils — aucun outil ne disparaît.", 'Exercices ajoutés : nouveau.']);
   assert.equal(lines.at(-1), 'Les séances, les journaux et les attestations ne sont pas touchés.');
+  assert.equal(importSummaryLines({ ...resume, images_manquantes: ['img-1', 'img-2'], images_modifiees: ['mvlnr'] })[0], "Images : 48 déjà dans la base ; 2 à envoyer avant l'import (une par requête) ; 1 fiche(s) mise(s) à jour (nom, archivage).");
+  assert.equal(importSummaryLines({ ...resume, images_manquantes: undefined, images_presentes: undefined })[0], 'Images : 0 déjà dans la base ; aucune à envoyer.'); // un export d'avant les images
   assert.equal(importWordFor(resume), IMPORT_WORD);
   // Des outils disparaîtraient (D50) : nommés, et le mot devient REMPLACER.
   const perte = { ...resume, banque: { ...banque, retires: [{ id: 'mvlnr', nom: 'MVLNR' }, { id: 'alesoir', nom: 'Alésoir' }] } };
-  assert.match(importSummaryLines(perte)[2], /^Banque d'outils — DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
+  assert.match(importSummaryLines(perte)[3], /^Banque d'outils — DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
   assert.equal(importWordFor(perte), REPLACE_WORD);
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], ['IMPORTER', 'REMPLACER']);
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], [SERVER_IMPORT_WORD, SERVER_REPLACE_WORD]); // les mêmes mots des deux côtés
+});
+
+test('exampleIdentifier avec un aléa (« Autre exemple », D58) : des valeurs tirées dans l’outil, jamais hors de lui ; sans aléa, toujours les premières', () => {
+  const alesoir = data.outils.find((o) => o.id === 'alesoir');
+  const seen = new Set();
+  for (let i = 0; i < 40; i += 1) {
+    const example = exampleIdentifier(alesoir, opsByName, aleaAGraine(i));
+    const [, dia, dents] = example.match(/^Alésoir (.+) - (\d+) lèvres$/);
+    assert.ok(alesoir.dimensions.some((d) => d.libelle === dia), example);
+    assert.ok(Number(dents) >= alesoir.nb_dents_min && Number(dents) <= alesoir.nb_dents_max, example);
+    seen.add(example);
+  }
+  assert.ok(seen.size > 3, 'les exemples varient');
+  const barre = data.outils.find((o) => o.id === 'barre_a_aleser');
+  for (let i = 0; i < 20; i += 1) {
+    const [, bar, hole] = exampleIdentifier(barre, opsByName, aleaAGraine(i)).match(/^Barre à aléser Ø (.+) - Ø alésé: (.+)$/);
+    const dimension = barre.dimensions.find((d) => d.libelle === hole);
+    assert.ok(fittingBars(barre, dimension.valeur).some((b) => b.libelle === bar), `${bar} n'entre pas dans ${hole}`);
+  }
+  assert.equal(exampleIdentifier(alesoir, opsByName, () => 0.999), `Alésoir ${alesoir.dimensions.at(-1).libelle} - ${alesoir.nb_dents_max} lèvres`);
+  assert.equal(exampleIdentifier(alesoir, opsByName), 'Alésoir 0.1250" - 6 lèvres');
+});
+
+test('permittedTokens et insertToken (D58) : [Pas] pour un filetage seulement, [IdBarre] avec des barres seulement ; insertion à la place de la sélection', () => {
+  const tokens = (id) => permittedTokens(data.outils.find((o) => o.id === id), opsByName).map((t) => t.token);
+  assert.deepEqual(tokens('mvlnr'), ['IdDia', 'Dia', 'NbDent', 'NomOutil', 'Operation', 'Matoutil']);
+  assert.deepEqual(tokens('taraud_metrique'), ['IdDia', 'Dia', 'Pas', 'NbDent', 'NomOutil', 'Operation', 'Matoutil']);
+  assert.deepEqual(tokens('barre_a_aleser'), ['IdDia', 'Dia', 'IdBarre', 'NbDent', 'NomOutil', 'Operation', 'Matoutil']);
+  assert.ok(permittedTokens(data.outils[0], opsByName).every((t) => typeof t.label === 'string' && t.label !== ''));
+  assert.deepEqual(insertToken('Foret ', 6, 6, 'IdDia'), { text: 'Foret [IdDia]', caret: 13 });
+  assert.deepEqual(insertToken('Foret [Dia] x', 6, 11, 'IdDia'), { text: 'Foret [IdDia] x', caret: 13 });
+  assert.deepEqual(insertToken(undefined, 0, 0, 'NomOutil'), { text: '[NomOutil]', caret: 10 });
+});
+
+test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agrandie, galerie filtrée sans casse ni accents, libellés', () => {
+  assert.deepEqual(uploadPlan('outil', false), { resize: true, maxSide: 800, type: 'image/jpeg', quality: 0.85, background: '#ffffff' });
+  assert.deepEqual(uploadPlan('operation', false), { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null });
+  assert.deepEqual(uploadPlan('operation', true), { resize: false, type: 'image/svg+xml' });
+  assert.deepEqual(fittedSize(4000, 3000, 800), { width: 800, height: 600 });
+  assert.deepEqual(fittedSize(300, 1200, 800), { width: 200, height: 800 });
+  assert.deepEqual(fittedSize(100, 50, 800), { width: 100, height: 50 }); // jamais agrandie
+  const images = [
+    { id: 'mvlnr', nom: 'MVLNR', usage: 'outil', archivee_le: null },
+    { id: 'alesoir', nom: 'Alésoir', usage: 'outil', archivee_le: null },
+    { id: 'alesoir_2', nom: 'Alésoir', usage: 'outil', archivee_le: '2026-09-24T13:00:00.000Z' },
+    { id: 'percage', nom: 'Perçage', usage: 'operation', archivee_le: null },
+    { id: 'img-abc', nom: 'Fraise à rainurer', usage: 'outil', archivee_le: null },
+  ];
+  assert.deepEqual(filterImages(images, { usage: 'outil' }).map((i) => i.id), ['mvlnr', 'alesoir', 'img-abc']);
+  assert.deepEqual(filterImages(images, { usage: 'outil', query: 'ALES' }).map((i) => i.id), ['alesoir']);
+  assert.deepEqual(filterImages(images, { usage: 'outil', query: 'alésoir', current: 'alesoir_2' }).map((i) => i.id), ['alesoir', 'alesoir_2']); // l'archivée déjà choisie reste visible
+  assert.deepEqual(filterImages(images, { usage: 'outil', query: 'abc' }).map((i) => i.id), ['img-abc']); // par l'identifiant aussi
+  assert.deepEqual(filterImages(images, { usage: 'operation' }).map((i) => i.id), ['percage']);
+  assert.deepEqual([6527, 15816, 1_234_567].map(imageSizeText), ['6.5 Ko', '16 Ko', '1.2 Mo']);
+  assert.equal(imageUsageLabel({ versions: ['m10 v1', 'm10 v2'], brouillons: ['m10'], banque: ['mvlnr'], tables: [] }), '2 versions publiées · 1 brouillon · 1 outil de la banque');
+  assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: ['A2026_r0'] }), '1 version des tables');
+  assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [] }), 'jamais utilisée');
+  assert.equal(canDeleteImage({ versions: [], brouillons: [], banque: [], tables: [] }), true);
+  assert.equal(canDeleteImage({ versions: [], brouillons: ['x'], banque: [], tables: [] }), false);
+  assert.match(imageDeleteConfirmation({ id: 'img-abc', nom: 'Fraise' }), /^Supprimer l'image « Fraise » \(img-abc\)/);
+  assert.match(imageArchiveConfirmation({ id: 'mvlnr', nom: 'MVLNR' }), /toujours/);
+  assert.deepEqual(Object.keys(USAGE_LABELS), ['outil', 'operation']);
 });
 
 test('site/img/outils/ : une photo de semence par outil du catalogue (la liste des images vient de la base, D56)', async () => {

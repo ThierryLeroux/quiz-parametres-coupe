@@ -1,21 +1,23 @@
-// L'éditeur des exercices et de la banque d'outils (jalon 7a, décisions D47 à D49 ; UI §3.9).
+// L'éditeur des exercices et de la banque d'outils (jalons 7a et 7b, décisions D47 à D49, D56 à D59 ; UI §3.9).
 // Rôle admin seulement : la même clé que l'espace professeur ; le serveur refuse la clé de
 // consultation sur chaque route. Ce qu'on montre est décidé par editeur-data.js (pur, testé) et la
 // validation est celle du quiz (draftErrors, site/js/exercice.js) ; ici, on construit le DOM.
 //
 // Écrans : connexion → liste des exercices → page d'un exercice (réglages, outils, versions,
-// aperçu, publication) ; banque d'outils → fiche d'un outil ; sauvegarde (export, import).
+// aperçu, publication) ; banque d'outils → fiche d'un outil ; images (galerie, téléversement,
+// archivage) ; sauvegarde (export, import — les images voyagent à part, une par requête).
 
 import {
   editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankSave, editorCreateExercise, editorDeleteExercise, editorExport,
-  editorGetExercise, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft, teacherLogin, teacherLogout,
+  editorGetExercise, editorImageArchive, editorImageDelete, editorImageImport, editorImageRename, editorImageUpload, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft, teacherLogin, teacherLogout,
 } from '../api.js';
 import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
 import {
-  FIELD_CHOICES, FIELD_STATES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, deducibleWarnings, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates,
-  dimensionReadings, groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
+  FIELD_CHOICES, FIELD_STATES, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deleteConfirmation, deducibleWarnings, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates,
+  dimensionReadings, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
+import { imagePicker, prepareUpload } from './images-picker.js';
 import { imageUrl } from './sheets-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
@@ -30,7 +32,7 @@ function freeId(wanted, taken) {
 
 const state = {
   connected: false,
-  images: null, // les identifiants des photos disponibles (images « outil » de la base, non archivées)
+  images: { outil: null, operation: null }, // les fiches des images de la base, par usage (chargées à la demande)
   dirty: false, // des modifications non enregistrées sur la page courante
 };
 
@@ -95,9 +97,9 @@ function headerAside() {
   ];
 }
 
-// Les onglets : Exercices, Banque d'outils, Sauvegarde.
+// Les onglets : Exercices, Banque d'outils, Images, Sauvegarde.
 function tabs(current) {
-  return el('div', { class: 'prof-tabs', role: 'tablist' }, [['exercices', 'Exercices', showList], ['banque', "Banque d'outils", showBank], ['sauvegarde', 'Sauvegarde', showBackup]]
+  return el('div', { class: 'prof-tabs', role: 'tablist' }, [['exercices', 'Exercices', showList], ['banque', "Banque d'outils", showBank], ['images', 'Images', showImages], ['sauvegarde', 'Sauvegarde', showBackup]]
     .map(([key, label, open]) => el('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(current === key), onclick: () => leave(open) }, label)));
 }
 
@@ -230,20 +232,41 @@ function checkboxes(idPrefix, choices, checked, { inline = false, swatchOf = nul
 }
 
 // Le formulaire d'un outil. Retourne { element, read(), setErrors(map), fields }.
-//   tool  : l'outil (ou la copie) à éditer ; ctx : { tables, opsByName, images, copy, prefix }
+//   tool  : l'outil (ou la copie) à éditer ; ctx : { tables, opsByName, images (fiches « outil »), copy, prefix }
 function toolForm(tool, ctx) {
   const p = ctx.prefix;
   const ops = ctx.tables.operations.operations;
   const groups = ctx.tables.materiaux.groupes_iso;
   const operationSelect = el('select', { id: `${p}-operation` }, ops.map((op) => el('option', { value: op.operation, selected: op.operation === tool.operation }, op.operation)));
   const isThread = () => ctx.opsByName.get(operationSelect.value)?.avance_egale_pas_filetage === true;
-  const imageSelect = el('select', { id: `${p}-image` }, [el('option', { value: '' }, '(aucune photo)'), ...ctx.images.map((name) => el('option', { value: name, selected: name === (tool.image ?? '') }, name))]);
-  const photo = el('img', { class: 'outil-photo', src: imageUrl(tool.image ?? tool.id), alt: '', onerror: () => { photo.style.visibility = 'hidden'; } });
-  imageSelect.addEventListener('change', () => { photo.style.visibility = 'visible'; photo.src = imageUrl(imageSelect.value); });
+  // La photo (D56) : la galerie des images « outil » de la base, avec téléversement sur place ; un
+  // changement dans la galerie vaut un changement du formulaire (validation, brouillon modifié).
+  const picker = imagePicker({ usage: 'outil', images: ctx.images, value: tool.image ?? null, upload: (file) => uploadImage(file, 'outil'), onChange: () => element.dispatchEvent(new Event('change', { bubbles: true })), idPrefix: `${p}-image` });
   const materials = checkboxes(`${p}-mat`, TOOL_MATERIALS.map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: materialSwatch, buttons: true });
   const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: groupSwatch, buttons: true });
-  const template = el('input', { id: `${p}-format`, type: 'text', readonly: true, value: tool.format_identifiant ?? '' });
-  const exampleNote = () => `Exemple composé : ${exampleIdentifier(read(), ctx.opsByName)} — jetons : ${templateTokenList(template.value).join(', ') || 'aucun'}. Se modifiera plus tard.`;
+
+  // Le gabarit de nomenclature (D24, D58) : éditable ; les boutons insèrent un jeton permis pour cet
+  // outil au curseur ; l'exemple composé suit la frappe, « Autre exemple » le tire au hasard dans l'outil.
+  const template = el('input', { id: `${p}-format`, type: 'text', autocomplete: 'off', spellcheck: 'false', value: tool.format_identifiant ?? '' });
+  const tokenBar = el('div', { class: 'token-buttons' });
+  const exampleText = el('span', {});
+  let drawn = null; // null = l'exemple fixe (premières valeurs) ; sinon une suite de tirages figée, rejouée à chaque rafraîchissement
+  const exampleLine = el('div', { class: 'field-note field-note--multi exemple-nomenclature' }, [exampleText, ' ', el('button', { class: 'button-link', type: 'button', onclick: () => {
+    drawn = Array.from({ length: 8 }, () => Math.random());
+    refreshExample();
+  } }, 'Autre exemple')]);
+  function refreshExample() {
+    const current = read();
+    const random = drawn === null ? null : ((sequence) => { let i = 0; return () => sequence[i++ % sequence.length]; })(drawn);
+    exampleText.textContent = `Exemple composé : ${exampleIdentifier(current, ctx.opsByName, random)} — jetons : ${templateTokenList(template.value).join(', ') || 'aucun'}.`;
+    tokenBar.replaceChildren(...permittedTokens(current, ctx.opsByName).map(({ token, label }) => el('button', { class: 'button-small button-small--neutral', type: 'button', title: `Insérer [${token}] : ${label}`, onclick: () => {
+      const { text: next, caret } = insertToken(template.value, template.selectionStart ?? template.value.length, template.selectionEnd ?? template.value.length, token);
+      template.value = next;
+      template.focus();
+      template.setSelectionRange(caret, caret);
+      template.dispatchEvent(new Event('input', { bubbles: true }));
+    } }, `[${token}]`)));
+  }
 
   // Ce que le moteur lit de chaque ligne de dimension : pour un filetage, le Ø et le pas (pouces, et mm en
   // métrique) ; sinon seulement les lignes illisibles. Mis à jour à la frappe.
@@ -260,8 +283,8 @@ function toolForm(tool, ctx) {
     nom: field('nom', 'Nom', el('input', { id: `${p}-nom`, type: 'text', autocomplete: 'off', value: tool.nom ?? '' }), 'Le nom générique, celui de la progression et de l\'attestation.'),
     operation: field('operation', 'Opération', operationSelect, 'Fixe la famille d\'avance (table des avances).'),
     commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
-    image: field('image', 'Photo', imageSelect, 'Parmi les images du site ; le téléversement viendra plus tard.'),
-    format_identifiant: field('format_identifiant', 'Gabarit de nomenclature (lecture seule)', template, '', 'field--wide'),
+    image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées ; « Téléverser » réduit la photo dans le navigateur (800 px, JPEG) avant l'envoi.", 'field--wide'),
+    format_identifiant: field('format_identifiant', 'Gabarit de nomenclature', template, "Le nom affiché dans la question : du texte et des jetons entre crochets, remplacés au tirage. Les boutons insèrent au curseur les jetons permis pour cet outil.", 'field--wide'),
     dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
       'Valeur : Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte : « 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 ».', 'field--half'),
     dimensions_barre: field('dimensions_barre', 'Barres (outil à deux diamètres) : libellé ; Ø en pouces', el('textarea', { id: `${p}-barres`, spellcheck: 'false' }, dimensionsText(tool.dimensions_barre)),
@@ -279,9 +302,8 @@ function toolForm(tool, ctx) {
   if (ctx.copy) fields.reussites_requises = field('reussites_requises', 'Réussites de suite exigées', numberInput(`${p}-reussites`, tool.reussites_requises, { inputmode: 'numeric' }), 'Un échec remet le compteur de cet outil à zéro.');
 
   // Les champs, regroupés par thème (UI §3.9) : un intertitre par groupe ; la même disposition pour la banque.
-  const photoLine = el('div', { class: 'field outil-photo-ligne' }, [photo, el('span', { class: 'muted smaller' }, 'La photo, telle que l\'étudiant la voit.')]);
   const sections = [
-    ['Identification', [fields.nom.element, fields.operation.element, fields.commentaire.element, fields.image.element, photoLine, fields.id.element]],
+    ['Identification', [fields.nom.element, fields.operation.element, fields.commentaire.element, fields.id.element, fields.image.element]],
     ['Nomenclature', [fields.format_identifiant.element]],
     ['Dimensions', [fields.dimensions.element, el('div', { class: 'field' }, [el('span', { class: 'field-label-text' }, 'Lecture par le moteur'), readings]), fields.dimensions_barre.element, fields.rapport_barre_max.element]],
     ['Dents', [fields.nb_dents_min.element, fields.nb_dents_max.element]],
@@ -297,7 +319,7 @@ function toolForm(tool, ctx) {
     const out = {
       id: tool.id,
       nom: fields.nom.control.value.trim(),
-      format_identifiant: template.value,
+      format_identifiant: template.value.trim(),
       commentaire: fields.commentaire.control.value.trim() === '' ? null : fields.commentaire.control.value.trim(), // null = pas de note, comme dans le catalogue
       operation: operationSelect.value,
       fact_vc: readNumber(fields.fact_vc.control),
@@ -308,7 +330,7 @@ function toolForm(tool, ctx) {
       nb_dents_max: readNumber(fields.nb_dents_max.control),
       materiaux_outil: materials.read(),
       groupes_materiaux_usinables: groupChoices.read(),
-      image: imageSelect.value === '' ? null : imageSelect.value,
+      image: picker.read(),
       dimensions: parseDimensions(fields.dimensions.control.value, isThread()),
     };
     if (tool.colonne_excel !== undefined) out.colonne_excel = tool.colonne_excel;
@@ -329,23 +351,47 @@ function toolForm(tool, ctx) {
       const messages = map.get(f.name) ?? [];
       f.element.setAttribute('data-erreur', messages.length > 0 ? 'true' : 'false');
       f.control.setAttribute?.('aria-invalid', messages.length > 0 ? 'true' : 'false');
-      f.noteEl.textContent = messages.length > 0 ? messages.join('\n') : (f.name === 'format_identifiant' ? exampleNote() : f.note);
+      f.noteEl.textContent = messages.length > 0 ? messages.join('\n') : f.note;
     }
   }
-  fields.format_identifiant.noteEl.textContent = exampleNote();
+  fields.format_identifiant.element.insertBefore(tokenBar, fields.format_identifiant.noteEl);
+  fields.format_identifiant.element.append(exampleLine);
   operationSelect.addEventListener('change', refreshReadings);
   refreshReadings();
-  return { element, read, setErrors, fields, refreshExample: () => { fields.format_identifiant.noteEl.textContent = exampleNote(); } };
+  refreshExample();
+  return { element, read, setErrors, fields, refreshExample, picker };
 }
 
-// Les photos disponibles : les images « outil » de la base, non archivées (chargées une fois par page).
-async function loadImages() {
-  if (state.images === null) {
-    const response = await guarded(() => editorImages('outil'));
-    state.images = (response?.images ?? []).filter((image) => image.archivee_le === null).map((image) => image.id);
-  }
-  return state.images;
+// Téléverse une image pour une galerie : réduite dans le navigateur (prepareUpload), envoyée au
+// serveur (qui vérifie le type, assainit un SVG et ne stocke pas un doublon), puis mise en cache.
+// Retourne la fiche, avec « existante » et ce qui a été retiré d'un SVG.
+async function uploadImage(file, usage) {
+  const body = await prepareUpload(file, usage);
+  const result = await guarded(() => editorImageUpload(body));
+  if (result === null) throw new Error('Ta séance a expiré : connecte-toi de nouveau.');
+  rememberImage(result.image);
+  return { ...result.image, existante: result.existante, retires: result.retires };
 }
+
+// Les fiches des images d'un usage (« outil », « operation »), chargées une fois puis tenues à jour par rememberImage.
+async function loadImages(usage) {
+  if (state.images[usage] === null) {
+    const response = await guarded(() => editorImages(usage));
+    state.images[usage] = response?.images ?? [];
+  }
+  return state.images[usage];
+}
+
+// Une image téléversée entre dans le cache de son usage (ou le remplace, si elle y était).
+function rememberImage(image) {
+  const list = state.images[image.usage];
+  if (list === null) return;
+  const at = list.findIndex((known) => known.id === image.id);
+  if (at < 0) list.push(image); else list[at] = image;
+}
+
+// Après une action de l'onglet Images, les caches sont oubliés : les galeries relisent la base.
+const forgetImages = () => { state.images = { outil: null, operation: null }; };
 
 // Un état par grandeur (D52) : une ligne par grandeur, trois boutons radio. Retourne { element, read() → { champs_evalues, champs_masques? } }.
 function fieldStateChoice(draft) {
@@ -378,7 +424,8 @@ function previewTable(response) {
 async function showExercise(id, notice = '') {
   const page = await guarded(() => editorGetExercise(id));
   if (page === null) return;
-  const images = await loadImages();
+  const images = await loadImages('outil');
+  if (images === null) return;
   const { tables } = page;
   const opsByName = new Map(tables.operations.operations.map((op) => [op.operation, op]));
   let { revision } = page.exercice;
@@ -441,7 +488,7 @@ async function showExercise(id, notice = '') {
       form.row.setAttribute('data-erreur', count > 0 ? 'true' : 'false');
       form.summaryErrors.textContent = count > 0 ? `${count} erreur${count > 1 ? 's' : ''}` : '';
       form.summaryName.textContent = `${form.fields.nom.control.value.trim() || '(sans nom)'} · ${form.fields.reussites_requises.control.value || '?'} réussite(s) de suite`;
-      form.thumbnail.src = imageUrl(form.fields.image.control.value || form.read().id);
+      form.thumbnail.src = imageUrl(form.picker.read() ?? form.read().id);
     });
     generalErrors.replaceChildren(...(map.get('') ?? []).map((message) => el('li', {}, message)));
     warningsList.replaceChildren(...deducibleWarnings(current).map((line) => el('li', {}, line)));
@@ -721,7 +768,8 @@ async function showBankTool(id, notice = '') {
   if (bank === null) return;
   const row = bank.outils.find((r) => r.id === id);
   if (!row) { showBank(`L'outil « ${id} » n'existe pas.`); return; }
-  const images = await loadImages();
+  const images = await loadImages('outil');
+  if (images === null) return;
   const { tables } = bank;
   const opsByName = new Map(tables.operations.operations.map((op) => [op.operation, op]));
   let { revision } = row;
@@ -786,23 +834,34 @@ function download(name, text) {
 async function showBackup(notice = '') {
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const summary = el('div');
-  let received = null;
-  let resume = null; // le résumé de la validation : dit quel mot la confirmation exige (D50)
+  let received = null; // l'export lu, tel quel (avec le contenu des images)
+  let fiches = null; // le même export sans le contenu des images : ce que valider et importer reçoivent (D59)
+  let resume = null; // le résumé de la validation : dit quel mot la confirmation exige (D50) et quelles images manquent (D59)
   const importButton = el('button', { class: 'button button--wrong', type: 'button', disabled: true, onclick: async () => {
     const word = importWordFor(resume);
     const warning = resume.banque.retires.length > 0 ? `${resume.banque.retires.length} outil(s) de la banque disparaîtront : ${resume.banque.retires.map((t) => t.nom).join(', ')}. ` : '';
     if (window.prompt(`${warning}Pour importer, tape ${word} :`) !== word) return;
     importButton.disabled = true;
     try {
-      const result = await guarded(() => editorImport(received, word));
+      // D'abord les images que la base n'a pas, une par requête, pour rester sous la limite ; puis l'import lui-même.
+      const missing = (received.images ?? []).filter((image) => resume.images_manquantes.includes(image.id));
+      for (const [i, image] of missing.entries()) {
+        status.textContent = `Envoi de l'image ${i + 1} sur ${missing.length} : « ${image.nom} »…`;
+        if ((await guarded(() => editorImageImport(image))) === null) return;
+      }
+      status.textContent = missing.length > 0 ? `${missing.length} image(s) envoyée(s) ; import en cours…` : 'Import en cours…';
+      const result = await guarded(() => editorImport(fiches, word));
       if (result === null) return;
-      showBackup(`Import terminé : ${importSummaryLines(result.resume).slice(0, 5).join(' ')}`);
+      forgetImages();
+      showBackup(`Import terminé : ${importSummaryLines(result.resume).slice(0, 6).join(' ')}`);
     } catch (error) {
       status.textContent = error.status === 400 && error.details.erreurs ? `Rien n'a été importé : ${error.details.erreurs.join(' ; ')}` : serverErrorMessage(error);
+      importButton.disabled = false;
     }
   } }, 'Importer');
   const fileInput = el('input', { id: 'fichier', type: 'file', accept: 'application/json,.json', onchange: async () => {
     received = null;
+    fiches = null;
     resume = null;
     importButton.disabled = true;
     summary.replaceChildren();
@@ -810,7 +869,8 @@ async function showBackup(notice = '') {
     if (!file) return;
     try {
       received = JSON.parse(await file.text());
-      const result = await guarded(() => editorImportValidate(received));
+      fiches = received !== null && typeof received === 'object' && Array.isArray(received.images) ? { ...received, images: received.images.map(({ contenu, ...fiche }) => fiche) } : received;
+      const result = await guarded(() => editorImportValidate(fiches));
       if (result === null) return;
       summary.replaceChildren(
         result.erreurs.length > 0 ? el('ul', { class: 'editeur-erreurs' }, result.erreurs.map((e) => el('li', {}, e))) : '',
@@ -827,7 +887,7 @@ async function showBackup(notice = '') {
   const screen = el('div', { class: 'screen screen--narrow prof editeur' }, el('section', { class: 'panel' }, [
     panelHead('sauvegarde', 'sauvegarde'),
     el('h1', { tabindex: '-1' }, 'Sauvegarde'),
-    el('p', { class: 'small' }, "L'export contient la banque d'outils, les exercices avec leurs brouillons et toutes leurs versions, et les tables de référence — jamais de données d'étudiants. L'import fusionne un export dans la base : il ajoute ce qui manque, remplace les brouillons et la banque, ne supprime jamais une version publiée et ne touche ni aux séances ni aux attestations."),
+    el('p', { class: 'small' }, "L'export contient la banque d'outils, les exercices avec leurs brouillons et toutes leurs versions, les tables de référence et les images (photos et pictogrammes) — jamais de données d'étudiants. L'import fusionne un export dans la base : il ajoute ce qui manque (les images absentes sont envoyées une à une, avant le reste), remplace les brouillons et la banque, ne supprime jamais une version publiée et ne touche ni aux séances ni aux attestations."),
     status,
     el('ol', { class: 'sauvegarde-etapes' }, [
       el('li', {}, [el('div', {}, 'Exporter tout en JSON, à garder en lieu sûr (par exemple avant une grosse retouche).'), el('p', {}, el('button', { class: 'button-outline', type: 'button', onclick: async () => {
@@ -839,6 +899,93 @@ async function showBackup(notice = '') {
       el('li', {}, [el('div', {}, "Importer un export : il est d'abord validé et résumé ; rien n'est écrit avant la confirmation."), el('div', { class: 'field' }, [el('label', { for: 'fichier' }, 'Fichier JSON'), fileInput]), summary, el('div', { class: 'form-actions' }, importButton)]),
     ]),
   ]));
+  showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
+}
+
+// --- Images (D56) : la liste avec les utilisations, téléverser, renommer, archiver, supprimer ------------------------------
+
+async function showImages(notice = '', filters = { usage: '', query: '' }) {
+  const response = await guarded(() => editorImages());
+  if (response === null) return;
+  forgetImages();
+  const status = el('div', { class: 'server-message', role: 'status' }, notice);
+  const act = async (action, success) => {
+    try { await guarded(action); await showImages(success, filters); } catch (error) { status.textContent = serverErrorMessage(error); }
+  };
+
+  // Filtres : usage et recherche par nom ; la liste se refait à la frappe.
+  const usageSelect = el('select', { id: 'images-usage' }, [el('option', { value: '' }, 'toutes'), ...Object.entries(USAGE_LABELS).map(([key, label]) => el('option', { value: key, selected: filters.usage === key }, label))]);
+  const search = el('input', { id: 'images-recherche', type: 'search', autocomplete: 'off', placeholder: 'Nom ou identifiant', value: filters.query });
+  const body = el('tbody');
+  const count = el('p', { class: 'muted smaller prof-count' });
+  const plain = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  function renderRows() {
+    filters = { usage: usageSelect.value, query: search.value };
+    const needle = plain(search.value).trim();
+    const shown = response.images.filter((image) => (filters.usage === '' || image.usage === filters.usage) && (needle === '' || plain(image.nom).includes(needle) || plain(image.id).includes(needle)));
+    body.replaceChildren(...shown.map((image) => el('tr', { class: image.archivee_le === null ? null : 'image-archivee' }, [
+      el('td', {}, el('img', { class: 'outil-vignette', src: imageUrl(image.id), alt: '', loading: 'lazy' })),
+      el('td', {}, [image.nom, el('div', { class: 'mono smaller muted' }, image.id)]),
+      el('td', {}, USAGE_LABELS[image.usage] ?? image.usage),
+      el('td', {}, [image.type.replace('image/', '').replace('svg+xml', 'svg'), el('div', { class: 'smaller muted' }, imageSizeText(image.taille))]),
+      el('td', { class: 'date' }, formatDateStamp(image.creee_le)),
+      el('td', {}, imageUsageLabel(image.utilisations)),
+      el('td', { class: image.archivee_le === null ? '' : 'state--running' }, image.archivee_le === null ? 'offerte' : `archivée le ${formatDateStamp(image.archivee_le)}`),
+      el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
+        el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => {
+          const nom = window.prompt('Nouveau nom de l\'image (le nom lisible, dans la galerie) :', image.nom);
+          if (nom && nom.trim() !== image.nom) act(() => editorImageRename(image.id, nom.trim()), `« ${image.nom} » renommée « ${nom.trim()} ».`);
+        } }, 'Renommer'),
+        image.archivee_le === null
+          ? el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(imageArchiveConfirmation(image))) act(() => editorImageArchive(image.id, true), `« ${image.nom} » archivée : plus proposée, toujours affichée là où elle est nommée.`); } }, 'Archiver')
+          : el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => act(() => editorImageArchive(image.id, false), `« ${image.nom} » rétablie.`) }, 'Rétablir'),
+        ...(canDeleteImage(image.utilisations) ? [el('button', { class: 'button-small button-small--danger', type: 'button', onclick: () => { if (window.confirm(imageDeleteConfirmation(image))) act(() => editorImageDelete(image.id), `« ${image.nom} » supprimée.`); } }, 'Supprimer')] : []),
+      ])),
+    ])));
+    count.textContent = `${shown.length} image${shown.length > 1 ? 's' : ''} sur ${response.images.length}.`;
+  }
+  usageSelect.addEventListener('change', renderRows);
+  search.addEventListener('input', renderRows);
+
+  // Téléverser : l'usage, puis le fichier ; réduit dans le navigateur, envoyé, puis la liste est relue.
+  const uploadUsage = el('select', { id: 'televerser-usage' }, Object.entries(USAGE_LABELS).map(([key, label]) => el('option', { value: key }, label)));
+  const uploadFile = el('input', { id: 'televerser-fichier', type: 'file', accept: 'image/*,.svg' });
+  const uploadForm = el('form', { class: 'ajout-outil', novalidate: true, onsubmit: async (event) => {
+    event.preventDefault();
+    const [file] = uploadFile.files;
+    if (!file) { status.textContent = 'Choisis un fichier.'; return; }
+    status.textContent = 'Réduction et envoi…';
+    try {
+      const image = await uploadImage(file, uploadUsage.value);
+      const retires = image.retires?.length > 0 ? ` Retiré du SVG : ${image.retires.join(', ')}.` : '';
+      await showImages(image.existante ? `Cette image était déjà dans la base : « ${image.nom} » (${image.id}).${retires}` : `« ${image.nom} » téléversée (${image.id}, ${imageSizeText(image.taille)}).${retires}`, filters);
+    } catch (error) {
+      status.textContent = error.status === undefined ? error.message : serverErrorMessage(error);
+    }
+  } }, [
+    el('div', { class: 'field' }, [el('label', { for: 'televerser-usage' }, 'Usage'), uploadUsage]),
+    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur (800 px, JPEG) ; un pictogramme à 256 px, ou tel quel en SVG (assaini par le serveur). Un doublon exact n'est pas stocké deux fois.")]),
+    el('button', { class: 'button-outline', type: 'submit' }, 'Téléverser'),
+  ]);
+
+  const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
+    panelHead('images', 'images'),
+    el('h1', { tabindex: '-1' }, 'Images'),
+    el('p', { class: 'muted small' }, "Les photos d'outils et les pictogrammes d'opérations, dans la base. Une image ne change jamais sous le même identifiant ; une image utilisée par une version publiée ne se supprime pas : elle s'archive (retirée des galeries, toujours affichée). Une image jamais utilisée peut être supprimée."),
+    status,
+    el('div', { class: 'ajout-outil' }, [
+      el('div', { class: 'field' }, [el('label', { for: 'images-usage' }, 'Usage'), usageSelect]),
+      el('div', { class: 'field' }, [el('label', { for: 'images-recherche' }, 'Recherche'), search]),
+    ]),
+    el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table images-table' }, [
+      el('thead', {}, el('tr', {}, ['', 'Nom', 'Usage', 'Type', 'Ajoutée le', 'Utilisée par', 'État', 'Actions'].map((label) => el('th', {}, label)))),
+      body,
+    ])),
+    count,
+    el('h2', { class: 'editeur-bar' }, 'Téléverser une image'),
+    uploadForm,
+  ]));
+  renderRows();
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
 }
 

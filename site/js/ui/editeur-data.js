@@ -4,7 +4,7 @@
 // champ, lignes de l'aperçu, résumé d'un import. Fonctions PURES, sans DOM, testées sous Node ;
 // editeur.js ne fait que les mettre à l'écran.
 
-import { TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
+import { TEMPLATE_TOKENS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
 import { COPY_KEYS, GRADED_FIELD_KEYS } from '../exercice.js';
 import { formatDateStamp } from './text.js';
 
@@ -219,31 +219,118 @@ export function dimensionReadings(textValue, thread) {
   });
 }
 
-// L'exemple composé du gabarit de nomenclature (D24), avec la première dimension, le moins de dents,
-// la première matière et la première barre qui entre : « MVLNR - Ø charioté: 1.000" ».
-export function exampleIdentifier(tool, opsByName) {
+// L'exemple composé du gabarit de nomenclature (D24) : avec la première dimension, le moins de dents,
+// la première matière et la première barre qui entre — « MVLNR - Ø charioté: 1.000" » —, ou, si un
+// aléa est donné (« Autre exemple », D58), avec des valeurs tirées au hasard dans l'outil, comme le
+// ferait une question. Un jeton sans valeur pour cet outil reste tel quel.
+//   random : () → [0, 1[, ou null pour l'exemple fixe
+export function exampleIdentifier(tool, opsByName, random = null) {
   const template = typeof tool.format_identifiant === 'string' ? tool.format_identifiant : '';
-  const dimension = Array.isArray(tool.dimensions) ? tool.dimensions[0] : undefined;
+  const pick = (list) => (list.length === 0 ? undefined : list[random === null ? 0 : Math.min(list.length - 1, Math.floor(random() * list.length))]);
+  const dimension = pick(Array.isArray(tool.dimensions) ? tool.dimensions : []);
   const op = opsByName.get(tool.operation);
   const thread = op?.avance_egale_pas_filetage === true && dimension ? parseThread(dimension.valeur) : null;
   const diameter = thread ? thread.diameter : (typeof dimension?.valeur === 'number' ? dimension.valeur : null);
   const inches = (value) => (value === null || value === undefined ? null : String(Number(value.toFixed(5))));
-  const bar = diameter !== null && tool.dimensions_barre ? fittingBars(tool, diameter)[0] : null;
+  const bar = diameter !== null && tool.dimensions_barre ? pick(fittingBars(tool, diameter)) : null;
+  const teeth = Number.isInteger(tool.nb_dents_min) && Number.isInteger(tool.nb_dents_max) && tool.nb_dents_max >= tool.nb_dents_min
+    ? tool.nb_dents_min + (random === null ? 0 : Math.min(tool.nb_dents_max - tool.nb_dents_min, Math.floor(random() * (tool.nb_dents_max - tool.nb_dents_min + 1))))
+    : tool.nb_dents_min ?? null;
   const values = {
     IdDia: dimension?.libelle ?? null,
     Dia: diameter === null ? null : inches(diameter),
     Pas: thread ? inches(thread.pitch) : null,
     IdBarre: bar?.libelle ?? null,
-    NbDent: tool.nb_dents_min ?? null,
+    NbDent: teeth,
     NomOutil: tool.nom ?? null,
     Operation: tool.operation ?? null,
-    Matoutil: Array.isArray(tool.materiaux_outil) ? tool.materiaux_outil[0] ?? null : null,
+    Matoutil: pick(Array.isArray(tool.materiaux_outil) ? tool.materiaux_outil : []) ?? null,
   };
   return template.replace(/\[([^\]]*)\]/g, (token, name) => (values[name] === null || values[name] === undefined ? token : String(values[name])));
 }
 
 // Les jetons que le gabarit utilise, pour la note sous le champ.
 export const templateTokenList = (template) => templateTokens(typeof template === 'string' ? template : '');
+
+// Les jetons permis pour cet outil (D24, D58), dans l'ordre des boutons : les huit du moteur, sauf
+// [Pas] hors filetage et [IdBarre] sans barres. Chaque bouton dit ce que le jeton devient.
+export function permittedTokens(tool, opsByName) {
+  const op = opsByName.get(tool.operation);
+  const thread = op?.avance_egale_pas_filetage === true;
+  const bars = Array.isArray(tool.dimensions_barre) && tool.dimensions_barre.length > 0;
+  return [
+    { token: 'IdDia', label: 'libellé de la dimension' },
+    { token: 'Dia', label: 'Ø en pouces' },
+    ...(thread ? [{ token: 'Pas', label: 'pas du filet, en pouces' }] : []),
+    ...(bars ? [{ token: 'IdBarre', label: 'libellé de la barre' }] : []),
+    { token: 'NbDent', label: 'nombre de dents' },
+    { token: 'NomOutil', label: 'nom de l\'outil' },
+    { token: 'Operation', label: 'opération' },
+    { token: 'Matoutil', label: 'matière de l\'outil' },
+  ].filter((entry) => TEMPLATE_TOKENS.includes(entry.token));
+}
+
+// Insère un jeton dans le gabarit à la place de la sélection [start, end[ : { text, caret } — le
+// curseur se retrouve après le jeton, prêt pour la suite.
+export function insertToken(text, start, end, token) {
+  const before = String(text ?? '').slice(0, start);
+  const after = String(text ?? '').slice(end);
+  const inserted = `[${token}]`;
+  return { text: `${before}${inserted}${after}`, caret: before.length + inserted.length };
+}
+
+// --- Images (D56) : galerie, téléversement ------------------------------------------------------------------------
+
+// Ce que le navigateur fait d'un fichier avant l'envoi : un SVG part tel quel (le serveur l'assainit) ;
+// une photo d'outil est redessinée sur fond blanc, plus grand côté 800 px, en JPEG à 0,85 (une photo
+// d'atelier : 40 à 150 Ko, sans transparence utile — la fiche l'affiche sur blanc) ; un pictogramme en
+// image matricielle est réduit à 256 px, en PNG (aplats et transparence gardés). Jamais agrandi.
+export function uploadPlan(usage, isSvg) {
+  if (isSvg) return { resize: false, type: 'image/svg+xml' };
+  if (usage === 'operation') return { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null };
+  return { resize: true, maxSide: 800, type: 'image/jpeg', quality: 0.85, background: '#ffffff' };
+}
+
+// La taille cible d'une image à réduire : jamais agrandie, le plus grand côté ramené à maxSide.
+export function fittedSize(width, height, maxSide) {
+  const scale = Math.min(1, maxSide / Math.max(width, height, 1));
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}
+
+const plain = (text) => String(text ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// La galerie : les images de cet usage, non archivées (sauf celle déjà choisie, pour qu'elle reste
+// visible), filtrées par le nom ou l'identifiant, sans casse ni accents.
+export function filterImages(images, { usage, query = '', current = null }) {
+  const needle = plain(query).trim();
+  return images
+    .filter((image) => image.usage === usage && (image.archivee_le === null || image.id === current))
+    .filter((image) => needle === '' || plain(image.nom).includes(needle) || plain(image.id).includes(needle));
+}
+
+// « 6.5 Ko », « 1.2 Mo ».
+export function imageSizeText(bytes) {
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} Mo`;
+  return `${(bytes / 1000).toFixed(bytes < 10_000 ? 1 : 0)} Ko`;
+}
+
+// « 2 versions publiées · 1 brouillon · banque » ou « jamais utilisée » — la colonne de l'onglet Images.
+export function imageUsageLabel(utilisations) {
+  const parts = [];
+  const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+  if (utilisations.versions.length > 0) parts.push(plural(utilisations.versions.length, 'version publiée', 'versions publiées'));
+  if (utilisations.brouillons.length > 0) parts.push(plural(utilisations.brouillons.length, 'brouillon', 'brouillons'));
+  if (utilisations.banque.length > 0) parts.push(plural(utilisations.banque.length, 'outil de la banque', 'outils de la banque'));
+  if (utilisations.tables.length > 0) parts.push(plural(utilisations.tables.length, 'version des tables', 'versions des tables'));
+  return parts.length === 0 ? 'jamais utilisée' : parts.join(' · ');
+}
+
+// Une image utilisée par une version publiée ne se supprime jamais (D56) : le bouton n'existe que sans utilisation.
+export const canDeleteImage = (utilisations) => Object.values(utilisations).every((list) => list.length === 0);
+
+export const USAGE_LABELS = { outil: "photo d'outil", operation: "pictogramme d'opération" };
+export const imageDeleteConfirmation = (image) => `Supprimer l'image « ${image.nom} » (${image.id}) ? Elle n'est utilisée nulle part ; elle disparaît sans retour.`;
+export const imageArchiveConfirmation = (image) => `Archiver l'image « ${image.nom} » ? Elle ne sera plus proposée dans la galerie ; les outils et opérations qui la nomment l'affichent toujours. Elle pourra être rétablie.`;
 
 // --- Erreurs par champ ----------------------------------------------------------------------------------------------
 
@@ -303,12 +390,15 @@ export const IMPORT_WORD = 'IMPORTER';
 export const REPLACE_WORD = 'REMPLACER';
 export const importWordFor = (resume) => (resume.banque.retires.length > 0 ? REPLACE_WORD : IMPORT_WORD);
 
-// Ce que l'import ferait, en phrases : la banque outil par outil (ajoutés, modifiés, retirés par nom, D50).
+// Ce que l'import ferait, en phrases : la banque outil par outil (ajoutés, modifiés, retirés par nom, D50),
+// et les images (D59) : celles de l'export absentes de la base seront envoyées une à une avant l'import.
 export function importSummaryLines(resume) {
   const list = (items) => (items.length === 0 ? 'aucun' : items.join(', '));
   const names = (items) => (items.length === 0 ? 'aucun' : items.map((t) => `${t.nom} (${t.id})`).join(', '));
   const b = resume.banque;
+  const manquantes = resume.images_manquantes ?? [];
   return [
+    `Images : ${resume.images_presentes ?? 0} déjà dans la base ; ${manquantes.length === 0 ? 'aucune à envoyer' : `${manquantes.length} à envoyer avant l'import (une par requête)`}${(resume.images_modifiees ?? []).length > 0 ? ` ; ${resume.images_modifiees.length} fiche(s) mise(s) à jour (nom, archivage)` : ''}.`,
     `Tables de référence ajoutées : ${list(resume.tables_ajoutees)}.`,
     `Banque d'outils — ajoutés : ${names(b.ajoutes)} ; modifiés : ${names(b.modifies)} ; inchangés : ${b.gardes}.`,
     b.retires.length > 0

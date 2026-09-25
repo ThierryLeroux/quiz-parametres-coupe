@@ -128,8 +128,58 @@
 .outil-selection { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-3); font-size: var(--text-sm); }
 .outil-selection label { display: flex; align-items: center; gap: var(--space-2); min-height: 34px; cursor: pointer; }
 .outil-selection input { width: 18px; height: 18px; accent-color: var(--color-accent); }
-.outil-photo { width: 96px; height: 96px; object-fit: contain; background: #fff; border-radius: 4px; }
-.outil-photo-ligne { display: flex; align-items: center; gap: var(--space-3); }
+/* La galerie d'images (D56) : l'image en cours, puis, dépliée, la recherche, le téléversement et les vignettes. */
+.image-picker { display: grid; gap: var(--space-3); }
+.image-picker-current { display: flex; align-items: center; gap: var(--space-3); }
+.image-picker-preview { flex: none; width: 96px; height: 96px; object-fit: contain; background: #fff; border-radius: 4px; }
+.image-picker-current .outil-actions { margin-top: var(--space-2); }
+.image-picker-panel { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid color-mix(in srgb, var(--color-text-muted) 30%, transparent); }
+.image-picker-tools { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2) var(--space-3); }
+.image-picker-tools input[type='search'] { min-height: 36px; padding: 0 var(--space-2); border: var(--border) solid var(--color-accent); border-radius: 0; background: var(--color-input-bg); color: var(--color-text); font: inherit; }
+.image-picker-tools input[type='file'] { width: 100%; min-width: 0; max-width: 100%; color: var(--color-text); font-family: var(--font-text); font-size: var(--text-sm); }
+.image-picker-tools input[type='search'] { min-width: 0; }
+@media (max-width: 719px) {
+  .image-picker-tools { grid-template-columns: minmax(0, 1fr); }
+  .image-picker-current { flex-wrap: wrap; }
+}
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--space-2);
+  max-height: 340px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.image-choice {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 6px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: center;
+  cursor: pointer;
+}
+.image-choice img { width: 100%; height: 72px; object-fit: contain; background: #fff; border-radius: 4px; }
+.image-choice span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.image-choice:hover { border-color: var(--color-accent-light); }
+.image-choice[aria-pressed='true'] { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 25%, transparent); font-weight: 600; }
+
+/* Le gabarit de nomenclature (D58) : les boutons de jetons sous le champ, l'exemple composé dessous. */
+.token-buttons { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-1) 0; }
+.token-buttons .button-small { min-height: 30px; padding: 0 8px; font-family: var(--font-number); font-size: var(--text-xs); }
+.exemple-nomenclature { color: var(--color-text); }
+.exemple-nomenclature .button-link { min-height: 28px; font-size: var(--text-xs); }
+
+/* L'onglet Images : la vignette, le nom et l'identifiant, l'état. */
+.images-table td { vertical-align: middle; }
+.image-archivee td { opacity: 0.7; }
 
 /* Ajouter un outil : deux sélecteurs et leur bouton. */
 .ajout-outil { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); margin-top: var(--space-4); }

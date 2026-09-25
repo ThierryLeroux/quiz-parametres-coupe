@@ -193,6 +193,7 @@ const anomalies = [
   ['jeton inconnu dans le gabarit (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [Couleur]'; }, /« Foret ».*jeton inconnu.*\[Couleur\]/],
   ['jeton [Pas] hors filetage (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [IdDia] [Pas]'; }, /« Foret ».*\[Pas\]/],
   ['jeton [IdBarre] sans barres (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [IdBarre]'; }, /« Foret ».*\[IdBarre\] exige/],
+  ['crochet non apparié dans le gabarit (D58)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [IdDia'; }, /« Foret ».*crochet « \[ » ou « \] » non apparié/],
   ['aucune barre n’entre dans le trou (D25)', (d) => { avecBarres(d, [{ libelle: '1/4 po', valeur: 0.25 }]); }, /« Foret ».*« Ø 1\/4 po » : aucune barre/],
   ['barres sans rapport (D25)', (d) => { avecBarres(d); delete d.outils.outils[0].rapport_barre_max; }, /« Foret ».*rapport_barre_max/],
   ['barres sur une avance fixe (D25)', (d) => { avecBarres(d); d.outils.outils[0].operation = 'Chariotage'; }, /« Foret ».*dimensions_barre.*proportionnelle/],

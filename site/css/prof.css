@@ -38,7 +38,7 @@
 }
 
 /* Onglets « Réussites » / « Corrections d'identité » : les mêmes que les feuilles de référence. */
-.prof-tabs { display: flex; gap: var(--space-2); }
+.prof-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); } /* quatre onglets dans l'éditeur : ils passent à la ligne sur téléphone */
 
 .prof-tabs .tab {
   min-height: 38px;

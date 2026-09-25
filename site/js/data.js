@@ -229,7 +229,11 @@ export function toolErrors(tool, opsByName, groups) {
 
   barErrors(tool, op, error);
 
-  // Gabarit du nom (D24) : un jeton inconnu, ou sans valeur pour cet outil, serait affiché à l'étudiant.
+  // Gabarit du nom (D24) : un jeton inconnu, ou sans valeur pour cet outil, serait affiché à l'étudiant ;
+  // un crochet ouvert sans être fermé aussi (D58 : le gabarit s'édite).
+  if (isText(tool.format_identifiant) && (tool.format_identifiant.match(/\[/g) ?? []).length !== (tool.format_identifiant.match(/\]/g) ?? []).length) {
+    error('format_identifiant', 'crochet « [ » ou « ] » non apparié dans « format_identifiant »');
+  }
   for (const token of isText(tool.format_identifiant) ? templateTokens(tool.format_identifiant) : []) {
     if (!TEMPLATE_TOKENS.includes(token)) error('format_identifiant', `jeton inconnu dans « format_identifiant » : [${token}] (jetons permis : ${TEMPLATE_TOKENS.join(', ')})`);
     else if (token === 'Pas' && op && !op.avance_egale_pas_filetage) error('format_identifiant', "le jeton [Pas] n'a de sens que pour un outil de filetage");
