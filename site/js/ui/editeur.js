@@ -246,11 +246,11 @@ function toolForm(tool, ctx) {
     groupes_materiaux_usinables: field('groupes_materiaux_usinables', 'Groupes de matériaux usinables', groupChoices.element, '', 'field--wide'),
     dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false' }, dimensionsText(tool.dimensions)),
       'Valeur : Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte : « 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 ».', 'field--half'),
-    dimensions_barre: field('dimensions_barre', 'Barres (outil à deux diamètres, D25) : libellé ; Ø en pouces', el('textarea', { id: `${p}-barres`, spellcheck: 'false' }, dimensionsText(tool.dimensions_barre)),
+    dimensions_barre: field('dimensions_barre', 'Barres (outil à deux diamètres) : libellé ; Ø en pouces', el('textarea', { id: `${p}-barres`, spellcheck: 'false' }, dimensionsText(tool.dimensions_barre)),
       'Vide = un seul diamètre. Sinon, avance proportionnelle au Ø de la barre ; N avec le Ø usiné.'),
   };
   fields.rapport_barre_max = field('rapport_barre_max', 'Rapport Ø barre / Ø usiné maximal', numberInput(`${p}-rapport`, tool.rapport_barre_max), 'Ex. 0.75 : une barre entre si Ø barre ≤ 0.75 × Ø usiné.');
-  if (ctx.copy) fields.reussites_requises = field('reussites_requises', 'Réussites de suite exigées', numberInput(`${p}-reussites`, tool.reussites_requises, { inputmode: 'numeric' }), 'Un échec remet le compteur de cet outil à zéro (D12).');
+  if (ctx.copy) fields.reussites_requises = field('reussites_requises', 'Réussites de suite exigées', numberInput(`${p}-reussites`, tool.reussites_requises, { inputmode: 'numeric' }), 'Un échec remet le compteur de cet outil à zéro.');
 
   const order = ctx.copy
     ? ['nom', 'reussites_requises', 'operation', 'format_identifiant', 'commentaire', 'image', 'fact_vc', 'fact_av', 'limite_rpm', 'nb_dents_min', 'nb_dents_max', 'limite_avance', 'materiaux_outil', 'groupes_materiaux_usinables', 'dimensions', 'dimensions_barre', 'rapport_barre_max', 'id']
@@ -351,7 +351,7 @@ async function showExercise(id, notice = '') {
   const settings = {
     titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation.", 'field--half'),
     champs_evalues: field('champs_evalues', 'Grandeurs évaluées (les autres sont fournies)', fieldsChoice.element, '', 'field--wide'),
-    materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice (D40)", materialsChoice.element, 'Tout coché = aucune restriction ; se croise avec les matières de chaque outil.', 'field--wide'),
+    materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice", materialsChoice.element, 'Tout coché = aucune restriction ; se croise avec les matières de chaque outil.', 'field--wide'),
     groupes: field('groupes', 'Groupes de matériaux usinés permis pour tout l\'exercice', groupsChoice.element, 'Tout coché = aucune restriction ; se croise avec les groupes de chaque outil.', 'field--wide'),
     liste: field('liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'liste' }, el('li', {}, el('label', { for: 'liste' }, [listed, 'oui (sinon, joignable seulement par son lien)']))), ''),
   };
