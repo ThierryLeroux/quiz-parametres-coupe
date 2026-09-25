@@ -10,6 +10,7 @@ import {
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
+import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS } from '../site/js/tables.js';
 import { IMPORT_WORD as SERVER_IMPORT_WORD, REPLACE_WORD as SERVER_REPLACE_WORD } from '../worker/editeur.js';
 import { aleaAGraine, data, lireFichier } from './aide.js';
 
@@ -123,16 +124,27 @@ test('exampleIdentifier : le gabarit résolu avec la première dimension, la pre
   assert.deepEqual(templateTokenList(null), []);
 });
 
-test('groupSwatch et materialSwatch : les couleurs de sens de tokens.css, celles des feuilles de référence (UI §1)', () => {
-  assert.deepEqual(groupSwatch('P - Acier non allié'), { background: 'var(--iso-p)', text: 'var(--iso-p-text)', letter: 'P' });
-  assert.deepEqual(groupSwatch('K - Fonte grise'), { background: 'var(--iso-k-night)', text: 'var(--iso-k-text)', letter: 'K' }); // le rouge éclairci sur fond nuit
+test('groupSwatch et materialSwatch : les couleurs de sens des tables de la version en usage (D61), celles de tokens.css par défaut (UI §1)', () => {
+  assert.deepEqual(groupSwatch('P - Acier non allié'), { background: '#00b0f0', text: '#ffffff', letter: 'P' });
+  assert.deepEqual(groupSwatch('K - Fonte grise'), { background: 'color-mix(in srgb, #ff0000 64%, #ffffff)', text: '#ffffff', letter: 'K' }); // le rouge éclairci sur fond nuit
   assert.deepEqual(groupSwatch('O - Graphite').letter, 'O');
-  assert.deepEqual(materialSwatch('Acier rapide'), { background: 'var(--tool-acier-rapide)', text: '#000000', letter: '' });
-  assert.equal(materialSwatch('Insert de carbure de tungstène').background, 'var(--tool-insert-carbure)');
-  // Chaque variable existe dans tokens.css.
+  assert.deepEqual(materialSwatch('Acier rapide'), { background: '#b4c7e7', text: '#000000', letter: '' });
+  assert.equal(materialSwatch('Insert de carbure de tungstène').background, '#ffc000');
+  // Avec une version de tables qui a ses couleurs : ce sont elles.
+  const materiaux = { classes_iso: [{ code: 'P', nom: 'Acier', couleur: '#123456', couleur_texte: '#000000', couleur_ligne: '#eeeeee' }], materiaux_outil: [{ cle: 'acier_rapide', nom: 'HSS', couleur: '#abcdef' }] };
+  assert.deepEqual(groupSwatch('P - Acier non allié', materiaux), { background: '#123456', text: '#000000', letter: 'P' });
+  assert.equal(materialSwatch('HSS', materiaux).background, '#abcdef');
+  assert.equal(materialSwatch('Inconnue', materiaux).background, 'var(--color-accent)');
+  // Les valeurs par défaut sont celles de tokens.css, à l'identique : la semence des couleurs (D61).
   const tokens = readFileSync(new URL('../site/css/tokens.css', import.meta.url), 'utf8');
-  for (const group of data.materialsByGroup.keys()) assert.ok(tokens.includes(`${groupSwatch(group).background.slice(4, -1)}:`), group);
-  for (const label of TOOL_MATERIALS) assert.ok(tokens.includes(`${materialSwatch(label).background.slice(4, -1)}:`), label);
+  const token = (name) => tokens.match(new RegExp(`${name}: (#[0-9a-f]{6});`))?.[1];
+  for (const c of DEFAULT_ISO_CLASSES) {
+    const code = c.code.toLowerCase();
+    assert.deepEqual([token(`--iso-${code}`), token(`--iso-${code}-text`), token(`--iso-${code}-tint`)], [c.couleur, c.couleur_texte, c.couleur_ligne], c.code);
+  }
+  for (const m of DEFAULT_TOOL_MATERIALS) assert.equal(token(`--tool-${m.cle.replaceAll('_', '-')}`), m.couleur, m.cle);
+  assert.equal(token('--iso-k-night'), '#ff5c5c');
+  for (const group of data.materialsByGroup.keys()) assert.match(groupSwatch(group).background, /^(#[0-9a-f]{6}|color-mix)/, group);
 });
 
 test('errorsByField : regroupe par champ ; un champ sans place à l’écran va dans la liste générale, avec son nom', () => {

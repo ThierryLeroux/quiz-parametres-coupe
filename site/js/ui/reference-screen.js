@@ -38,7 +38,7 @@ function page(content, revision = null) {
 
 // --- Vitesses de coupe : toutes les classes, toutes les lignes, aucune surlignée ------------------------------
 function vcPage(data) {
-  const { columns, rows, revision } = vcSheet(data);
+  const { columns, rows, classes, revision } = vcSheet(data);
   // Une ligne par matériau, sans repli : un libellé long est écrit plus petit (UI §3.5).
   const cell = (text, className = '') => {
     const shown = text === null || text === undefined ? '' : String(text);
@@ -50,14 +50,18 @@ function vcPage(data) {
       el('thead', {}, el('tr', {}, [
         el('th', {}, 'Classe'), el('th', {}, ['No de', el('br'), 'groupe']), el('th', { class: 'left' }, 'Matériau usiné'), el('th', { class: 'left' }, 'Composition'),
         el('th', { class: 'left' }, 'État métallurgique'), el('th', {}, ['Dureté', el('br'), 'Brinell (HB)']), el('th', {}, ['Ex. de matériau', el('br'), 'AISI/SAE/ASTM']),
-        ...columns.map(({ label, key }) => el('th', { class: 'vc-tool', style: `background: var(--tool-${key.replaceAll('_', '-')})` }, label)),
+        // Les couleurs viennent des tables de la version affichée (D61) ; sans elles, celles de tokens.css.
+        ...columns.map(({ label, key, couleur }) => el('th', { class: 'vc-tool', style: `background: ${couleur ?? `var(--tool-${key.replaceAll('_', '-')})`}` }, label)),
       ])),
       el('tbody', {}, rows.map((row) => {
         const iso = row.iso.toLowerCase();
+        const c = classes(row.iso);
+        const vivid = c?.couleur ?? `var(--iso-${iso})`;
+        const classCell = `background: ${vivid}; color: ${c?.couleur_texte ?? `var(--iso-${iso}-text)`}`;
         // Un trait fin au-dessus d'un changement de matériau usiné (D27).
-        return el('tr', { class: row.debut_famille ? 'vc-family' : null, style: `background: var(--iso-${iso}-tint)` }, [
-          el('td', { class: 'vc-class', style: `background: var(--iso-${iso}); color: var(--iso-${iso}-text)` }, row.iso),
-          el('td', { class: 'vc-class', style: `background: var(--iso-${iso}); color: var(--iso-${iso}-text)` }, String(row.groupe)),
+        return el('tr', { class: row.debut_famille ? 'vc-family' : null, style: `background: ${c?.couleur_ligne ?? `var(--iso-${iso}-tint)`}` }, [
+          el('td', { class: 'vc-class', style: classCell }, row.iso),
+          el('td', { class: 'vc-class', style: classCell }, String(row.groupe)),
           cell(row.materiau, 'left'), cell(row.composition, 'left'), cell(row.etat, 'left'), cell(row.durete), cell(row.exemple),
           ...columns.map(({ key }) => cell(row.vc_pi_min[key], 'vc-value')),
         ]);

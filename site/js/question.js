@@ -2,7 +2,7 @@
 // Ce module ne calcule aucune réponse (voir calcul.js) et ne décide pas quels
 // outils sont « encore à évaluer » : l'appelant lui fournit la liste admissible.
 
-import { TOOL_MATERIAL_KEYS, fittingBars, parseThread } from './data.js';
+import { fittingBars, parseThread } from './data.js';
 
 // Tirage uniforme d'un élément de la liste. `random` retourne un nombre dans [0, 1[, comme Math.random.
 function pick(list, random) {
@@ -77,7 +77,7 @@ export function generateQuestion(data, eligibleTools, random = Math.random) {
     teeth,
     dimension: { label: rawDimension.libelle, diameter, pitch }, // pouces ; pitch = null hors filetage
     bar: rawBar === null ? null : { label: rawBar.libelle, diameter: rawBar.valeur }, // null : l'outil n'a qu'un Ø
-    toolMaterial: { label: toolMaterialLabel, key: TOOL_MATERIAL_KEYS[toolMaterialLabel] },
+    toolMaterial: { label: toolMaterialLabel, key: data.toolMaterialKeys.get(toolMaterialLabel) }, // la clé de vc_pi_min, d'après les tables (D61)
     material: { ...material, vc_pi_min: { ...material.vc_pi_min } }, // copie : la question ne partage rien avec le catalogue
   };
 }

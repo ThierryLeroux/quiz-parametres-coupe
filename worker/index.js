@@ -10,7 +10,7 @@
 // base.js, la cryptographie dans crypto.js, le chargement des exercices depuis la base dans catalogue.js.
 
 import pkg from '../package.json' with { type: 'json' };
-import { validateData } from '../site/js/data.js';
+import { validateData, validateTables } from '../site/js/data.js';
 import { draftErrors, maskedFields } from '../site/js/exercice.js';
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
@@ -19,11 +19,12 @@ import {
 } from './acces.js';
 import { buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, readClaims, verificationUrl } from './attestation.js';
 import * as base from './base.js';
-import { assembleDraft, loadLatest, loadVersion } from './catalogue.js';
+import { assembleDraft, loadLatest, loadVersion, tablesOf } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
-  EXPORT_FORMAT, cleanDraft, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
+  EXPORT_FORMAT, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
 } from './editeur.js';
+import { isTablesId, nextRevision, tablesContent } from '../site/js/tables.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
   cadenceFor, gradeQuestion, isNipLocked, isQuestionValid, isTestMode, later, sessionView,
@@ -184,10 +185,28 @@ function viewOptions(request, env, now) {
 function exerciseView({ data, exercise, version }, archived) {
   return {
     exercice: { ...exercise, outils: data.outils.map((tool) => ({ ...tool, reussites_requises: exercise.outils.find((entry) => entry.id === tool.id).reussites_requises })) },
-    tables: { materiaux: { revision: data.revisions.materiaux, groupes_iso: [...data.materialsByGroup.keys()], materiaux: data.materiaux }, operations: { revision: data.revisions.operations, operations: data.operations } },
+    tables: tablesView(data),
     version: version.numero,
     archive: archived,
   };
+}
+
+// Les deux tables d'un catalogue assemblé, au format de SPEC §3, complètes (D61) : classes ISO et
+// matières d'outil avec leurs couleurs, opérations avec leur pictogramme.
+function tablesView(data) {
+  return {
+    materiaux: { revision: data.revisions.materiaux, classes_iso: data.classesIso, materiaux_outil: data.toolMaterials, groupes_iso: [...data.materialsByGroup.keys()], materiaux: data.materiaux },
+    operations: { revision: data.revisions.operations, operations: data.operations },
+  };
+}
+
+// GET /api/tables?version=<id> — une version des tables de référence, publique (les feuilles imprimables
+// par version, D63) : rien de secret, ce sont les feuilles de l'atelier.
+async function tables(request, env) {
+  const id = new URL(request.url).searchParams.get('version');
+  const row = isTablesId(id) ? await base.findTables(env.DB, id) : null;
+  if (row === null) throw new HttpError(404, "Cette version des tables de référence n'existe pas.");
+  return json({ tables: { id: row.id, creee_le: row.creee_le, ...tablesOf(row) } });
 }
 
 // GET /api/exercice?exercice=<id>[&version=<n>] — l'exercice publié (sa dernière version, ou celle demandée).
@@ -608,10 +627,19 @@ async function editorExercise(env, id) {
   return record;
 }
 
-// Les tables de référence les plus récentes, tel quel : ce contre quoi un brouillon se valide.
+// Les tables de référence les plus récentes, complétées : ce contre quoi un outil de la banque se
+// valide, et la version qu'un exercice créé prend (D62).
 async function latestTables(env) {
-  const tables = await base.findLatestTables(env.DB);
-  return { id: tables.id, materiaux: tables.materiaux, operations: tables.operations };
+  const row = await base.findLatestTables(env.DB);
+  return { id: row.id, ...tablesOf(row) };
+}
+
+// Les tables d'un brouillon d'exercice (D62) : sa version choisie (tables_id), sinon la plus récente.
+async function exerciseTables(env, record) {
+  if (record.tables_id === null || record.tables_id === undefined) return latestTables(env);
+  const row = await base.findTables(env.DB, record.tables_id);
+  if (row === null) throw new Error(`Tables de référence « ${record.tables_id} » introuvables (exercice ${record.id})`);
+  return { id: row.id, ...tablesOf(row) };
 }
 
 // GET /api/prof/editeur/exercices — la liste : brouillon modifié ou non, dernière version, séances par version.
@@ -642,14 +670,32 @@ async function editeurExercice(request, env, { now }) {
   await requireAdmin(request, env, now);
   const record = await editorExercise(env, new URL(request.url).searchParams.get('id'));
   const latest = await base.findLatestVersion(env.DB, record.id);
-  const tables = await latestTables(env);
+  const tables = await exerciseTables(env, record);
+  const tablesVersions = await base.listTablesVersions(env.DB);
   return json({
-    exercice: { id: record.id, brouillon: record.brouillon, revision: record.revision, brouillon_modifie_le: record.brouillon_modifie_le, publie_le: record.publie_le, archive_le: record.archive_le },
+    exercice: { id: record.id, brouillon: record.brouillon, revision: record.revision, brouillon_modifie_le: record.brouillon_modifie_le, publie_le: record.publie_le, archive_le: record.archive_le, tables_id: tables.id },
     versions: await base.listVersions(env.DB, record.id),
     derniere_version: latest === null ? null : { numero: latest.numero, contenu: latest.contenu, tables_id: latest.tables_id, publiee_le: latest.publiee_le },
     tables,
+    // Les versions des tables (D62) : la plus récente en tête ; la page signale quand le brouillon n'est pas dessus.
+    tables_versions: tablesVersions.map(({ id, creee_le }) => ({ id, creee_le })),
+    derniere_tables: tablesVersions[0]?.id ?? tables.id,
     erreurs: draftErrors(record.brouillon, tables),
   });
+}
+
+// POST /api/prof/editeur/exercice/tables — { id, revision, tables_id } : le brouillon passe à cette version des
+// tables (D62), avec le contrôle optimiste ; les erreurs du brouillon contre ces tables sont rendues.
+async function editeurExerciceTables(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision du brouillon est requise.');
+  const row = isTablesId(body.tables_id) ? await base.findTables(env.DB, body.tables_id) : null;
+  if (row === null) throw new HttpError(404, "Cette version des tables de référence n'existe pas.");
+  const saved = await base.setExerciseTables(env.DB, record.id, body.revision, row.id, now.toISOString(), logEntry(teacher, now, 'editeur_tables_exercice', `${record.id} · tables ${record.tables_id ?? '—'} → ${row.id}`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
+  return json({ change: true, tables_id: row.id, revision: body.revision + 1, erreurs: draftErrors(record.brouillon, tablesOf(row)) });
 }
 
 // POST /api/prof/editeur/exercice/creer — { id, titre } ou { id, depuis: <id d'un exercice> } (dupliquer).
@@ -669,7 +715,9 @@ async function editeurCreer(request, env, { now }) {
     brouillon = { titre: body.titre.trim(), champs_evalues: ['vc'], outils: [] };
     details = `${body.id} · ${brouillon.titre}`;
   }
-  const created = await base.createExercise(env.DB, { id: body.id, brouillon, now: now.toISOString() }, logEntry(teacher, now, typeof body.depuis === 'string' ? 'editeur_duplication' : 'editeur_creation', details));
+  // La version de tables du nouvel exercice (D62) : la plus récente ; une copie garde celle de sa source.
+  const tablesId = typeof body.depuis === 'string' ? (await exerciseTables(env, await editorExercise(env, body.depuis))).id : (await latestTables(env)).id;
+  const created = await base.createExercise(env.DB, { id: body.id, brouillon, tablesId, now: now.toISOString() }, logEntry(teacher, now, typeof body.depuis === 'string' ? 'editeur_duplication' : 'editeur_creation', details));
   if (!created) throw new HttpError(409, `L'identifiant « ${body.id} » est déjà pris.`);
   return json({ cree: true, id: body.id });
 }
@@ -682,7 +730,7 @@ async function editeurEnregistrer(request, env, { now }) {
   if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision du brouillon est requise.');
   const brouillon = cleanDraft(body.brouillon);
   if (!Array.isArray(brouillon.outils) || !Array.isArray(brouillon.champs_evalues)) throw new HttpError(400, 'Le brouillon est mal formé.');
-  const tables = await latestTables(env);
+  const tables = await exerciseTables(env, record);
   const erreurs = draftErrors(brouillon, tables);
   const saved = await base.saveDraft(env.DB, record.id, body.revision, brouillon, now.toISOString(), logEntry(teacher, now, 'editeur_enregistrement', `${record.id} · révision ${body.revision + 1}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s)` : ''}`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
@@ -745,12 +793,13 @@ async function editeurPublier(request, env, { now }) {
   const body = await readBody(request);
   const record = await editorExercise(env, body.id);
   if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
-  const tables = await latestTables(env);
+  const tables = await exerciseTables(env, record); // la version publiée prend la version de tables du brouillon (D62)
   const erreurs = draftErrors(record.brouillon, tables);
   if (erreurs.length > 0) throw new HttpError(400, `Le brouillon a ${erreurs.length} erreur(s) : il ne peut pas être publié.`, { erreurs });
   const latest = await base.findLatestVersion(env.DB, record.id);
   // Une version identique à la précédente ne se publie pas (D51) : l'écran désactive déjà le bouton.
-  if (latest !== null && sameContent(record.brouillon, latest.contenu)) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${latest.numero}.`);
+  // Un changement de version de tables est une différence (D62), même à contenu identique.
+  if (latest !== null && sameContent(record.brouillon, latest.contenu) && latest.tables_id === tables.id) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${latest.numero}.`);
   const numero = (latest?.numero ?? 0) + 1;
   const published = await base.publishVersion(env.DB, { id: record.id, revision: record.revision, numero, contenu: record.brouillon, tablesId: tables.id, now: now.toISOString() },
     logEntry(teacher, now, 'editeur_publication', `${record.id} · version ${numero} · tables ${tables.id}`));
@@ -770,9 +819,10 @@ async function editeurApercu(request, env, { now, random }) {
     assembledExercise = await loadVersion(env.DB, version.id);
   } else {
     const brouillon = cleanDraft(body.brouillon ?? record.brouillon);
-    const erreurs = draftErrors(brouillon, await latestTables(env));
+    const tables = await exerciseTables(env, record);
+    const erreurs = draftErrors(brouillon, tables);
     if (erreurs.length > 0) throw new HttpError(400, "Le brouillon a des erreurs : corrige-les avant l'aperçu.", { erreurs });
-    assembledExercise = await assembleDraft(env.DB, record.id, brouillon);
+    assembledExercise = assembleDraft(record.id, brouillon, tables);
   }
   return json({ questions: previewQuestions(assembledExercise.exercise, assembledExercise.data, random, 10), champs_evalues: assembledExercise.exercise.champs_evalues, champs_masques: assembledExercise.exercise.champs_masques ?? [] });
 }
@@ -787,10 +837,89 @@ async function editeurBanque(request, env, { now }) {
   return json({ outils: tools.map((row) => ({ id: row.id, outil: row.outil, revision: row.revision, rang: row.rang, archive_le: row.archive_le, modifie_le: row.modifie_le, exercices: copies(row.id) })), tables });
 }
 
-// GET /api/prof/editeur/tables — les tables de référence les plus récentes (pour les listes de l'éditeur).
+// --- Les tables de référence versionnées (D61, D63) : un brouillon, des versions immuables -------------------------
+
+// Les erreurs d'un brouillon de tables : celles des deux tables (validateTables), sans outils.
+const tablesErrors = (contenu) => validateTables(contenu).map((message) => ({ champ: '', message }));
+
+// GET /api/prof/editeur/tables — le brouillon des tables (complété), ses erreurs, les versions publiées
+// avec leurs utilisations, la révision suggérée pour la prochaine publication.
 async function editeurTables(request, env, { now }) {
   await requireAdmin(request, env, now);
-  return json({ tables: await latestTables(env) });
+  const draft = await base.findTablesDraft(env.DB);
+  const versions = await base.listTablesVersions(env.DB);
+  const contenu = tablesOf(draft.contenu);
+  const base_ = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
+  return json({
+    brouillon: { contenu, revision: draft.revision, modifie_le: draft.modifie_le, base_id: draft.base_id },
+    modifie: base_ === null || !sameContent(tablesContent(contenu), tablesContent(tablesOf(base_))),
+    erreurs: tablesErrors(contenu),
+    versions: versions.map((v) => ({ id: v.id, creee_le: v.creee_le, utilisations: { versions_exercice: v.versions_exercice, brouillons: v.brouillons } })),
+    derniere: versions[0]?.id ?? null,
+    suggestion: nextRevision(versions[0]?.id ?? 'A2026_r0'),
+  });
+}
+
+// GET /api/prof/editeur/tables/version?id=<id> — une version publiée des tables, complétée.
+async function editeurTablesVersion(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const id = new URL(request.url).searchParams.get('id');
+  const row = isTablesId(id) ? await base.findTables(env.DB, id) : null;
+  if (row === null) throw new HttpError(404, "Cette version des tables de référence n'existe pas.");
+  return json({ tables: { id: row.id, creee_le: row.creee_le, ...tablesOf(row) } });
+}
+
+// POST /api/prof/editeur/tables/enregistrer — { revision, contenu: { materiaux, operations } } : contrôle optimiste (D48).
+async function editeurTablesEnregistrer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision du brouillon est requise.');
+  const contenu = cleanTables(body.contenu);
+  if (contenu === null) throw new HttpError(400, 'Le brouillon des tables est mal formé : « materiaux » et « operations » sont attendus.');
+  const erreurs = tablesErrors(contenu);
+  const saved = await base.saveTablesDraft(env.DB, body.revision, contenu, now.toISOString(), logEntry(teacher, now, 'editeur_tables_enregistrement', `révision ${body.revision + 1}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s)` : ''}`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findTablesDraft(env.DB)).revision });
+  return json({ enregistre: true, revision: body.revision + 1, erreurs });
+}
+
+// POST /api/prof/editeur/tables/publier — { revision, id } : le brouillon devient la version « id » des
+// tables (immuable) ; sa révision (dans les deux JSON) est posée à « id ». Refusé s'il a des erreurs,
+// s'il est identique à la version dont il est parti, si l'identifiant est pris ou mal formé.
+async function editeurTablesPublier(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const draft = await base.findTablesDraft(env.DB);
+  if (body.revision !== draft.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: draft.revision });
+  if (!isTablesId(body.id)) throw new HttpError(400, 'La révision des tables doit être faite de lettres, de chiffres, de « _ », « . » ou « - » (ex. « A2026_r1 »).');
+  const contenu = tablesOf(draft.contenu);
+  contenu.materiaux = { ...contenu.materiaux, revision: body.id };
+  contenu.operations = { ...contenu.operations, revision: body.id };
+  const erreurs = tablesErrors(contenu);
+  if (erreurs.length > 0) throw new HttpError(400, `Le brouillon des tables a ${erreurs.length} erreur(s) : il ne peut pas être publié.`, { erreurs });
+  const previous = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
+  if (previous !== null && sameContent(tablesContent(contenu), tablesContent(tablesOf(previous)))) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${previous.id}.`);
+  if ((await base.findTables(env.DB, body.id)) !== null) throw new HttpError(409, `La révision « ${body.id} » existe déjà : une version publiée ne se remplace pas.`);
+  const outcome = await base.publishTables(env.DB, { id: body.id, revision: draft.revision, contenu, now: now.toISOString() }, logEntry(teacher, now, 'editeur_tables_publication', `tables ${body.id}${draft.base_id === null ? '' : ` · depuis ${draft.base_id}`}`));
+  if (outcome === 'revision') throw new HttpError(409, CONFLICT);
+  if (outcome === 'id') throw new HttpError(409, `La révision « ${body.id} » existe déjà : une version publiée ne se remplace pas.`);
+  return json({ publie: true, id: body.id, publiee_le: now.toISOString() });
+}
+
+// POST /api/prof/editeur/tables/apercu — { contenu, exercice } : dix questions du brouillon de cet exercice,
+// tirées avec ces tables (celles de l'écran, même non enregistrées), sans rien enregistrer (D63).
+async function editeurTablesApercu(request, env, { now, random }) {
+  await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  const record = await editorExercise(env, body.exercice);
+  const contenu = cleanTables(body.contenu);
+  if (contenu === null) throw new HttpError(400, 'Le brouillon des tables est mal formé.');
+  const tables = tablesOf(contenu);
+  const erreursTables = tablesErrors(tables);
+  if (erreursTables.length > 0) throw new HttpError(400, "Le brouillon des tables a des erreurs : corrige-les avant l'aperçu.", { erreurs: erreursTables });
+  const erreurs = draftErrors(record.brouillon, tables);
+  if (erreurs.length > 0) throw new HttpError(400, `L'exercice « ${record.brouillon.titre} » a des erreurs avec ces tables : ${erreurs.map((e) => `${e.champ} : ${e.message}`).join(' ; ')}`, { erreurs });
+  const assembledExercise = assembleDraft(record.id, record.brouillon, tables);
+  return json({ questions: previewQuestions(assembledExercise.exercise, assembledExercise.data, random, 10), champs_evalues: assembledExercise.exercise.champs_evalues, champs_masques: assembledExercise.exercise.champs_masques ?? [] });
 }
 
 // POST /api/prof/editeur/banque/creer — { id, outil } ou { id, depuis: <id> } (dupliquer).
@@ -976,8 +1105,9 @@ async function editeurExport(request, env, { now }) {
 async function planImport(env, received) {
   const existing = { ...await base.exportEditorData(env.DB), images: await base.listImages(env.DB) };
   return importPlan(received, existing, {
-    tablesErrors: (t) => validateData({ materiaux: t.materiaux, operations: t.operations, outils: { outils: [] } }).filter((m) => !m.startsWith('outils')),
-    draftErrorsOf: (contenu, tables) => draftErrors(contenu, tables),
+    tablesErrors: (t) => validateTables({ materiaux: t.materiaux, operations: t.operations }),
+    draftErrorsOf: (contenu, tables) => draftErrors(contenu, tablesOf(tables)),
+    latestTablesId: (await base.findLatestTables(env.DB)).id,
   });
 }
 
@@ -1020,6 +1150,7 @@ async function deconnexion(request, env, { now }) {
 const ROUTES = {
   'GET /api/exercice': exercice,
   'GET /api/exercices': exercices,
+  'GET /api/tables': tables,
   'POST /api/consultation': consultation,
   'POST /api/creation': creation,
   'POST /api/reprise': reprise,
@@ -1049,7 +1180,12 @@ const ROUTES = {
   'POST /api/prof/editeur/exercice/publier': editeurPublier,
   'POST /api/prof/editeur/apercu': editeurApercu,
   'GET /api/prof/editeur/banque': editeurBanque,
+  'POST /api/prof/editeur/exercice/tables': editeurExerciceTables,
   'GET /api/prof/editeur/tables': editeurTables,
+  'GET /api/prof/editeur/tables/version': editeurTablesVersion,
+  'POST /api/prof/editeur/tables/enregistrer': editeurTablesEnregistrer,
+  'POST /api/prof/editeur/tables/publier': editeurTablesPublier,
+  'POST /api/prof/editeur/tables/apercu': editeurTablesApercu,
   'POST /api/prof/editeur/banque/creer': editeurBanqueCreer,
   'POST /api/prof/editeur/banque/enregistrer': editeurBanqueEnregistrer,
   'POST /api/prof/editeur/banque/archiver': editeurBanqueArchiver,

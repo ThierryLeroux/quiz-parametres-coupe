@@ -3,7 +3,7 @@
 // évalués, leurs réussites requises, les champs évalués et d'éventuelles restrictions.
 // La même validation sert aux tests, au quiz et à l'éditeur.
 
-import { TOOL_KEYS, TOOL_MATERIAL_KEYS, fetchJson, toolErrors } from './data.js';
+import { TOOL_KEYS, fetchJson, toolErrors, toolMaterialNames } from './data.js';
 
 // Champ évalué tel qu'écrit dans l'exercice → nom du champ dans le moteur
 // (computeParameters, gradeAnswers). L'ordre est celui de l'écran : Vc, fz, N, f, Vf.
@@ -79,7 +79,7 @@ export function validateExercise(exercise, data) {
   // « liste »: false retire l'exercice de la liste de l'accueil (D30) ; il reste joignable par « ?exercice=<id> ».
   if (exercise.liste !== undefined && typeof exercise.liste !== 'boolean') errors.push(`${where} : « liste » doit être true ou false (ou absente : l'exercice est listé)`);
   // Restriction de matière d'outil pour tout l'exercice (D40) : chaque nom doit être un matériau d'outil du catalogue.
-  checkRestriction(exercise.materiaux_outil, 'materiaux_outil', Object.keys(TOOL_MATERIAL_KEYS), where, errors, 'dans le catalogue');
+  checkRestriction(exercise.materiaux_outil, 'materiaux_outil', [...data.toolMaterialKeys.keys()], where, errors, 'dans le catalogue');
   // Restriction des groupes de matériaux usinés pour tout l'exercice (jalon 7) : chaque groupe doit exister dans le catalogue.
   checkRestriction(exercise.groupes, 'groupes', [...data.materialsByGroup.keys()], where, errors, 'dans le catalogue');
 
@@ -199,6 +199,7 @@ export function draftErrors(draft, tables) {
 
   const groups = Array.isArray(tables?.materiaux?.groupes_iso) ? tables.materiaux.groupes_iso : [];
   const opsByName = new Map((Array.isArray(tables?.operations?.operations) ? tables.operations.operations : []).filter(isObject).map((op) => [op.operation, op]));
+  const toolMaterials = toolMaterialNames(tables?.materiaux); // les matières que cette version des tables offre (D61)
 
   if (!isText(draft.titre)) error('titre', 'Le titre est vide.');
   if (draft.liste !== undefined && typeof draft.liste !== 'boolean') error('liste', '« liste » doit être true ou false');
@@ -217,7 +218,7 @@ export function draftErrors(draft, tables) {
       else if (list.indexOf(item) !== i) error(key, `${label} : « ${item} » est en double`);
     });
   };
-  listErrors(draft.materiaux_outil, 'materiaux_outil', Object.keys(TOOL_MATERIAL_KEYS), "Matières d'outil permises");
+  listErrors(draft.materiaux_outil, 'materiaux_outil', toolMaterials, "Matières d'outil permises");
   listErrors(draft.groupes, 'groupes', groups, 'Groupes de matériaux permis');
 
   const copies = Array.isArray(draft.outils) ? draft.outils : [];
@@ -231,7 +232,7 @@ export function draftErrors(draft, tables) {
     seen.add(copy.id);
     if (!Number.isInteger(copy.reussites_requises) || copy.reussites_requises < 1) error(at('reussites_requises'), 'Les réussites de suite exigées doivent être un entier ≥ 1 (pour ne pas évaluer un outil, le retirer).');
     const { reussites_requises: _r, origine: _o, ...tool } = copy;
-    for (const { champ, message } of toolErrors(tool, opsByName, groups)) error(at(champ), message);
+    for (const { champ, message } of toolErrors(tool, opsByName, groups, toolMaterials)) error(at(champ), message);
     if (Array.isArray(tool.materiaux_outil) && Array.isArray(draft.materiaux_outil) && draft.materiaux_outil.length > 0 && allowedToolMaterials(draft, {}, tool).length === 0) {
       error(at('materiaux_outil'), `plus aucune matière d'outil permise — l'outil offre ${tool.materiaux_outil.join(', ')} ; l'exercice permet ${draft.materiaux_outil.join(', ')}`);
     }

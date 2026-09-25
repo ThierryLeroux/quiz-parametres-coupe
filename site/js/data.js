@@ -2,9 +2,12 @@
 // Tout ce qui interprète le contenu brut des JSON (libellés, filetages,
 // conversions mm → po) vit ici ; le reste du moteur ne voit que des pouces.
 
+import { TOOL_MATERIAL_CLES, completeTables, isColor, isoClassesOf, toolMaterialKeyMap, toolMaterialsOf } from './tables.js';
+
 const MM_PER_INCH = 25.4;
 
-// Matériau d'outil tel qu'écrit dans outils.json → clé de `vc_pi_min` dans materiaux.json.
+// Matériau d'outil tel qu'écrit dans outils.json → clé de `vc_pi_min` dans materiaux.json — les
+// valeurs par défaut ; depuis le 7b (D61), une version de tables porte ses propres noms (tables.js).
 export const TOOL_MATERIAL_KEYS = {
   'Acier rapide': 'acier_rapide',
   'Carbure de tungstène solide': 'carbure_solide',
@@ -52,8 +55,6 @@ export const templateTokens = (template) => [...template.matchAll(/\[([^\]]*)\]/
 // Validation croisée des trois JSON
 // ---------------------------------------------------------------------------
 
-const ISO_CLASSES = ['P', 'M', 'K', 'N', 'S', 'H', 'O'];
-
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
 const isPositive = (v) => Number.isFinite(v) && v > 0;
@@ -81,36 +82,85 @@ function checkUnique(values, what, errors) {
 // erreurs trouvées, en français (liste vide = données valides). Ne lève jamais
 // d'exception : c'est loadData qui décide quoi faire des erreurs.
 export function validateData({ materiaux, operations, outils }) {
+  const errors = validateTables({ materiaux, operations });
+  const tools = listOf(outils, 'outils', 'outils.json', errors);
+  const groups = Array.isArray(materiaux?.groupes_iso) ? materiaux.groupes_iso : [];
+  const ops = Array.isArray(operations?.operations) ? operations.operations : [];
+  validateTools(tools, ops, groups, toolMaterialNames(materiaux), errors);
+  return errors;
+}
+
+// Les deux tables de référence seules (matériaux, opérations), sans outils : ce contre quoi un
+// brouillon de tables se valide (D61). Retourne la liste de toutes les erreurs.
+export function validateTables({ materiaux, operations }) {
   const errors = [];
   const groups = listOf(materiaux, 'groupes_iso', 'materiaux.json', errors);
   const materials = listOf(materiaux, 'materiaux', 'materiaux.json', errors);
   const ops = listOf(operations, 'operations', 'operations.json', errors);
-  const tools = listOf(outils, 'outils', 'outils.json', errors);
 
   // Révision des tables de référence, affichée au pied des feuilles (décision D28).
   if (!isText(materiaux?.revision)) errors.push('materiaux.json : « revision » doit être un texte non vide (ex. « A2026_r0 »)');
   if (!isText(operations?.revision)) errors.push('operations.json : « revision » doit être un texte non vide (ex. « A2026_r0 »)');
 
-  validateMaterials(materials, groups, errors);
+  const classes = validateIsoClasses(materiaux, errors);
+  validateToolMaterials(materiaux, errors);
+  validateMaterials(materials, groups, classes, errors);
   validateOperations(ops, errors);
-  validateTools(tools, ops, groups, errors);
   return errors;
 }
 
-function validateMaterials(materials, groups, errors) {
+// Les noms des matières d'outil d'une table (ceux que les outils nomment), ceux par défaut sinon.
+export const toolMaterialNames = (materiaux) => toolMaterialsOf(materiaux).filter(isObject).map((m) => m.nom);
+
+// Les classes ISO d'une table (D61) : facultatives (valeurs par défaut sinon) ; présentes, chacune a un
+// code d'une lettre majuscule unique, un nom et trois couleurs « #rrggbb ». Retourne les codes.
+function validateIsoClasses(materiaux, errors) {
+  const classes = isoClassesOf(materiaux);
+  if (materiaux?.classes_iso !== undefined && (!Array.isArray(materiaux.classes_iso) || materiaux.classes_iso.length === 0)) {
+    errors.push('materiaux.json : « classes_iso » doit être une liste non vide (ou être absente)');
+  }
+  classes.forEach((c, i) => {
+    if (!isObject(c)) return errors.push(`classes_iso[${i}] : n'est pas un objet`);
+    const where = `classes_iso[${i}] (${c.code})`;
+    if (typeof c.code !== 'string' || !/^[A-Z]$/.test(c.code)) errors.push(`${where} : « code » doit être une lettre majuscule`);
+    if (!isText(c.nom)) errors.push(`${where} : « nom » est vide`);
+    for (const key of ['couleur', 'couleur_texte', 'couleur_ligne']) if (!isColor(c[key])) errors.push(`${where} : « ${key} » doit être une couleur « #rrggbb »`);
+  });
+  checkUnique(classes.filter(isObject).map((c) => c.code), 'materiaux.json : classe ISO', errors);
+  return classes.filter(isObject).map((c) => c.code);
+}
+
+// Les matières d'outil d'une table (D61) : les trois clés de vc_pi_min, chacune avec un nom unique et une couleur.
+function validateToolMaterials(materiaux, errors) {
+  const list = toolMaterialsOf(materiaux);
+  if (materiaux?.materiaux_outil !== undefined && !Array.isArray(materiaux.materiaux_outil)) return errors.push('materiaux.json : « materiaux_outil » doit être une liste (ou être absente)');
+  const cles = list.filter(isObject).map((m) => m.cle);
+  if (cles.length !== TOOL_MATERIAL_CLES.length || TOOL_MATERIAL_CLES.some((cle) => !cles.includes(cle))) {
+    errors.push(`materiaux.json : « materiaux_outil » doit porter les trois matières ${TOOL_MATERIAL_CLES.join(', ')}, une fois chacune`);
+  }
+  list.forEach((m, i) => {
+    if (!isObject(m)) return errors.push(`materiaux_outil[${i}] : n'est pas un objet`);
+    const where = `materiaux_outil[${i}] (${m.cle})`;
+    if (!isText(m.nom)) errors.push(`${where} : « nom » est vide`);
+    if (!isColor(m.couleur)) errors.push(`${where} : « couleur » doit être une couleur « #rrggbb »`);
+  });
+  checkUnique(list.filter(isObject).map((m) => m.nom), "materiaux.json : nom de matière d'outil", errors);
+}
+
+function validateMaterials(materials, groups, classes, errors) {
   materials.forEach((m, i) => {
     if (!isObject(m)) return errors.push(`materiaux[${i}] : n'est pas un objet`);
     const where = `materiaux[${i}] (groupe ${m.groupe})`;
 
     if (!isInteger(m.groupe, 1)) errors.push(`${where} : « groupe » doit être un entier ≥ 1`);
-    if (!ISO_CLASSES.includes(m.iso)) errors.push(`${where} : classe « iso » inconnue : « ${m.iso} »`);
+    if (!classes.includes(m.iso)) errors.push(`${where} : classe « iso » inconnue : « ${m.iso} » (classes : ${classes.join(', ')})`);
     if (!isText(m.materiau)) errors.push(`${where} : « materiau » est vide`);
     else if (!groups.includes(`${m.iso} - ${m.materiau}`)) {
       errors.push(`${where} : « ${m.iso} - ${m.materiau} » est absent de « groupes_iso »`);
     }
     // Trait de la feuille des vitesses de coupe au-dessus de ce matériau (décision D27).
     if (m.debut_famille !== undefined && typeof m.debut_famille !== 'boolean') errors.push(`${where} : « debut_famille » doit être true ou false (ou absent)`);
-    for (const key of Object.values(TOOL_MATERIAL_KEYS)) {
+    for (const key of TOOL_MATERIAL_CLES) {
       if (!isPositive(m.vc_pi_min?.[key])) errors.push(`${where} : « vc_pi_min.${key} » doit être un nombre > 0`);
     }
   });
@@ -132,6 +182,10 @@ function validateOperations(ops, errors) {
     for (const flag of ['avance_egale_pas_filetage', 'avance_proportionnelle_diametre']) {
       if (typeof op[flag] !== 'boolean') errors.push(`${where} : « ${flag} » doit être true ou false`);
     }
+    // Le pictogramme (D61) : l'identifiant d'une image de la base, facultatif (sinon le slug du nom, images de la semence).
+    if (op.pictogramme !== undefined && op.pictogramme !== null && !(typeof op.pictogramme === 'string' && /^[a-z0-9]+([_-][a-z0-9]+)*$/.test(op.pictogramme))) {
+      errors.push(`${where} : « pictogramme » doit être l'identifiant d'une image (ou absent)`);
+    }
 
     if (op.avance_egale_pas_filetage === true) {
       // Filetage : l'avance est le pas, tiré de la dimension de l'outil.
@@ -146,13 +200,13 @@ function validateOperations(ops, errors) {
   checkUnique(ops.filter(isObject).map((op) => op.operation), 'operations.json : opération', errors);
 }
 
-function validateTools(tools, ops, groups, errors) {
+function validateTools(tools, ops, groups, toolMaterials, errors) {
   const opsByName = new Map(ops.filter(isObject).map((op) => [op.operation, op]));
 
   tools.forEach((tool, i) => {
     if (!isObject(tool)) return errors.push(`outils[${i}] : n'est pas un objet`);
     const where = `outils[${i}] « ${tool.nom} »`;
-    for (const error of toolErrors(tool, opsByName, groups)) errors.push(`${where} : ${error.message}`);
+    for (const error of toolErrors(tool, opsByName, groups, toolMaterials)) errors.push(`${where} : ${error.message}`);
   });
   checkUnique(tools.filter(isObject).map((tool) => tool.id), 'outils.json : id', errors);
 }
@@ -168,10 +222,11 @@ export const TOOL_KEYS = [
 // validateData applique à chaque outil du catalogue, et que l'éditeur applique en continu à un
 // outil de la banque ou à une copie dans un exercice, pour écrire l'erreur à côté du champ (jalon 7).
 //   tool      : l'outil, au format d'outils.json (un objet)
-//   opsByName : Map nom d'opération → opération (celles des tables de référence)
-//   groups    : les groupes ISO des tables (« P - Acier non allié »…)
+//   opsByName     : Map nom d'opération → opération (celles des tables de référence)
+//   groups        : les groupes ISO des tables (« P - Acier non allié »…)
+//   toolMaterials : les noms des matières d'outil des tables (toolMaterialNames ; ceux par défaut sinon)
 // Ne lève jamais d'exception ; liste vide = outil valide.
-export function toolErrors(tool, opsByName, groups) {
+export function toolErrors(tool, opsByName, groups, toolMaterialsOfTables = Object.keys(TOOL_MATERIAL_KEYS)) {
   const errors = [];
   const error = (champ, message) => errors.push({ champ, message });
   if (!isObject(tool)) return [{ champ: '', message: "n'est pas un objet" }];
@@ -192,7 +247,7 @@ export function toolErrors(tool, opsByName, groups) {
   const toolMaterials = Array.isArray(tool.materiaux_outil) ? tool.materiaux_outil : [];
   if (toolMaterials.length === 0) error('materiaux_outil', '« materiaux_outil » est absent ou vide');
   for (const name of toolMaterials) {
-    if (!(name in TOOL_MATERIAL_KEYS)) error('materiaux_outil', `matériau d'outil inconnu : « ${name} »`);
+    if (!toolMaterialsOfTables.includes(name)) error('materiaux_outil', `matériau d'outil inconnu : « ${name} » (les tables offrent ${toolMaterialsOfTables.join(', ')})`);
   }
   // Un doublon fausserait le tirage uniforme (SPEC §4) sans que ça se voie.
   for (const dup of duplicates(toolMaterials)) error('materiaux_outil', `matériau d'outil en double : « ${dup} »`);
@@ -317,17 +372,32 @@ export async function loadData(baseUrl = 'data/', readJson = fetchJson) {
 export function assembleData({ materiaux, operations }, outils) {
   const errors = validateData({ materiaux, operations, outils: { outils } });
   if (errors.length > 0) throw new Error(`Données invalides :\n- ${errors.join('\n- ')}`);
+  return { ...indexTables({ materiaux, operations }), outils };
+}
 
+// Les deux tables seules, complétées et indexées, sans outils (D61) : les feuilles de référence d'une
+// version de tables, l'éditeur des tables. Valide les tables ; lève si elles sont invalides.
+export function assembleTables(tables) {
+  const errors = validateTables(tables);
+  if (errors.length > 0) throw new Error(`Tables invalides :\n- ${errors.join('\n- ')}`);
+  return { ...indexTables(tables), outils: [] };
+}
+
+// Les index communs : opérations par nom, matériaux par groupe, révisions, et (D61) les classes ISO
+// avec leurs couleurs, les matières d'outil avec les leurs, et le passage du nom d'une matière à sa clé.
+function indexTables(tables) {
+  const { materiaux, operations } = completeTables(tables);
   const operationByName = new Map(operations.operations.map((op) => [op.operation, op]));
   const materialsByGroup = new Map(materiaux.groupes_iso.map((group) => [group, []]));
   for (const m of materiaux.materiaux) materialsByGroup.get(`${m.iso} - ${m.materiau}`).push(m);
-
   return {
     materiaux: materiaux.materiaux,
     operations: operations.operations,
-    outils,
     operationByName,
     materialsByGroup,
     revisions: { materiaux: materiaux.revision, operations: operations.revision },
+    classesIso: materiaux.classes_iso,
+    toolMaterials: materiaux.materiaux_outil,
+    toolMaterialKeys: toolMaterialKeyMap(materiaux),
   };
 }

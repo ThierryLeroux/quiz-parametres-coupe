@@ -38,9 +38,10 @@ export function toolLabels(exercise, data) {
 
 // --- Couleurs de sens (UI §1) ---------------------------------------------------------------------------------
 
-// Variable CSS de la couleur du matériau d'outil : « Acier rapide » → « --tool-acier-rapide ».
-export function toolMaterialColor(label) {
-  const key = TOOL_MATERIAL_KEYS[label];
+// Variable CSS de la couleur du matériau d'outil : « Acier rapide » → « --tool-acier-rapide ». La clé
+// vient des tables de la version en usage (data.toolMaterialKeys, D61), ou des noms par défaut.
+export function toolMaterialColor(label, data = null) {
+  const key = data?.toolMaterialKeys?.get(label) ?? TOOL_MATERIAL_KEYS[label];
   return key ? `--tool-${key.replaceAll('_', '-')}` : '--color-accent';
 }
 

@@ -5,6 +5,7 @@
 // editeur.js ne fait que les mettre à l'écran.
 
 import { TEMPLATE_TOKENS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
+import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
 import { COPY_KEYS, GRADED_FIELD_KEYS } from '../exercice.js';
 import { formatDateStamp } from './text.js';
 
@@ -68,23 +69,25 @@ export function deducibleWarnings(draft) {
   return lines;
 }
 
-// Les matières d'outil, dans l'ordre de la table des Vc.
+// Les matières d'outil par défaut, dans l'ordre de la table des Vc ; celles d'une version de tables : toolMaterialNames (data.js).
 export const TOOL_MATERIALS = Object.keys(TOOL_MATERIAL_KEYS);
 
-// --- Couleurs de sens (UI §1), les mêmes que les feuilles de référence : les variables de tokens.css ----------------
+// --- Couleurs de sens (UI §1), celles des tables de la version en usage (D61) -----------------------------------------
 
 // La pastille d'une matière d'outil : la couleur de l'en-tête de colonne de la table des Vc.
-export function materialSwatch(label) {
-  const key = TOOL_MATERIAL_KEYS[label];
-  return { background: `var(--tool-${key.replaceAll('_', '-')})`, text: '#000000', letter: '' };
+//   materiaux : la table des matériaux de la version (ses matieres d'outil et leurs couleurs) ; celles par défaut sinon
+export function materialSwatch(label, materiaux = null) {
+  const m = toolMaterialsOf(materiaux).find((entry) => entry.nom === label) ?? DEFAULT_TOOL_MATERIALS.find((entry) => entry.nom === label);
+  return { background: m?.couleur ?? 'var(--color-accent)', text: '#000000', letter: '' };
 }
 
 // La pastille d'un groupe de matériaux usinés : la lettre de sa classe ISO sur la couleur vive de la
 // classe (le rouge K éclairci pour le fond nuit, comme le panneau du matériau brut).
-export function groupSwatch(group) {
+export function groupSwatch(group, materiaux = null) {
   const letter = String(group).trim().charAt(0).toUpperCase();
-  const iso = letter.toLowerCase();
-  return { background: `var(--iso-${iso}${iso === 'k' ? '-night' : ''})`, text: `var(--iso-${iso}-text)`, letter };
+  const c = isoClassesOf(materiaux).find((entry) => entry.code === letter) ?? DEFAULT_ISO_CLASSES.find((entry) => entry.code === letter);
+  const vivid = c?.couleur ?? 'var(--color-accent)';
+  return { background: letter === 'K' ? `color-mix(in srgb, ${vivid} 64%, #ffffff)` : vivid, text: c?.couleur_texte ?? '#000000', letter };
 }
 
 // --- Liste des exercices --------------------------------------------------------------------------------------------

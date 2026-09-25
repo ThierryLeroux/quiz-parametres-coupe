@@ -32,9 +32,13 @@ export const operationPicto = (name, operation = null) => imageUrl(operation?.pi
 // au-dessus d'un changement de matériau usiné (D27 : une donnée, pas un calcul) ; revision = celle
 // de la table, pour le pied de la feuille (D28).
 export function vcSheet(data) {
+  const classes = new Map((data.classesIso ?? []).map((c) => [c.code, c]));
   return {
-    columns: Object.entries(TOOL_MATERIAL_KEYS).map(([label, key]) => ({ label, key })),
+    // Les trois matières d'outil des tables, avec la couleur de leur colonne (D61 ; TOOL_MATERIAL_KEYS et tokens.css par défaut).
+    columns: (data.toolMaterials ?? Object.entries(TOOL_MATERIAL_KEYS).map(([nom, cle]) => ({ nom, cle, couleur: null }))).map((m) => ({ label: m.nom, key: m.cle, couleur: m.couleur })),
     rows: data.materiaux,
+    // La couleur vive, celle du texte et la teinte de ligne de chaque classe, par code (null si la version n'en dit rien).
+    classes: (code) => classes.get(code) ?? null,
     revision: data.revisions.materiaux,
   };
 }

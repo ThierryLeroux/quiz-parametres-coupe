@@ -60,9 +60,9 @@ function progressPanel(progression, labels, marks) {
 
 // Panneau de l'outil, à la couleur de son matériau (UI §1). Son titre est le gabarit de nom de
 // l'outil, résolu par le serveur avec les valeurs tirées (D24).
-function toolPanel(question) {
+function toolPanel(question, data) {
   const { outil } = question;
-  return el('section', { class: 'panel tool-card', style: `--panel-color: var(${toolMaterialColor(outil.materiau)})` }, [
+  return el('section', { class: 'panel tool-card', style: `--panel-color: var(${toolMaterialColor(outil.materiau, data)})` }, [
     el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Outil de coupe'), el('div', { class: 'swatch smaller' }, outil.materiau.toLowerCase())]),
     el('div', { class: 'tool-body' }, [
       optionalImage(toolPhotoUrl(outil), 'tool-photo'),
@@ -102,7 +102,7 @@ function materialPanel(question) {
 export function renderQuestion(main, { seance, data, labels }, actions) {
   const { question } = seance;
   const family = feedFamily(data.operationByName.get(question.outil.operation));
-  const toolColor = `var(${toolMaterialColor(question.outil.materiau)})`;
+  const toolColor = `var(${toolMaterialColor(question.outil.materiau, data)})`;
   const materialColor = `var(${materialCard(question.materiau).color})`;
   const inputs = {};
   const notes = {};
@@ -242,7 +242,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     el('div', { class: 'question-main' }, [
       el('div', { class: 'question-head' }, [title, el('div', { class: 'muted smaller' }, `${total} question${total > 1 ? 's' : ''} réussie${total > 1 ? 's' : ''}`)]),
       testBanner,
-      el('div', { class: 'question-cards' }, [toolPanel(question), materialPanel(question)]),
+      el('div', { class: 'question-cards' }, [toolPanel(question, data), materialPanel(question)]),
       el('section', { class: 'panel' }, [
         el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Questionnaire'), el('div', { class: 'muted smaller' }, "clique une case pour voir l'aide")]),
         el('form', { novalidate: true, onsubmit: check }, [el('div', { class: 'answer-grid' }, fields), help, reminder, actionsRow]),

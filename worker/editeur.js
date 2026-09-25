@@ -37,6 +37,12 @@ export function cleanDraft(received) {
   return Object.fromEntries(Object.entries(received).filter(([key]) => DRAFT_KEYS.includes(key) || key.startsWith('_')));
 }
 
+// Un brouillon de tables reçu : ses deux tables, sans rien d'autre ; null s'il est mal formé.
+export function cleanTables(received) {
+  if (!isObject(received) || !isObject(received.materiaux) || !isObject(received.operations)) return null;
+  return { materiaux: received.materiaux, operations: received.operations };
+}
+
 export function cleanTool(received) {
   if (!isObject(received)) return {};
   return Object.fromEntries(Object.entries(received).filter(([key]) => TOOL_KEYS.includes(key)));
@@ -99,9 +105,9 @@ export const IMPORT_WORD = 'IMPORTER';
 export const REPLACE_WORD = 'REMPLACER';
 export const importWord = (resume) => (resume?.banque?.retires?.length > 0 ? REPLACE_WORD : IMPORT_WORD);
 
-export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) {
+export function importPlan(received, existing, { tablesErrors, draftErrorsOf, latestTablesId = null }) {
   const erreurs = [];
-  const plan = { tables_ajoutees: [], banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [] };
+  const plan = { tables_ajoutees: [], brouillon_tables: null, banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [] };
   if (!isObject(received) || received.format !== EXPORT_FORMAT) return { erreurs: [`Ce fichier n'est pas un export de l'éditeur (format attendu : ${EXPORT_FORMAT}).`], plan, resume: null };
 
   // Les images (D59) : leurs fiches seulement — le contenu voyage à part, une image par requête
@@ -134,6 +140,20 @@ export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) 
     }
   }
 
+  // Le brouillon des tables (D61) : remplacé par celui de l'export, s'il en a un et s'il est valide.
+  if (received.brouillon_tables !== undefined && received.brouillon_tables !== null) {
+    const bt = received.brouillon_tables;
+    const contenu = isObject(bt?.contenu) ? cleanTables(bt.contenu) : null;
+    if (contenu === null) erreurs.push('Brouillon des tables de référence : illisible.');
+    else {
+      const problems = tablesErrors(contenu);
+      if (problems.length > 0) erreurs.push(`Brouillon des tables de référence : ${problems.join(' ; ')}`);
+      else plan.brouillon_tables = { contenu, base_id: isText(bt.base_id) && tablesById.has(bt.base_id) ? bt.base_id : null };
+    }
+  }
+  // La version de tables la plus récente une fois l'import fait : celle qu'un exercice sans tables_id prend (D62).
+  const newestTablesId = [...tablesById.keys()].at(-1) ?? latestTablesId; // la dernière : celles de la base dans l'ordre, puis celles ajoutées
+
   const banque = Array.isArray(received.banque) ? received.banque : [];
   if (banque.length === 0) erreurs.push('La banque d\'outils de l\'export est vide.');
   const bankIds = new Set();
@@ -161,7 +181,13 @@ export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) 
       if (knownVersion === undefined) plan.versions_ajoutees.push({ exercice_id: e.id, numero: v.numero, contenu: cleanDraft(v.contenu), tables_id: tablesId, publiee_le: typeof v.publiee_le === 'string' ? v.publiee_le : null });
       else if (!sameContent(knownVersion.contenu, v.contenu)) erreurs.push(`Exercice « ${e.id} », version ${v.numero} : la base en a une version différente sous le même numéro ; une version publiée est immuable.`);
     }
-    const entry = { id: e.id, brouillon, archive_le: typeof e.archive_le === 'string' ? e.archive_le : null, cree_le: typeof e.cree_le === 'string' ? e.cree_le : null, publie_le: typeof e.publie_le === 'string' ? e.publie_le : null };
+    // La version de tables du brouillon (D62) : celle de l'export si elle existe (ou est ajoutée), sinon la plus récente.
+    let tablesId = newestTablesId;
+    if (e.tables_id !== undefined && e.tables_id !== null) {
+      if (isText(e.tables_id) && tablesById.has(e.tables_id)) tablesId = e.tables_id;
+      else erreurs.push(`Exercice « ${e.id} » : tables de référence « ${e.tables_id} » inconnues.`);
+    }
+    const entry = { id: e.id, brouillon, tables_id: tablesId, archive_le: typeof e.archive_le === 'string' ? e.archive_le : null, cree_le: typeof e.cree_le === 'string' ? e.cree_le : null, publie_le: typeof e.publie_le === 'string' ? e.publie_le : null };
     if (known === undefined) plan.exercices_ajoutes.push(entry);
     else plan.exercices_remplaces.push(entry);
   }
@@ -184,6 +210,7 @@ export function importPlan(received, existing, { tablesErrors, draftErrorsOf }) 
     images_manquantes: imagesManquantes,
     images_presentes: imagesPresentes.length,
     images_modifiees: plan.images_modifiees.map((i) => i.id),
+    brouillon_tables: plan.brouillon_tables !== null,
   };
   return { erreurs, plan, resume };
 }
