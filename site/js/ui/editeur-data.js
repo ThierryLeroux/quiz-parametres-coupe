@@ -64,6 +64,8 @@ export const studentLink = (origin, id) => `${origin}/?exercice=${encodeURICompo
 export const archiveConfirmation = (row) => `Archiver « ${row.titre} » ? Il disparaît de la liste de l'accueil et aucune nouvelle séance ne peut être commencée ; les séances en cours continuent, et les attestations restent vérifiables. Il pourra être rétabli.`;
 export const deleteConfirmation = (row) => `Supprimer « ${row.titre} » (${row.id}) ? Aucune séance ne s'y rattache : le brouillon et ses versions disparaissent, sans retour.`;
 export const removeToolConfirmation = (copy) => `Retirer « ${copy.nom} » (${copy.id}) de l'exercice ? Sa copie disparaît du brouillon ; l'outil de la banque n'est pas touché.`;
+// Retirer plusieurs copies d'un coup : la confirmation les nomme toutes.
+export const removeSelectionConfirmation = (copies) => `Retirer ${copies.length} outil${copies.length > 1 ? 's' : ''} de l'exercice — ${copies.map((c) => `${c.nom} (${c.id})`).join(', ')} ? Leurs copies disparaissent du brouillon (rien n'est perdu avant la publication) ; la banque n'est pas touchée.`;
 
 // --- Différences entre deux contenus (B6 : confirmation de publication) ---------------------------------------------
 

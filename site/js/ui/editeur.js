@@ -14,7 +14,7 @@ import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
 import {
   FIELD_CHOICES, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
@@ -405,9 +405,10 @@ async function showExercise(id, notice = '') {
       form.setErrors(local);
       form.refreshExample();
       const count = [...local.values()].reduce((n, list) => n + list.length, 0);
-      form.details.setAttribute('data-erreur', count > 0 ? 'true' : 'false');
+      form.row.setAttribute('data-erreur', count > 0 ? 'true' : 'false');
       form.summaryErrors.textContent = count > 0 ? `${count} erreur${count > 1 ? 's' : ''}` : '';
       form.summaryName.textContent = `${form.fields.nom.control.value.trim() || '(sans nom)'} · ${form.fields.reussites_requises.control.value || '?'} réussite(s) de suite`;
+      form.thumbnail.src = `/img/outils/${form.fields.image.control.value || form.read().id}.png`;
     });
     generalErrors.replaceChildren(...(map.get('') ?? []).map((message) => el('li', {}, message)));
     const ps = publishState(errors, versionDiff(page.derniere_version?.contenu ?? null, current));
@@ -416,24 +417,55 @@ async function showExercise(id, notice = '') {
     return { current, errors };
   }
 
+  // La sélection (cases à cocher) survit aux re-rendus ; Retirer la sélection nomme les outils.
+  const selected = new Set();
+  const selectionButton = el('button', { class: 'button-small', type: 'button', disabled: true, onclick: () => {
+    const chosen = forms.map((f) => f.read()).filter((c) => selected.has(c.id));
+    if (chosen.length === 0 || !window.confirm(removeSelectionConfirmation(chosen))) return;
+    copies = forms.map((f) => f.read()).filter((c) => !selected.has(c.id));
+    selected.clear();
+    touch();
+    renderTools();
+  } }, 'Retirer la sélection');
+  const allBox = el('input', { id: 'outils-tous', type: 'checkbox', onchange: () => { forms.forEach((f) => { f.checkbox.checked = allBox.checked; if (allBox.checked) selected.add(f.read().id); else selected.delete(f.read().id); }); refreshSelection(); } });
+  function refreshSelection() {
+    selectionButton.disabled = selected.size === 0;
+    selectionButton.textContent = selected.size === 0 ? 'Retirer la sélection' : `Retirer la sélection (${selected.size})`;
+    allBox.checked = forms.length > 0 && forms.every((f) => f.checkbox.checked);
+  }
+
+  // Une ligne par copie : case, vignette, nom, erreurs, les boutons (sans déplier), puis le formulaire replié.
   function renderTools() {
     forms = copies.map((copy, i) => {
       const form = toolForm(copy, { tables, opsByName, images, copy: true, prefix: `o${i}` });
       form.summaryName = el('span', { class: 'muted' }, '');
       form.summaryErrors = el('span', { class: 'outil-erreurs' }, '');
-      const actions = el('div', { class: 'outil-actions' }, [
-        el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => { copies = forms.map((f) => f.read()); copies.splice(i, 1, copies[i], copyOfTool(copies[i], { id: freeId(copies[i].id, copies.map((c) => c.id)), reussites_requises: copies[i].reussites_requises })); openIds.add(copies[i + 1].id); touch(); renderTools(); } }, "Dupliquer dans l'exercice"),
-        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, onclick: () => { copies = forms.map((f) => f.read()); [copies[i - 1], copies[i]] = [copies[i], copies[i - 1]]; touch(); renderTools(); } }, '↑ Monter'),
-        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === copies.length - 1, onclick: () => { copies = forms.map((f) => f.read()); [copies[i + 1], copies[i]] = [copies[i], copies[i + 1]]; touch(); renderTools(); } }, '↓ Descendre'),
-        el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(removeToolConfirmation(copy))) { copies = forms.map((f) => f.read()); copies.splice(i, 1); touch(); renderTools(); } } }, 'Retirer'),
+      form.thumbnail = el('img', { class: 'outil-vignette', src: `/img/outils/${copy.image ?? copy.id}.png`, alt: '', onerror: () => { form.thumbnail.style.visibility = 'hidden'; } });
+      form.checkbox = el('input', { type: 'checkbox', 'aria-label': `Sélectionner ${copy.id}`, checked: selected.has(copy.id), onchange: () => { if (form.checkbox.checked) selected.add(copy.id); else selected.delete(copy.id); refreshSelection(); } });
+      const swap = (j) => { copies = forms.map((f) => f.read()); [copies[i], copies[j]] = [copies[j], copies[i]]; touch(); renderTools(); };
+      const buttons = el('div', { class: 'outil-actions' }, [
+        el('button', { class: 'button-small button-small--neutral', type: 'button', title: "Dupliquer dans l'exercice", onclick: () => { copies = forms.map((f) => f.read()); const twin = copyOfTool(copies[i], { id: freeId(copies[i].id, copies.map((c) => c.id)), reussites_requises: copies[i].reussites_requises }); copies.splice(i + 1, 0, twin); openIds.add(twin.id); touch(); renderTools(); } }, 'Dupliquer'),
+        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter', onclick: () => swap(i - 1) }, '↑'),
+        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === copies.length - 1, title: 'Descendre', onclick: () => swap(i + 1) }, '↓'),
+        el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(removeToolConfirmation(copy))) { copies = forms.map((f) => f.read()); copies.splice(i, 1); selected.delete(copy.id); touch(); renderTools(); } } }, 'Retirer'),
       ]);
-      form.details = el('details', { class: 'outil-volet', open: openIds.has(copy.id), ontoggle: (event) => { if (event.target.open) openIds.add(copy.id); else openIds.delete(copy.id); } }, [
-        el('summary', {}, [el('strong', {}, `${i + 1}. ${copy.id}`), form.summaryName, form.summaryErrors]),
-        el('div', { class: 'outil-corps' }, [form.element, actions]),
+      const body = el('div', { class: 'outil-corps', hidden: !openIds.has(copy.id) }, form.element);
+      const toggle = el('button', { class: 'outil-toggle', type: 'button', 'aria-expanded': String(openIds.has(copy.id)), onclick: () => {
+        body.hidden = !body.hidden;
+        toggle.setAttribute('aria-expanded', String(!body.hidden));
+        if (body.hidden) openIds.delete(copy.id); else openIds.add(copy.id);
+      } }, [el('strong', {}, `${i + 1}. ${copy.id}`)]);
+      form.row = el('div', { class: 'outil-ligne' }, [
+        el('div', { class: 'outil-entete' }, [form.checkbox, form.thumbnail, toggle, form.summaryName, form.summaryErrors, buttons]),
+        body,
       ]);
       return form;
     });
-    toolsSlot.replaceChildren(...forms.map((f) => f.details), forms.length === 0 ? el('p', { class: 'muted small' }, 'Aucun outil : ajoute-en depuis la banque ou depuis un autre exercice.') : '');
+    toolsSlot.replaceChildren(
+      forms.length === 0 ? el('p', { class: 'muted small' }, 'Aucun outil : ajoute-en depuis la banque ou depuis un autre exercice.') : el('div', { class: 'outil-selection' }, [el('label', { for: 'outils-tous' }, [allBox, 'Tout cocher']), selectionButton]),
+      ...forms.map((f) => f.row),
+    );
+    refreshSelection();
     validate();
   }
 

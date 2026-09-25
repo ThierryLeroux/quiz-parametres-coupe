@@ -80,27 +80,30 @@
 .choices-actions { display: flex; gap: var(--space-4); margin-top: var(--space-1); }
 .choices-actions .button-link { min-height: 32px; font-size: var(--text-xs); }
 
-/* Un outil de l'exercice : un volet repliable, résumé en tête, formulaire dedans. */
-.outil-volet { margin-top: var(--space-3); border: 1px solid color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
-.outil-volet[data-erreur='true'] { border-color: var(--color-wrong); }
-.outil-volet summary {
+/* Un outil de l'exercice : une ligne (case, vignette, nom, erreurs, boutons) et son formulaire replié dessous. */
+.outil-ligne { margin-top: var(--space-3); border: 1px solid color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
+.outil-ligne[data-erreur='true'] { border-color: var(--color-wrong); }
+.outil-entete {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-4);
-  min-height: 48px;
+  gap: var(--space-2) var(--space-3);
+  min-height: 56px;
   padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  list-style: none;
 }
-.outil-volet summary::-webkit-details-marker { display: none; }
-.outil-volet summary::before { content: '▸'; color: var(--color-accent-light); }
-.outil-volet[open] summary::before { content: '▾'; }
-.outil-volet summary strong { font-weight: 600; }
-.outil-volet summary .muted { flex: 1 1 200px; }
-.outil-volet summary .outil-erreurs { color: var(--color-wrong); font-weight: 600; }
+.outil-entete input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--color-accent); }
+.outil-vignette { flex: none; width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 4px; }
+.outil-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0; border: 0; background: none; color: var(--color-text); font: inherit; cursor: pointer; }
+.outil-toggle::before { content: '▸'; color: var(--color-accent-light); }
+.outil-toggle[aria-expanded='true']::before { content: '▾'; }
+.outil-entete .muted { flex: 1 1 200px; }
+.outil-entete .outil-erreurs { color: var(--color-wrong); font-weight: 600; }
+.outil-entete .outil-actions { margin: 0 0 0 auto; }
 .outil-corps { padding: 0 var(--space-3) var(--space-4); }
 .outil-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.outil-selection { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-3); font-size: var(--text-sm); }
+.outil-selection label { display: flex; align-items: center; gap: var(--space-2); min-height: 34px; cursor: pointer; }
+.outil-selection input { width: 18px; height: 18px; accent-color: var(--color-accent); }
 .outil-photo { width: 96px; height: 96px; object-fit: contain; background: #fff; border-radius: 4px; }
 .outil-photo-ligne { display: flex; align-items: center; gap: var(--space-3); }
 

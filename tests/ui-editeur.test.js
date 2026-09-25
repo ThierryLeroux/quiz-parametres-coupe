@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FIELD_CHOICES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, archiveConfirmation, deleteConfirmation, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName,
-  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, previewColumns, previewRows, publishState, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
+  groupSwatch, importSummaryLines, importWordFor, materialSwatch, parseDimensions, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, studentLink, templateTokenList, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
 import { IMPORT_WORD as SERVER_IMPORT_WORD, REPLACE_WORD as SERVER_REPLACE_WORD } from '../worker/editeur.js';
@@ -32,6 +32,8 @@ test('exerciseState, versionLabel, sessionsLabel : l’état en clair', () => {
   assert.equal(studentLink('https://quiz.example', 'm10-tournage-vc'), 'https://quiz.example/?exercice=m10-tournage-vc');
   assert.match(archiveConfirmation(ROW), /Archiver « M10 »/);
   assert.match(deleteConfirmation(ROW), /Supprimer « M10 » \(m10-tournage-vc\)/);
+  assert.match(removeSelectionConfirmation([{ id: 'mvlnr', nom: 'MVLNR' }, { id: 'alesoir', nom: 'Alésoir' }]), /^Retirer 2 outils de l'exercice — MVLNR \(mvlnr\), Alésoir \(alesoir\) \? .*rien n'est perdu avant la publication/);
+  assert.match(removeSelectionConfirmation([{ id: 'mvlnr', nom: 'MVLNR' }]), /^Retirer 1 outil de/);
   assert.deepEqual(FIELD_CHOICES.map((f) => f.key), ['vc', 'fz', 'n', 'f', 'vf']);
   assert.deepEqual(TOOL_MATERIALS, ['Acier rapide', 'Carbure de tungstène solide', 'Insert de carbure de tungstène']);
 });
