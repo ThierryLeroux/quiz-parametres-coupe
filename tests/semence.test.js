@@ -42,7 +42,7 @@ function transplanter(source, cible, table) {
   for (const row of source.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()) insert.run(...colonnes.map((c) => row[c]));
 }
 
-test('migration 0005 sur des données réelles : les séances existantes pointent vers la version 1 de leur exercice ; attestations, codes, signatures et /verifier inchangés ; le serveur continue', async () => {
+test('migrations 0005 et 0006 sur des données réelles : les séances existantes pointent vers la version 1 de leur exercice ; attestations, codes, signatures et /verifier inchangés ; le serveur continue', async () => {
   // 1. Le vrai serveur produit les données : Camille réussit le M10 puis corrige son identité (attestation annulée et réémise),
   //    Alex réussit « Vc et RPM » et est remis à zéro (attestation annulée), Zoé commence le M10 sans réussir.
   const production = serveurDeTest();
@@ -73,7 +73,9 @@ test('migration 0005 sur des données réelles : les séances existantes pointen
 
   // 3. La 0005 seule : les tables de l'éditeur arrivent semées, et chaque séance pointe vers la version 1 de son exercice.
   db.sqlite.exec(migrationSql(5));
+  db.sqlite.exec(migrationSql(6));
   assert.deepEqual(contenu(db), avant); // rien d'autre n'a bougé
+  assert.deepEqual(db.sqlite.prepare('SELECT id, rang FROM exercices ORDER BY rang').all().map((row) => ({ ...row })), [{ id: M10, rang: 1 }, { id: VC_RPM, rang: 2 }]); // D51
   const versions = Object.fromEntries(db.sqlite.prepare('SELECT exercice_id, id FROM versions_exercice WHERE numero = 1').all().map((row) => [row.exercice_id, row.id]));
   assert.deepEqual(Object.keys(versions).sort(), [M10, VC_RPM]);
   assert.deepEqual(db.sqlite.prepare('SELECT matricule, exercice_id, version_id, version_exercice FROM seances ORDER BY id').all().map((row) => ({ ...row })), [

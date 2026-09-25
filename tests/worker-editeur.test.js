@@ -102,7 +102,7 @@ test('liste des exercices : état du brouillon, dernière version, séances par 
   const serveur = await editeurDeTest();
   await commencer(serveur);
   const { corps: liste } = await serveur.editeur('GET', 'exercices');
-  assert.deepEqual(liste.exercices.map((e) => e.id), [M10, VC_RPM]);
+  assert.deepEqual(liste.exercices.map((e) => [e.id, e.rang]), [[M10, 1], [VC_RPM, 2]]);
   const [m10Row] = liste.exercices;
   assert.deepEqual([m10Row.titre, m10Row.modifie, m10Row.derniere_version, m10Row.archive_le, m10Row.seances, m10Row.liste], [m10.titre, false, 1, null, 1, true]);
   assert.deepEqual(m10Row.versions.map((v) => [v.numero, v.seances]), [[1, 1]]);
@@ -140,6 +140,40 @@ test('liste des exercices : état du brouillon, dernière version, séances par 
   assert.deepEqual((await serveur.editeur('POST', 'exercice/supprimer', { id: 'm10-copie' })).corps, { supprime: true, id: 'm10-copie' });
   assert.equal((await serveur.editeur('GET', 'exercice?id=m10-copie')).status, 404);
   assert.equal((await serveur.editeur('POST', 'exercice/supprimer', { id: 'm10-copie' })).status, 404);
+});
+
+test('ordre des exercices (D51) : rang semé 1 et 2, un nouvel exercice en queue ; Monter et Descendre réécrivent les rangs, l’accueil suit ; déjà au bord → 400 ; rang périmé → 409, rien ne bouge ; journalisé ; l’export porte le rang', async () => {
+  const serveur = await editeurDeTest();
+  const ordre = async () => (await serveur.editeur('GET', 'exercices')).corps.exercices.map((e) => [e.id, e.rang]);
+  assert.deepEqual(await ordre(), [[M10, 1], [VC_RPM, 2]]);
+  assert.equal((await serveur.editeur('POST', 'exercice/creer', { id: 'troisieme', titre: 'Troisième' })).status, 200);
+  serveur.publierExercice({ ...m10, id: 'troisieme', titre: 'Troisième' });
+  assert.deepEqual(await ordre(), [[M10, 1], [VC_RPM, 2], ['troisieme', 3]]);
+  assert.deepEqual((await serveur.appel('GET', '/api/exercices')).corps.exercices.map((e) => e.id), [M10, VC_RPM, 'troisieme']);
+
+  assert.deepEqual((await serveur.editeur('POST', 'exercice/deplacer', { id: 'troisieme', rang: 3, direction: 'monter' })).corps, { deplace: true, id: 'troisieme', rang: 2 });
+  assert.deepEqual(await ordre(), [[M10, 1], ['troisieme', 2], [VC_RPM, 3]]);
+  assert.deepEqual((await serveur.appel('GET', '/api/exercices')).corps.exercices.map((e) => e.id), [M10, 'troisieme', VC_RPM]); // l'accueil suit
+  assert.deepEqual((await serveur.editeur('POST', 'exercice/deplacer', { id: 'troisieme', rang: 2, direction: 'monter' })).corps.rang, 1);
+  assert.deepEqual(await ordre(), [['troisieme', 1], [M10, 2], [VC_RPM, 3]]);
+  const bord = await serveur.editeur('POST', 'exercice/deplacer', { id: 'troisieme', rang: 1, direction: 'monter' });
+  assert.deepEqual([bord.status, bord.corps.erreur], [400, 'Cet exercice est déjà en tête.']);
+  assert.equal((await serveur.editeur('POST', 'exercice/deplacer', { id: VC_RPM, rang: 3, direction: 'descendre' })).status, 400);
+  // Un rang périmé (la liste a bougé sur un autre appareil) : 409, rien ne change.
+  const perime = await serveur.editeur('POST', 'exercice/deplacer', { id: M10, rang: 1, direction: 'descendre' });
+  assert.deepEqual([perime.status, perime.corps.rang_actuel], [409, 2]);
+  assert.match(perime.corps.erreur, /a changé ailleurs/);
+  assert.deepEqual(await ordre(), [['troisieme', 1], [M10, 2], [VC_RPM, 3]]);
+  assert.equal((await serveur.editeur('POST', 'exercice/deplacer', { id: M10, rang: 2, direction: 'ailleurs' })).status, 400);
+  assert.deepEqual((await serveur.editeur('POST', 'exercice/deplacer', { id: M10, rang: 2, direction: 'descendre' })).corps.rang, 3);
+  assert.deepEqual(await ordre(), [['troisieme', 1], [VC_RPM, 2], [M10, 3]]);
+  const deplacements = serveur.journalEnseignant().filter((l) => l.action === 'editeur_deplacement');
+  assert.deepEqual(deplacements.map((l) => l.details), ['troisieme · rang 3 → 2', 'troisieme · rang 2 → 1', `${M10} · rang 2 → 3`]);
+  // L'export porte le rang ; un export réimporté garde l'ordre.
+  const { corps: exporte } = await serveur.editeur('GET', 'export');
+  assert.deepEqual(exporte.exercices.map((e) => [e.id, e.rang]), [['troisieme', 1], [VC_RPM, 2], [M10, 3]]);
+  assert.equal((await serveur.editeur('POST', 'import', { export: exporte, confirmation: IMPORT_WORD })).status, 200);
+  assert.deepEqual(await ordre(), [['troisieme', 1], [VC_RPM, 2], [M10, 3]]);
 });
 
 // --- Page d'un exercice (B3, B5) : brouillon, validation, contrôle optimiste ------------------------------------------

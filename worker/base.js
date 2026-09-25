@@ -382,11 +382,11 @@ export async function listVersions(db, exerciceId) {
 // version et le nombre de séances (toutes versions confondues). Les versions détaillées : listVersions.
 export async function listExercises(db) {
   const { results } = await db.prepare(`
-    SELECT e.id, e.brouillon, e.revision, e.brouillon_modifie_le, e.publie_le, e.archive_le, e.cree_le,
+    SELECT e.id, e.brouillon, e.revision, e.brouillon_modifie_le, e.publie_le, e.archive_le, e.cree_le, e.rang,
            (SELECT MAX(numero) FROM versions_exercice v WHERE v.exercice_id = e.id) AS derniere_version,
            (SELECT contenu FROM versions_exercice v WHERE v.exercice_id = e.id ORDER BY numero DESC LIMIT 1) AS contenu_publie,
            (SELECT COUNT(*) FROM seances s WHERE s.exercice_id = e.id) AS seances
-    FROM exercices e ORDER BY e.cree_le, e.id`).all();
+    FROM exercices e ORDER BY e.rang, e.id`).all();
   return results.map((row) => ({ ...row, brouillon: JSON.parse(row.brouillon), contenu_publie: row.contenu_publie === null ? null : JSON.parse(row.contenu_publie) }));
 }
 
@@ -396,7 +396,7 @@ export async function listPublishedExercises(db) {
     SELECT e.id, e.archive_le, v.id AS version_id, v.numero, v.contenu, v.tables_id
     FROM exercices e JOIN versions_exercice v ON v.exercice_id = e.id
     WHERE v.numero = (SELECT MAX(numero) FROM versions_exercice w WHERE w.exercice_id = e.id)
-    ORDER BY e.cree_le, e.id`).all();
+    ORDER BY e.rang, e.id`).all();
   return results.map((row) => ({ ...row, contenu: JSON.parse(row.contenu) }));
 }
 
@@ -405,11 +405,11 @@ function teacherLogStatement(db, entry) {
     .bind(entry.horodatage, entry.enseignant, entry.action, entry.details ?? null);
 }
 
-// Crée un exercice (brouillon seul, jamais publié), et journalise. Retourne false si l'identifiant est déjà pris.
+// Crée un exercice (brouillon seul, jamais publié), au dernier rang (D51), et journalise. Retourne false si l'identifiant est déjà pris.
 export async function createExercise(db, { id, brouillon, now }, entry) {
   try {
     await db.batch([
-      db.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, cree_le) VALUES (?, ?, ?, ?)').bind(id, JSON.stringify(brouillon), now, now),
+      db.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, cree_le, rang) SELECT ?, ?, ?, ?, COALESCE(MAX(rang), 0) + 1 FROM exercices').bind(id, JSON.stringify(brouillon), now, now),
       teacherLogStatement(db, entry),
     ]);
     return true;
@@ -444,6 +444,15 @@ export async function publishVersion(db, { id, revision, numero, contenu, tables
     if (/UNIQUE/i.test(String(error?.message))) return false;
     throw error;
   }
+}
+
+// Réécrit les rangs des exercices, 1 à n dans l'ordre donné (D51), et journalise — en un seul lot.
+// L'appelant a vérifié que le rang de l'exercice déplacé est encore celui que l'écran a vu.
+export async function renumberExercises(db, orderedIds, entry) {
+  await db.batch([
+    ...orderedIds.map((id, i) => db.prepare('UPDATE exercices SET rang = ? WHERE id = ?').bind(i + 1, id)),
+    teacherLogStatement(db, entry),
+  ]);
 }
 
 // Archive (date) ou rétablit (null) un exercice, et journalise.
@@ -518,8 +527,8 @@ export async function exportEditorData(db) {
   return {
     tables_reference: tables.map(({ id, materiaux, operations, creee_le }) => ({ id, materiaux, operations, creee_le })),
     banque: banque.map(({ id, outil, rang, archive_le }) => ({ id, outil, rang, archive_le })),
-    exercices: exercices.map(({ id, brouillon, archive_le, cree_le, publie_le }) => ({
-      id, brouillon, archive_le, cree_le, publie_le,
+    exercices: exercices.map(({ id, brouillon, archive_le, cree_le, publie_le, rang }) => ({
+      id, brouillon, archive_le, cree_le, publie_le, rang,
       versions: versions.filter((v) => v.exercice_id === id).map(({ numero, contenu, tables_id, publiee_le }) => ({ numero, contenu: JSON.parse(contenu), tables_id, publiee_le })),
     })),
   };
@@ -532,7 +541,8 @@ export async function applyImport(db, plan, now, entry) {
   for (const t of plan.tables_ajoutees) statements.push(db.prepare('INSERT INTO tables_reference (id, materiaux, operations, creee_le) VALUES (?, ?, ?, ?)').bind(t.id, JSON.stringify(t.materiaux), JSON.stringify(t.operations), t.creee_le ?? now));
   statements.push(db.prepare('DELETE FROM banque_outils'));
   plan.banque.forEach((b, i) => statements.push(db.prepare('INSERT INTO banque_outils (id, outil, rang, modifie_le, archive_le) VALUES (?, ?, ?, ?, ?)').bind(b.id, JSON.stringify(b.outil), b.rang ?? i + 1, now, b.archive_le ?? null)));
-  for (const e of plan.exercices_ajoutes) statements.push(db.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, publie_le, archive_le, cree_le) VALUES (?, ?, ?, ?, ?, ?)').bind(e.id, JSON.stringify(e.brouillon), now, e.publie_le ?? null, e.archive_le ?? null, e.cree_le ?? now));
+  // Un exercice ajouté prend le dernier rang, dans l'ordre de l'export ; un exercice remplacé garde le sien (l'ordre est celui de la base).
+  for (const e of plan.exercices_ajoutes) statements.push(db.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, publie_le, archive_le, cree_le, rang) SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(rang), 0) + 1 FROM exercices').bind(e.id, JSON.stringify(e.brouillon), now, e.publie_le ?? null, e.archive_le ?? null, e.cree_le ?? now));
   for (const e of plan.exercices_remplaces) statements.push(db.prepare('UPDATE exercices SET brouillon = ?, revision = revision + 1, brouillon_modifie_le = ?, archive_le = ? WHERE id = ?').bind(JSON.stringify(e.brouillon), now, e.archive_le ?? null, e.id));
   for (const v of plan.versions_ajoutees) {
     statements.push(db.prepare('INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le) VALUES (?, ?, ?, ?, ?)').bind(v.exercice_id, v.numero, JSON.stringify(v.contenu), v.tables_id, v.publiee_le ?? now));

@@ -58,7 +58,7 @@ export function serveurDeTest({ graine = 2026, secret = 'secret-de-test', cleAdm
       const contenu = JSON.stringify(brouillon);
       const existe = this.db.sqlite.prepare('SELECT 1 FROM exercices WHERE id = ?').get(exercice.id);
       if (existe) this.db.sqlite.prepare('UPDATE exercices SET brouillon = ?, revision = revision + 1, brouillon_modifie_le = ?, publie_le = ? WHERE id = ?').run(contenu, quand, quand, exercice.id);
-      else this.db.sqlite.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, publie_le, cree_le) VALUES (?, ?, ?, ?, ?)').run(exercice.id, contenu, quand, quand, quand);
+      else this.db.sqlite.prepare('INSERT INTO exercices (id, brouillon, brouillon_modifie_le, publie_le, cree_le, rang) SELECT ?, ?, ?, ?, ?, COALESCE(MAX(rang), 0) + 1 FROM exercices').run(exercice.id, contenu, quand, quand, quand);
       const numero = (this.db.sqlite.prepare('SELECT MAX(numero) AS n FROM versions_exercice WHERE exercice_id = ?').get(exercice.id).n ?? 0) + 1;
       this.db.sqlite.prepare('INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le) VALUES (?, ?, ?, ?, ?)').run(exercice.id, numero, contenu, tablesId, quand);
       return numero;

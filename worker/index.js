@@ -619,6 +619,7 @@ async function editeurExercices(request, env, { now }) {
   for (const row of rows) {
     list.push({
       id: row.id,
+      rang: row.rang,
       titre: row.brouillon.titre,
       modifie: row.contenu_publie === null || !sameContent(row.brouillon, row.contenu_publie),
       derniere_version: row.derniere_version,
@@ -695,6 +696,23 @@ async function editeurRenommer(request, env, { now }) {
   const saved = await base.saveDraft(env.DB, record.id, record.revision, brouillon, now.toISOString(), logEntry(teacher, now, 'editeur_renommage', `${record.id} · « ${record.brouillon.titre} » → « ${brouillon.titre} »`));
   if (!saved) throw new HttpError(409, CONFLICT);
   return json({ renomme: true, titre: brouillon.titre });
+}
+
+// POST /api/prof/editeur/exercice/deplacer — { id, rang, direction: "monter" | "descendre" } (D51) : l'ordre de la
+// liste de l'éditeur et de l'accueil. Contrôle optimiste sur le rang que l'écran a vu ; les rangs sont réécrits 1 à n.
+async function editeurDeplacer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  if (!['monter', 'descendre'].includes(body.direction)) throw new HttpError(400, '« direction » doit être « monter » ou « descendre ».');
+  if (body.rang !== record.rang) throw new HttpError(409, "La liste des exercices a changé ailleurs depuis ton ouverture : recharge la page.", { rang_actuel: record.rang });
+  const ordered = (await base.listExercises(env.DB)).map((row) => row.id);
+  const at = ordered.indexOf(record.id);
+  const to = body.direction === 'monter' ? at - 1 : at + 1;
+  if (to < 0 || to >= ordered.length) throw new HttpError(400, body.direction === 'monter' ? 'Cet exercice est déjà en tête.' : 'Cet exercice est déjà en queue.');
+  [ordered[at], ordered[to]] = [ordered[to], ordered[at]];
+  await base.renumberExercises(env.DB, ordered, logEntry(teacher, now, 'editeur_deplacement', `${record.id} · rang ${at + 1} → ${to + 1}`));
+  return json({ deplace: true, id: record.id, rang: to + 1 });
 }
 
 // POST /api/prof/editeur/exercice/archiver — { id, archive: true|false }.
@@ -894,6 +912,7 @@ const ROUTES = {
   'POST /api/prof/editeur/exercice/creer': editeurCreer,
   'POST /api/prof/editeur/exercice/enregistrer': editeurEnregistrer,
   'POST /api/prof/editeur/exercice/renommer': editeurRenommer,
+  'POST /api/prof/editeur/exercice/deplacer': editeurDeplacer,
   'POST /api/prof/editeur/exercice/archiver': editeurArchiver,
   'POST /api/prof/editeur/exercice/supprimer': editeurSupprimer,
   'POST /api/prof/editeur/exercice/publier': editeurPublier,

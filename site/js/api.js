@@ -186,6 +186,8 @@ export const editorCreateExercise = (body, request) => editor('POST', 'exercice/
 export const editorSaveDraft = (id, revision, brouillon, request) => editor('POST', 'exercice/enregistrer', { id, revision, brouillon }, request);
 
 export const editorRenameExercise = (id, titre, request) => editor('POST', 'exercice/renommer', { id, titre }, request);
+// Monter ou descendre un exercice dans la liste (D51) : { deplace: true, id, rang }. Erreurs : 400 déjà au bord ; 409 la liste a changé.
+export const editorMoveExercise = (id, rang, direction, request) => editor('POST', 'exercice/deplacer', { id, rang, direction }, request);
 export const editorArchiveExercise = (id, archive, request) => editor('POST', 'exercice/archiver', { id, archive }, request);
 export const editorDeleteExercise = (id, request) => editor('POST', 'exercice/supprimer', { id }, request);
 

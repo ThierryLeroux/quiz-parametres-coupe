@@ -8,7 +8,7 @@
 
 import {
   editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankSave, editorCreateExercise, editorDeleteExercise, editorExport,
-  editorGetExercise, editorImport, editorImportValidate, editorListExercises, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft, teacherLogin, teacherLogout,
+  editorGetExercise, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft, teacherLogin, teacherLogout,
 } from '../api.js';
 import { copyOfTool, draftErrors } from '../exercice.js';
 import { el, showScreen } from './dom.js';
@@ -126,10 +126,13 @@ async function showList(notice = '') {
     }
   };
 
-  const rows = response.exercices.map((row) => {
+  const rows = response.exercices.map((row, i) => {
     const open = () => leave(showExercise, row.id);
     const actions = [
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: open }, 'Ouvrir'),
+      // L'ordre de la liste est aussi celui de l'accueil des étudiants (D51).
+      el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter dans la liste', onclick: () => act(() => editorMoveExercise(row.id, row.rang, 'monter')) }, '↑'),
+      el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === response.exercices.length - 1, title: 'Descendre dans la liste', onclick: () => act(() => editorMoveExercise(row.id, row.rang, 'descendre')) }, '↓'),
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => {
         const id = window.prompt(`Identifiant du nouvel exercice (minuscules, chiffres, tirets), copie de « ${row.titre} » :`, `${row.id}-2`);
         if (id) act(() => editorCreateExercise({ id: id.trim(), depuis: row.id }), `« ${row.titre} » dupliqué sous « ${id.trim()} » : un brouillon, à publier.`);
@@ -148,6 +151,7 @@ async function showList(notice = '') {
       } }, 'Copier le lien étudiant'),
     ];
     return el('tr', {}, [
+      el('td', { class: 'num' }, String(row.rang)),
       el('td', {}, el('button', { class: 'button-link', type: 'button', onclick: open }, row.titre)),
       el('td', { class: 'mono' }, row.id),
       el('td', { class: row.archive_le !== null ? 'state--running' : (row.modifie ? '' : 'state--done') }, exerciseState(row)),
@@ -173,10 +177,10 @@ async function showList(notice = '') {
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead('exercices', 'exercices'),
     el('h1', { tabindex: '-1' }, 'Exercices'),
-    el('p', { class: 'muted small' }, "Les étudiants voient la dernière version publiée de chaque exercice ; une séance commencée garde sa version jusqu'à la fin. Le brouillon ne change rien tant qu'il n'est pas publié."),
+    el('p', { class: 'muted small' }, "Les étudiants voient la dernière version publiée de chaque exercice ; une séance commencée garde sa version jusqu'à la fin. Le brouillon ne change rien tant qu'il n'est pas publié. L'ordre de cette liste (↑ ↓) est celui de l'accueil des étudiants."),
     status,
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table' }, [
-      el('thead', {}, el('tr', {}, ['Titre', 'Identifiant', 'État', 'Dernière version', 'Séances', "À l'accueil", 'Actions'].map((label) => el('th', {}, label)))),
+      el('thead', {}, el('tr', {}, ['Rang', 'Titre', 'Identifiant', 'État', 'Dernière version', 'Séances', "À l'accueil", 'Actions'].map((label) => el('th', { class: label === 'Rang' ? 'num' : null }, label)))),
       el('tbody', {}, rows),
     ])),
     el('p', { class: 'muted smaller prof-count' }, `${rows.length} exercice${rows.length > 1 ? 's' : ''}.`),
