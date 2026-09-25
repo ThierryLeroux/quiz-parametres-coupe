@@ -94,8 +94,18 @@ par le moteur** (ni par le VBA). Le seul plafond d'avance est
 
 Groupes « O - Plastique renforci d'aramid » et « O - Graphite » : **volontairement** attachés à aucun outil (jugés trop rares pour les étudiants) ; ils restent au catalogue pour pouvoir l'être plus tard.
 
-Les images d'outils sont dans `site/img/outils/<id>.png` ; le champ `image` du
-catalogue n'est pas encore utilisé.
+**Images (décisions D56, D57).** Les photos d'outils et les pictogrammes d'opérations
+vivent dans la table `images` de la base D1 (migration `0007`), en blob, et sont servis
+par `GET /images/<id>` (type exact, `nosniff`, cache d'un an : une image ne change
+jamais sous le même identifiant). Le champ `image` d'un outil nomme sa photo (une
+image d'usage `outil` ; sinon l'identifiant de l'outil) ; le pictogramme d'une opération
+est son `pictogramme` s'il en a un, sinon le slug de son nom. Les fichiers de
+`site/img/outils/` et de `site/img/pictos/operations/` ne sont plus que la **semence**
+(29 PNG, 19 SVG assainis) et les données des tests. L'éditeur téléverse (réduction
+dans le navigateur : photo 800 px en JPEG, pictogramme 256 px en PNG, SVG tel quel
+puis assaini par liste blanche ou refusé), renomme, archive (retirée des galeries,
+toujours servie) ou supprime (jamais utilisée seulement) ; un doublon exact n'est
+pas stocké deux fois (empreinte SHA-256).
 
 ## 4. Génération d'une question
 
@@ -119,7 +129,7 @@ catalogue n'est pas encore utilisé.
    | `[Operation]` | `operation` de l'outil |
    | `[Matoutil]` | matériau d'outil tiré (ex. « Acier rapide ») |
 
-   Tout autre jeton, ou un jeton sans valeur pour l'outil, est une erreur **dès la validation du catalogue**. Les autres jetons du VBA (`[Couleur]`, `[FactVc]`, etc.) ne sont pas repris. Le gabarit résolu est le titre de la question, tel quel ; la progression garde le `nom` générique (`UI.md` §3.3). L'éditeur (jalon 7) permettra de le modifier.
+   Tout autre jeton, ou un jeton sans valeur pour l'outil, ou un crochet non apparié, est une erreur **dès la validation du catalogue**. Les autres jetons du VBA (`[Couleur]`, `[FactVc]`, etc.) ne sont pas repris. Le gabarit résolu est le titre de la question, tel quel ; la progression garde le `nom` générique (`UI.md` §3.3). L'éditeur le modifie (D58) : un bouton par jeton permis pour l'outil, l'exemple composé en direct, « Autre exemple » tiré au hasard dans l'outil.
 
 ## 5. Calcul des réponses attendues
 
@@ -301,10 +311,11 @@ base) est retirée et remplacée.
 | `banque_outils` | la banque d'outils (D47) : un outil par ligne (JSON au format d'`outils.json`), rang, numéro de révision (D48), date de modification, date d'archivage |
 | `exercices` | les exercices (D47) : l'identifiant d'URL (définitif), le **brouillon** (JSON, §10), son numéro de révision (D48), dates de modification, de dernière publication, d'archivage, de création, et le **rang** dans la liste (D51, migration `0006`) |
 | `versions_exercice` | les versions publiées (D47) : exercice, numéro (1, 2, 3…), contenu (JSON, la même forme que le brouillon, **figé**), version des tables de référence, date |
+| `images` | les images (D56, migration `0007`) : identifiant, nom lisible, usage (`outil`, `operation`), type, taille, empreinte SHA-256, contenu (BLOB), date, date d'archivage ; semée avec les photos et pictogrammes du dépôt |
 
 Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **efface les
 données des étudiants en fin de session** (espace professeur, §8, D46) — les
-quatre tables de l'éditeur ne sont jamais touchées ; supprimer une séance
+cinq tables de l'éditeur (dont `images`) ne sont jamais touchées ; supprimer une séance
 efface son journal, mais ses attestations restent, annulées (D45).
 
 **Le navigateur ne conserve que** `{ matricule, prenom, jeton }`
@@ -370,6 +381,7 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | `GET /api/version` | — | `{ version }` (celle de `package.json`) |
 | `GET /api/exercice?exercice=<id>[&version=<n>]` | — | `{ exercice, tables, version, archive }` — la dernière version publiée de l'exercice (ou la version `n`, celle d'une séance) : l'exercice au format du moteur avec ses copies d'outils (chacune avec `reussites_requises`), les deux tables de référence, le numéro, et si l'exercice est archivé ; 400 inconnu ou jamais publié, 404 version inconnue (D47) |
 | `GET /api/exercices` | — | `{ exercices: [ { id, titre } ] }` — la liste de l'accueil (D18) : publiés, non archivés, sans `"liste": false` |
+| `GET /images/<id>` | — | l'image (pas du JSON) : photo d'outil ou pictogramme (D56), avec son type exact, `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=31536000, immutable`, `ETag` (304 si `If-None-Match` correspond) et, pour un SVG, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` (D57) ; une image archivée est servie ; 404 sinon |
 | `POST /api/consultation` | `{ exercice, matricule }` | `{ trouvee: false }`, ou `{ trouvee: true, prenom, initiale }` — **rien d'autre ne sort** |
 | `POST /api/creation` | `{ exercice, prenom, nom, matricule, nip }` | `{ jeton, seance }` — crée la séance ; ne reprend **jamais** une séance existante (409) |
 | `POST /api/reprise` | `{ exercice, matricule, nip }` | `{ jeton, seance }` — ni prénom ni nom ; 404 s'il n'y a pas de séance |
@@ -415,9 +427,15 @@ porte toute la sauvegarde).
 | `POST /api/prof/editeur/banque/creer` | `{ id, outil }` ou `{ id, depuis }` | `{ cree: true, id }` |
 | `POST /api/prof/editeur/banque/enregistrer` | `{ id, revision, outil }` | `{ enregistre: true, revision, erreurs }` — 409 révision périmée |
 | `POST /api/prof/editeur/banque/archiver` | `{ id, archive }` | `{ archive, id }` |
-| `GET /api/prof/editeur/export` | cookie admin | `{ format, exporte_le, version_serveur, tables_reference, banque, exercices: [ { id, brouillon, archive_le, cree_le, publie_le, versions } ] }` — la sauvegarde complète, sans données d'étudiants (D49) |
-| `POST /api/prof/editeur/import/valider` | `{ export }` | `{ erreurs, resume }` — ce que l'import ferait, rien n'est écrit ; `resume.banque` = `{ ajoutes, modifies, retires, gardes }`, les trois listes par `{ id, nom }` (D50) |
-| `POST /api/prof/editeur/import` | `{ export, confirmation }` | `{ importe: true, resume }` — fusion en un seul lot (D49) ; le mot attendu est **IMPORTER**, ou **REMPLACER** si des outils de la banque disparaîtraient (D50) ; 400 sans le mot attendu (`mot` joint, le message nomme les outils) ou avec des erreurs, rien n'est touché |
+| `GET /api/prof/editeur/images[?usage=outil\|operation]` | cookie admin | `{ images: [ { id, nom, usage, type, taille, empreinte, creee_le, archivee_le, utilisations: { versions, brouillons, banque, tables } } ] }` — les fiches (sans contenu), avec où chacune est utilisée (D56) |
+| `POST /api/prof/editeur/images/televerser` | `{ nom, usage, type, contenu }` (base64 ; corps ≤ 1 Mo, image ≤ 600 Ko) | `{ image, existante, retires }` — le type est lu dans les octets, un SVG est assaini (`retires` : ce qui a été retiré) ou refusé (400, D57) ; `existante: true` = même empreinte déjà en base, rien de stocké |
+| `POST /api/prof/editeur/images/renommer` | `{ id, nom }` | `{ renomme: true, id, nom }` — le nom lisible seulement |
+| `POST /api/prof/editeur/images/archiver` | `{ id, archive }` | `{ archive, id }` — retirée des galeries, toujours servie |
+| `POST /api/prof/editeur/images/supprimer` | `{ id }` | `{ supprimee: true, id }` — 409 si l'image est utilisée (version, brouillon, banque, tables ; `utilisations` joint) : archiver alors |
+| `POST /api/prof/editeur/images/importer` | `{ image: { id, nom, usage, type, empreinte, contenu, creee_le, archivee_le } }` | `{ importee, id, existante }` — une image d'un export, envoyée à part avant l'import (D59) ; 400 si le contenu n'a pas l'empreinte annoncée, 409 si la base a une autre image sous cet identifiant |
+| `GET /api/prof/editeur/export` | cookie admin | `{ format, exporte_le, version_serveur, tables_reference, banque, exercices: [ { id, brouillon, archive_le, cree_le, publie_le, versions } ], images: [ { …fiche, contenu } ] }` — la sauvegarde complète, images comprises (contenu en base64, D59), sans données d'étudiants (D49) |
+| `POST /api/prof/editeur/import/valider` | `{ export }` (les images sans leur contenu suffisent) | `{ erreurs, resume }` — ce que l'import ferait, rien n'est écrit ; `resume.banque` = `{ ajoutes, modifies, retires, gardes }`, les trois listes par `{ id, nom }` (D50) ; `resume.images_manquantes` : les images de l'export à envoyer d'abord (`images/importer`, D59), `images_presentes`, `images_modifiees` (nom ou archivage) |
+| `POST /api/prof/editeur/import` | `{ export, confirmation }` | `{ importe: true, resume }` — fusion en un seul lot (D49) ; le mot attendu est **IMPORTER**, ou **REMPLACER** si des outils de la banque disparaîtraient (D50) ; 400 sans le mot attendu (`mot` joint, le message nomme les outils), avec des erreurs, ou tant qu'une image manque (`images_manquantes` joint) : rien n'est touché |
 
 `saisies` : les champs évalués, en texte, sous les noms du moteur —
 `{ vc, feedPerTooth, rpm, feedPerRev, feedRate }`. Tout le reste est ignoré.
@@ -803,9 +821,9 @@ ferme D6.
 - Le **moteur de calcul et de correction est testé unitairement** (cas tirés du
   classeur), tout comme le serveur (§7, « Tests »). Node ≥ 22.13 pour
   développer ; rien à installer pour l'étudiant.
-- **Les exercices, la banque d'outils et les tables de référence vivent dans la
-  base D1** (D47) et s'éditent en production (D48) ; la sauvegarde est l'export
-  JSON de l'éditeur (D49, `DEMARRAGE.md` §7).
+- **Les exercices, la banque d'outils, les tables de référence et les images
+  vivent dans la base D1** (D47, D56) et s'éditent en production (D48) ; la
+  sauvegarde est l'export JSON de l'éditeur (D49, D59, `DEMARRAGE.md` §7).
 - **Données personnelles** : prénom, nom, matricule, NIP haché, réponses et
   résultats ne vont qu'au serveur de correction du projet, et sont **effacés par l'enseignant
   en fin de session** (§8, D46). Rien n'est envoyé à un tiers, et la page ne charge
@@ -940,7 +958,8 @@ immuables. Brouillon et version ont la même forme :
   d'`outils.json`, `TOOL_KEYS`), plus `reussites_requises` (entier ≥ 1) et
   `origine` (l'id de l'outil de la banque dont elle vient, à titre d'information).
   Son `id` est unique dans l'exercice (« mvlnr », puis « mvlnr_2 » pour une
-  copie dupliquée) ; `image` nomme sa photo (`site/img/outils/<image>.png`).
+  copie dupliquée) ; `image` nomme sa photo — l'identifiant d'une image de la base,
+  servie par `/images/<image>` (D56).
   **Ses dimensions, ses matières et ses groupes sont ce que l'exercice permet** :
   il n'y a plus de restriction par outil, on retire de la copie.
 - **Validation** (`draftErrors`, la même dans l'éditeur et sur le serveur) : les
@@ -959,10 +978,13 @@ immuables. Brouillon et version ont la même forme :
   qu'aux tests, où il est publié à la volée).
 - **Sauvegarde** : l'export JSON de l'éditeur (`format`
   « quiz-parametres-coupe/editeur/1 ») contient les tables de référence, la
-  banque et les exercices avec toutes leurs versions ; l'import **fusionne**
-  (ajoute ce qui manque, remplace les brouillons et la banque, ne supprime jamais
-  une version ni un exercice, refuse une version différente sous un numéro
-  existant) et ne touche ni aux séances ni aux attestations (D49). La validation
+  banque, les exercices avec toutes leurs versions et **les images** (fiche et
+  contenu en base64, D59) ; l'import **fusionne** (ajoute ce qui manque, remplace
+  les brouillons et la banque, ne supprime jamais une version ni un exercice,
+  refuse une version différente sous un numéro existant) et ne touche ni aux
+  séances ni aux attestations (D49). Les images de l'export absentes de la base
+  sont envoyées **une par requête** avant l'import, qui les exige ; une image
+  présente garde son contenu (nom et archivage mis à jour). La validation
   résume ce qui change dans la banque, outil par outil ; si des outils
   disparaissaient, l'import exige le mot REMPLACER, écran et serveur (D50).
 

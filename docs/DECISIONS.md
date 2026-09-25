@@ -1309,3 +1309,119 @@ d'administration, sans séance ni trace.
 
 **Conséquences.** Remplace le « plus tard » de D26 et le « reste à faire » de D34, D38, D44 ; ferme
 la piste « une clé par enseignant » de D23. `PLAN.md` (jalons 5 et 7b), SPEC §7 (mode test) et §8.
+
+## D56 — Les images vivent dans D1, en blob : une seule liste, semée depuis le dépôt, servie par /images/<id> (2026-09-25, décidée)
+
+**Contexte.** Les photos d'outils étaient des fichiers de `site/img/outils/` listés par un manifeste
+tenu à la main (`index.json`), les pictogrammes d'opérations des SVG de `site/img/pictos/operations/`
+nommés d'après l'opération. L'éditeur (D47) écrit en production sans commit : il faut pouvoir y
+téléverser une photo ou un pictogramme. D51 a écarté R2 (carte de crédit exigée) au profit de D1.
+
+**Décision.**
+
+- **Une table `images`** (migration `0007`) : identifiant, nom lisible, usage (`outil` : la photo d'un
+  outil ; `operation` : le pictogramme d'une opération), type (celui des octets), taille, empreinte
+  SHA-256, contenu en BLOB, date, date d'archivage. **Une seule route les sert, publique** :
+  `GET /images/<id>` — type exact, `X-Content-Type-Options: nosniff`, `Cache-Control: public,
+  max-age=31536000, immutable`, `ETag` (l'empreinte) et 304. Une image **ne change jamais sous le
+  même identifiant** : ni l'éditeur ni l'import ne réécrivent un contenu.
+- **Une seule liste, semée** : la migration `0007`, générée par
+  `reference/semence-d1/generer-images.mjs`, importe les 29 PNG du dépôt (identifiant = celui de
+  l'outil, nom = celui de l'outil) et les 19 SVG (identifiant = le slug de l'opération, nom = l'opération,
+  contenu assaini comme un téléversement, D57). Plutôt que de servir deux sources derrière une même
+  route : le serveur ne peut pas lister un dossier d'`ASSETS` (il aurait fallu garder un manifeste),
+  un fichier peut changer sous le même nom à un commit (le cache d'un an serait faux), et archiver ou
+  supprimer une image-fichier aurait demandé une table de « tombes ». La migration fait 420 Ko, sa
+  plus grosse instruction 32 Ko (limite D1 : 100 Ko). Les fichiers de `site/img/outils/` et
+  `site/img/pictos/operations/` **restent dans le dépôt comme semence et données des tests**, comme
+  les JSON de `site/data/` (D47) : les modifier ne change rien en production ; un test vérifie que
+  la semence leur est identique. Le manifeste `index.json` disparaît.
+- **Ce qu'une image nomme** : `image` d'un outil (copie ou banque) est l'identifiant d'une image
+  `outil` (sinon l'identifiant de l'outil, comme avant) ; le pictogramme d'une opération est son
+  `pictogramme` s'il en a un (partie B), sinon le slug de son nom — c'est l'identifiant de la semence.
+  Le quiz et les feuilles composent `/images/<id>` (`toolPhotoUrl`, `operationPicto`,
+  `sheets-data.js`).
+- **Téléversement** (rôle admin, `POST /api/prof/editeur/images/televerser`, base64 dans le JSON,
+  corps ≤ 1 Mo, image ≤ 600 Ko) : **le navigateur réduit avant l'envoi** — une photo d'outil est
+  redessinée sur fond blanc, plus grand côté 800 px, en **JPEG à 0,85** (une photo d'atelier n'a pas
+  de transparence utile, les fiches l'affichent sur blanc, et 800 px suffisent au panneau de l'outil
+  qui la montre à 120 px au plus : 40 à 150 Ko au lieu de plusieurs Mo) ; un pictogramme en image
+  matricielle est réduit à 256 px en **PNG** (aplats et transparence gardés) ; un **SVG part tel
+  quel** et le serveur l'assainit (D57). Jamais agrandie. Le serveur ne croit pas le type annoncé :
+  il le lit dans les premiers octets (PNG, JPEG, WebP) ou dans le XML. **Un doublon exact n'est pas
+  stocké deux fois** : la même empreinte rend l'image existante. L'identifiant d'un téléversement
+  vient de son empreinte (`img-<16 hex>`) : même contenu, même identifiant, sur toute base — ce qui
+  rend l'import (D59) sans conflit. (Les quatre photos que le classeur partage entre deux outils sont
+  semées deux fois, sous les deux identifiants que la banque nomme ; la règle vaut pour les téléversements.)
+- **Cycle de vie** : une image **utilisée** — par une version publiée, un brouillon, un outil de la
+  banque ou une version des tables — **ne se supprime jamais** : elle s'**archive** (retirée des
+  galeries, sauf sur l'outil qui la porte déjà ; toujours servie). Une image **jamais utilisée** peut
+  être supprimée (404 ensuite). Renommer ne change que le nom lisible. Chaque action est au journal
+  (`editeur_image_televersement`, `_renommage`, `_archivage`, `_retablissement`, `_suppression`,
+  `_import`).
+
+**Conséquences.** `worker/images.js` (règles pures : identifiants, types, base64, en-têtes,
+utilisations), `base.js` (SQL des images), `index.js` (`/images/<id>` avant `ASSETS`, six routes
+`/api/prof/editeur/images/*`), `site/js/ui/images-picker.js` (galerie, réduction dans le
+navigateur), `site/js/ui/editeur-data.js` (plan de réduction, filtre, libellés), onglet **Images** de
+l'éditeur ; SPEC §3, §7, §10 ; UI §3.3, §3.5, §3.9, §5 ; CLAUDE.md.
+
+## D57 — Un SVG téléversé est assaini par liste blanche, ou refusé (2026-09-25, décidée)
+
+**Contexte.** Un SVG est un document : il peut porter des scripts, des gestionnaires d'événement, des
+liens et des références externes. Il est affiché dans le quiz et l'éditeur.
+
+**Décision.** Le serveur relit chaque SVG téléversé avec son propre lecteur XML (`worker/svg.js` :
+le Workers runtime n'a pas de DOMParser) et le **resérialise** — ce qui est servi est ce qui a été
+relu, jamais le texte reçu.
+
+- **Refusé** (400, le message nomme la cause) : `script`, `foreignObject`, `image`, `a`, `iframe`,
+  `object`, `embed`, `video`, `audio`, les animations (`animate*`, `set`) ; tout attribut `on*` ;
+  un `href` ou `xlink:href` vers autre chose qu'un `#id` du fichier ; `url()` vers autre chose
+  qu'un `#id`, `@import`, `expression()` dans un attribut ou un `<style>` ; un DOCTYPE ; une entité
+  inconnue ; un fichier mal formé ; plus de 200 Ko ; sans `viewBox` ni largeur et hauteur.
+- **Retiré, et dit** dans la réponse (`retires`) : les éléments et attributs hors liste blanche —
+  métadonnées et attributs d'Inkscape ou d'Illustrator, `data-*`, un `xmlns` étranger.
+- **Gardé** : les formes, groupes, définitions, dégradés, masques, filtres courants, texte, `style`
+  (attribut et élément, sous les contrôles ci-dessus) ; `xmlns` est ajouté s'il manque (un `<img>`
+  ne dessine pas un SVG sans lui).
+- **Servi** avec `Content-Type: image/svg+xml; charset=utf-8`, `nosniff` et
+  `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`.
+
+Les dix-neuf pictogrammes convertis du classeur passent sans retrait (test) ; la semence les stocke assainis.
+
+**Conséquences.** `worker/svg.js` (pur, testé sur un SVG piégé), `readUpload` (`images.js`),
+`tests/worker-svg.test.js`, `tests/worker-images.test.js`.
+
+## D58 — Le gabarit de nomenclature s'édite, avec les jetons permis et l'exemple composé (2026-09-25, décidée)
+
+**Décision.** Dans le formulaire d'outil (copie ou banque), le champ `format_identifiant` (D24) est un
+champ de texte ; sous lui, un bouton par jeton **permis pour cet outil** — `[IdDia]`, `[Dia]`,
+`[Pas]` (filetage seulement), `[IdBarre]` (outil à deux diamètres seulement), `[NbDent]`,
+`[NomOutil]`, `[Operation]`, `[Matoutil]` — qui insère le jeton au curseur ; l'**exemple composé**
+se rafraîchit à la frappe, avec les premières valeurs de l'outil, et **« Autre exemple »** le tire au
+hasard dans l'outil (dimension, dents, matière, barre qui entre), comme le ferait une question. Un
+jeton inconnu ou sans valeur pour l'outil, et un crochet non apparié, sont des erreurs sous le champ
+(`toolErrors`) qui bloquent Publier — la règle du catalogue, inchangée.
+
+**Conséquences.** `permittedTokens`, `insertToken`, `exampleIdentifier(…, random)` (`editeur-data.js`) ;
+`toolErrors` (crochets) ; UI §3.9 ; SPEC §4.
+
+## D59 — La sauvegarde porte les images, envoyées à part à l'import (2026-09-25, décidée)
+
+**Contexte.** L'export (D49) doit contenir les images, sinon une restauration perd les photos. Un
+export avec quelques dizaines de photos dépasse la limite des requêtes de l'éditeur (4 Mo).
+
+**Décision.** L'**export** contient `images` : la fiche de chaque image et son **contenu en base64**
+(les 48 de la semence : 440 Ko). L'**import** se fait en morceaux : le navigateur envoie à
+`import/valider` et à `import` l'export **sans le contenu des images** (les fiches seulement) ; la
+validation dit quelles images de l'export **manquent** dans la base ; le navigateur les envoie
+**une par requête** (`POST /api/prof/editeur/images/importer`, avec leur identifiant et leur
+empreinte, que le serveur vérifie sur le contenu) ; puis l'import s'applique — il refuse (400) tant
+qu'une image manque. Une image déjà présente sous le même identifiant avec la même empreinte ne
+change pas ; avec une autre empreinte, l'import est refusé (une image ne change jamais sous le même
+identifiant). L'import met à jour le nom et l'état d'archivage des images présentes. Un export
+d'avant les images s'importe encore. **L'aller-retour reste identique**, images comprises (testé).
+
+**Conséquences.** `importPlan` (`images_manquantes`, `images_presentes`, `images_modifiees`),
+`base.applyImport`, `editeurImageImporter` ; l'onglet Sauvegarde ; SPEC §7, §10 ; DEMARRAGE §7.

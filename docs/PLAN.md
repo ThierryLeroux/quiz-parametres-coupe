@@ -122,14 +122,14 @@ Rapport de session : `docs/rapports/jalon-7b-editeur.md`. Deux parties ; la B at
 À concevoir sur les tables de `0005` : une nouvelle version des tables = une nouvelle ligne de `tables_reference` (immuable), que les publications suivantes prennent ; **le brouillon d'un exercice choisira sa version de tables** (D51).
 
 **Partie A — images et nomenclature**
-- [ ] **Téléversement d'images** (D51, D56) : photo d'un outil et pictogramme d'une opération, rôle admin, **stockées dans D1 en blob** — pas dans R2, qui exige une carte de crédit —, **réduites dans le navigateur avant l'envoi** (plus grand côté 800 px pour une photo) ; chaque image a un nom lisible, un type, une taille, une empreinte (un doublon exact n'est pas stocké deux fois) et une date
-- [ ] **Une seule liste d'images** pour l'éditeur (D56) : les fichiers de `site/img/outils/` et de `site/img/pictos/operations/` **semés dans D1** (migration `0007`), servis par une même route avec des en-têtes de cache (une image ne change jamais sous le même identifiant) ; le manifeste `site/img/outils/index.json` disparaît
-- [ ] **Archiver ou supprimer** (D56) : une image utilisée par une version publiée s'archive (retirée du choix, toujours servie) ; une image jamais utilisée peut être supprimée
-- [ ] **SVG assaini** côté serveur (D57) : liste blanche d'éléments et d'attributs, aucun script, gestionnaire d'événement, lien ni ressource externe, ou refusé ; servi avec Content-Type exact, nosniff et une Content-Security-Policy sans script ; tests avec un SVG piégé
-- [ ] **Choix de l'image** dans le formulaire d'outil : galerie de vignettes avec recherche par nom, « Téléverser » sur place ; le même choix pour le pictogramme d'une opération (partie B)
-- [ ] **Gabarit de nomenclature éditable** (D24, D58) : champ de texte, boutons qui insèrent les jetons permis pour cet outil, exemple composé en direct et « Autre exemple » ; un jeton inconnu ou sans valeur est une erreur sous le champ (`toolErrors`) qui bloque Publier
-- [ ] **Export et import avec les images** (D59) : les images font partie de la sauvegarde, envoyées à part, une par requête, pour rester sous la limite ; l'aller-retour reste identique
-- [ ] Tests, docs (SPEC, UI §3.9, DEMARRAGE), Chrome à 1280 et 390 px, captures dans `captures/jalon-7b/`, rapport de la partie A ; branche poussée
+- [x] **Téléversement d'images** (D51, D56) : photo d'un outil et pictogramme d'une opération, rôle admin, **stockées dans D1 en blob** — pas dans R2, qui exige une carte de crédit —, **réduites dans le navigateur avant l'envoi** (plus grand côté 800 px pour une photo) ; chaque image a un nom lisible, un type, une taille, une empreinte (un doublon exact n'est pas stocké deux fois) et une date
+- [x] **Une seule liste d'images** pour l'éditeur (D56) : les fichiers de `site/img/outils/` et de `site/img/pictos/operations/` **semés dans D1** (migration `0007`), servis par une même route avec des en-têtes de cache (une image ne change jamais sous le même identifiant) ; le manifeste `site/img/outils/index.json` disparaît
+- [x] **Archiver ou supprimer** (D56) : une image utilisée par une version publiée s'archive (retirée du choix, toujours servie) ; une image jamais utilisée peut être supprimée
+- [x] **SVG assaini** côté serveur (D57) : liste blanche d'éléments et d'attributs, aucun script, gestionnaire d'événement, lien ni ressource externe, ou refusé ; servi avec Content-Type exact, nosniff et une Content-Security-Policy sans script ; tests avec un SVG piégé
+- [x] **Choix de l'image** dans le formulaire d'outil : galerie de vignettes avec recherche par nom, « Téléverser » sur place ; le même choix pour le pictogramme d'une opération (partie B)
+- [x] **Gabarit de nomenclature éditable** (D24, D58) : champ de texte, boutons qui insèrent les jetons permis pour cet outil, exemple composé en direct et « Autre exemple » ; un jeton inconnu ou sans valeur est une erreur sous le champ (`toolErrors`) qui bloque Publier
+- [x] **Export et import avec les images** (D59) : les images font partie de la sauvegarde, envoyées à part, une par requête, pour rester sous la limite ; l'aller-retour reste identique
+- [x] Tests, docs (SPEC, UI §3.9, DEMARRAGE), Chrome à 1280 et 390 px, captures dans `captures/jalon-7b/`, rapport de la partie A ; branche poussée
 - [ ] **`limite_avance`** (D51) : à trancher avec les exercices d'avances ; jusque-là, éditable et marquée « non utilisée »
 
 **Partie B — tables de référence versionnées** (attendre le feu vert)

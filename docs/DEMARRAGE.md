@@ -217,6 +217,15 @@ et une séance commencée garde la sienne jusqu'à la fin. « Publier » résume
 différences avant de créer la version ; « Aperçu » tire dix questions avec leurs
 réponses. Mode d'emploi : `docs/UI.md` §3.9.
 
+Les **images** (onglet **Images**, décision D56) : les photos d'outils et les pictogrammes
+d'opérations sont dans la base, et c'est là qu'on en ajoute — depuis le formulaire d'un
+outil (**Choisir une image…**, puis **Téléverser une image**) ou depuis l'onglet. Une photo
+prise au téléphone est réduite dans le navigateur avant l'envoi (800 px, JPEG) : inutile de
+la retoucher. Un SVG est nettoyé par le serveur (scripts, liens et ressources externes refusés).
+Une image utilisée par une version publiée ne se supprime pas : on l'**archive** (elle n'est plus
+proposée, mais reste affichée là où elle est nommée). Les fichiers de `site/img/` du dépôt ne
+sont plus que la semence : y déposer un fichier ne change rien en production.
+
 L'**identifiant d'URL** d'un exercice (`?exercice=<id>`, le lien sur Léa) est
 définitif : « Renommer » ne change que le titre. Pour changer l'adresse d'un
 exercice, le **dupliquer** sous le nouvel identifiant (« Dupliquer » dans la
@@ -228,8 +237,9 @@ et il n'apparaît plus dans la liste de l'accueil.
 
 - **Sauvegarder** : **Exporter tout en JSON** télécharge
   `quiz-parametres-coupe-exercices-AAAA-MM-JJ.json` — les tables de référence, la
-  banque, tous les exercices avec leur brouillon et toutes leurs versions ; aucune
-  donnée d'étudiant. À faire avant une grosse retouche, et à la fin de chaque
+  banque, tous les exercices avec leur brouillon et toutes leurs versions, et les
+  images (photos et pictogrammes, en base64 : environ 0,5 Mo pour la semence, plus
+  40 à 150 Ko par photo téléversée) ; aucune donnée d'étudiant. À faire avant une grosse retouche, et à la fin de chaque
   session, dans un dossier hors du dépôt (le dépôt ne porte plus que la semence
   d'origine).
 - **Restaurer** : choisir le fichier sous **Importer** ; l'import est d'abord validé
@@ -241,7 +251,9 @@ et il n'apparaît plus dans la liste de l'accueil.
   un numéro déjà pris : les versions publiées sont figées. La **banque**, elle,
   est remplacée par celle de l'export : le résumé nomme les outils ajoutés,
   modifiés et ceux qui disparaîtraient ; s'il y en a, c'est **REMPLACER** qu'il
-  faut taper (les copies déjà faites dans les exercices ne changent pas).
+  faut taper (les copies déjà faites dans les exercices ne changent pas). Les
+  **images** de l'export que la base n'a pas sont envoyées une à une avant le
+  reste (le message les compte) ; une image déjà là ne change jamais.
 - En local, la même sauvegarde s'importe sur la base de `npm run dev` pour y
   reproduire la production.
 

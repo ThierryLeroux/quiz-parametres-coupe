@@ -22,9 +22,13 @@ reste remplacé par `_` : « Chanfreinage / ébavurage » → `chanfreinage_ebav
 Ils servent à la feuille des avances et au panneau de l'outil de l'écran Question, sur une pastille
 blanche.
 
-Une opération ajoutée au catalogue sans pictogramme s'affiche sans image, sans erreur ; le sien se
-dessine dans tout éditeur de SVG (palette : bleu `#00B0F0`, bouchée `#FFC000`, trait noir) et se
-dépose ici sous le bon nom.
+**Depuis le jalon 7b (décision D56), ces dix-neuf fichiers sont la semence de la table `images`**
+(migration `0007`, identifiant = le slug, contenu assaini par `worker/svg.js`) : le site les lit
+par `/images/<slug>`, jamais ici. Relancer la conversion change les fichiers du dépôt, pas la
+production : un pictogramme nouveau ou retouché se **téléverse dans l'éditeur** (onglet Images,
+usage « pictogramme d'opération »), où le serveur l'assainit (scripts, liens et ressources externes
+refusés, D57). Une opération sans pictogramme s'affiche sans image, sans erreur ; le sien se dessine
+dans tout éditeur de SVG (palette : bleu `#00B0F0`, bouchée `#FFC000`, trait noir).
 
 ## `miniatures/` — deux SVG de la feuille Formules
 
