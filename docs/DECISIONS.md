@@ -1261,3 +1261,28 @@ et une Vf cohérente avec un N saisi faux est acceptée pour Vf et refusée pour
 
 **Conséquences.** `FEED_RATE_TOLERANCES` par famille dans `correction.js` ; la ligne de correction
 dit « ±0.01 % de N × f » en filetage ; SPEC §6 (tableau et précisions) ; tests sur le taraud M10 x 1.50.
+
+## D54 — Avertissement quand une grandeur à trouver se déduit des grandeurs fournies (2026-09-24, décidée)
+
+**Contexte.** Avec les trois états (D52), un exercice peut fournir N et demander Vc : l'étudiant lit
+alors Vc = N × Ø / (4 × facteur Vc) sans ouvrir la table. Le masquage cache une valeur, pas une
+relation. L'enseignant doit le savoir au moment de régler l'exercice.
+
+**Décision.** L'éditeur affiche un **avertissement non bloquant** — sans effet sur Publier — quand une
+grandeur **évaluée ou masquée** se déduit des grandeurs **fournies** et des données de la question
+(Ø, facteur Vc, limite RPM, nombre de dents). Seules les grandeurs fournies servent de source : une
+grandeur évaluée n'est pas connue de l'étudiant. Relations couvertes, celles du moteur :
+
+- Vc et N : N = Vc × 4 / Ø × facteur Vc, plafonné à la limite RPM. N se déduit de Vc fournie ; Vc se
+  déduit de N fourni **sauf si N est plafonné** (le message le dit : « sauf si N est plafonné par la
+  limite RPM »).
+- fz et f : f = fz × dents ; chacune se déduit de l'autre.
+- N, f et Vf : Vf = N × f ; deux fournies donnent la troisième.
+
+Le message nomme la grandeur et la relation (« Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur
+Vc), sauf si N est plafonné par la limite RPM. »), sous les états dans les réglages, rafraîchi à
+chaque changement, et repris dans la confirmation de publication. Les deux M10 semés en portent un
+(Vc se déduit de N ; N se déduit de f et Vf) : c'est voulu, à l'enseignant de juger.
+
+**Conséquences.** `deducibleWarnings` (`editeur-data.js`, pure, testée) ; `editeur.js` l'affiche ;
+UI §3.9.

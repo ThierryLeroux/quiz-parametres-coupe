@@ -300,12 +300,20 @@ Chrome à 1280 et 390 px : 22 vérifications, 10 captures de plus (`27` à `36` 
    acceptée pour Vf et refusée pour N. Les cas limites existants du filetage (D15) recalculés ;
    les autres familles gardent ±0,5 % (test). SPEC §6 (tableau et précisions), DECISIONS.
 
+9. **Grandeurs déductibles (D54).** Sous les états, un avertissement doré, non bloquant, nomme chaque
+   grandeur évaluée ou masquée qui se déduit des grandeurs fournies, avec sa relation : Vc et N (par
+   le Ø, le facteur Vc et la limite RPM — « sauf si N est plafonné » dans le sens N → Vc), fz et f (par
+   les dents), N, f et Vf (deux fournies donnent la troisième). Seules les grandeurs fournies servent
+   de source. Rafraîchi à chaque changement d'état ; repris dans la confirmation de publication ;
+   Publier n'en tient pas compte (`deducibleWarnings`, huit cas testés, `publishState` inchangé).
+   Chrome (7 vérifications, captures 37 à 39) : le M10 « vitesse de coupe » avertit « Vc se déduit
+   de N fourni », N évaluée change l'avertissement en « N se déduit de f et Vf », f masquée en « f se
+   déduit de fz », la confirmation de publication le reprend et le bouton reste actif.
+
 Points douteux :
 
-- **Vf déductible d'une grandeur masquée.** Si N est masqué et que f et Vf sont fournis, l'étudiant
-  lit N = Vf / f dans les valeurs montrées ; de même Vc depuis N si N est fourni. Le masquage cache
-  la valeur, pas la relation. À l'enseignant de choisir des états cohérents ; l'éditeur ne prévient
-  pas.
+- **Les deux M10 semés portent un avertissement** (Vc se déduit de N ; N se déduit de f et Vf) : c'est
+  la conséquence voulue de la règle, à toi de juger si leurs états restent ceux-là.
 - **Lecture des filetages** affichée seulement pour la famille filetage : pour les autres outils,
   une valeur illisible est déjà signalée par l'erreur sous le champ, sans liste à droite.
 - **Couleur du K** : `--iso-k-night` (le rouge éclairci du panneau du matériau brut) plutôt que
@@ -315,10 +323,11 @@ Points douteux :
   tout reprendre.
 
 Commits : 15. textes visibles ; 16. pastilles ; 17. lignes d'outils ; 18. formulaire par thèmes ;
-19. lecture des filetages ; 20. trois états (D52) ; 21. Vf en filetage (D53) ; 22. UI et rapport.
+19. lecture des filetages ; 20. trois états (D52) ; 21. Vf en filetage (D53) ; 22. UI et rapport ;
+23. grandeurs déductibles (D54) ; 24. ses docs et captures.
 
 ## Reste
 
-Relire D47 à D53, les migrations `0005` (générée) et `0006`, UI §3.9 ; fusionner ; après le
+Relire D47 à D54, les migrations `0005` (générée) et `0006`, UI §3.9 ; fusionner ; après le
 déploiement (les deux migrations s'appliquent seules, section D), vérifier l'éditeur en production et
 faire le premier export. Le jalon 7b est décrit dans `PLAN.md`.
