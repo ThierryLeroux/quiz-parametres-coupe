@@ -2,6 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ANSWER_FIELDS, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
+import { computeParameters } from '../site/js/calcul.js';
+import { formatParameters } from '../site/js/format.js';
+import { data, questionPour } from './aide.js';
 
 // Valeurs théoriques des cas de référence de tests/calcul.test.js (une par famille d'avance).
 // feedRate est écrit comme le moteur le calcule, bruit de virgule flottante compris.
@@ -70,18 +73,18 @@ for (const [famille, attendu, champ, tolerance, min, max, sousMin, surMax] of CA
   });
 }
 
-// Vf (D15), même règle pour les trois familles : ±0,5 % de N_saisi × f_saisi, N et f étant pris à
-// la précision de leur affichage (D13).
-//   min = (N − ½ unité) × (f − ½ unité) × 0,995      max = (N + ½ unité) × (f + ½ unité) × 1,005
+// Vf (D15) : ±0,5 % de N_saisi × f_saisi — ±0,01 % en filetage (D53) —, N et f étant pris à la précision
+// de leur affichage (D13).
+//   min = (N − ½ unité) × (f − ½ unité) × (1 − t)      max = (N + ½ unité) × (f + ½ unité) × (1 + t)
 // [famille, valeurs théoriques, min, max, dernière saisie refusée, première acceptée, dernière acceptée, première refusée]
 const CASES_VF = [
-  ['filetage', FILETAGE, 399.5 * 0.124995 * 0.995, 400.5 * 0.125005 * 1.005, '49.68', '49.69', '50.31', '50.32'], // [49,6858… ; 50,3148…]
+  ['filetage', FILETAGE, 399.5 * 0.124995 * 0.9999, 400.5 * 0.125005 * 1.0001, '49.93', '49.931', '50.069', '50.07'], // [49,9305… ; 50,0695…]
   ['avance fixe', FIXE, 799.5 * 0.00495 * 0.995, 800.5 * 0.00505 * 1.005, '3.937', '3.938', '4.062', '4.063'], // [3,9377… ; 4,0627…]
   ['avance proportionnelle', PROPORTIONNELLE, 1599.5 * 0.00295 * 0.995, 1600.5 * 0.00305 * 1.005, '4.694', '4.695', '4.905', '4.906'], // [4,6949… ; 4,9059…]
 ];
 
 for (const [famille, attendu, min, max, sousMin, dansMin, dansMax, surMax] of CASES_VF) {
-  test(`SPEC §6 — ${famille}, feedRate : ±0,5 % de N_saisi × f_saisi`, () => {
+  test(`SPEC §6 — ${famille}, feedRate : ${attendu.feedType === 'thread' ? '±0,01 %' : '±0,5 %'} de N_saisi × f_saisi`, () => {
     const bornes = corrigerChamp(attendu, 'feedRate', dansMin);
     assert.ok(Math.abs(bornes.min - min) < 1e-9 && Math.abs(bornes.max - max) < 1e-9, `[${bornes.min} ; ${bornes.max}] ≠ [${min} ; ${max}]`);
     assert.equal(corrigerChamp(attendu, 'feedRate', sousMin).ok, false);
@@ -130,15 +133,15 @@ test('D13 : la demi-unité d’affichage élargit une tolérance plus étroite q
 
 test('D15 : Vf est jugée sur N_saisi × f_saisi, pas sur la valeur théorique (filetage, N réduit)', () => {
   // L'étudiant réduit N à 200 rév/min (permis : −90 %) ; f = 0,125 → Vf cohérente = 25
-  // min = 199,5 × 0,124995 × 0,995 = 24,81… ; max = 200,5 × 0,125005 × 1,005 = 25,18…
+  // min = 199,5 × 0,124995 × 0,9999 = 24,934… ; max = 200,5 × 0,125005 × 1,0001 = 25,066… (filetage : ±0,01 %, D53)
   const reponses = { ...BONNES.get(FILETAGE), rpm: '200' };
   const vf = (saisie) => gradeAnswers(FILETAGE, { ...reponses, feedRate: saisie });
 
   assert.equal(vf('25').success, true);
-  assert.equal(vf('24.82').fields.feedRate.ok, true);
-  assert.equal(vf('25.18').fields.feedRate.ok, true);
-  assert.equal(vf('24.81').fields.feedRate.ok, false);
-  assert.equal(vf('25.19').fields.feedRate.ok, false);
+  assert.equal(vf('24.935').fields.feedRate.ok, true);
+  assert.equal(vf('25.066').fields.feedRate.ok, true);
+  assert.equal(vf('24.933').fields.feedRate.ok, false);
+  assert.equal(vf('25.067').fields.feedRate.ok, false);
   assert.equal(vf('50').fields.feedRate.ok, false); // la Vf théorique n'est pas cohérente avec N = 200
 });
 
@@ -235,9 +238,48 @@ test('le résultat est sérialisable en JSON', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(resultat)), resultat);
 });
 
+// --- D53 : Vf en filetage à ±0,01 % de N_saisi × f_saisi (les autres familles restent à ±0,5 %) ---------------------
+// Taraud métrique M10 x 1.50, acier rapide, acier 1020 : Vc 100, N = 100 × 4 / 0.3937 = 1016 → plafonnée à 1000 ;
+// f = pas = 1.5 / 25.4 = 0.05905511… po (affiché « 0.05906 ») ; Vf exacte = 59.0551… (affichée « 59.055 »).
+const TARAUD_M10 = computeParameters(questionPour({ outil: 'taraud_metrique', dimension: 'M10 x 1.50', dents: 1, materiauOutil: 'Acier rapide', groupeMateriau: 1 }), data);
+const AFFICHE_M10 = formatParameters(TARAUD_M10);
+
+test('D53, filetage : f saisi arrondi à l’affichage (0.05906) et Vf calculée avec le pas exact (59.055) → acceptée', () => {
+  assert.deepEqual([TARAUD_M10.feedType, AFFICHE_M10.rpm, AFFICHE_M10.feedPerRev, AFFICHE_M10.feedRate], ['thread', '1000', '0.05906', '59.055']);
+  const resultat = gradeAnswers(TARAUD_M10, { vc: '100', feedPerTooth: '0.05906', rpm: '1000', feedPerRev: '0.05906', feedRate: '59.055' });
+  assert.equal(resultat.success, true);
+});
+
+test('D53, filetage : Vf calculée sur le pas arrondi (1000 × 0.05906 = 59.06) → acceptée', () => {
+  const resultat = gradeAnswers(TARAUD_M10, { vc: '100', feedPerTooth: '0.05906', rpm: '1000', feedPerRev: '0.05906', feedRate: '59.06' });
+  assert.equal(resultat.fields.feedRate.ok, true);
+  assert.equal(resultat.success, true);
+});
+
+test('D53, filetage : une Vf décalée de 0,1 % (59.119) → refusée, alors que ±0,5 % l’aurait acceptée', () => {
+  const resultat = gradeAnswers(TARAUD_M10, { vc: '100', feedPerTooth: '0.05906', rpm: '1000', feedPerRev: '0.05906', feedRate: String(Number((59.06 * 1.001).toFixed(3))) });
+  assert.equal(resultat.fields.feedRate.ok, false);
+  assert.ok(resultat.fields.feedRate.max < 59.119 && resultat.fields.feedRate.max > 59.09, `max = ${resultat.fields.feedRate.max}`); // N ± 0.5 et f ± 0.000005, puis ±0,01 % et la demi-unité de Vf
+  assert.ok(59.119 < 59.06 * 1.005); // sous l'ancienne tolérance de ±0,5 %, elle passait
+  assert.equal(resultat.success, false);
+});
+
+test('D53, filetage : une Vf cohérente avec un N saisi faux (1002 → Vf 59.178) → Vf acceptée, N refusé', () => {
+  const resultat = gradeAnswers(TARAUD_M10, { vc: '100', feedPerTooth: '0.05906', rpm: '1002', feedPerRev: '0.05906', feedRate: '59.178' });
+  assert.equal(resultat.fields.feedRate.ok, true);
+  assert.equal(resultat.fields.rpm.ok, false); // filetage : de −90 % à +0,1 % ; 1002 dépasse
+  assert.equal(resultat.success, false);
+});
+
+test('D53 : les autres familles gardent ±0,5 % pour Vf', () => {
+  assert.equal(gradeAnswers(FIXE, { ...BONNES.get(FIXE), feedRate: String(800 * 0.005 * 1.004) }).fields.feedRate.ok, true);
+  assert.equal(gradeAnswers(PROPORTIONNELLE, { ...BONNES.get(PROPORTIONNELLE), feedRate: String(4.8 * 1.004) }).fields.feedRate.ok, true);
+  assert.equal(gradeAnswers(FILETAGE, { ...BONNES.get(FILETAGE), feedRate: String(50 * 1.004) }).fields.feedRate.ok, false);
+});
+
 test('toleranceLabel : la tolérance de chaque champ, en clair, telle que le tableau de la SPEC §6', () => {
   const ligne = (type) => ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate'].map((champ) => toleranceLabel(type, champ));
-  assert.deepEqual(ligne('thread'), ['exacte', '±0.1 %', 'de −90 % à +0.1 %', '±0.1 %', '±0.5 % de N × f']);
+  assert.deepEqual(ligne('thread'), ['exacte', '±0.1 %', 'de −90 % à +0.1 %', '±0.1 %', '±0.01 % de N × f']); // D53
   assert.deepEqual(ligne('fixed'), ['exacte', 'exacte', '±5 % et ±1 rév/min', '±0.1 %', '±0.5 % de N × f']);
   assert.deepEqual(ligne('proportional'), ['exacte', '±25 %, au plus ±0.001 po', '±5 % et ±1 rév/min', '±20 %', '±0.5 % de N × f']);
   assert.throws(() => toleranceLabel('inconnue', 'vc'), /Tolérance inconnue/);

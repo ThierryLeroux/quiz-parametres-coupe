@@ -1247,3 +1247,17 @@ saisie, ni valeur montrée.
 `correctionView` (`seance.js`), l'écran Question (`field--masked`), `fieldStates`,
 `statesToDraft`, `previewColumns` (`editeur-data.js`) ; SPEC §7, §10 ; UI §3.3, §3.9. Tests :
 aucune valeur masquée dans les réponses de l'API, correction inchangée pour les M10.
+
+## D53 — Vitesse d'avance en filetage : cohérence à ±0,01 % (2026-09-24, décidée)
+
+**Contexte.** En filetage (tarauds, barres à fileter, SDTMR), l'avance est le pas, exact ; une Vf
+tolérée à ±0,5 % de *N_saisi × f_saisi* (D15) laissait passer une Vf calculée de travers.
+
+**Décision.** Pour la famille filetage, la tolérance de cohérence de Vf est **±0,01 %** de
+*N_saisi × f_saisi* ; les autres familles restent à ±0,5 %. La plage (N ± demi-unité) × (f ±
+demi-unité) et la demi-unité d'affichage de Vf (D13) restent appliquées : une Vf calculée avec le
+pas exact ou avec le pas arrondi à l'affichage est acceptée, une Vf décalée de 0,1 % ne l'est pas,
+et une Vf cohérente avec un N saisi faux est acceptée pour Vf et refusée pour N.
+
+**Conséquences.** `FEED_RATE_TOLERANCES` par famille dans `correction.js` ; la ligne de correction
+dit « ±0.01 % de N × f » en filetage ; SPEC §6 (tableau et précisions) ; tests sur le taraud M10 x 1.50.

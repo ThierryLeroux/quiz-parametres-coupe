@@ -15,8 +15,10 @@ export const ANSWER_FIELDS = ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRa
 const EXACT = { below: 0, above: 0 };
 const within = (fraction) => ({ below: fraction, above: fraction });
 
-// Vf, toutes familles (D15) : cohérence interne, ±0,5 % de N_saisi × f_saisi. Voir feedRateInterval.
-const FEED_RATE_TOLERANCE = within(0.005);
+// Vf (D15) : cohérence interne avec N_saisi × f_saisi — ±0,5 %, sauf en filetage, ±0,01 % (D53 : le pas
+// est exact, Vf doit l'être aussi ; la plage N ± demi-unité × f ± demi-unité et la demi-unité de Vf
+// restent appliquées). Voir feedRateInterval.
+const FEED_RATE_TOLERANCES = { thread: within(0.0001), fixed: within(0.005), proportional: within(0.005) };
 
 const TOLERANCES = {
   thread: {
@@ -45,7 +47,7 @@ const TOLERANCES = {
 // (La demi-unité d'affichage de D13 n'y est pas dite : elle ne sert qu'à accepter les arrondis.)
 export function toleranceLabel(feedType, field) {
   const percent = (fraction) => `${Number((fraction * 100).toPrecision(6))} %`;
-  const tolerance = field === 'feedRate' ? FEED_RATE_TOLERANCE : TOLERANCES[feedType]?.[field];
+  const tolerance = field === 'feedRate' ? FEED_RATE_TOLERANCES[feedType] : TOLERANCES[feedType]?.[field];
   if (!tolerance) throw new Error(`Tolérance inconnue : « ${feedType} », « ${field} »`);
   if (tolerance.below === 0 && tolerance.above === 0) return 'exacte';
   let label = tolerance.below === tolerance.above ? `±${percent(tolerance.above)}` : `de −${percent(tolerance.below)} à +${percent(tolerance.above)}`;
@@ -89,13 +91,15 @@ function acceptedInterval(reference, tolerance, halfUnit) {
 // Intervalle accepté pour Vf (D15) : cohérence avec N et f, pas avec la valeur théorique.
 // N et f ne sont connus qu'à la précision de leur affichage (D13) : « 4 » rév/min peut être
 // 4,375 dans la calculatrice de l'étudiant. Vf doit donc tomber entre le plus petit et le
-// plus grand produit N × f possibles, élargis de ±0,5 % (ou de la demi-unité de Vf).
-function feedRateInterval(rpm, feedPerRev, halfUnits) {
+// plus grand produit N × f possibles, élargis de la tolérance de la famille (±0,5 %, ou ±0,01 % en
+// filetage, D53) ou de la demi-unité de Vf.
+function feedRateInterval(rpm, feedPerRev, halfUnits, feedType) {
+  const tolerance = FEED_RATE_TOLERANCES[feedType];
   const lowest = Math.max(rpm - halfUnits.rpm, 0) * Math.max(feedPerRev - halfUnits.feedPerRev, 0);
   const highest = (rpm + halfUnits.rpm) * (feedPerRev + halfUnits.feedPerRev);
   return {
-    min: acceptedInterval(lowest, FEED_RATE_TOLERANCE, halfUnits.feedRate).min,
-    max: acceptedInterval(highest, FEED_RATE_TOLERANCE, halfUnits.feedRate).max,
+    min: acceptedInterval(lowest, tolerance, halfUnits.feedRate).min,
+    max: acceptedInterval(highest, tolerance, halfUnits.feedRate).max,
   };
 }
 
@@ -134,7 +138,7 @@ export function gradeAnswers(expected, answers, fieldsToGrade = ANSWER_FIELDS) {
     // Vf : on part de ce que l'étudiant a saisi pour N et f ; un champ non saisi (pré-rempli,
     // vide ou illisible) est remplacé par sa valeur théorique.
     const { min, max } = field === 'feedRate'
-      ? feedRateInterval(values.rpm ?? expected.rpm, values.feedPerRev ?? expected.feedPerRev, halfUnits)
+      ? feedRateInterval(values.rpm ?? expected.rpm, values.feedPerRev ?? expected.feedPerRev, halfUnits, expected.feedType)
       : acceptedInterval(expected[field], tolerances[field], halfUnits[field]);
 
     const value = values[field];

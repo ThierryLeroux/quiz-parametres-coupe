@@ -180,7 +180,7 @@ commande CNC et dans les libellés ; la saisie accepte le point et la virgule
 | Avance par dent | ±0,1 % | exact | ±25 %, borné à ±0,001 po |
 | N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 %, élargie de ±1 rév/min | ±5 %, élargie de ±1 rév/min |
 | Avance par révolution | ±0,1 % | ±0,1 % | ±20 % |
-| Vitesse d'avance | ±0,5 % de *N_saisi × f_saisi* (cohérence interne, D15) | idem | idem |
+| Vitesse d'avance | **±0,01 %** de *N_saisi × f_saisi* (cohérence interne, D15, D53) | ±0,5 % de *N_saisi × f_saisi* | ±0,5 % de *N_saisi × f_saisi* |
 
 Précisions :
 
@@ -203,17 +203,22 @@ Précisions :
   ensuite (elle ne change rien à ces deux exemples).
 - N en filetage : borne basse à −90 % (la vitesse peut être réduite pour
   fileter). Le VBA appliquait −90,1 % ; ce n'est pas repris.
-- **Vitesse d'avance (décision D15)**, toutes familles : vérifiée à ±0,5 % de
-  *N_saisi × f_saisi*, c.-à-d. la **cohérence interne** de la réponse, pas la
-  valeur théorique. N et f sont corrigés à part, chacun dans sa cellule : une Vf
-  cohérente avec un N faux est bonne, et l'erreur est comptée sur N.
-  - Un champ N ou f non saisi (pré-rempli, vide ou illisible) est remplacé par
-    sa valeur théorique.
+- **Vitesse d'avance (décisions D15, D53)**, toutes familles : vérifiée par la
+  **cohérence interne** de la réponse — *N_saisi × f_saisi* —, pas la valeur
+  théorique : ±0,5 % en avance fixe et proportionnelle, **±0,01 % en filetage**
+  (tarauds, barres à fileter, SDTMR : le pas est exact, Vf doit l'être aussi).
+  N et f sont corrigés à part, chacun dans sa cellule : une Vf cohérente avec un
+  N faux est bonne, et l'erreur est comptée sur N.
+  - Un champ N ou f non saisi (pré-rempli, masqué, vide ou illisible) est remplacé
+    par sa valeur théorique.
   - N et f ne sont connus qu'à la précision de leur affichage (D13) : le produit
     de référence est pris sur toute la plage (N ± demi-unité) × (f ± demi-unité),
-    puis élargi de ±0,5 % ou de la demi-unité de Vf. Ex. lame à tronçonner :
-    N affiché « 4 » (théorique 4,375), f = 0,004 → la Vf théorique 0,0175,
-    affichée « 0.018 », est acceptée, tout comme 4 × 0,004 = 0,016.
+    puis élargi de la tolérance de la famille ou de la demi-unité de Vf. Ex. lame
+    à tronçonner : N affiché « 4 » (théorique 4,375), f = 0,004 → la Vf théorique
+    0,0175, affichée « 0.018 », est acceptée, tout comme 4 × 0,004 = 0,016. Ex.
+    taraud M10 x 1.50 (N = 1000, f = 0,05906 affiché) : Vf calculée avec le pas
+    exact (59,055) ou avec le pas arrondi (59,06) est acceptée ; décalée de 0,1 %
+    (59,119), refusée.
 - Saisie : le point et la virgule sont acceptés comme séparateur décimal
   (D10) ; un champ vide ou illisible est une mauvaise réponse.
 
