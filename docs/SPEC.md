@@ -410,8 +410,8 @@ porte toute la sauvegarde).
 | `POST /api/prof/editeur/banque/enregistrer` | `{ id, revision, outil }` | `{ enregistre: true, revision, erreurs }` — 409 révision périmée |
 | `POST /api/prof/editeur/banque/archiver` | `{ id, archive }` | `{ archive, id }` |
 | `GET /api/prof/editeur/export` | cookie admin | `{ format, exporte_le, version_serveur, tables_reference, banque, exercices: [ { id, brouillon, archive_le, cree_le, publie_le, versions } ] }` — la sauvegarde complète, sans données d'étudiants (D49) |
-| `POST /api/prof/editeur/import/valider` | `{ export }` | `{ erreurs, resume }` — ce que l'import ferait ; rien n'est écrit |
-| `POST /api/prof/editeur/import` | `{ export, confirmation: "IMPORTER" }` | `{ importe: true, resume }` — fusion en un seul lot (D49) ; 400 sans le mot ou avec des erreurs, rien n'est touché |
+| `POST /api/prof/editeur/import/valider` | `{ export }` | `{ erreurs, resume }` — ce que l'import ferait, rien n'est écrit ; `resume.banque` = `{ ajoutes, modifies, retires, gardes }`, les trois listes par `{ id, nom }` (D50) |
+| `POST /api/prof/editeur/import` | `{ export, confirmation }` | `{ importe: true, resume }` — fusion en un seul lot (D49) ; le mot attendu est **IMPORTER**, ou **REMPLACER** si des outils de la banque disparaîtraient (D50) ; 400 sans le mot attendu (`mot` joint, le message nomme les outils) ou avec des erreurs, rien n'est touché |
 
 `saisies` : les champs évalués, en texte, sous les noms du moteur —
 `{ vc, feedPerTooth, rpm, feedPerRev, feedRate }`. Tout le reste est ignoré.
@@ -595,7 +595,9 @@ par une correction, ou constatée à la demande de question quand l'exercice a
 }
 ```
 
-- `revision` : la version de l'exercice à la réussite (`version_exercice_reussite`) ;
+- `revision` : la version de l'exercice à la réussite (`version_exercice_reussite`) — depuis D47,
+  le numéro de la version publiée (« 1 »), affiché « version 1 » (D50) ; une attestation figée
+  avant porte « r0 » et s'affiche telle quelle ;
   `revision_tables` : la révision de chaque table de référence (clé `revision`
   de `materiaux.json` et `operations.json`, D28) ;
 - `outils` : exactement `progression.outils` tel que le serveur le montre à
@@ -939,7 +941,9 @@ immuables. Brouillon et version ont la même forme :
   banque et les exercices avec toutes leurs versions ; l'import **fusionne**
   (ajoute ce qui manque, remplace les brouillons et la banque, ne supprime jamais
   une version ni un exercice, refuse une version différente sous un numéro
-  existant) et ne touche ni aux séances ni aux attestations (D49).
+  existant) et ne touche ni aux séances ni aux attestations (D49). La validation
+  résume ce qui change dans la banque, outil par outil ; si des outils
+  disparaissaient, l'import exige le mot REMPLACER, écran et serveur (D50).
 
 ## 11. Questions ouvertes (résumé)
 

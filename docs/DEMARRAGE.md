@@ -238,7 +238,10 @@ et il n'apparaît plus dans la liste de l'accueil.
   absents, remplace les brouillons et la banque, ne supprime jamais une version
   publiée ni un exercice, et ne touche ni aux séances ni aux attestations. Un
   export réimporté tel quel ne change rien. Il refuse une version différente sous
-  un numéro déjà pris : les versions publiées sont figées.
+  un numéro déjà pris : les versions publiées sont figées. La **banque**, elle,
+  est remplacée par celle de l'export : le résumé nomme les outils ajoutés,
+  modifiés et ceux qui disparaîtraient ; s'il y en a, c'est **REMPLACER** qu'il
+  faut taper (les copies déjà faites dans les exercices ne changent pas).
 - En local, la même sauvegarde s'importe sur la base de `npm run dev` pour y
   reproduire la production.
 

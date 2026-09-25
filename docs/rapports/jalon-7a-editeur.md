@@ -188,7 +188,34 @@ puis pousser ; c'est inutile, et l'ordre inverse (déployer avant de migrer) est
 14. **Choix visuels non maquettés** : volets repliables par outil, cases à cocher pour grandeurs, matières
     et groupes, dimensions en zone de texte, panneau doré de confirmation, tableau d'aperçu.
 
+## Suites données (réponses de Thierry, D50)
+
+Trois commits de plus sur la branche. `npm test` : 494 tests, `fail 0` ; `test:api` : 25 étapes ;
+Chrome : la confirmation d'import avec disparitions vérifiée (5 vérifications, 2 captures de plus).
+
+1. *Points 1, 3, 4 et 6 acceptés tels quels.* DEMARRAGE §7 dit comment changer l'adresse d'un
+   exercice : le dupliquer sous le nouvel identifiant, publier la copie, donner le nouveau lien, archiver l'ancien.
+2. *Point 2 accepté* ; en plus, l'attestation affiche **« version 1 »** (`exerciseVersionLabel`,
+   `attestation-data.js`) et « A2026_r0 » comme révision des tables, et `/verifier` montre les deux
+   (même `attestationFacts`). L'enregistrement figé n'est pas touché (`revision: "1"`), et une
+   attestation d'avant (« r0 ») s'affiche telle quelle. Tests : le libellé, et l'enregistrement d'une
+   séance réussie sur D1 porte bien `revision "1"` et `revision_tables A2026_r0`.
+3. *Point 5* : la validation d'un import résume la banque outil par outil — `resume.banque =
+   { ajoutes, modifies, retires, gardes }`, par nom — ; la page l'affiche (« DISPARAÎTRAIENT : Alésoir
+   (alesoir), MVLNR (mvlnr) ») et, s'il y a des disparitions, le bouton devient « Importer et
+   remplacer la banque » et la confirmation exige **REMPLACER** ; le **serveur l'exige aussi** (400
+   « Pour importer, la requête doit porter le mot REMPLACER — 2 outil(s) de la banque
+   disparaîtraient : Alésoir, MVLNR. ») et REMPLACER ne vaut pas quand rien ne disparaît. Tests :
+   `importPlan` et `importWord`, `importSummaryLines`, le même mot des deux côtés, l'API (validation
+   nommée, IMPORTER refusé, REMPLACER accepté, copies des exercices intactes, journal).
+4. Les huit autres points restent ouverts, en attendant les réponses.
+
+Commits : 8. DEMARRAGE (changer l'adresse d'un exercice) ; 9. attestation « version 1 » et révision des
+tables ; 10. import avec les outils de la banque nommés et REMPLACER ; 11. docs (D50, SPEC, UI,
+DEMARRAGE) et rapport.
+
 ## Reste
 
-Relire D47 à D49, la migration `0005` (générée) et UI §3.9 ; fusionner ; après le déploiement, vérifier
-l'éditeur en production et faire le premier export (section D). Le jalon 7b est décrit dans `PLAN.md`.
+Relire D47 à D50, la migration `0005` (générée) et UI §3.9 ; les huit points ouverts du rapport ;
+fusionner ; après le déploiement, vérifier l'éditeur en production et faire le premier export
+(section D). Le jalon 7b est décrit dans `PLAN.md`.

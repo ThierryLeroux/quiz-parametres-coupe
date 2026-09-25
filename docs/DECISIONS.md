@@ -1166,3 +1166,27 @@ le Workers runtime refuse tout autre export du module d'entrée (un test le vér
 `importPlan` (`worker/editeur.js`) ; `base.exportEditorData`, `base.applyImport`.
 `DEMARRAGE.md` §7 : la sauvegarde par export, la restauration par import. La `CLE_ADMIN` reste le
 seul secret de l'éditeur.
+
+## D50 — Réponses au rapport du jalon 7a (2026-09-24, décidée)
+
+Points tranchés par Thierry, sur D47 à D49 :
+
+- **`test-complet` non semé**, **exercice archivé** (les séances en cours finissent), **renommer =
+  le titre du brouillon** (l'identifiant d'URL est définitif) et **exports du module d'entrée** :
+  acceptés tels quels. Pour **changer l'adresse d'un exercice**, on le duplique sous un nouvel
+  identifiant et on archive l'ancien (`DEMARRAGE.md` §7).
+- **La version d'un exercice est son numéro** : accepté. L'attestation des nouvelles séances affiche
+  **« version 1 »** comme version de l'exercice et la révision des tables de référence
+  (**« A2026_r0 »**) ; `/verifier` montre les deux. Le libellé est celui de l'affichage
+  (`exerciseVersionLabel`, `attestation-data.js`) : l'enregistrement figé garde `revision: "1"`, et
+  les attestations déjà émises (`"r0"`) restent telles quelles, à l'écran aussi.
+- **Import et banque** : avant d'importer, la confirmation montre ce que l'import change dans la
+  banque — outils ajoutés, modifiés et surtout **ceux qui disparaîtraient, par nom**. S'il y a des
+  disparitions, la confirmation exige de taper **REMPLACER** au lieu d'IMPORTER, et **le serveur
+  l'exige aussi** (400 sinon, le message dit le mot attendu et les outils). Les copies déjà faites
+  dans les exercices ne changent pas ; un outil disparu ne peut plus être ajouté.
+- Les huit autres points du rapport restent ouverts : Thierry y revient.
+
+**Conséquences.** `importWord`, `REPLACE_WORD` (`worker/editeur.js` ; les mêmes mots dans
+`editeur-data.js`, un test le vérifie), le résumé d'import `banque: { ajoutes, modifies, retires,
+gardes }` ; SPEC §7 (API), §8, §10 ; UI §3.6, §3.9 ; DEMARRAGE §7.
