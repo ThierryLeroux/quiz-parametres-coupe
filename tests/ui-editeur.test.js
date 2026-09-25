@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exportFileName, fieldStates, fieldStatesText,
-  filterImages, fittedSize, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  filterImages, fittedSize, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
@@ -235,8 +235,18 @@ test('permittedTokens et insertToken (D58) : [Pas] pour un filetage seulement, [
 
 test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agrandie, galerie filtrée sans casse ni accents, libellés', () => {
   assert.deepEqual(uploadPlan('outil', false), { resize: true, maxSide: 800, type: 'image/jpeg', quality: 0.85, background: '#ffffff' });
+  assert.deepEqual(uploadPlan('outil', false, false), uploadPlan('outil', false));
+  // Une photo avec de la transparence garde le PNG, sans fond blanc (D60) ; un pictogramme est en PNG de toute façon.
+  assert.deepEqual(uploadPlan('outil', false, true), { resize: true, maxSide: 800, type: 'image/png', quality: undefined, background: null });
   assert.deepEqual(uploadPlan('operation', false), { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null });
+  assert.deepEqual(uploadPlan('operation', false, true), uploadPlan('operation', false));
   assert.deepEqual(uploadPlan('operation', true), { resize: false, type: 'image/svg+xml' });
+  assert.deepEqual(uploadPlan('outil', true, true), { resize: false, type: 'image/svg+xml' });
+  // hasTransparency : un seul pixel non opaque suffit ; une image vide ou toute opaque n'en a pas.
+  assert.equal(hasTransparency(new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255])), false);
+  assert.equal(hasTransparency(new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 254])), true);
+  assert.equal(hasTransparency(new Uint8ClampedArray([0, 0, 0, 0])), true);
+  assert.equal(hasTransparency(new Uint8ClampedArray([])), false);
   assert.deepEqual(fittedSize(4000, 3000, 800), { width: 800, height: 600 });
   assert.deepEqual(fittedSize(300, 1200, 800), { width: 200, height: 800 });
   assert.deepEqual(fittedSize(100, 50, 800), { width: 100, height: 50 }); // jamais agrandie

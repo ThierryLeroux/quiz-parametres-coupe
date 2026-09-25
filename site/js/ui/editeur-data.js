@@ -282,13 +282,22 @@ export function insertToken(text, start, end, token) {
 // --- Images (D56) : galerie, téléversement ------------------------------------------------------------------------
 
 // Ce que le navigateur fait d'un fichier avant l'envoi : un SVG part tel quel (le serveur l'assainit) ;
-// une photo d'outil est redessinée sur fond blanc, plus grand côté 800 px, en JPEG à 0,85 (une photo
-// d'atelier : 40 à 150 Ko, sans transparence utile — la fiche l'affiche sur blanc) ; un pictogramme en
-// image matricielle est réduit à 256 px, en PNG (aplats et transparence gardés). Jamais agrandi.
-export function uploadPlan(usage, isSvg) {
+// une photo d'outil est réduite au plus grand côté de 800 px — en JPEG à 0,85 sur fond blanc si elle est
+// opaque (une photo d'atelier : 40 à 150 Ko), en PNG sans fond si elle a de la transparence (D60 : une
+// photo détourée reste détourée sur le fond nuit) ; un pictogramme en image matricielle est réduit à
+// 256 px, en PNG (aplats et transparence gardés). Jamais agrandi.
+//   transparent : l'image a au moins un pixel non opaque (hasTransparency, lu dans le canvas)
+export function uploadPlan(usage, isSvg, transparent = false) {
   if (isSvg) return { resize: false, type: 'image/svg+xml' };
   if (usage === 'operation') return { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null };
+  if (transparent) return { resize: true, maxSide: 800, type: 'image/png', quality: undefined, background: null };
   return { resize: true, maxSide: 800, type: 'image/jpeg', quality: 0.85, background: '#ffffff' };
+}
+
+// Au moins un pixel non opaque dans des données RVBA (getImageData().data : quatre octets par pixel).
+export function hasTransparency(rgba) {
+  for (let i = 3; i < rgba.length; i += 4) if (rgba[i] < 255) return true;
+  return false;
 }
 
 // La taille cible d'une image à réduire : jamais agrandie, le plus grand côté ramené à maxSide.

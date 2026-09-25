@@ -220,8 +220,8 @@ réponses. Mode d'emploi : `docs/UI.md` §3.9.
 Les **images** (onglet **Images**, décision D56) : les photos d'outils et les pictogrammes
 d'opérations sont dans la base, et c'est là qu'on en ajoute — depuis le formulaire d'un
 outil (**Choisir une image…**, puis **Téléverser une image**) ou depuis l'onglet. Une photo
-prise au téléphone est réduite dans le navigateur avant l'envoi (800 px, JPEG) : inutile de
-la retoucher. Un SVG est nettoyé par le serveur (scripts, liens et ressources externes refusés).
+prise au téléphone est réduite dans le navigateur avant l'envoi (800 px, JPEG ; une image
+détourée avec de la transparence reste en PNG) : inutile de la retoucher. Un SVG est nettoyé par le serveur (scripts, liens et ressources externes refusés).
 Une image utilisée par une version publiée ne se supprime pas : on l'**archive** (elle n'est plus
 proposée, mais reste affichée là où elle est nommée). Les fichiers de `site/img/` du dépôt ne
 sont plus que la semence : y déposer un fichier ne change rien en production.

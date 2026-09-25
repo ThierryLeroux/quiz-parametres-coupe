@@ -1425,3 +1425,20 @@ d'avant les images s'importe encore. **L'aller-retour reste identique**, images 
 
 **Conséquences.** `importPlan` (`images_manquantes`, `images_presentes`, `images_modifiees`),
 `base.applyImport`, `editeurImageImporter` ; l'onglet Sauvegarde ; SPEC §7, §10 ; DEMARRAGE §7.
+
+## D60 — Réponses au rapport de la partie A du jalon 7b : une photo transparente garde le PNG (2026-09-25, décidée)
+
+Points tranchés par Thierry, sur D55 à D59 :
+
+- **Acceptés tels quels** : les photos partagées de la semence stockées deux fois (point 1), la suppression
+  refusée dès qu'un brouillon ou la banque nomme l'image (point 2), l'identifiant d'un téléversement tiré
+  de son empreinte (point 3), le SVG semé servi assaini (point 5), `limite_avance` inchangée (point 6), le
+  téléversement en JSON base64 (point 7), les choix visuels (point 8).
+- **Point 4 — la transparence d'une photo d'outil est gardée.** Le navigateur redessine d'abord l'image
+  réduite sans fond et lit ses pixels : si **au moins un pixel n'est pas opaque**, la photo part en **PNG**,
+  réduite à 800 px, **sans fond blanc** (une photo détourée reste détourée sur le fond nuit) ; sinon, en
+  **JPEG à 0,85 sur fond blanc** comme avant. Le pictogramme reste en PNG à 256 px, le SVG tel quel.
+  Complète D56.
+
+**Conséquences.** `uploadPlan(usage, isSvg, transparent)` et `hasTransparency` (`editeur-data.js`, testés),
+`prepareUpload` (`images-picker.js`) ; SPEC §3 ; UI §3.9 ; DEMARRAGE §7.

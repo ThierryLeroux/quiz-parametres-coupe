@@ -166,6 +166,20 @@ réclamée, renvoyée et servie de nouveau ; export après = export avant).
 8. **Choix visuels non maquettés** : galerie dépliable sous l'image en cours, boutons de jetons en chasse
    fixe, onglet Images en tableau, ligne « Images : … » en tête du résumé d'import.
 
+## Suites données (réponses de Thierry, D60)
+
+Un commit de plus sur la branche, poussée. `npm test` : 526 tests (le test des règles d'images étendu),
+`fail 0` ; Chrome : deux téléversements de plus (une photo détourée, une photo opaque).
+
+1. *Points 1, 2, 3, 5, 6, 7 et 8 acceptés tels quels.*
+2. *Point 4 — la transparence est gardée.* `prepareUpload` redessine d'abord l'image réduite sans fond et lit
+   ses pixels (`getImageData`) : si au moins un pixel n'est pas opaque (`hasTransparency`), la photo part en
+   **PNG à 800 px sans fond blanc** ; sinon, en JPEG à 0,85 sur fond blanc comme avant
+   (`uploadPlan(usage, isSvg, transparent)`, testé dans les deux sens ; le pictogramme et le SVG ne changent
+   pas). Vu dans Chrome : un PNG détouré de 1000 × 700 arrive en PNG 800 × 560 servi `image/png`, le même
+   dessin aplati sur fond opaque arrive en JPEG. SPEC §3, UI §3.9, DEMARRAGE §7, notes de l'éditeur.
+3. Thierry fusionne la partie A dans `main` avant la partie B.
+
 ## Partie B (attendre le feu vert)
 
 Décrite dans `PLAN.md` (jalon 7b, partie B) : onglet Tables de référence (brouillon unique, versions immuables,

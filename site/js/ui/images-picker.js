@@ -3,7 +3,7 @@
 // taille cible, filtre de la galerie — sont dans editeur-data.js (pur, testé).
 
 import { el } from './dom.js';
-import { USAGE_LABELS, filterImages, fittedSize, uploadPlan } from './editeur-data.js';
+import { USAGE_LABELS, filterImages, fittedSize, hasTransparency, uploadPlan } from './editeur-data.js';
 import { imageUrl } from './sheets-data.js';
 
 // Le contenu d'un fichier ou d'un blob en base64 (sans le préfixe « data:… »).
@@ -20,25 +20,33 @@ const toBase64 = (blob) => new Promise((resolve, reject) => {
 // jamais agrandie. Un fichier que le navigateur ne sait pas décoder est refusé ici, avant l'envoi.
 export async function prepareUpload(file, usage) {
   const isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name);
-  const plan = uploadPlan(usage, isSvg);
-  if (!plan.resize) return { nom: file.name, usage, type: plan.type, contenu: await toBase64(file) };
+  if (isSvg) return { nom: file.name, usage, type: uploadPlan(usage, true).type, contenu: await toBase64(file) };
   let bitmap;
   try {
     bitmap = await createImageBitmap(file);
   } catch {
     throw new Error("Ce fichier n'est pas une image que le navigateur sait lire (PNG, JPEG, WebP, GIF, BMP ou SVG).");
   }
-  const { width, height } = fittedSize(bitmap.width, bitmap.height, plan.maxSide);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d');
+  // L'image est d'abord redessinée sans fond, à la taille d'une photo : c'est là qu'on lit si elle a de la
+  // transparence (D60), ce qui décide du plan (PNG sans fond, ou JPEG sur blanc).
+  const { width, height } = fittedSize(bitmap.width, bitmap.height, uploadPlan(usage, false).maxSide);
+  const drawn = document.createElement('canvas');
+  drawn.width = width;
+  drawn.height = height;
+  drawn.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+  const transparent = hasTransparency(drawn.getContext('2d').getImageData(0, 0, width, height).data);
+  const plan = uploadPlan(usage, false, transparent);
+  let canvas = drawn;
   if (plan.background !== null) {
+    canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
     context.fillStyle = plan.background;
     context.fillRect(0, 0, width, height);
+    context.drawImage(drawn, 0, 0);
   }
-  context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
   const blob = await new Promise((resolve) => { canvas.toBlob(resolve, plan.type, plan.quality); });
   if (blob === null) throw new Error("Le navigateur n'a pas pu redessiner l'image.");
   return { nom: file.name, usage, type: blob.type || plan.type, contenu: await toBase64(blob), largeur: width, hauteur: height };

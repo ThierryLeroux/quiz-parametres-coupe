@@ -283,7 +283,7 @@ function toolForm(tool, ctx) {
     nom: field('nom', 'Nom', el('input', { id: `${p}-nom`, type: 'text', autocomplete: 'off', value: tool.nom ?? '' }), 'Le nom générique, celui de la progression et de l\'attestation.'),
     operation: field('operation', 'Opération', operationSelect, 'Fixe la famille d\'avance (table des avances).'),
     commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
-    image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées ; « Téléverser » réduit la photo dans le navigateur (800 px, JPEG) avant l'envoi.", 'field--wide'),
+    image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées ; « Téléverser » réduit la photo dans le navigateur avant l'envoi (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence).", 'field--wide'),
     format_identifiant: field('format_identifiant', 'Gabarit de nomenclature', template, "Le nom affiché dans la question : du texte et des jetons entre crochets, remplacés au tirage. Les boutons insèrent au curseur les jetons permis pour cet outil.", 'field--wide'),
     dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
       'Valeur : Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte : « 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 ».', 'field--half'),
@@ -964,7 +964,7 @@ async function showImages(notice = '', filters = { usage: '', query: '' }) {
     }
   } }, [
     el('div', { class: 'field' }, [el('label', { for: 'televerser-usage' }, 'Usage'), uploadUsage]),
-    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur (800 px, JPEG) ; un pictogramme à 256 px, ou tel quel en SVG (assaini par le serveur). Un doublon exact n'est pas stocké deux fois.")]),
+    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence) ; un pictogramme à 256 px, ou tel quel en SVG (assaini par le serveur). Un doublon exact n'est pas stocké deux fois.")]),
     el('button', { class: 'button-outline', type: 'submit' }, 'Téléverser'),
   ]);
 

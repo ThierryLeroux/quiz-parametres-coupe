@@ -102,7 +102,8 @@ image d'usage `outil` ; sinon l'identifiant de l'outil) ; le pictogramme d'une o
 est son `pictogramme` s'il en a un, sinon le slug de son nom. Les fichiers de
 `site/img/outils/` et de `site/img/pictos/operations/` ne sont plus que la **semence**
 (29 PNG, 19 SVG assainis) et les données des tests. L'éditeur téléverse (réduction
-dans le navigateur : photo 800 px en JPEG, pictogramme 256 px en PNG, SVG tel quel
+dans le navigateur : photo 800 px, en JPEG sur fond blanc ou en PNG sans fond si elle a
+au moins un pixel non opaque (D60) ; pictogramme 256 px en PNG ; SVG tel quel
 puis assaini par liste blanche ou refusé), renomme, archive (retirée des galeries,
 toujours servie) ou supprime (jamais utilisée seulement) ; un doublon exact n'est
 pas stocké deux fois (empreinte SHA-256).
