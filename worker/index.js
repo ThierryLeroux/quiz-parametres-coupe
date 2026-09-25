@@ -728,6 +728,8 @@ async function editeurPublier(request, env, { now }) {
   const erreurs = draftErrors(record.brouillon, tables);
   if (erreurs.length > 0) throw new HttpError(400, `Le brouillon a ${erreurs.length} erreur(s) : il ne peut pas être publié.`, { erreurs });
   const latest = await base.findLatestVersion(env.DB, record.id);
+  // Une version identique à la précédente ne se publie pas (D51) : l'écran désactive déjà le bouton.
+  if (latest !== null && sameContent(record.brouillon, latest.contenu)) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${latest.numero}.`);
   const numero = (latest?.numero ?? 0) + 1;
   const published = await base.publishVersion(env.DB, { id: record.id, revision: record.revision, numero, contenu: record.brouillon, tablesId: tables.id, now: now.toISOString() },
     logEntry(teacher, now, 'editeur_publication', `${record.id} · version ${numero} · tables ${tables.id}`));

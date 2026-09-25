@@ -286,8 +286,14 @@ test('publier : bloqué par une erreur de validation (400, erreurs jointes) ; pu
   const { seance } = await commencer(serveur);
   assert.deepEqual([seance.exercice.titre, seance.exercice.version], ['M10 — v2', '2']);
   assert.equal(seance.question.outil.id === 'mclnr' ? seance.question.outil.limite_rpm : 2500, 2500);
-  // Publier sans changement : refusé ? Non — une version identique est permise (l'enseignant décide) ; mais rien n'oblige. Ici : version 3 identique.
-  assert.equal((await serveur.editeur('POST', 'exercice/publier', { id: M10, revision: 3 })).corps.numero, 3);
+  // Publier sans changement : refusé (D51), rien de créé, rien au journal.
+  const identique = await serveur.editeur('POST', 'exercice/publier', { id: M10, revision: 3 });
+  assert.deepEqual([identique.status, identique.corps.erreur], [400, 'Aucune différence à publier : le brouillon est identique à la version 2.']);
+  assert.deepEqual((await serveur.editeur('GET', 'exercices')).corps.exercices.find((e) => e.id === M10).versions.map((v) => v.numero), [2, 1]);
+  assert.equal(serveur.journalEnseignant().filter((l) => l.action === 'editeur_publication').length, 1);
+  // Un commentaire « _… » ou l'ordre des clés ne font pas une différence.
+  assert.equal((await enregistrer(serveur, M10, 3, { ...brouillon, _note: 'x' })).status, 200);
+  assert.equal((await serveur.editeur('POST', 'exercice/publier', { id: M10, revision: 4 })).status, 400);
 });
 
 // --- Aperçu (B7) ---------------------------------------------------------------------------------------------------

@@ -171,7 +171,8 @@ export function errorsByField(errors, known = () => true) {
 // Le texte du bouton Publier et son état.
 export function publishState(errors, diff) {
   if (errors.length > 0) return { enabled: false, label: `Publier (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` };
-  if (!diff.premiere && diffLines(diff)[0] === 'Aucune différence avec la version précédente.') return { enabled: true, label: 'Publier (aucune différence)' };
+  // Une version identique à la précédente ne se publie pas (D51) : le serveur refuse aussi.
+  if (!diff.premiere && diffLines(diff)[0] === 'Aucune différence avec la version précédente.') return { enabled: false, label: 'Aucune différence à publier' };
   return { enabled: true, label: 'Publier…' };
 }
 

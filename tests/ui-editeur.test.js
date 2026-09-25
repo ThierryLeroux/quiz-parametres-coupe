@@ -71,7 +71,7 @@ test('publishState : désactivé tant qu’il reste des erreurs ; le libellé di
   const diff = versionDiff(brouillon(), brouillon());
   assert.deepEqual(publishState([{ champ: 'titre', message: 'x' }], diff), { enabled: false, label: 'Publier (1 erreur à corriger)' });
   assert.deepEqual(publishState([{}, {}], diff), { enabled: false, label: 'Publier (2 erreurs à corriger)' });
-  assert.deepEqual(publishState([], diff), { enabled: true, label: 'Publier (aucune différence)' });
+  assert.deepEqual(publishState([], diff), { enabled: false, label: 'Aucune différence à publier' }); // D51 : une version identique ne se publie pas
   assert.deepEqual(publishState([], versionDiff(null, brouillon())), { enabled: true, label: 'Publier…' });
 });
 
