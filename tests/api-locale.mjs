@@ -501,6 +501,41 @@ try {
     assert.equal((await fetch(`${ORIGIN}/images/${imageNeuve.id}`)).status, 200);
   });
 
+  // --- Jalon 7b, partie B : les tables de référence versionnées (D61 à D63), sur la vraie D1 ---------------------
+
+  await etape('tables versionnées (D61) : le brouillon semé, une Vc changée, publication de A2026_r1 avec sa révision ; /api/tables la sert ; A2026_r0 est intacte', async () => {
+    const page = await appel('GET', '/api/prof/editeur/tables', { cookie });
+    assert.deepEqual([page.status, page.corps.brouillon.base_id, page.corps.suggestion, page.corps.modifie, page.corps.erreurs], [200, 'A2026_r0', 'A2026_r1', false, []]);
+    const contenu = structuredClone(page.corps.brouillon.contenu);
+    contenu.materiaux.materiaux[0].vc_pi_min.insert_carbure = 999;
+    const enregistre = await appel('POST', '/api/prof/editeur/tables/enregistrer', { corps: { revision: page.corps.brouillon.revision, contenu }, cookie });
+    assert.deepEqual([enregistre.status, enregistre.corps.erreurs], [200, []], JSON.stringify(enregistre.corps));
+    const publie = await appel('POST', '/api/prof/editeur/tables/publier', { corps: { revision: enregistre.corps.revision, id: 'A2026_r1' }, cookie });
+    assert.deepEqual([publie.status, publie.corps.id], [200, 'A2026_r1'], JSON.stringify(publie.corps));
+    const r1 = await appel('GET', '/api/tables?version=A2026_r1');
+    assert.deepEqual([r1.status, r1.corps.tables.materiaux.revision, r1.corps.tables.materiaux.materiaux[0].vc_pi_min.insert_carbure, r1.corps.tables.materiaux.classes_iso.length], [200, 'A2026_r1', 999, 7]);
+    const r0 = await appel('GET', '/api/tables?version=A2026_r0');
+    assert.equal(r0.corps.tables.materiaux.materiaux[0].vc_pi_min.insert_carbure, data.materiaux[0].vc_pi_min.insert_carbure);
+    assert.equal((await appel('POST', '/api/prof/editeur/tables/publier', { corps: { revision: enregistre.corps.revision + 1, id: 'A2026_r2' }, cookie })).status, 400); // sans différence
+  });
+
+  await etape('exercice sur les tables (D62) : le M10 passe à A2026_r1 et publie sa version 3 ; Camille (version 1) garde A2026_r0, une nouvelle séance est sur A2026_r1', async () => {
+    const page = await appel('GET', `/api/prof/editeur/exercice?id=${M10}`, { cookie });
+    assert.deepEqual([page.corps.exercice.tables_id, page.corps.derniere_tables], ['A2026_r0', 'A2026_r1']);
+    const passe = await appel('POST', '/api/prof/editeur/exercice/tables', { corps: { id: M10, revision: page.corps.exercice.revision, tables_id: 'A2026_r1' }, cookie });
+    assert.deepEqual([passe.status, passe.corps.tables_id, passe.corps.erreurs], [200, 'A2026_r1', []], JSON.stringify(passe.corps));
+    const publication = await appel('POST', '/api/prof/editeur/exercice/publier', { corps: { id: M10, revision: passe.corps.revision }, cookie });
+    assert.deepEqual([publication.status, publication.corps.numero], [200, 3], JSON.stringify(publication.corps));
+    assert.equal((await appel('GET', `/api/exercice?exercice=${M10}`)).corps.tables.materiaux.revision, 'A2026_r1');
+    assert.equal((await appel('GET', `/api/exercice?exercice=${M10}&version=1`)).corps.tables.materiaux.revision, 'A2026_r0');
+    const reprise = await appel('POST', '/api/reprise', { corps: CAMILLE });
+    assert.deepEqual([reprise.corps.seance.exercice.version], ['1']);
+    const nouvelle = await appel('POST', '/api/creation', { corps: { ...CAMILLE, prenom: 'Léa', nom: 'Côté', matricule: '2488888', nip: '2468' } });
+    assert.equal(nouvelle.corps.seance.exercice.version, '3');
+    const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
+    assert.deepEqual([exporte.corps.tables_reference.map((t) => t.id), exporte.corps.brouillon_tables.base_id, exporte.corps.exercices.find((e) => e.id === M10).tables_id], [['A2026_r0', 'A2026_r1'], 'A2026_r1', 'A2026_r1']);
+  });
+
   await etape('déconnexion professeur : le cookie est effacé', async () => {
     const deconnexion = await appel('POST', '/api/prof/deconnexion', { cookie });
     assert.deepEqual(deconnexion.corps, { deconnecte: true });
