@@ -94,16 +94,17 @@ par le moteur** (ni par le VBA). Le seul plafond d'avance est
 
 Groupes « O - Plastique renforci d'aramid » et « O - Graphite » : **volontairement** attachés à aucun outil (jugés trop rares pour les étudiants) ; ils restent au catalogue pour pouvoir l'être plus tard.
 
-**Images (décisions D56, D57).** Les photos d'outils et les pictogrammes d'opérations
-vivent dans la table `images` de la base D1 (migration `0007`), en blob, et sont servis
+**Images (décisions D56, D57, D64).** Les photos d'outils, les pictogrammes d'opérations et
+les images de chaleur et de forme de copeaux des classes ISO (usage `classe`, D64)
+vivent dans la table `images` de la base D1 (migrations `0007` et `0009`), en blob, et sont servis
 par `GET /images/<id>` (type exact, `nosniff`, cache d'un an : une image ne change
 jamais sous le même identifiant). Le champ `image` d'un outil nomme sa photo (une
 image d'usage `outil` ; sinon l'identifiant de l'outil) ; le pictogramme d'une opération
 est son `pictogramme` s'il en a un, sinon le slug de son nom. Les fichiers de
-`site/img/outils/` et de `site/img/pictos/operations/` ne sont plus que la **semence**
-(29 PNG, 19 SVG assainis) et les données des tests. L'éditeur téléverse (réduction
+`site/img/outils/`, de `site/img/pictos/operations/` et de `site/img/copeaux/` ne sont plus que la **semence**
+(29 PNG, 19 SVG assainis, 12 PNG détourés par `reference/semence-d1/detourer-copeaux.mjs`) et les données des tests. L'éditeur téléverse (réduction
 dans le navigateur : photo 800 px, en JPEG sur fond blanc ou en PNG sans fond si elle a
-au moins un pixel non opaque (D60) ; pictogramme 256 px en PNG ; SVG tel quel
+au moins un pixel non opaque (D60) ; pictogramme ou image de classe 256 px en PNG ; SVG tel quel
 puis assaini par liste blanche ou refusé), renomme, archive (retirée des galeries,
 toujours servie) ou supprime (jamais utilisée seulement) ; un doublon exact n'est
 pas stocké deux fois (empreinte SHA-256).
@@ -118,7 +119,7 @@ est complété par deux listes facultatives, valeurs par défaut (celles de
 
 | Clé | Contenu |
 |---|---|
-| `classes_iso` | les classes ISO 513 : `code` (une lettre majuscule, unique), `nom`, `couleur` (vive : lettre, panneau du matériau), `couleur_texte` (le texte posé dessus), `couleur_ligne` (la teinte de ligne de la feuille) — « #rrggbb » |
+| `classes_iso` | les classes ISO 513 : `code` (une lettre majuscule, unique), `nom`, `couleur` (vive : lettre, panneau du matériau), `couleur_texte` (le texte posé dessus), `couleur_ligne` (la teinte de ligne de la feuille) — « #rrggbb » — et, depuis D64, `image_chaleur` et `image_copeaux` (l'identifiant d'une image d'usage `classe`, ou `null` : aucune ; une classe sans ces clés reçoit à la lecture les images de la semence pour sa lettre, `completeIsoClass`), montrées sous le matériau brut de l'écran Question (UI §3.3) |
 | `materiaux_outil` | les trois matières d'outil : `cle` (celle de `vc_pi_min`, fixe : `acier_rapide`, `carbure_solide`, `insert_carbure`, une fois chacune), `nom` (celui que les outils nomment et que l'étudiant lit, unique), `couleur` (la colonne de la table des Vc) |
 
 et `operations[].pictogramme` (facultatif : l'identifiant d'une image de la base ;
@@ -335,7 +336,7 @@ base) est retirée et remplacée.
 | `banque_outils` | la banque d'outils (D47) : un outil par ligne (JSON au format d'`outils.json`), rang, numéro de révision (D48), date de modification, date d'archivage |
 | `exercices` | les exercices (D47) : l'identifiant d'URL (définitif), le **brouillon** (JSON, §10), son numéro de révision (D48), dates de modification, de dernière publication, d'archivage, de création, le **rang** dans la liste (D51, migration `0006`) et la **version de tables** du brouillon (`tables_id`, D62, migration `0008`) |
 | `versions_exercice` | les versions publiées (D47) : exercice, numéro (1, 2, 3…), contenu (JSON, la même forme que le brouillon, **figé**), version des tables de référence, date |
-| `images` | les images (D56, migration `0007`) : identifiant, nom lisible, usage (`outil`, `operation`), type, taille, empreinte SHA-256, contenu (BLOB), date, date d'archivage ; semée avec les photos et pictogrammes du dépôt |
+| `images` | les images (D56, migration `0007`) : identifiant, nom lisible, usage (`outil`, `operation`, `classe` — D64), type, taille, empreinte SHA-256, contenu (BLOB), date, date d'archivage ; semée avec les photos et pictogrammes du dépôt (`0007`) et les images de chaleur et de copeaux des classes ISO (`0009`) |
 
 Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **efface les
 données des étudiants en fin de session** (espace professeur, §8, D46) — les
@@ -449,15 +450,15 @@ porte toute la sauvegarde).
 | `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; 400 s'il a des erreurs (`erreurs` jointes) ou s'il est identique à la dernière version, tables comprises (D51, D62), 409 révision périmée |
 | `POST /api/prof/editeur/apercu` | `{ id, brouillon }` ou `{ id, version }` | `{ questions: [ { identifiant, outil_id, outil, operation, dimension, barre, dents, materiau_outil, materiau, reponses } ], champs_evalues }` — dix questions, rien d'enregistré (D49) ; 400 brouillon en erreur |
 | `GET /api/prof/editeur/banque` | cookie admin | `{ outils: [ { id, outil, revision, rang, archive_le, modifie_le, exercices } ], tables }` — `exercices` : ceux dont le brouillon a une copie de cet outil |
-| `GET /api/prof/editeur/tables` | cookie admin | `{ brouillon: { contenu, revision, modifie_le, base_id }, modifie, erreurs, versions: [ { id, creee_le, utilisations: { versions_exercice, brouillons } } ], derniere, suggestion }` — le brouillon des tables complété, s'il diffère de la version dont il est parti, ses erreurs (`validateTables`), les versions de la plus récente à la plus ancienne, la révision suggérée (D61) |
+| `GET /api/prof/editeur/tables` | cookie admin | `{ brouillon: { contenu, revision, modifie_le, base_id }, modifie, erreurs, versions: [ { id, creee_le, utilisations: { versions_exercice, brouillons } } ], derniere, suggestion }` — le brouillon des tables complété, s'il diffère de la version dont il est parti, ses erreurs (`validateTables` avec les fiches des images : une image de classe inconnue ou archivée en est une, D64), les versions de la plus récente à la plus ancienne, la révision suggérée (D61) |
 | `GET /api/prof/editeur/tables/version?id=<id>` | cookie admin | `{ tables: { id, creee_le, materiaux, operations } }` — une version publiée, complétée ; 404 |
-| `POST /api/prof/editeur/tables/enregistrer` | `{ revision, contenu: { materiaux, operations } }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur ; 409 révision périmée (D48) ; 400 mal formé |
+| `POST /api/prof/editeur/tables/enregistrer` | `{ revision, contenu: { materiaux, operations } }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur (dont une image de classe inconnue ou archivée, D64) ; 409 révision périmée (D48) ; 400 mal formé |
 | `POST /api/prof/editeur/tables/publier` | `{ revision, id }` | `{ publie: true, id, publiee_le }` — le brouillon devient la version `id` (sa révision est posée dans les deux JSON), le brouillon repart de là ; 400 révision mal formée, brouillon en erreur (`erreurs`) ou identique à la version dont il est parti ; 409 révision périmée ou identifiant déjà pris (immuable) |
 | `POST /api/prof/editeur/tables/apercu` | `{ contenu, exercice }` | `{ questions, champs_evalues, champs_masques }` — dix questions du brouillon de cet exercice avec ces tables, rien d'enregistré (D63) ; 400 tables en erreur ou exercice en erreur avec elles (le message nomme l'erreur) ; 404 exercice inconnu |
 | `POST /api/prof/editeur/banque/creer` | `{ id, outil }` ou `{ id, depuis }` | `{ cree: true, id }` |
 | `POST /api/prof/editeur/banque/enregistrer` | `{ id, revision, outil }` | `{ enregistre: true, revision, erreurs }` — 409 révision périmée |
 | `POST /api/prof/editeur/banque/archiver` | `{ id, archive }` | `{ archive, id }` |
-| `GET /api/prof/editeur/images[?usage=outil\|operation]` | cookie admin | `{ images: [ { id, nom, usage, type, taille, empreinte, creee_le, archivee_le, utilisations: { versions, brouillons, banque, tables } } ] }` — les fiches (sans contenu), avec où chacune est utilisée (D56) |
+| `GET /api/prof/editeur/images[?usage=outil\|operation\|classe]` | cookie admin | `{ images: [ { id, nom, usage, type, taille, empreinte, creee_le, archivee_le, utilisations: { versions, brouillons, banque, tables } } ] }` — les fiches (sans contenu), avec où chacune est utilisée (D56) |
 | `POST /api/prof/editeur/images/televerser` | `{ nom, usage, type, contenu }` (base64 ; corps ≤ 1 Mo, image ≤ 600 Ko) | `{ image, existante, retires }` — le type est lu dans les octets, un SVG est assaini (`retires` : ce qui a été retiré) ou refusé (400, D57) ; `existante: true` = même empreinte déjà en base, rien de stocké |
 | `POST /api/prof/editeur/images/renommer` | `{ id, nom }` | `{ renomme: true, id, nom }` — le nom lisible seulement |
 | `POST /api/prof/editeur/images/archiver` | `{ id, archive }` | `{ archive, id }` — retirée des galeries, toujours servie |
@@ -510,7 +511,9 @@ liste (§8), et qui fera partie du contenu signé (jalon 5).
 `identifiant` est le gabarit de nom résolu (§4.6). `outil.barre` est le libellé
 de la barre tirée pour un outil à deux diamètres (`dimension` est alors le Ø
 alésé), sinon `null`. En mode test seulement, `question` porte aussi
-`reponses_test` (ci-dessous).
+`reponses_test` (ci-dessous). Les images de chaleur et de copeaux de la classe du
+matériau (D64) ne sont pas dans `question` : le navigateur les lit dans les classes ISO
+des tables de sa version (`tables.materiaux.classes_iso[].image_chaleur`, `image_copeaux`).
 
 **Règle : rien de ce qui est à trouver ne part au navigateur.** Ni la valeur
 attendue d'un champ évalué, ni les vitesses de coupe du matériau, ni rien qui

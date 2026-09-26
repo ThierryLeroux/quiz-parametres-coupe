@@ -141,6 +141,15 @@ Rapport de session : `docs/rapports/jalon-7b-editeur.md`. Deux parties ; la B at
 - [x] Export et import couvrent les versions de tables et leur brouillon
 - [x] Tests : une séance en cours garde ses tables après la publication d'une nouvelle version ; un exercice passé à la nouvelle version change de questions attendues seulement là où les valeurs ont changé ; une matière retirée devient une erreur sur les exercices qui l'utilisent ; les deux M10 donnent les mêmes questions qu'avant sur A2026_r0 ; docs (DECISIONS, SPEC, UI, PLAN, DEMARRAGE), Chrome à 1280 et 390 px, captures, rapport complété
 
+## Après le jalon 7b — images de chaleur et de forme de copeaux par classe ISO (décision D64)
+Rapport de session : `docs/rapports/images-copeaux.md`.
+
+- [x] **Détourage** des douze originaux de Thierry (`site/img/copeaux/originaux/`) par `reference/semence-d1/detourer-copeaux.mjs` (JavaScript pur) : remplissage depuis les bords sur les pixels proches du blanc (seuil 244, mesuré), bord adouci démélangé du blanc, jamais agrandi, 256 px au plus ; les PNG détourés dans `site/img/copeaux/`, un test vérifie qu'ils sont ceux du script
+- [x] **Semence** : migration `0009` (usage `classe`, identifiants `copeaux-p-chaleur`…) ; chaque classe ISO porte `image_chaleur` et `image_copeaux`, complétés à la lecture comme les couleurs (D61) ; test de semence
+- [x] **Écran Question** : les deux images de la classe sous le matériau brut, même hauteur, légendes, sans fond ni cadre, à 390 px aussi ; l'aperçu de l'éditeur les montre en vignettes
+- [x] **Onglet Tables de référence** : deux colonnes (galerie compacte, téléversement), validation (image existante, non archivée), différences à la publication, export et import
+- [x] Tests, docs (DECISIONS, SPEC §3 et §7, UI §3.3, §3.4 et §3.9), Chrome à 1280 et 390 px, captures dans `captures/images-copeaux/`, aucune requête externe, rapport
+
 ## Finition
 - [ ] Graphique de progression par opération
 - [ ] Décision D7 (dépôt) close — D6 (sécurité) est fermée par D19

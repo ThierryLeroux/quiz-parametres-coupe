@@ -1532,3 +1532,58 @@ matières), `question.js` (la clé de la matière d'après les tables), `sheets-
 
 **Conséquences.** `site/tables.html`, `site/js/ui/tables.js`, `assembleTables` (`data.js`),
 `GET /api/tables`, `POST /api/prof/editeur/tables/apercu` ; UI §3.5, §3.9.
+
+## D64 — Images de chaleur et de forme de copeaux par classe ISO, sous le matériau brut (2026-09-26, décidée)
+
+**Contexte.** Thierry a fourni douze petites images, deux par classe ISO (P, M, K, N, S, H) : où la
+chaleur se concentre dans la coupe, et la forme typique du copeau. Elles doivent aider l'étudiant sur
+l'écran Question, à côté du matériau brut tiré, sans rien dire de ce qui est à trouver. Elles ont un fond
+blanc composé dans l'image, alors que l'écran est sur fond nuit (UI §1).
+
+**Décision.**
+
+- **Détourage dans le dépôt, pas à la main** : `reference/semence-d1/detourer-copeaux.mjs` (avec
+  `png.mjs`, un lecteur et écrivain PNG en JavaScript pur sur `node:zlib`, aucune dépendance) produit,
+  pour chaque original de `site/img/copeaux/originaux/` (gardé comme source), un PNG à fond transparent
+  dans `site/img/copeaux/`, nommé par l'identifiant d'image. Méthode : remplissage depuis les bords sur
+  les pixels proches du blanc — les trois canaux ≥ **244**, seuil mesuré sur les douze originaux : le
+  copeau le plus clair atteint 240, le blanc des rendus ne descend pas sous 250 hors des bords —, ce qui
+  n'est pas atteint depuis un bord reste opaque (le blanc intérieur d'un copeau ou d'un reflet, la pièce
+  et l'outil qui touchent les bords) ; un **bord adouci** d'un pixel de chaque côté de la frontière, alpha
+  en rampe de 244 (opaque) à 252 (transparent), couleur démélangée du blanc pour éviter tout liseré clair
+  sur le fond nuit ; jamais agrandi, réduit à 256 px de plus grand côté si plus grand (aucun ne l'est :
+  237 px au plus). Un test vérifie que les fichiers détourés sont exactement ce que le script produit.
+- **Semence** : la migration `0009` (générée par `generer-copeaux.mjs`) insère les douze PNG détourés
+  dans `images` sous un **troisième usage, `classe`**, avec des identifiants lisibles
+  (`copeaux-p-chaleur`, `copeaux-p-copeaux` — en minuscules, la règle des identifiants d'images) et le
+  nom « Classe P — chaleur », « Classe P — forme de copeaux ». Une instruction par image (88 Ko au plus,
+  sous la limite D1 de 100 Ko ; recoller des morceaux par `||` ne marche pas, SQLite concatène en texte).
+- **Chaque classe ISO porte `image_chaleur` et `image_copeaux`** (l'identifiant d'une image, ou
+  `null` : aucune), **complétés à la lecture** comme les couleurs (D61) : les classes par défaut
+  (`DEFAULT_ISO_CLASSES`) nomment les images de la semence (O : aucune), et **une classe sans ses clés**
+  — une version d'avant, `A2026_r0` comme une version publiée depuis avec `classes_iso` — **reçoit
+  celles de sa lettre** (`completeIsoClass`) ; une clé présente, même `null`, est gardée. Ni
+  `tables_reference` ni le brouillon des tables ne sont réécrits ; la semence reste identique aux JSON.
+- **Écran Question** : sous la description du matériau brut, les deux images de sa classe, à la même
+  hauteur, avec une légende courte (« Chaleur », « Copeaux »), sans fond ni cadre ; la hauteur suit la
+  largeur du panneau (les deux tiennent côte à côte à 390 px, 110 px au plus) ; servies par
+  `/images/<id>`, trouvées dans les classes ISO des tables de la version de la séance
+  (`classImages`, `sheets-data.js`) — rien ne s'ajoute à `seance.question`. Une classe sans image, ou
+  une image qui manque, laisse l'espace vide, sans erreur. L'**aperçu** de l'éditeur montre les mêmes
+  images en vignettes devant le matériau usiné.
+- **Éditeur, onglet Tables de référence** : deux colonnes de plus dans le tableau des classes ISO, avec la
+  galerie compacte de l'usage « image de classe ISO » et le téléversement (PNG à 256 px, transparence
+  gardée) ; **validation avec les fiches des images** — une image de classe inconnue ou **archivée est une
+  erreur nommée** (« classes_iso[1] (M) : « image_chaleur » : l'image « copeaux-m-chaleur » est
+  archivée … »), écran et serveur, qui bloque la publication et l'aperçu ; l'import valide ainsi le
+  brouillon des tables de l'export, mais pas une version publiée (immuable : elle peut nommer une image
+  archivée, toujours servie). **Différences à la publication** : « Classe P — image de chaleur :
+  copeaux-p-chaleur → — ». Les utilisations d'une image comptent les classes (une image de classe
+  utilisée s'archive, jamais supprimée) ; l'export et l'import les portent comme les autres (D59).
+
+**Conséquences.** `site/img/copeaux/` (README), `reference/semence-d1/png.mjs`, `detourer-copeaux.mjs`,
+`generer-copeaux.mjs`, migration `0009` ; `tables.js` (`CLASS_IMAGE_KEYS`, `completeIsoClass`,
+`isoClassOf`, différences), `data.js` (`validateTables(tables, { images })`), `sheets-data.js`
+(`classImages`), `question-screen.js`, `question.css` ; `worker/images.js` (`USAGES`, utilisations),
+`worker/editeur.js` (`draftTablesErrors`), `index.js` ; l'éditeur (`editeur.js`, `editeur-data.js`) ;
+SPEC §3, §7 ; UI §3.3, §3.4, §3.9 ; CLAUDE.md ; PLAN ; DEMARRAGE §7. Rapport : `docs/rapports/images-copeaux.md`.
