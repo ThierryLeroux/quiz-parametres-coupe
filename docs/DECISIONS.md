@@ -1719,3 +1719,50 @@ la choisir classe par classe, ou n'en mettre aucune.
 `data.js` (validation), `sheets-data.js` (`classImages` : le `label` vient du champ, `null` si vide ;
 `CLASS_IMAGE_LABELS` disparaît), `question-screen.js`, `editeur.js`, `editeur.css` ; SPEC §3 ; UI §3.3, §3.4,
 §3.9. Rapport : `docs/rapports/legende-chaleur.md`.
+
+## D69 — Exercices d'avances : une même chaîne pour toutes les opérations, f jugée par cohérence avec fz, `limite_avance` obsolète (2026-09-26, décidée)
+
+**Contexte.** Les exercices publiés (les deux M10) évaluent Vc et N. Thierry prépare des exercices d'avances
+(fz, f, Vf) : le tournage d'abord, perçage au tour compris, le fraisage ensuite. Trois points restaient ouverts :
+la chaîne de calcul vaut-elle pour toutes les opérations ; que faire de `limite_avance` (D51) ; comment juger f
+quand fz est fausse ou arrondie. Aujourd'hui, un fz toléré suivi d'un f bien calculé à partir de lui est refusé :
+foret Ø 1/2 po, 2 lèvres, fz « 0.0037 » (théorique 0.003, tolérée à ±25 %, au plus ±0.001 po) et f « 0.0074 »
+(= 0.0037 × 2) — la f théorique est 0.006, tolérée à ±20 % : [0.0048 ; 0.0072].
+
+**Décision.**
+
+- **Une même chaîne pour toutes les opérations** — celle du moteur (SPEC §5) : fz selon la famille (fixe : la
+  valeur de la table ; proportionnelle : avance × Ø × facteur d'avance, **le Ø de la barre** pour un outil à deux
+  diamètres (D25), plafonnée à l'avance max de l'opération ; filetage : le pas, **converti en pouces** — mm / 25,4
+  en métrique) ; f = fz × nombre de dents ; Vf = N × f. Les trois états par grandeur, réglés **par exercice**
+  (D52), suffisent : **pas d'état par outil**.
+- **`limite_avance` n'est pas un plafond.** Le seul plafond d'avance reste l'avance max de l'opération
+  (`avance_max_po_rev`). La clé est **retirée du formulaire** de l'éditeur ; elle reste **acceptée dans les
+  données** — absente, `null` ou un nombre > 0 —, **sans migration** : les outils qui la portent la gardent,
+  intacte à l'enregistrement, et un outil créé dans l'éditeur ne l'a plus. SPEC §3 la dit **obsolète**. Ferme le
+  point `limite_avance` de D51.
+- **f jugée par cohérence avec fz**, comme Vf avec N × f (D15) :
+  - **fz évaluée et lisible** : f est acceptée à **±0,1 % de fz_saisi × dents**. fz n'est connue qu'à la précision
+    de son affichage (D13) : la référence est toute la plage (fz ± demi-unité) × dents, élargie de ±0,1 % ou de la
+    demi-unité de f — ce que `feedRateInterval` fait pour Vf. Une f cohérente avec un fz faux est juste ; l'erreur
+    est comptée sur fz, là où elle a été faite.
+  - **fz fournie, masquée, vide ou illisible** : f est jugée sur la **valeur théorique**, avec la **tolérance de fz
+    reportée** : ±25 % bornée à **±0,001 po par dent** (× nombre de dents) en avance proportionnelle ; ±0,1 % en
+    avance fixe et en filetage. La demi-unité de f (D13) s'y ajoute toujours.
+  - Comme pour Vf, seule compte la saisie d'une grandeur **à saisir** : une valeur envoyée pour une grandeur fournie
+    ou masquée est ignorée, sa valeur théorique la remplace (SPEC §6 le disait déjà pour N et f dans Vf ; le moteur
+    prenait la saisie reçue, un navigateur modifié pouvait s'en servir).
+  - Ligne de correction (UI §3.4) : tolérance « ±0.1 % de fz × dents » dans le premier cas, « ±25 %, au plus
+    ±0.001 po par dent » (proportionnelle) ou « ±0.1 % » dans le second ; la **valeur attendue** montrée pour f est
+    fz saisi × dents quand la cohérence s'applique, comme N saisi × f saisi pour Vf.
+- **Aucune quatrième matière d'outil** : l'avance ne dépend pas de la matière de l'outil (la table des avances
+  n'a qu'une colonne).
+- **Ordre** : le code couvre toutes les familles dès maintenant ; Thierry publie d'abord l'exercice de **tournage**
+  (perçage au tour compris), puis celui de **fraisage** après avoir validé les avances de fraisage et de perçage
+  (tableau du rapport `docs/rapports/avances.md`).
+
+**Conséquences.** `computeParameters` rend aussi le nombre de dents (`teeth`) ; `correction.js` : `feedPerRevInterval`,
+tolérance par dent (`perTooth`), `toleranceLabel(…, { coherence })`, saisie d'une grandeur non évaluée ignorée ;
+`correctionView` (`seance.js`) ; `toolErrors` (`data.js`) et le formulaire d'outil (`editeur.js`) ; SPEC §3, §5,
+§6 ; UI §3.4, §3.9 ; tests : correction, chaîne sur tout le catalogue (f = fz affiché × dents, arrondie ou non ;
+fz non saisie), `correctionView`. Remplace la tolérance « ±20 % » de f en avance proportionnelle.
