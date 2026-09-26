@@ -187,6 +187,7 @@
 .tables-edit input:disabled { opacity: 0.4; }
 .tables-edit .ligne-famille td { border-top: 2px solid var(--color-text-muted); }
 .tables-edit .picto-cell { min-width: 220px; }
+.tables-edit input.input-legende { min-width: 240px; width: 280px; } /* la légende de l’image : 40 caractères visibles (D68) */
 /* Les caractéristiques d'une classe (D65) : un petit tableau de lignes dans la cellule, avec ↑ ↓ Retirer. */
 .tables-edit .caracteristiques-cell { min-width: 640px; }
 .caracteristiques { display: grid; gap: var(--space-2); justify-items: start; }

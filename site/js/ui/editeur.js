@@ -16,7 +16,7 @@ import {
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors } from '../exercice.js';
-import { CHARACTERISTIC_LIMITS, tablesDiff } from '../tables.js';
+import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, el, showScreen } from './dom.js';
 import {
   archiveConfirmation, canDeleteImage, characteristicFrom, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
@@ -1057,7 +1057,7 @@ async function showTables(notice = '') {
   const dialogSlot = el('div');
   const touch = () => { state.dirty = true; };
 
-  // --- Classes ISO : code, nom, trois couleurs, et les deux images de la classe (chaleur, copeaux ; galerie compacte).
+  // --- Classes ISO : code, nom, trois couleurs, l'image de chaleur (galerie compacte), sa légende (D68), les caractéristiques.
   const classes = editableRows(draft.materiaux.classes_iso, (c, i) => {
     const code = textInput(`cl-${i}-code`, c.code, { maxlength: '1', class: 'input-court mono' });
     const nom = textInput(`cl-${i}-nom`, c.nom);
@@ -1070,13 +1070,15 @@ async function showTables(notice = '') {
     paint();
     const pickerFor = (key) => imagePicker({ usage: 'classe', images: state.images.classe, value: c[key] ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: () => { touch(); validate(); }, idPrefix: `cl-${i}-${key.replace('image_', '')}`, compact: true });
     const chaleur = pickerFor('image_chaleur');
+    // La légende de l'image (D68) : 40 caractères au plus (la validation le dit) ; vide, pas de légende.
+    const legende = textInput(`cl-${i}-legende`, c.legende_image ?? DEFAULT_LEGENDE_IMAGE, { class: 'input-legende' });
     // Les caractéristiques (D65) : ligne par ligne — libellé, texte, solution facultative —, ajouter, retirer, monter, descendre.
     const features = characteristicsEditor(c.caracteristiques ?? [], `cl-${i}-car`, c.code, () => { touch(); validate(); });
     return {
-      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(features.element, 'caracteristiques-cell')]),
-      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), caracteristiques: features.read() }),
+      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(legende), cell(features.element, 'caracteristiques-cell')]),
+      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), legende_image: legende.value.trim(), caracteristiques: features.read() }),
     };
-  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, caracteristiques: [] }), () => { touch(); validate(); });
+  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, legende_image: DEFAULT_LEGENDE_IMAGE, caracteristiques: [] }), () => { touch(); validate(); });
 
   // --- Matières d'outil : clé fixe, nom, couleur.
   const toolMaterialRows = draft.materiaux.materiaux_outil.map((m, i) => {
@@ -1254,8 +1256,8 @@ async function showTables(notice = '') {
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Classes ISO'),
-      el('p', { class: 'muted small' }, "La lettre de classe, son nom, ses couleurs (celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe), et son image de chaleur (la chaleur dans la coupe), montrée sous le matériau brut de l'écran Question. Une image archivée doit être remplacée avant de publier. Les caractéristiques, montrées à droite de l'image : au plus 6 lignes, chacune avec un libellé (20 caractères au plus), un texte (90) et, facultative, une solution (90), montrée sur une ligne à part, « → Solution : … »."),
-      table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Caractéristiques'], classes.body, 'tables-edit--classes'),
+      el('p', { class: 'muted small' }, "La lettre de classe, son nom, ses couleurs (celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe), et son image de chaleur (la chaleur dans la coupe), montrée sous le matériau brut de l'écran Question. La légende s'écrit sous l'image (40 caractères au plus ; vide, pas de légende). Une image archivée doit être remplacée avant de publier. Les caractéristiques, montrées à droite de l'image : au plus 6 lignes, chacune avec un libellé (20 caractères au plus), un texte (90) et, facultative, une solution (90), montrée sur une ligne à part, « → Solution : … »."),
+      table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Légende', 'Caractéristiques'], classes.body, 'tables-edit--classes'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe')),
     ]),
     el('section', { class: 'panel' }, [

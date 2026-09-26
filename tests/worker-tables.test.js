@@ -397,3 +397,23 @@ test('caractéristiques des classes ISO (D65) : servies avec l’exercice et la 
   const exporte = (await serveur.editeur('GET', 'export')).corps;
   assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].caracteristiques[3].solution, 'avance suffisante, arête vive');
 });
+
+test('légende de l’image des classes ISO (D68) : « Chaleur » servie avec l’exercice et la version publique ; 41 caractères refusés à la publication ; une légende changée ou vidée est publiée, et l’export la porte', async () => {
+  const serveur = await editeurDeTest();
+  assert.ok((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.tables.materiaux.classes_iso.every((c) => c.legende_image === 'Chaleur'));
+  assert.equal((await serveur.appel('GET', '/api/tables?version=A2026_r0')).corps.tables.materiaux.classes_iso[0].legende_image, 'Chaleur');
+  const page = await brouillonTables(serveur);
+  const trop = structuredClone(page.brouillon.contenu);
+  trop.materiaux.classes_iso[0].legende_image = 'x'.repeat(41);
+  assert.equal((await publierTables(serveur, trop, 'A2026_r1')).status, 400);
+  assert.ok((await brouillonTables(serveur)).erreurs.some((e) => e.message === 'classes_iso[0] (P) : « legende_image » a 41 caractères (au plus 40)'));
+  const bon = structuredClone(page.brouillon.contenu);
+  bon.materiaux.classes_iso[0].legende_image = 'Où la chaleur se concentre';
+  bon.materiaux.classes_iso[1].legende_image = '';
+  const publie = await publierTables(serveur, bon, 'A2026_r1');
+  assert.equal(publie.status, 200, JSON.stringify(publie.corps));
+  const version = (await serveur.editeur('GET', 'tables/version?id=A2026_r1')).corps.tables.materiaux.classes_iso;
+  assert.deepEqual([version[0].legende_image, version[1].legende_image, version[2].legende_image], ['Où la chaleur se concentre', '', 'Chaleur']);
+  const exporte = (await serveur.editeur('GET', 'export')).corps;
+  assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].legende_image, '');
+});
