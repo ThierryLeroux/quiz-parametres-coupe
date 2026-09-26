@@ -149,6 +149,7 @@ Rapport de session : `docs/rapports/images-copeaux.md`.
 - [x] **Écran Question** : les deux images de la classe sous le matériau brut, même hauteur, légendes, sans fond ni cadre, à 390 px aussi ; l'aperçu de l'éditeur les montre en vignettes
 - [x] **Onglet Tables de référence** : deux colonnes (galerie compacte, téléversement), validation (image existante, non archivée), différences à la publication, export et import
 - [x] Tests, docs (DECISIONS, SPEC §3 et §7, UI §3.3, §3.4 et §3.9), Chrome à 1280 et 390 px, captures dans `captures/images-copeaux/`, aucune requête externe, rapport
+- [x] **Caractéristiques des classes** (D65) : Effort, Chaleur, Copeaux, Problème typique avec sa solution, sous les images ; « → Solution : » sur une ligne à part ; éditables dans l'onglet Tables, validées, dans les différences et l'export ; vérifié à 390 px
 
 ## Finition
 - [ ] Graphique de progression par opération

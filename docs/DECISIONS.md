@@ -1598,3 +1598,34 @@ fond (distance euclidienne, `BANDE_PX = 3`), alpha = clamp((255 − min(R, V, B)
 intérieur non relié aux bords (≥ 244 hors du fond) reste intact, même dans la bande. Un test sur un disque
 anticrénelé vérifie qu'aucun pixel d'alpha > 0,5 plus clair que 200 sur les trois canaux ne reste à moins de
 3 px du fond (l'ancienne méthode en laissait 28).
+
+## D65 — Caractéristiques d'une classe ISO, avec une solution facultative, sous le matériau brut (2026-09-26, décidée)
+
+**Contexte.** Sous les images de chaleur et de copeaux (D64), Thierry veut quelques lignes de texte par
+classe ISO : ce qui caractérise l'usinage de cette classe, et, pour le problème typique, sa solution.
+
+**Décision.**
+
+- Chaque classe ISO porte `caracteristiques` : une liste de lignes `{ libelle, texte, solution? }`
+  (au plus 6 ; libellé de 30 caractères au plus, texte de 90, **solution facultative de 90**). Complétée à
+  la lecture comme les images (D64) : une classe sans la clé reçoit les lignes de sa lettre, une liste
+  présente — même vide — est gardée ; rien n'est réécrit en base.
+- **Contenu par défaut** (P à H, dans cet ordre) : **Effort**, **Chaleur**, **Copeaux**, **Problème
+  typique** — ce dernier avec sa solution ; la classe O n'en a pas. Textes de Thierry, tels quels.
+- **Écran Question** : sous les images, une ligne par caractéristique, « **Effort :** moyen » ; quand la
+  ligne a une solution, une **ligne à part** dessous, en retrait, « → Solution : » en **couleur d'accent de
+  la page** (`--color-accent-light`), puis le texte en **couleur secondaire** (`--color-text-muted`). Une
+  classe sans caractéristique ne montre rien.
+- **Éditeur, onglet Tables de référence** : une colonne **Caractéristiques** dans le tableau des classes,
+  une zone de texte, une caractéristique par ligne, « libellé ; texte » ou « libellé ; texte ; solution »
+  (comme les dimensions d'un outil) ; validée en continu, écran et serveur (`characteristicsErrors`) ;
+  dans les différences à la publication, par libellé (« Classe M — Problème typique, solution : « … » →
+  « … » », ligne ajoutée, retirée, ordre) ; dans l'export avec les tables.
+- La complétion copie désormais les classes par défaut **en profondeur** : une version modifiée ne peut
+  plus toucher les valeurs par défaut (défaut trouvé par les tests de cette décision).
+
+**Conséquences.** `tables.js` (`DEFAULT_CHARACTERISTICS`, `CHARACTERISTIC_LIMITS`,
+`characteristicsErrors`, différences), `data.js` (validation), `sheets-data.js` (`classFeatures`),
+`question-screen.js`, `question.css`, `editeur-data.js` (`characteristicsText`,
+`parseCharacteristics`), `editeur.js`, `editeur.css` ; SPEC §3 ; UI §3.3, §3.9. Rapport :
+`docs/rapports/images-copeaux.md`.

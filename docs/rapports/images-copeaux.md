@@ -219,3 +219,50 @@ frontière et entre 244 et 252 étaient adoucis. `npm test` : 550 tests (+ 1), `
    Sur ton poste, si `npm run dev` a tourné sur cette branche avant la retouche, ta D1 locale a l'ancienne
    `0009` déjà appliquée : il faut effacer `.wrangler/state` (ou la table `d1_migrations` locale) pour qu'elle
    reprenne la nouvelle.
+
+## Caractéristiques des classes (complément, D65)
+
+**Le message de base n'est pas arrivé.** Ton complément parle des « points 3 et 4 du message précédent » :
+je n'ai reçu que le message de la retouche du détourage, qui n'avait pas de ligne de caractéristique.
+J'ai construit la fonction à partir du complément seul (A, B, C), sous les hypothèses ci-dessous ; si le
+message de base disait autre chose (autres points, autre emplacement, autres noms), renvoie-le et
+j'ajusterai.
+
+`npm test` : 554 tests (+ 4), `fail 0`. Chrome : 9 vérifications de plus, 4 captures (`1280-11` à
+`1280-14`, `390-12`), aucune requête externe, aucune exception.
+
+- **Modèle** : `classes_iso[].caracteristiques`, des lignes `{ libelle, texte, solution? }`, complétées à la
+  lecture comme les images (une classe sans la clé reçoit les lignes de sa lettre ; une liste présente,
+  même vide, est gardée). Les quatre lignes par classe de ton message, dans l'ordre Effort, Chaleur,
+  Copeaux, Problème typique ; le « → » de ton message a servi de séparateur : ce qui suit est dans
+  `solution`, jamais dans le texte (un test le vérifie). La classe O n'en a pas.
+- **Page Question** : sous les images, une ligne par caractéristique (libellé en gras) ; la solution sur une
+  ligne à part, en retrait, « → Solution : » en couleur d'accent de la page (#4fc3f7), le texte en couleur
+  secondaire (#8aa0c6), couleurs vérifiées dans Chrome.
+- **Point C** : à 390 px, la solution de M (55 caractères, la plus longue) **se replie sur deux lignes**
+  et s'arrête au bord intérieur du panneau (354 px pour 354), sans défilement horizontal. Elle se replie
+  aussi à 1280 px, où le panneau du matériau n'a que la moitié de deux tiers de la largeur.
+- **Onglet Tables** : colonne **Caractéristiques**, une zone de texte, « libellé ; texte ; solution » par ligne
+  ; validation en continu (une solution de 91 caractères : « classes_iso[1] (M) : caractéristique 2 :
+  « solution » a 91 caractères (au plus 90) », Publier bloqué, et refus du serveur) ; différences par
+  libellé (« Classe M — Problème typique, solution : « … » → « … » », ligne ajoutée, retirée, ordre) ;
+  l'export porte la version publiée avec ses caractéristiques (testé).
+- **Défaut trouvé en passant** : quand une version n'avait pas `classes_iso`, la complétion partageait les
+  objets des valeurs par défaut ; modifier les caractéristiques d'une version modifiait les défauts. Corrigé
+  (copie profonde) dans le commit du modèle.
+
+### Points douteux du complément
+
+1. **Hypothèses faute du message de base** : la clé `caracteristiques` (et `libelle`, `texte`,
+   `solution`) ; l'emplacement sous les images ; les limites autres que celle de la solution (au plus 6
+   lignes, libellé de 30 caractères, texte de 90) ; aucune caractéristique pour O.
+2. **« Couleur d'accent de la page »** : j'ai pris le bleu clair des titres et liens (#4fc3f7), pas la
+   couleur de la classe du panneau (le jaune de M, le rouge de K…). Si tu voulais la couleur du panneau,
+   c'est une variable à changer dans `question.css`.
+3. **Édition en zone de texte** « libellé ; texte ; solution », comme les dimensions, plutôt qu'un
+   sous-tableau de champs : plus compact dans un tableau déjà large, mais un « ; » dans un texte est
+   impossible (un « ; » de trop part dans la solution).
+4. **L'aperçu de l'éditeur ne montre pas les caractéristiques** (il montre les images) : ce ne sont pas des
+   réponses, et le tableau d'aperçu est déjà large.
+5. **La solution se replie sur deux lignes même à 1280 px** : si tu préfères une ligne, il faudrait un texte
+   plus court (≤ 40 caractères environ) ou une police plus petite.
