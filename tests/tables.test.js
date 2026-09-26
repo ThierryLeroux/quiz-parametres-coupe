@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, colorVariables, completeTables, isTablesId, isoClassOf, nextRevision, tablesContent, tablesDiff, toolMaterialKeyMap,
+  DEFAULT_CHARACTERISTICS, DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, characteristicsErrors, colorVariables, completeTables, isTablesId, isoClassOf, nextRevision, tablesContent, tablesDiff, toolMaterialKeyMap,
 } from '../site/js/tables.js';
 import { TOOL_MATERIAL_KEYS, assembleTables, validateTables } from '../site/js/data.js';
 import { lireFichier } from './aide.js';
@@ -27,12 +27,12 @@ test('completeTables : une version d’avant le 7b reçoit les classes ISO et le
     ['P', 'copeaux-p-chaleur', 'copeaux-p-copeaux'], ['M', 'copeaux-m-chaleur', 'copeaux-m-copeaux'], ['K', 'copeaux-k-chaleur', 'copeaux-k-copeaux'],
     ['N', 'copeaux-n-chaleur', 'copeaux-n-copeaux'], ['S', 'copeaux-s-chaleur', 'copeaux-s-copeaux'], ['H', 'copeaux-h-chaleur', 'copeaux-h-copeaux'], ['O', null, null],
   ]);
-  const own = { materiaux: { ...materiaux, classes_iso: [{ code: 'P', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }, { code: 'K', nom: 'k', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, image_copeaux: 'img-0123456789abcdef' }, { code: 'X', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }], materiaux_outil: [{ cle: 'acier_rapide', nom: 'HSS', couleur: '#111111' }] }, operations };
+  const own = { materiaux: { ...materiaux, classes_iso: [{ code: 'P', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }, { code: 'K', nom: 'k', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, image_copeaux: 'img-0123456789abcdef', caracteristiques: [] }, { code: 'X', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }], materiaux_outil: [{ cle: 'acier_rapide', nom: 'HSS', couleur: '#111111' }] }, operations };
   const ownComplete = completeTables(own).materiaux.classes_iso;
   assert.deepEqual(ownComplete, [
-    { ...own.materiaux.classes_iso[0], image_chaleur: 'copeaux-p-chaleur', image_copeaux: 'copeaux-p-copeaux' }, // d'avant D64 : les images de la semence
-    own.materiaux.classes_iso[1], // null = aucune image, gardé ; l'autre gardée
-    { ...own.materiaux.classes_iso[2], image_chaleur: null, image_copeaux: null }, // une lettre sans semence
+    { ...own.materiaux.classes_iso[0], image_chaleur: 'copeaux-p-chaleur', image_copeaux: 'copeaux-p-copeaux', caracteristiques: DEFAULT_CHARACTERISTICS.P }, // d'avant D64 : les images et caractéristiques par défaut
+    own.materiaux.classes_iso[1], // null = aucune image, gardé ; l'autre gardée ; [] = aucune caractéristique, gardé
+    { ...own.materiaux.classes_iso[2], image_chaleur: null, image_copeaux: null, caracteristiques: [] }, // une lettre sans semence
   ]);
   assert.equal('image_chaleur' in own.materiaux.classes_iso[0], false); // l'objet reçu n'est pas touché
   assert.deepEqual(isoClassOf(own.materiaux.classes_iso, 'K'), own.materiaux.classes_iso[1]);
@@ -142,4 +142,57 @@ test('tablesDiff : les différences valeur par valeur — Vc, champs d’un mat�
   assert.deepEqual(tablesDiff(tables(), ops), ['Opération ajoutée : Lamage', `Opération retirée : ${operations.operations[0].operation}`]);
   // tablesContent : les commentaires « _… » ne comptent pas.
   assert.deepEqual(Object.keys(tablesContent(tables()).materiaux), ['groupes_iso', 'materiaux']); // ni les commentaires, ni la révision
+});
+
+test('caractéristiques d’une classe (D65) : quatre lignes par défaut pour P à H (Effort, Chaleur, Copeaux, Problème typique avec sa solution), aucune pour O ; validation ; différences', () => {
+  for (const code of ['P', 'M', 'K', 'N', 'S', 'H']) {
+    const lines = DEFAULT_ISO_CLASSES.find((c) => c.code === code).caracteristiques;
+    assert.deepEqual(lines.map((l) => l.libelle), ['Effort', 'Chaleur', 'Copeaux', 'Problème typique'], code);
+    assert.deepEqual(lines.map((l) => 'solution' in l), [false, false, false, true], code);
+    assert.deepEqual(characteristicsErrors(lines), [], code);
+  }
+  assert.deepEqual(DEFAULT_ISO_CLASSES.find((c) => c.code === 'O').caracteristiques, []);
+  assert.deepEqual(DEFAULT_CHARACTERISTICS.M[3], { libelle: 'Problème typique', texte: 'écrouissage', solution: 'ne pas frotter, garder avance et profondeur suffisantes' });
+  // Le caractère → du message n'est qu'un séparateur : il n'est dans aucun texte.
+  assert.ok(Object.values(DEFAULT_CHARACTERISTICS).flat().every((l) => !`${l.texte}${l.solution ?? ''}`.includes('→')));
+  // Validation : libellé et texte obligatoires, solution facultative non vide, 90 caractères au plus, clé inconnue, doublon, six lignes au plus.
+  assert.deepEqual(characteristicsErrors(undefined), []);
+  assert.deepEqual(characteristicsErrors('x'), ['« caracteristiques » doit être une liste (ou être absente)']);
+  assert.deepEqual(characteristicsErrors([
+    { libelle: '', texte: 'a' },
+    { libelle: 'Effort', texte: 'b', solution: 'x'.repeat(91) },
+    { libelle: 'Effort', texte: 'c', solution: ' ', note: 1 },
+  ]), [
+    'caractéristique 1 : « libelle » est vide',
+    'caractéristique 2 : « solution » a 91 caractères (au plus 90)',
+    'caractéristique 3 : clé inconnue « note »',
+    "caractéristique 3 : « solution » est vide (l'omettre s'il n'y en a pas)",
+    'libellé de caractéristique en double : « Effort »',
+  ]);
+  assert.deepEqual(characteristicsErrors([{ libelle: 'a', texte: 'x'.repeat(90), solution: 'y'.repeat(90) }]), []);
+  assert.match(characteristicsErrors(Array.from({ length: 7 }, (_, i) => ({ libelle: `l${i}`, texte: 't' })))[0], /au plus 6 caractéristiques/);
+  const t = tables();
+  t.materiaux.classes_iso = structuredClone(DEFAULT_ISO_CLASSES);
+  t.materiaux.classes_iso[1].caracteristiques[3].solution = 'x'.repeat(91);
+  assert.deepEqual(validateTables(t), ['classes_iso[1] (M) : caractéristique 4 : « solution » a 91 caractères (au plus 90)']);
+  // Différences : texte, solution ajoutée, retirée, changée, ligne ajoutée, retirée, ordre.
+  const after = completeTables(tables());
+  const p = after.materiaux.classes_iso[0].caracteristiques;
+  p[0] = { libelle: 'Effort', texte: 'moyen à élevé', solution: 'plaquette robuste' };
+  p[3] = { libelle: 'Problème typique', texte: 'usure en cratère à Vc élevée' };
+  const m = after.materiaux.classes_iso[1].caracteristiques;
+  m[3] = { ...m[3], solution: 'avance suffisante' };
+  after.materiaux.classes_iso[2].caracteristiques.splice(1, 1);
+  after.materiaux.classes_iso[3].caracteristiques.push({ libelle: 'Arrosage', texte: 'abondant' });
+  const s = after.materiaux.classes_iso[4].caracteristiques;
+  [s[0], s[1]] = [s[1], s[0]];
+  assert.deepEqual(tablesDiff(tables(), after), [
+    'Classe P — Effort : « moyen » → « moyen à élevé »',
+    'Classe P — Effort, solution : — → « plaquette robuste »',
+    'Classe P — Problème typique, solution : « respecter la Vc de la table, nuance revêtue » → —',
+    'Classe M — Problème typique, solution : « ne pas frotter, garder avance et profondeur suffisantes » → « avance suffisante »',
+    'Classe K — caractéristique retirée : Chaleur',
+    'Classe N — caractéristique ajoutée : Arrosage : « abondant »',
+    "Classe S — l'ordre des caractéristiques a changé.",
+  ]);
 });

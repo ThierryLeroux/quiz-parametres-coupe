@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
-  filterImages, fittedSize, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  characteristicsText, filterImages, fittedSize, parseCharacteristics, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
@@ -353,4 +353,14 @@ test('exerciseTablesImpact (D62) : ce qu’un changement de version de tables ch
 test('site/img/outils/ : une photo de semence par outil du catalogue (la liste des images vient de la base, D56)', async () => {
   const files = (await readdir(new URL('../site/img/outils/', import.meta.url))).filter((name) => name.endsWith('.png')).sort();
   for (const tool of data.outils) assert.ok(files.includes(`${tool.image ?? tool.id}.png`), `${tool.id} : photo manquante`);
+});
+
+test('caractéristiques d’une classe en texte (D65) : « libellé ; texte ; solution », une par ligne, aller-retour', () => {
+  const lines = DEFAULT_ISO_CLASSES.find((c) => c.code === 'M').caracteristiques;
+  const txt = characteristicsText(lines);
+  assert.equal(txt, "Effort ; moyen à élevé\nChaleur ; élevée, concentrée sur l'arête\nCopeaux ; longs, tenaces, difficiles à fragmenter\nProblème typique ; écrouissage ; ne pas frotter, garder avance et profondeur suffisantes");
+  assert.deepEqual(parseCharacteristics(txt), lines);
+  assert.deepEqual(parseCharacteristics('  Effort ;  élevé ; \n\n Chaleur ; faible ; a ; b '), [{ libelle: 'Effort', texte: 'élevé' }, { libelle: 'Chaleur', texte: 'faible', solution: 'a ; b' }]);
+  assert.deepEqual(parseCharacteristics('Effort'), [{ libelle: 'Effort', texte: '' }]); // la validation dira « texte » vide
+  assert.equal(characteristicsText(undefined), '');
 });

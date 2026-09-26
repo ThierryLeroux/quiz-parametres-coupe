@@ -10,6 +10,65 @@
 // et, depuis D64, les deux images de la classe (chaleur, forme de copeaux : les identifiants de la
 // semence de la migration 0009, site/img/copeaux/ ; la classe O n'en a pas).
 export const CLASS_IMAGE_KEYS = ['image_chaleur', 'image_copeaux'];
+
+// Les caractéristiques d'une classe (D65) : des lignes { libelle, texte, solution? } montrées sous le
+// matériau brut de l'écran Question — « Effort : moyen », puis, s'il y a une solution, une ligne à part
+// « → Solution : … ». Longueurs maximales (caractères), dites par la validation.
+export const CHARACTERISTIC_LIMITS = { libelle: 30, texte: 90, solution: 90, lignes: 6 };
+const line = (libelle, texte, solution) => (solution === undefined ? { libelle, texte } : { libelle, texte, solution });
+export const DEFAULT_CHARACTERISTICS = {
+  P: [line('Effort', 'moyen'), line('Chaleur', 'modérée, bien évacuée par le copeau'), line('Copeaux', 'longs et continus, à fragmenter par le brise-copeau'), line('Problème typique', 'usure en cratère à Vc élevée', 'respecter la Vc de la table, nuance revêtue')],
+  M: [line('Effort', 'moyen à élevé'), line('Chaleur', "élevée, concentrée sur l'arête"), line('Copeaux', 'longs, tenaces, difficiles à fragmenter'), line('Problème typique', 'écrouissage', 'ne pas frotter, garder avance et profondeur suffisantes')],
+  K: [line('Effort', 'faible à moyen'), line('Chaleur', 'faible'), line('Copeaux', 'courts, fragmentés, poussière'), line('Problème typique', 'usure abrasive en dépouille', "nuance résistante à l'abrasion")],
+  N: [line('Effort', 'faible'), line('Chaleur', 'faible, Vc très élevées possibles'), line('Copeaux', 'longs et collants'), line('Problème typique', "bourrage de l'outil par les copeaux collants", '2 ou 3 lèvres max, retrait complet au perçage')],
+  S: [line('Effort', 'élevé'), line('Chaleur', "très élevée, concentrée sur l'arête"), line('Copeaux', 'segmentés, en dents de scie'), line('Problème typique', 'écrouissage et usure en entaille', 'Vc basses, arête vive, arrosage abondant')],
+  H: [line('Effort', 'élevé'), line('Chaleur', 'élevée'), line('Copeaux', 'courts, segmentés, souvent incandescents'), line('Problème typique', "écaillage de l'arête", 'faibles profondeurs, montage rigide')],
+};
+
+// Les erreurs des caractéristiques d'une classe (liste de messages, sans le préfixe de la classe).
+export function characteristicsErrors(list) {
+  if (list === undefined) return [];
+  if (!Array.isArray(list)) return ['« caracteristiques » doit être une liste (ou être absente)'];
+  const errors = [];
+  const L = CHARACTERISTIC_LIMITS;
+  if (list.length > L.lignes) errors.push(`au plus ${L.lignes} caractéristiques (${list.length})`);
+  list.forEach((c, i) => {
+    const where = `caractéristique ${i + 1}`;
+    if (!isObject(c)) { errors.push(`${where} : n'est pas un objet`); return; }
+    const known = ['libelle', 'texte', 'solution'];
+    for (const key of Object.keys(c)) if (!known.includes(key)) errors.push(`${where} : clé inconnue « ${key} »`);
+    for (const key of ['libelle', 'texte']) {
+      if (typeof c[key] !== 'string' || c[key].trim() === '') errors.push(`${where} : « ${key} » est vide`);
+      else if (c[key].length > L[key]) errors.push(`${where} : « ${key} » a ${c[key].length} caractères (au plus ${L[key]})`);
+    }
+    if (c.solution !== undefined) {
+      if (typeof c.solution !== 'string' || c.solution.trim() === '') errors.push(`${where} : « solution » est vide (l'omettre s'il n'y en a pas)`);
+      else if (c.solution.length > L.solution) errors.push(`${where} : « solution » a ${c.solution.length} caractères (au plus ${L.solution})`);
+    }
+  });
+  const labels = list.filter(isObject).map((c) => c.libelle);
+  for (const [i, l] of labels.entries()) if (labels.indexOf(l) !== i) errors.push(`libellé de caractéristique en double : « ${l} »`);
+  return errors;
+}
+
+// Les différences entre les caractéristiques de deux versions d'une classe, par libellé.
+function characteristicsDiff(code, before, after) {
+  const lines = [];
+  const quote = (v) => (v === undefined || v === null || v === '' ? '—' : `« ${v} »`);
+  const a = new Map((before ?? []).map((c) => [c.libelle, c]));
+  const b = new Map((after ?? []).map((c) => [c.libelle, c]));
+  for (const [libelle, c] of b) {
+    const old = a.get(libelle);
+    if (!old) { lines.push(`Classe ${code} — caractéristique ajoutée : ${libelle} : « ${c.texte} »${c.solution ? `, solution « ${c.solution} »` : ''}`); continue; }
+    if ((old.texte ?? '') !== (c.texte ?? '')) lines.push(`Classe ${code} — ${libelle} : ${quote(old.texte)} → ${quote(c.texte)}`);
+    if ((old.solution ?? '') !== (c.solution ?? '')) lines.push(`Classe ${code} — ${libelle}, solution : ${quote(old.solution)} → ${quote(c.solution)}`);
+  }
+  for (const libelle of a.keys()) if (!b.has(libelle)) lines.push(`Classe ${code} — caractéristique retirée : ${libelle}`);
+  const orderA = [...a.keys()].filter((l) => b.has(l)).join('|');
+  const orderB = [...b.keys()].filter((l) => a.has(l)).join('|');
+  if (orderA !== orderB) lines.push(`Classe ${code} — l'ordre des caractéristiques a changé.`);
+  return lines;
+}
 const classImages = (code) => (code === 'O' ? { image_chaleur: null, image_copeaux: null } : { image_chaleur: `copeaux-${code.toLowerCase()}-chaleur`, image_copeaux: `copeaux-${code.toLowerCase()}-copeaux` });
 export const DEFAULT_ISO_CLASSES = [
   { code: 'P', nom: 'Acier', couleur: '#00b0f0', couleur_texte: '#ffffff', couleur_ligne: '#c1efff' },
@@ -19,15 +78,18 @@ export const DEFAULT_ISO_CLASSES = [
   { code: 'S', nom: 'Alliages réfractaires et titane', couleur: '#ffc000', couleur_texte: '#000000', couleur_ligne: '#fff1c5' },
   { code: 'H', nom: 'Matériaux durcis', couleur: '#d9d9d9', couleur_texte: '#000000', couleur_ligne: '#eeeeee' },
   { code: 'O', nom: 'Plastiques et graphite', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#d9d9d9' },
-].map((c) => ({ ...c, ...classImages(c.code) }));
+].map((c) => ({ ...c, ...classImages(c.code), caracteristiques: structuredClone(DEFAULT_CHARACTERISTICS[c.code] ?? []) }));
 
-// Une classe ISO complétée (D64) : une clé d'image absente reçoit l'image par défaut de sa lettre
-// (null si la semence n'en a pas) ; une clé présente, même null (« aucune image »), est gardée.
+// Une classe ISO complétée (D64, D65) : une clé d'image absente reçoit l'image par défaut de sa lettre
+// (null si la semence n'en a pas) ; une clé présente, même null (« aucune image »), est gardée ; des
+// caractéristiques absentes reçoivent celles de la lettre ([] si elle n'en a pas), une liste présente,
+// même vide, est gardée.
 export function completeIsoClass(c) {
   if (!isObject(c)) return c;
-  const defaults = DEFAULT_ISO_CLASSES.find((d) => d.code === c.code) ?? { image_chaleur: null, image_copeaux: null };
+  const defaults = DEFAULT_ISO_CLASSES.find((d) => d.code === c.code) ?? { image_chaleur: null, image_copeaux: null, caracteristiques: [] };
   const out = { ...c };
   for (const key of CLASS_IMAGE_KEYS) if (out[key] === undefined) out[key] = defaults[key];
+  if (out.caracteristiques === undefined) out.caracteristiques = structuredClone(defaults.caracteristiques);
   return out;
 }
 
@@ -55,7 +117,7 @@ export function completeTables(tables) {
     ...tables,
     materiaux: {
       ...materiaux,
-      classes_iso: (Array.isArray(materiaux.classes_iso) ? materiaux.classes_iso : DEFAULT_ISO_CLASSES).map(completeIsoClass),
+      classes_iso: (Array.isArray(materiaux.classes_iso) ? materiaux.classes_iso : structuredClone(DEFAULT_ISO_CLASSES)).map(completeIsoClass),
       materiaux_outil: Array.isArray(materiaux.materiaux_outil) ? materiaux.materiaux_outil : DEFAULT_TOOL_MATERIALS.map((m) => ({ ...m })),
     },
     operations,
@@ -125,6 +187,7 @@ export function tablesDiff(before, after) {
     for (const [key, label] of [['nom', 'nom'], ['couleur', 'couleur'], ['couleur_texte', 'couleur du texte'], ['couleur_ligne', 'teinte de ligne'], ['image_chaleur', 'image de chaleur'], ['image_copeaux', 'image de copeaux']]) {
       if (!same(old[key], c[key])) lines.push(`Classe ${code} — ${label} : ${text(old[key])} → ${text(c[key])}`);
     }
+    lines.push(...characteristicsDiff(code, old.caracteristiques, c.caracteristiques));
   }
   for (const code of classesA.keys()) if (!classesB.has(code)) lines.push(`Classe retirée : ${code}`);
 

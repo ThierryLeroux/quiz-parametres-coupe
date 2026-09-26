@@ -282,6 +282,22 @@ export const tablesNotice = (current, latest) => (current === latest ? null : `U
 
 // --- Formulaire d'outil ---------------------------------------------------------------------------------------------
 
+// Les caractéristiques d'une classe ISO (D65) dans une zone de texte, une par ligne :
+// « libellé ; texte » ou « libellé ; texte ; solution ».
+export function characteristicsText(list) {
+  return (Array.isArray(list) ? list : []).map((c) => [c.libelle, c.texte, ...(c.solution ? [c.solution] : [])].join(' ; ')).join('\n');
+}
+
+// L'inverse : les lignes tapées → [{ libelle, texte, solution? }] ; une ligne vide est ignorée, un
+// « ; » de trop reste dans la solution (la validation dit les longueurs et les champs vides).
+export function parseCharacteristics(textValue) {
+  return String(textValue ?? '').split(/\r?\n/).map((row) => row.trim()).filter((row) => row !== '').map((row) => {
+    const [libelle = '', texte = '', ...rest] = row.split(';').map((part) => part.trim());
+    const solution = rest.join(' ; ').trim();
+    return solution === '' ? { libelle, texte } : { libelle, texte, solution };
+  });
+}
+
 // Les dimensions dans une zone de texte, une par ligne : « Ø 1/4 po ; 0.25 » (libellé ; valeur).
 export function dimensionsText(list) {
   return (Array.isArray(list) ? list : []).map((d) => `${d.libelle} ; ${d.valeur}`).join('\n');
