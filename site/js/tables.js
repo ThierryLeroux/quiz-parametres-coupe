@@ -11,6 +11,11 @@
 // site/img/copeaux/ ; la classe O n'en a pas). L'image de forme de copeaux a été retirée (D66).
 export const CLASS_IMAGE_KEYS = ['image_chaleur'];
 
+// La légende de l'image de la classe (D68) : un texte de 0 à 40 caractères, « Chaleur » par défaut ; vide, pas
+// de légende. Une classe sans la clé (une version d'avant, comme A2026_r0) reçoit la valeur par défaut à la lecture.
+export const LEGENDE_IMAGE_MAX = 40;
+export const DEFAULT_LEGENDE_IMAGE = 'Chaleur';
+
 // Les caractéristiques d'une classe (D65) : des lignes { libelle, texte, solution? } montrées sous le
 // matériau brut de l'écran Question — « Effort : moyen », puis, s'il y a une solution, une ligne à part
 // « → Solution : … ». Longueurs maximales (caractères), dites par la validation.
@@ -78,18 +83,20 @@ export const DEFAULT_ISO_CLASSES = [
   { code: 'S', nom: 'Alliages réfractaires et titane', couleur: '#ffc000', couleur_texte: '#000000', couleur_ligne: '#fff1c5' },
   { code: 'H', nom: 'Matériaux durcis', couleur: '#d9d9d9', couleur_texte: '#000000', couleur_ligne: '#eeeeee' },
   { code: 'O', nom: 'Plastiques et graphite', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#d9d9d9' },
-].map((c) => ({ ...c, ...classImages(c.code), caracteristiques: structuredClone(DEFAULT_CHARACTERISTICS[c.code] ?? []) }));
+].map((c) => ({ ...c, ...classImages(c.code), legende_image: DEFAULT_LEGENDE_IMAGE, caracteristiques: structuredClone(DEFAULT_CHARACTERISTICS[c.code] ?? []) }));
 
 // Une classe ISO complétée (D64, D65) : une clé d'image absente reçoit l'image par défaut de sa lettre
 // (null si la semence n'en a pas) ; une clé présente, même null (« aucune image »), est gardée ; des
 // caractéristiques absentes reçoivent celles de la lettre ([] si elle n'en a pas), une liste présente,
-// même vide, est gardée.
+// même vide, est gardée ; une légende d'image absente reçoit « Chaleur » (D68), une légende présente, même
+// vide, est gardée.
 export function completeIsoClass(c) {
   if (!isObject(c)) return c;
   const defaults = DEFAULT_ISO_CLASSES.find((d) => d.code === c.code) ?? { image_chaleur: null, caracteristiques: [] };
   const out = { ...c };
   for (const key of CLASS_IMAGE_KEYS) if (out[key] === undefined) out[key] = defaults[key];
   if (out.caracteristiques === undefined) out.caracteristiques = structuredClone(defaults.caracteristiques);
+  if (out.legende_image === undefined) out.legende_image = DEFAULT_LEGENDE_IMAGE;
   return out;
 }
 
@@ -184,7 +191,7 @@ export function tablesDiff(before, after) {
   for (const [code, c] of classesB) {
     const old = classesA.get(code);
     if (!old) { lines.push(`Classe ajoutée : ${code} — ${c.nom}`); continue; }
-    for (const [key, label] of [['nom', 'nom'], ['couleur', 'couleur'], ['couleur_texte', 'couleur du texte'], ['couleur_ligne', 'teinte de ligne'], ['image_chaleur', 'image de chaleur']]) {
+    for (const [key, label] of [['nom', 'nom'], ['couleur', 'couleur'], ['couleur_texte', 'couleur du texte'], ['couleur_ligne', 'teinte de ligne'], ['image_chaleur', 'image de chaleur'], ['legende_image', "légende de l'image"]]) {
       if (!same(old[key], c[key])) lines.push(`Classe ${code} — ${label} : ${text(old[key])} → ${text(c[key])}`);
     }
     lines.push(...characteristicsDiff(code, old.caracteristiques, c.caracteristiques));

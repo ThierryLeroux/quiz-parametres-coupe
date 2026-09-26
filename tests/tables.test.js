@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  DEFAULT_CHARACTERISTICS, DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, characteristicsErrors, colorVariables, completeTables, isTablesId, isoClassOf, nextRevision, tablesContent, tablesDiff, toolMaterialKeyMap,
+  DEFAULT_LEGENDE_IMAGE, LEGENDE_IMAGE_MAX, DEFAULT_CHARACTERISTICS, DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, characteristicsErrors, colorVariables, completeTables, isTablesId, isoClassOf, nextRevision, tablesContent, tablesDiff, toolMaterialKeyMap,
 } from '../site/js/tables.js';
 import { TOOL_MATERIAL_KEYS, assembleTables, validateTables } from '../site/js/data.js';
 import { lireFichier } from './aide.js';
@@ -27,12 +27,12 @@ test('completeTables : une version d’avant le 7b reçoit les classes ISO et le
     ['P', 'copeaux-p-chaleur'], ['M', 'copeaux-m-chaleur'], ['K', 'copeaux-k-chaleur'], ['N', 'copeaux-n-chaleur'], ['S', 'copeaux-s-chaleur'], ['H', 'copeaux-h-chaleur'], ['O', null],
   ]);
   assert.ok(DEFAULT_ISO_CLASSES.every((c) => !('image_copeaux' in c)));
-  const own = { materiaux: { ...materiaux, classes_iso: [{ code: 'P', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }, { code: 'K', nom: 'k', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, caracteristiques: [] }, { code: 'X', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }], materiaux_outil: [{ cle: 'acier_rapide', nom: 'HSS', couleur: '#111111' }] }, operations };
+  const own = { materiaux: { ...materiaux, classes_iso: [{ code: 'P', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }, { code: 'K', nom: 'k', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, legende_image: '', caracteristiques: [] }, { code: 'X', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }], materiaux_outil: [{ cle: 'acier_rapide', nom: 'HSS', couleur: '#111111' }] }, operations };
   const ownComplete = completeTables(own).materiaux.classes_iso;
   assert.deepEqual(ownComplete, [
-    { ...own.materiaux.classes_iso[0], image_chaleur: 'copeaux-p-chaleur', caracteristiques: DEFAULT_CHARACTERISTICS.P }, // d'avant D64 : les images et caractéristiques par défaut
-    own.materiaux.classes_iso[1], // null = aucune image, gardé ; [] = aucune caractéristique, gardé
-    { ...own.materiaux.classes_iso[2], image_chaleur: null, caracteristiques: [] }, // une lettre sans semence
+    { ...own.materiaux.classes_iso[0], image_chaleur: 'copeaux-p-chaleur', legende_image: 'Chaleur', caracteristiques: DEFAULT_CHARACTERISTICS.P }, // d'avant D64 : les images et caractéristiques par défaut
+    own.materiaux.classes_iso[1], // null = aucune image, gardé ; '' = aucune légende, gardé ; [] = aucune caractéristique, gardé
+    { ...own.materiaux.classes_iso[2], image_chaleur: null, legende_image: 'Chaleur', caracteristiques: [] }, // une lettre sans semence
   ]);
   assert.equal('image_chaleur' in own.materiaux.classes_iso[0], false); // l'objet reçu n'est pas touché
   assert.deepEqual(isoClassOf(own.materiaux.classes_iso, 'K'), own.materiaux.classes_iso[1]);
@@ -115,7 +115,7 @@ test('tablesDiff : les différences valeur par valeur — Vc, champs d’un mat�
   after.materiaux.materiaux = after.materiaux.materiaux.map((m) => (m.groupe === 1 ? { ...m, vc_pi_min: { ...m.vc_pi_min, carbure_solide: 500 }, durete: 130 } : m)).filter((m) => m.groupe !== 47);
   after.materiaux.groupes_iso = after.materiaux.groupes_iso.filter((g) => g !== 'O - Graphite');
   after.materiaux.materiaux.push({ iso: 'N', groupe: 48, materiau: 'Cuivre et alliages de cuivre', composition: 'x', etat: 'y', durete: 60, exemple: 'C110', vc_pi_min: { acier_rapide: 200, carbure_solide: 300, insert_carbure: 400 } });
-  after.materiaux.classes_iso = after.materiaux.classes_iso.map((c) => (c.code === 'P' ? { ...c, couleur: '#0099cc', image_chaleur: null } : c));
+  after.materiaux.classes_iso = after.materiaux.classes_iso.map((c) => (c.code === 'P' ? { ...c, couleur: '#0099cc', image_chaleur: null, legende_image: 'Zone chaude' } : c));
   after.materiaux.materiaux_outil = after.materiaux.materiaux_outil.map((m) => (m.cle === 'acier_rapide' ? { ...m, nom: 'HSS', couleur: '#cccccc' } : m));
   after.operations.operations = after.operations.operations.map((op) => (op.operation === 'Perçage' ? { ...op, avance_po_rev: 0.008, pictogramme: 'img-0123456789abcdef' } : op));
   const lines = tablesDiff(tables(), after);
@@ -123,6 +123,7 @@ test('tablesDiff : les différences valeur par valeur — Vc, champs d’un mat�
   assert.deepEqual(lines, [
     'Classe P — couleur : #00b0f0 → #0099cc',
     'Classe P — image de chaleur : copeaux-p-chaleur → —',
+    "Classe P — légende de l'image : Chaleur → Zone chaude",
     'Matière d\'outil renommée : « Acier rapide » → « HSS »',
     'Matière d\'outil « HSS » — couleur : #b4c7e7 → #cccccc',
     `Acier non allié (groupe 1) — dureté : ${p1.durete} → 130`,
@@ -196,4 +197,27 @@ test('caractéristiques d’une classe (D65) : quatre lignes par défaut pour P 
     'Classe N — caractéristique ajoutée : Arrosage : abondant',
     "Classe S — l'ordre des caractéristiques a changé.",
   ]);
+});
+
+test('légende de l’image d’une classe (D68) : « Chaleur » par défaut et à la lecture d’une version d’avant ; vide gardé ; 40 caractères au plus ; différences', () => {
+  assert.deepEqual([DEFAULT_LEGENDE_IMAGE, LEGENDE_IMAGE_MAX], ['Chaleur', 40]);
+  assert.ok(DEFAULT_ISO_CLASSES.every((c) => c.legende_image === 'Chaleur'));
+  // A2026_r0 (sans classes_iso) et une classe d'avant D68 (sans la clé) : « Chaleur » ; une légende vide reste vide.
+  assert.ok(completeTables(tables()).materiaux.classes_iso.every((c) => c.legende_image === 'Chaleur'));
+  assert.equal(isoClassOf([{ code: 'P' }], 'P').legende_image, 'Chaleur');
+  assert.equal(isoClassOf([{ code: 'P', legende_image: '' }], 'P').legende_image, '');
+  const t = tables();
+  t.materiaux.classes_iso = structuredClone(DEFAULT_ISO_CLASSES);
+  t.materiaux.classes_iso[0].legende_image = 'x'.repeat(40);
+  t.materiaux.classes_iso[1].legende_image = '';
+  assert.deepEqual(validateTables(t), []);
+  t.materiaux.classes_iso[0].legende_image = 'x'.repeat(41);
+  t.materiaux.classes_iso[1].legende_image = 12;
+  assert.deepEqual(validateTables(t), [
+    'classes_iso[0] (P) : « legende_image » a 41 caractères (au plus 40)',
+    'classes_iso[1] (M) : « legende_image » doit être un texte (ou absente)',
+  ]);
+  const after = completeTables(tables());
+  after.materiaux.classes_iso[1].legende_image = '';
+  assert.deepEqual(tablesDiff(tables(), after), ["Classe M — légende de l'image : Chaleur → —"]);
 });

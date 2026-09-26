@@ -2,7 +2,7 @@
 // Tout ce qui interprète le contenu brut des JSON (libellés, filetages,
 // conversions mm → po) vit ici ; le reste du moteur ne voit que des pouces.
 
-import { CLASS_IMAGE_KEYS, TOOL_MATERIAL_CLES, characteristicsErrors, completeTables, isColor, isoClassesOf, toolMaterialKeyMap, toolMaterialsOf } from './tables.js';
+import { CLASS_IMAGE_KEYS, LEGENDE_IMAGE_MAX, TOOL_MATERIAL_CLES, characteristicsErrors, completeTables, isColor, isoClassesOf, toolMaterialKeyMap, toolMaterialsOf } from './tables.js';
 
 const MM_PER_INCH = 25.4;
 
@@ -141,6 +141,9 @@ function validateIsoClasses(materiaux, errors, images = null) {
       else if (known !== null && !known.has(c[key])) errors.push(`${where} : « ${key} » : l'image « ${c[key]} » est inconnue`);
       else if (known !== null && known.get(c[key]).archivee_le) errors.push(`${where} : « ${key} » : l'image « ${c[key]} » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)`);
     }
+    // La légende de l'image (D68) : un texte de 40 caractères au plus, vide permis (pas de légende), ou absente.
+    if (c.legende_image !== undefined && typeof c.legende_image !== 'string') errors.push(`${where} : « legende_image » doit être un texte (ou absente)`);
+    else if (typeof c.legende_image === 'string' && c.legende_image.length > LEGENDE_IMAGE_MAX) errors.push(`${where} : « legende_image » a ${c.legende_image.length} caractères (au plus ${LEGENDE_IMAGE_MAX})`);
     // Les caractéristiques (D65) : libellé et texte, solution facultative, longueurs bornées.
     for (const message of characteristicsErrors(c.caracteristiques)) errors.push(`${where} : ${message}`);
   });
