@@ -109,29 +109,26 @@
   box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--panel-color) 55%, transparent);
 }
 
-/* Les deux images de la classe ISO (chaleur, forme de copeaux : D64), sous la description du matériau
-   brut : même hauteur, une légende sous chacune, sans fond ni cadre (elles sont détourées). La hauteur
-   suit la largeur du panneau — à 390 px, les deux tiennent côte à côte — et plafonne à 110 px. */
-.material-images {
-  --material-image-height: min(110px, calc(35vw - 30px));
+/* L'image de chaleur de la classe ISO (D64, D66) et, à sa droite, ses caractéristiques (D65), sous la
+   description du matériau brut. L'image est détourée : sans fond ni cadre. La liste passe sous l'image quand
+   la place manque (moins de 160 px à côté d'elle) ; sur téléphone, toujours dessous. */
+.material-heat {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: var(--space-3);
+  gap: var(--space-3) var(--space-4);
   margin-top: var(--space-4);
 }
 
 .material-image {
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: 0 0 clamp(110px, 42%, 170px);
   margin: 0;
 }
 
 .material-image img {
   display: block;
-  height: var(--material-image-height);
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
+  width: 100%;
+  height: auto;
 }
 
 .material-image figcaption {
@@ -141,14 +138,18 @@
   text-align: center;
 }
 
-/* Les caractéristiques de la classe (D65) : « Effort : moyen », une ligne chacune ; la solution d'un
-   problème sur une ligne à part, « → Solution : » en couleur d'accent de la page, le texte atténué. */
+/* Les caractéristiques : « Effort : moyen », une ligne chacune, en couleur de texte secondaire, le libellé en
+   gras, sans puce (la lettre de classe du panneau sert de repère) ; la solution d'un problème sur une ligne à
+   part, en retrait, « → Solution : » en couleur d'accent de la page. */
 .material-features {
+  flex: 1 1 160px;
+  min-width: 0;
   display: grid;
   gap: 4px;
-  margin: var(--space-3) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
+  color: var(--color-text-muted);
   overflow-wrap: anywhere;
 }
 
@@ -157,6 +158,12 @@
 .material-feature-solution { margin-top: 1px; padding-left: var(--space-3); }
 
 .material-feature-arrow { color: var(--color-accent-light); font-weight: 600; }
+
+/* Téléphone : l'image un peu plus grande, la liste dessous, sur toute la largeur. */
+@media (max-width: 639px) {
+  .material-image { flex-basis: min(62%, 230px); }
+  .material-features { flex-basis: 100%; }
+}
 
 /* --- Questionnaire ----------------------------------------------------------------------------------------- */
 
@@ -325,8 +332,6 @@
   .field .field-label { min-height: 3.7em; align-items: flex-start; }
   .question-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .answer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  /* Deux panneaux côte à côte : la hauteur des images de la classe suit la moitié de la largeur. */
-  .material-images { --material-image-height: min(110px, calc(18vw - 45px)); }
 }
 
 @media (min-width: 1000px) {
@@ -337,8 +342,6 @@
   }
 
   .answer-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  /* La question prend deux tiers de la largeur, le panneau du matériau la moitié de ça. */
-  .material-images { --material-image-height: min(110px, calc(12vw - 45px)); }
 }
 
 /* Mode test (D26) : n'apparaît que si le serveur local a joint les réponses attendues à la question. */

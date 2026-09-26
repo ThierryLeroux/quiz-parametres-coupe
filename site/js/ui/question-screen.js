@@ -79,10 +79,11 @@ function toolPanel(question, data) {
   ]);
 }
 
-// Panneau du matériau brut, à la couleur de sa classe ISO (UI §1). Sous la description, les deux images
-// de la classe (chaleur, forme de copeaux : D64), à la même hauteur, chacune avec sa légende ; une
-// classe sans image, ou une image qui manque, laisse l'espace vide. Puis ses caractéristiques (D65) :
-// « Effort : moyen », et sous une ligne qui en a une, « → Solution : … » sur une ligne à part.
+// Panneau du matériau brut, à la couleur de sa classe ISO (UI §1). Sous la description, l'image de chaleur
+// de la classe (D64, D66) avec sa légende et, à sa droite — sous elle quand la place manque, à 390 px —,
+// la liste des caractéristiques de la classe (D65) : « Effort : moyen », et sous une ligne qui en a une,
+// « → Solution : … » sur une ligne à part. Une classe sans image ni caractéristique ne montre rien ; une
+// image qui manque disparaît, la liste reste.
 function materialPanel(question, data) {
   const card = materialCard(question.materiau);
   const features = classFeatures(data.classesIso, question.materiau.iso);
@@ -90,17 +91,17 @@ function materialPanel(question, data) {
     const figure = el('figure', { class: 'material-image' }, [el('img', { src: url, alt: '', onerror: () => figure.remove() }), el('figcaption', {}, label)]);
     return figure;
   });
+  const list = features.length === 0 ? '' : el('ul', { class: 'material-features small' }, features.map(({ libelle, texte, solution }) => el('li', {}, [
+    el('p', {}, [el('span', { class: 'material-feature-label' }, `${libelle} : `), texte]),
+    solution === null ? '' : el('p', { class: 'material-feature-solution' }, [el('span', { class: 'material-feature-arrow' }, '→ Solution : '), solution]),
+  ])));
   return el('section', { class: 'panel material-card', style: `--panel-color: var(${card.color}); --badge-text: var(${card.textColor})` }, [
     el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Matériau brut'), el('div', { class: 'swatch smaller' }, `classe ISO ${card.letter}`)]),
     el('div', { class: 'material-body' }, [
       el('div', { class: 'iso-badge', 'aria-hidden': 'true' }, card.letter),
       el('div', {}, [el('h2', {}, card.title), ...card.lines.map((line) => el('p', { class: 'small' }, line))]),
     ]),
-    images.length === 0 ? '' : el('div', { class: 'material-images' }, images),
-    features.length === 0 ? '' : el('ul', { class: 'material-features small' }, features.map(({ libelle, texte, solution }) => el('li', {}, [
-      el('p', {}, [el('span', { class: 'material-feature-label' }, `${libelle} : `), texte]),
-      solution === null ? '' : el('p', { class: 'material-feature-solution' }, [el('span', { class: 'material-feature-arrow' }, '→ Solution : '), el('span', { class: 'muted' }, solution)]),
-    ]))),
+    images.length === 0 && list === '' ? '' : el('div', { class: 'material-heat' }, [...images, list]),
   ]);
 }
 
