@@ -7,7 +7,7 @@
 
 import { el, showScreen } from './dom.js';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
-import { classImages, operationPicto, toolPhotoUrl } from './sheets-data.js';
+import { classFeatures, classImages, operationPicto, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
 
 // Pictogramme d'une grandeur (UI §5) : le fichier SVG sert de masque, la couleur est celle du texte.
@@ -81,9 +81,11 @@ function toolPanel(question, data) {
 
 // Panneau du matériau brut, à la couleur de sa classe ISO (UI §1). Sous la description, les deux images
 // de la classe (chaleur, forme de copeaux : D64), à la même hauteur, chacune avec sa légende ; une
-// classe sans image, ou une image qui manque, laisse l'espace vide.
+// classe sans image, ou une image qui manque, laisse l'espace vide. Puis ses caractéristiques (D65) :
+// « Effort : moyen », et sous une ligne qui en a une, « → Solution : … » sur une ligne à part.
 function materialPanel(question, data) {
   const card = materialCard(question.materiau);
+  const features = classFeatures(data.classesIso, question.materiau.iso);
   const images = classImages(data.classesIso, question.materiau.iso).map(({ label, url }) => {
     const figure = el('figure', { class: 'material-image' }, [el('img', { src: url, alt: '', onerror: () => figure.remove() }), el('figcaption', {}, label)]);
     return figure;
@@ -95,6 +97,10 @@ function materialPanel(question, data) {
       el('div', {}, [el('h2', {}, card.title), ...card.lines.map((line) => el('p', { class: 'small' }, line))]),
     ]),
     images.length === 0 ? '' : el('div', { class: 'material-images' }, images),
+    features.length === 0 ? '' : el('ul', { class: 'material-features small' }, features.map(({ libelle, texte, solution }) => el('li', {}, [
+      el('p', {}, [el('span', { class: 'material-feature-label' }, `${libelle} : `), texte]),
+      solution === null ? '' : el('p', { class: 'material-feature-solution' }, [el('span', { class: 'material-feature-arrow' }, '→ Solution : '), el('span', { class: 'muted' }, solution)]),
+    ]))),
   ]);
 }
 

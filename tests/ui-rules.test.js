@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
-import { classImages, feedSheet, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
+import { classFeatures, classImages, feedSheet, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
@@ -269,4 +269,17 @@ test('feedSheet : une opération ajoutée au catalogue apparaît dans la feuille
   assert.equal(feuille.rows.length, 20);
   assert.deepEqual([feuille.rows[9].label, feuille.rows[9].picto], ['.003" / dent', '/images/lamage']);
   assert.deepEqual(feuille.machines[1], { key: 'Perceuse / Fraiseuse', start: 4, span: 6 });
+});
+
+test('classFeatures (D65) : les caractéristiques de la classe du matériau, solution à null quand il n’y en a pas ; rien pour O, une classe inconnue ou sans liste ; lignes mal formées sautées', () => {
+  assert.deepEqual(classFeatures(data.classesIso, 'M'), [
+    { libelle: 'Effort', texte: 'moyen à élevé', solution: null },
+    { libelle: 'Chaleur', texte: "élevée, concentrée sur l'arête", solution: null },
+    { libelle: 'Copeaux', texte: 'longs, tenaces, difficiles à fragmenter', solution: null },
+    { libelle: 'Problème typique', texte: 'écrouissage', solution: 'ne pas frotter, garder avance et profondeur suffisantes' },
+  ]);
+  assert.deepEqual(classFeatures(data.classesIso, 'O'), []);
+  assert.deepEqual(classFeatures(data.classesIso, 'Z'), []);
+  assert.deepEqual(classFeatures(undefined, 'P'), []);
+  assert.deepEqual(classFeatures([{ code: 'P', caracteristiques: [{ libelle: ' Effort ', texte: 'x', solution: '' }, { libelle: '', texte: 'y' }, null] }], 'P'), [{ libelle: 'Effort', texte: 'x', solution: null }]);
 });

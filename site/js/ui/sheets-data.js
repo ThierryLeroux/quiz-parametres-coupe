@@ -32,6 +32,16 @@ export const operationPicto = (name, operation = null) => imageUrl(operation?.pi
 // liste vide : l'espace reste vide, sans erreur. `classesIso` : les classes de la version en usage
 // (data.classesIso, ou celles du brouillon des tables à l'écran).
 export const CLASS_IMAGE_LABELS = { image_chaleur: 'Chaleur', image_copeaux: 'Copeaux' };
+
+// Les caractéristiques d'une classe ISO (D65), telles que l'écran Question les montre sous les images :
+// [{ libelle, texte, solution }] — solution vaut null quand la ligne n'en a pas. Les lignes mal formées
+// (sans libellé ou sans texte) sont sautées ; une classe sans caractéristique donne une liste vide.
+export function classFeatures(classesIso, code) {
+  const c = isoClassOf(classesIso, code);
+  const lines = Array.isArray(c?.caracteristiques) ? c.caracteristiques : [];
+  const clean = (v) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null);
+  return lines.filter((l) => clean(l?.libelle) && clean(l?.texte)).map((l) => ({ libelle: clean(l.libelle), texte: clean(l.texte), solution: clean(l.solution) }));
+}
 export function classImages(classesIso, code) {
   const c = isoClassOf(classesIso, code);
   return CLASS_IMAGE_KEYS.filter((key) => typeof c?.[key] === 'string' && c[key] !== '').map((key) => ({ key, label: CLASS_IMAGE_LABELS[key], id: c[key], url: imageUrl(c[key]) }));

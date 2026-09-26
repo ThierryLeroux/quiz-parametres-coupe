@@ -141,6 +141,23 @@
   text-align: center;
 }
 
+/* Les caractéristiques de la classe (D65) : « Effort : moyen », une ligne chacune ; la solution d'un
+   problème sur une ligne à part, « → Solution : » en couleur d'accent de la page, le texte atténué. */
+.material-features {
+  display: grid;
+  gap: 4px;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.material-feature-label { font-weight: 600; }
+
+.material-feature-solution { margin-top: 1px; padding-left: var(--space-3); }
+
+.material-feature-arrow { color: var(--color-accent-light); font-weight: 600; }
+
 /* --- Questionnaire ----------------------------------------------------------------------------------------- */
 
 .answer-grid {
