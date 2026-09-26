@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { decodePng, encodePng } from '../reference/semence-d1/png.mjs';
-import { BLANC, COTE_MAX, DETOURES, ORIGINAUX, SEUIL_BLANC, backgroundMask, cutOut, decrireOriginal, detourer, fitInside, listerOriginaux } from '../reference/semence-d1/detourer-copeaux.mjs';
+import { BANDE_PX, COTE_MAX, DETOURES, EROSION_PX, ORIGINAUX, PLANCHER, SEUIL_BLANC, backgroundMask, cutOut, decrireOriginal, detourer, dilate, fitInside, listerOriginaux } from '../reference/semence-d1/detourer-copeaux.mjs';
 
 // Une image de w × h pixels, chacun donné par une fonction (x, y) → [r, v, b, a].
 const image = (width, height, pixel) => {
@@ -25,29 +25,56 @@ test('png.mjs : un PNG écrit puis relu rend les mêmes pixels ; les originaux d
   assert.deepEqual([original.width, original.height, original.rgba.length], [236, 154, 236 * 154 * 4]);
 });
 
-test('cutOut : le blanc atteint depuis un bord devient transparent, le blanc enclavé reste opaque, la frontière a un alpha partiel démélangé du blanc', () => {
-  // 9 × 9 : fond blanc, un carré gris de 5 × 5 au centre, un pixel blanc au milieu du carré, un pixel « presque blanc » (248) collé au carré.
-  const source = image(9, 9, (x, y) => {
-    if (x === 4 && y === 4) return [255, 255, 255, 255];
-    if (x >= 2 && x <= 6 && y >= 2 && y <= 6) return [120, 120, 120, 255];
-    if (x === 7 && y === 4) return [248, 248, 248, 255];
+test('cutOut : fond transparent, objet érodé d’un pixel, bande de 3 px adoucie selon la blancheur et démélangée du blanc, objet opaque au-delà, blanc enclavé intact', () => {
+  assert.deepEqual([SEUIL_BLANC, EROSION_PX, BANDE_PX, PLANCHER, COTE_MAX], [244, 1, 3, 200, 256]);
+  // 17 × 17 : fond blanc, un carré gris (120) de x, y = 3 à 13 ; dedans, un gris clair (230) près du bord et un au centre, un blanc enclavé près du bord.
+  const special = { '5,8': [230, 230, 230], '8,8': [230, 230, 230], '8,6': [255, 255, 255] };
+  const source = image(17, 17, (x, y) => {
+    if (special[`${x},${y}`]) return [...special[`${x},${y}`], 255];
+    if (x >= 3 && x <= 13 && y >= 3 && y <= 13) return [120, 120, 120, 255];
     return [255, 255, 255, 255];
   });
   const mask = backgroundMask(source);
-  assert.equal(mask[4 * 9 + 4], 0); // le blanc enclavé n'est pas du fond
-  assert.equal(mask[7 * 9 + 4], 1); // 248 ≥ 244 : du fond, au bord
+  assert.equal(mask[3 * 17 + 3], 0); // le carré n'est pas du fond…
+  assert.equal(dilate(mask, 17, 17)[3 * 17 + 3], 1); // … mais son anneau extérieur l'est après l'érosion (8-connexité : le coin aussi)
+  assert.equal(dilate(mask, 17, 17)[4 * 17 + 4], 0);
   const out = cutOut(source);
-  assert.deepEqual(pixelAt(out, 0, 0), [0, 0, 0, 0]); // coin : transparent
-  assert.deepEqual(pixelAt(out, 4, 4), [255, 255, 255, 255]); // le blanc intérieur reste opaque
-  assert.deepEqual(pixelAt(out, 4, 3), [120, 120, 120, 255]); // intérieur de l'objet, loin de la frontière : opaque
-  assert.deepEqual(pixelAt(out, 2, 2), [120, 120, 120, 255]); // au bord de l'objet mais gris foncé : alpha 1 (rampe saturée)
-  // Le pixel presque blanc collé au carré : dans la bande, alpha (252 − 248) / (252 − 244) = 0,5, couleur démélangée du blanc.
-  const [r, , , a] = pixelAt(out, 7, 4);
-  assert.equal(a, 128);
-  assert.equal(r, Math.round((248 - 0.5 * 255) / 0.5)); // 241
-  // Un pixel du fond à un pixel de la frontière mais blanc pur : transparent quand même.
-  assert.deepEqual(pixelAt(out, 1, 4), [0, 0, 0, 0]);
-  assert.deepEqual([SEUIL_BLANC, BLANC, COTE_MAX], [244, 252, 256]);
+  assert.deepEqual(pixelAt(out, 0, 0), [0, 0, 0, 0]); // le fond
+  assert.deepEqual(pixelAt(out, 3, 8), [0, 0, 0, 0]); // l'anneau érodé, même gris foncé
+  assert.deepEqual(pixelAt(out, 4, 8), [120, 120, 120, 255]); // dans la bande, mais plus sombre que 200 : opaque
+  // Gris clair à 2 px du fond : alpha (255 − 230) / (255 − 200) = 0,4545…, couleur démélangée du blanc.
+  const alpha = 25 / 55;
+  const [r, , , a] = pixelAt(out, 5, 8);
+  assert.equal(a, Math.round(alpha * 255));
+  assert.equal(r, Math.round((230 - (1 - alpha) * 255) / alpha));
+  assert.deepEqual(pixelAt(out, 8, 8), [230, 230, 230, 255]); // au-delà de la bande : opaque, tel quel
+  assert.deepEqual(pixelAt(out, 8, 6), [255, 255, 255, 255]); // blanc enclavé, à 2 px du fond : intact
+});
+
+test('cutOut, image synthétique : un disque de couleur anticrénelé sur blanc ne garde aucun pixel d’alpha > 0,5 plus clair que 200 sur les trois canaux à moins de 3 px du fond', () => {
+  // Disque de rayon 20, bleu (40, 120, 200), anticrénelé par suréchantillonnage 4 × 4 et composé sur blanc.
+  const color = [40, 120, 200];
+  const source = image(64, 64, (x, y) => {
+    let covered = 0;
+    for (let sy = 0; sy < 4; sy += 1) for (let sx = 0; sx < 4; sx += 1) if (Math.hypot(x + (sx + 0.5) / 4 - 32, y + (sy + 0.5) / 4 - 32) <= 20) covered += 1;
+    const k = covered / 16;
+    return [...color.map((c) => Math.round(k * c + (1 - k) * 255)), 255];
+  });
+  const out = cutOut(source);
+  const transparent = (x, y) => x < 0 || y < 0 || x >= 64 || y >= 64 || out.rgba[(y * 64 + x) * 4 + 3] === 0;
+  const fringe = [];
+  for (let y = 0; y < 64; y += 1) {
+    for (let x = 0; x < 64; x += 1) {
+      const [pr, pg, pb, pa] = pixelAt(out, x, y);
+      if (pa <= 127 || !(pr > 200 && pg > 200 && pb > 200)) continue;
+      let near = false;
+      for (let dy = -3; dy <= 3 && !near; dy += 1) for (let dx = -3; dx <= 3; dx += 1) if (Math.hypot(dx, dy) < 3 && transparent(x + dx, y + dy)) { near = true; break; }
+      if (near) fringe.push(`(${x},${y}) ${pr},${pg},${pb},${pa}`);
+    }
+  }
+  assert.deepEqual(fringe, []);
+  assert.deepEqual(pixelAt(out, 0, 0), [0, 0, 0, 0]);
+  assert.deepEqual(pixelAt(out, 32, 32), [...color, 255]); // le cœur du disque, tel quel
 });
 
 test('fitInside : jamais agrandi, réduit au plus grand côté 256 en moyennant (alpha prémultiplié)', () => {

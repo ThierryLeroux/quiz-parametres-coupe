@@ -17,18 +17,27 @@
 //    min(R, V, B) = 240 (Copeaux M, reflet du copeau), le blanc des rendus de chaleur descend rarement
 //    sous 252 (bruit) et jamais sous 250 hors des bords ; entre 241 et 249 il n'y a que des pixels
 //    d'anticrénelage, au bord du fond. 244 laisse quatre valeurs de marge de chaque côté.
-// 2. Bord adouci : les pixels à un pixel de la frontière fond / objet (des deux côtés, 8-voisinage)
-//    reçoivent un alpha partiel, en rampe sur la blancheur — opaque à min(R, V, B) ≤ SEUIL_BLANC,
-//    transparent à ≥ BLANC (252), linéaire entre —, et leur couleur est « démélangée » du blanc
-//    (l'original a été composé sur blanc : c = a·objet + (1 − a)·255), pour qu'aucun liseré clair
-//    n'apparaisse sur le fond nuit. Le reste du fond est transparent, le reste de l'objet opaque.
-// 3. Jamais agrandi ; réduit au plus grand côté COTE_MAX (256 px) si plus grand (moyenne des pixels,
+// 2. Érosion de l'objet : le fond est dilaté de EROSION_PX pixel (8-connexité) — l'anneau le plus
+//    extérieur de l'objet, fait de pixels d'anticrénelage presque blancs, devient transparent.
+// 3. Bande adoucie : sur BANDE_PX pixels à partir de ce fond (distance euclidienne entre centres de
+//    pixels), alpha = clamp((255 − min(R, V, B)) / (255 − PLANCHER), 0, 1) — un pixel plus sombre que
+//    PLANCHER sur un canal au moins reste opaque ; un gris-blanc devient partiellement transparent —,
+//    et la couleur est « démélangée » du blanc (l'original a été composé sur blanc :
+//    c = a·objet + (1 − a)·255, donc objet = (c − (1 − a)·255) / a), pour qu'aucun liseré gris-blanc
+//    n'apparaisse sur le fond nuit. Au-delà de la bande, l'objet reste opaque. Le blanc intérieur non
+//    relié aux bords (min(R, V, B) ≥ SEUIL_BLANC hors du fond : l'intérieur d'un copeau, un reflet)
+//    reste intact et opaque, même dans la bande.
+//    Avant (première version), seuls les pixels à un pixel de la frontière et entre 244 et 252 étaient
+//    adoucis : un liseré gris-blanc restait visible sur le fond nuit.
+// 4. Jamais agrandi ; réduit au plus grand côté COTE_MAX (256 px) si plus grand (moyenne des pixels,
 //    alpha prémultiplié). Les originaux font 237 px au plus : aucun n'est réduit aujourd'hui.
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { decodePng, encodePng } from './png.mjs';
 
-export const SEUIL_BLANC = 244;
-export const BLANC = 252;
+export const SEUIL_BLANC = 244; // remplissage depuis les bords : les trois canaux ≥ 244
+export const EROSION_PX = 1; // le fond est dilaté d'un pixel (8-connexité)
+export const BANDE_PX = 3; // largeur de la bande adoucie, à partir du fond dilaté (distance euclidienne)
+export const PLANCHER = 200; // min(R, V, B) ≤ 200 : opaque ; 255 : transparent ; linéaire entre
 export const COTE_MAX = 256;
 
 const ROOT = new URL('../../', import.meta.url);
@@ -64,34 +73,60 @@ export function backgroundMask({ width, height, rgba }, threshold = SEUIL_BLANC)
   return mask;
 }
 
-// Le PNG détouré : fond transparent, bord adouci d'un pixel de chaque côté de la frontière, couleurs démélangées du blanc.
-export function cutOut(image, { threshold = SEUIL_BLANC, white = BLANC } = {}) {
-  const { width, height, rgba } = image;
-  const mask = backgroundMask(image, threshold);
-  const out = new Uint8Array(rgba.length);
-  const nearBoundary = (p) => {
-    const x = p % width;
-    const y = (p - x) / width;
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx >= 0 && yy >= 0 && xx < width && yy < height && mask[yy * width + xx] !== mask[p]) return true;
+// Le fond dilaté de `erosion` pixels (8-connexité) : l'érosion de l'objet.
+export function dilate(mask, width, height, erosion = EROSION_PX) {
+  let current = mask;
+  for (let step = 0; step < erosion; step += 1) {
+    const next = Uint8Array.from(current);
+    for (let p = 0; p < width * height; p += 1) {
+      if (current[p] === 1) continue;
+      const x = p % width;
+      const y = (p - x) / width;
+      search: for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < width && yy < height && current[yy * width + xx] === 1) { next[p] = 1; break search; }
+        }
       }
     }
-    return false;
+    current = next;
+  }
+  return current;
+}
+
+// Le PNG détouré : fond (dilaté) transparent, bande adoucie de `band` pixels démélangée du blanc,
+// objet opaque au-delà, blanc intérieur intact.
+export function cutOut(image, { threshold = SEUIL_BLANC, erosion = EROSION_PX, band = BANDE_PX, floor = PLANCHER } = {}) {
+  const { width, height, rgba } = image;
+  const background = dilate(backgroundMask(image, threshold), width, height, erosion);
+  const reach = Math.ceil(band);
+  // La distance d'un pixel au fond le plus proche, cherchée dans une fenêtre de ±reach (Infinity au-delà).
+  const distanceToBackground = (p) => {
+    const x = p % width;
+    const y = (p - x) / width;
+    let best = Infinity;
+    for (let dy = -reach; dy <= reach; dy += 1) {
+      for (let dx = -reach; dx <= reach; dx += 1) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx >= 0 && yy >= 0 && xx < width && yy < height && background[yy * width + xx] === 1) best = Math.min(best, Math.hypot(dx, dy));
+      }
+    }
+    return best;
   };
+  const out = new Uint8Array(rgba.length);
   for (let p = 0; p < width * height; p += 1) {
+    if (background[p] === 1) continue; // transparent : (0, 0, 0, 0)
     const d = p * 4;
     const [r, g, b] = [rgba[d], rgba[d + 1], rgba[d + 2]];
     const alphaIn = rgba[d + 3] / 255; // les originaux sont opaques ; un alpha existant est respecté
-    let alpha;
-    if (nearBoundary(p)) {
-      const whiteness = Math.min(r, g, b);
-      alpha = Math.max(0, Math.min(1, (white - whiteness) / (white - threshold)));
-    } else alpha = mask[p] === 1 ? 0 : 1;
+    const whiteness = Math.min(r, g, b);
+    // Blanc intérieur (hors du fond, donc non relié aux bords) : intact. Dans la bande : alpha selon la blancheur.
+    let alpha = 1;
+    if (whiteness < threshold && distanceToBackground(p) <= band) alpha = Math.max(0, Math.min(1, (255 - whiteness) / (255 - floor)));
     alpha *= alphaIn;
-    if (alpha <= 0) continue; // transparent : (0, 0, 0, 0)
+    if (alpha <= 0) continue;
     if (alpha < 1) {
       // Démélange du blanc : c = a·objet + (1 − a)·255  →  objet = (c − (1 − a)·255) / a.
       const unblend = (c) => Math.max(0, Math.min(255, Math.round((c - (1 - alpha) * 255) / alpha)));

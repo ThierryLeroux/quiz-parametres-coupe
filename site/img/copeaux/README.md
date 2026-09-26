@@ -8,7 +8,7 @@ Question, et dans l'aperçu de l'éditeur.
 - `originaux/` — les fichiers tels que reçus (« Chaleur groupe P.png », « Copeaux groupe P.png »,
   RVBA 8 bits, fond blanc composé dans l'image). **C'est la source** ; ils ne sont pas servis.
 - `copeaux-<classe>-chaleur.png`, `copeaux-<classe>-copeaux.png` — les mêmes, **détourés** (fond
-  transparent, bord adouci, jamais agrandis, au plus 256 px) par
+  transparent, objet érodé d'un pixel, bande de 3 px adoucie et démélangée du blanc, jamais agrandis, au plus 256 px) par
   `node reference/semence-d1/detourer-copeaux.mjs`, qui dit sa méthode et son seuil en tête. Ne pas
   les retoucher à la main : relancer le script (un test vérifie qu'ils sont exactement ce qu'il produit).
 
