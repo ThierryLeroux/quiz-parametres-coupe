@@ -376,3 +376,24 @@ test('images des classes ISO (D64) : le brouillon et les versions portent les im
   assert.deepEqual([neuve.status, neuve.corps.existante, neuve.corps.image.usage, neuve.corps.image.nom], [200, false, 'classe', 'chaleur O']);
   assert.equal((await serveur.editeur('GET', 'images?usage=classe')).corps.images.length, 13);
 });
+
+test('caractéristiques des classes ISO (D65) : servies avec l’exercice et la version publique ; une solution trop longue est une erreur nommée qui bloque la publication ; une solution changée est publiée, et l’export la porte', async () => {
+  const serveur = await editeurDeTest();
+  const exercice = await serveur.appel('GET', `/api/exercice?exercice=${M10}`);
+  assert.deepEqual(exercice.corps.tables.materiaux.classes_iso[1].caracteristiques.map((l) => l.libelle), ['Effort', 'Chaleur', 'Copeaux', 'Problème typique']);
+  assert.equal((await serveur.appel('GET', '/api/tables?version=A2026_r0')).corps.tables.materiaux.classes_iso[0].caracteristiques[3].solution, 'respecter la Vc de la table, nuance revêtue');
+  const page = await brouillonTables(serveur);
+  const trop = structuredClone(page.brouillon.contenu);
+  trop.materiaux.classes_iso[1].caracteristiques[3].solution = 'x'.repeat(91);
+  const refus = await publierTables(serveur, trop, 'A2026_r1');
+  assert.equal(refus.status, 400);
+  assert.ok((await brouillonTables(serveur)).erreurs.some((e) => e.message === 'classes_iso[1] (M) : caractéristique 4 : « solution » a 91 caractères (au plus 90)'));
+  const bon = structuredClone(page.brouillon.contenu);
+  bon.materiaux.classes_iso[1].caracteristiques[3].solution = 'avance suffisante, arête vive';
+  const publie = await publierTables(serveur, bon, 'A2026_r1');
+  assert.equal(publie.status, 200, JSON.stringify(publie.corps));
+  const version = await serveur.editeur('GET', 'tables/version?id=A2026_r1');
+  assert.equal(version.corps.tables.materiaux.classes_iso[1].caracteristiques[3].solution, 'avance suffisante, arête vive');
+  const exporte = (await serveur.editeur('GET', 'export')).corps;
+  assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].caracteristiques[3].solution, 'avance suffisante, arête vive');
+});

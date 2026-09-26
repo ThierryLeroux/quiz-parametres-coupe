@@ -19,8 +19,7 @@ import { copyOfTool, draftErrors } from '../exercice.js';
 import { tablesDiff } from '../tables.js';
 import { applyTableColors, el, showScreen } from './dom.js';
 import {
-  FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, USAGE_LABELS, archiveConfirmation, canDeleteImage, deleteConfirmation, deducibleWarnings, deriveGroups, diffLines, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates,
-  dimensionReadings, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, characteristicsText, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseCharacteristics, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classImages, imageUrl } from './sheets-data.js';
@@ -1016,11 +1015,13 @@ async function showTables(notice = '') {
     const pickerFor = (key) => imagePicker({ usage: 'classe', images: state.images.classe, value: c[key] ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: () => { touch(); validate(); }, idPrefix: `cl-${i}-${key.replace('image_', '')}`, compact: true });
     const chaleur = pickerFor('image_chaleur');
     const copeaux = pickerFor('image_copeaux');
+    // Les caractéristiques (D65) : une par ligne, « libellé ; texte » ou « libellé ; texte ; solution ».
+    const features = el('textarea', { id: `cl-${i}-caracteristiques`, rows: '5', spellcheck: 'true', class: 'caracteristiques-texte', 'aria-label': `Caractéristiques de la classe ${c.code}` }, characteristicsText(c.caracteristiques));
     return {
-      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(copeaux.element, 'picto-cell')]),
-      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), image_copeaux: copeaux.read() }),
+      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(copeaux.element, 'picto-cell'), cell(features, 'caracteristiques-cell')]),
+      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), image_copeaux: copeaux.read(), caracteristiques: parseCharacteristics(features.value) }),
     };
-  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, image_copeaux: null }), () => { touch(); validate(); });
+  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, image_copeaux: null, caracteristiques: [] }), () => { touch(); validate(); });
 
   // --- Matières d'outil : clé fixe, nom, couleur.
   const toolMaterialRows = draft.materiaux.materiaux_outil.map((m, i) => {
@@ -1198,8 +1199,8 @@ async function showTables(notice = '') {
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Classes ISO'),
-      el('p', { class: 'muted small' }, "La lettre de classe, son nom, ses couleurs (celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe), et ses deux images — la chaleur dans la coupe, la forme de copeaux —, montrées sous le matériau brut de l'écran Question. Une image archivée doit être remplacée avant de publier."),
-      table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Image de copeaux'], classes.body, 'tables-edit--classes'),
+      el('p', { class: 'muted small' }, "La lettre de classe, son nom, ses couleurs (celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe), et ses deux images — la chaleur dans la coupe, la forme de copeaux —, montrées sous le matériau brut de l'écran Question. Une image archivée doit être remplacée avant de publier. Les caractéristiques, montrées dessous : une par ligne, « libellé ; texte », ou « libellé ; texte ; solution » — la solution s'affiche sur une ligne à part, « → Solution : … » ; au plus 6 lignes, libellé de 30 caractères, texte et solution de 90."),
+      table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Image de copeaux', 'Caractéristiques'], classes.body, 'tables-edit--classes'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe')),
     ]),
     el('section', { class: 'panel' }, [

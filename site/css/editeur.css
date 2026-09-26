@@ -187,6 +187,9 @@
 .tables-edit input:disabled { opacity: 0.4; }
 .tables-edit .ligne-famille td { border-top: 2px solid var(--color-text-muted); }
 .tables-edit .picto-cell { min-width: 220px; }
+/* Les caractéristiques d'une classe (D65) : une zone de texte, une par ligne « libellé ; texte ; solution ». */
+.tables-edit .caracteristiques-cell { min-width: 420px; }
+.tables-edit textarea.caracteristiques-texte { width: 100%; min-height: 110px; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-accent); border-radius: 0; background: var(--color-input-bg); color: var(--color-text); font: inherit; font-size: var(--text-sm); line-height: 1.4; resize: vertical; }
 .image-picker--compact { gap: var(--space-1); }
 .image-picker--compact .image-picker-preview { width: 40px; height: 40px; }
 .image-picker--compact .image-picker-current .outil-actions { margin-top: 2px; }
