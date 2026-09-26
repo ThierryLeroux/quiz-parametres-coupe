@@ -22,21 +22,21 @@ test('completeTables : une version d’avant le 7b reçoit les classes ISO et le
   assert.deepEqual(complete.materiaux.materiaux_outil, DEFAULT_TOOL_MATERIALS);
   assert.equal(complete.materiaux.materiaux, source.materiaux.materiaux);
   assert.equal(complete.operations, source.operations);
-  // Les images des classes (D64) : P à H ont les deux de la semence, O aucune.
-  assert.deepEqual(DEFAULT_ISO_CLASSES.map((c) => [c.code, c.image_chaleur, c.image_copeaux]), [
-    ['P', 'copeaux-p-chaleur', 'copeaux-p-copeaux'], ['M', 'copeaux-m-chaleur', 'copeaux-m-copeaux'], ['K', 'copeaux-k-chaleur', 'copeaux-k-copeaux'],
-    ['N', 'copeaux-n-chaleur', 'copeaux-n-copeaux'], ['S', 'copeaux-s-chaleur', 'copeaux-s-copeaux'], ['H', 'copeaux-h-chaleur', 'copeaux-h-copeaux'], ['O', null, null],
+  // L'image de chaleur des classes (D64, D66) : P à H ont celle de la semence, O aucune ; plus d'image de copeaux.
+  assert.deepEqual(DEFAULT_ISO_CLASSES.map((c) => [c.code, c.image_chaleur]), [
+    ['P', 'copeaux-p-chaleur'], ['M', 'copeaux-m-chaleur'], ['K', 'copeaux-k-chaleur'], ['N', 'copeaux-n-chaleur'], ['S', 'copeaux-s-chaleur'], ['H', 'copeaux-h-chaleur'], ['O', null],
   ]);
-  const own = { materiaux: { ...materiaux, classes_iso: [{ code: 'P', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }, { code: 'K', nom: 'k', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, image_copeaux: 'img-0123456789abcdef', caracteristiques: [] }, { code: 'X', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }], materiaux_outil: [{ cle: 'acier_rapide', nom: 'HSS', couleur: '#111111' }] }, operations };
+  assert.ok(DEFAULT_ISO_CLASSES.every((c) => !('image_copeaux' in c)));
+  const own = { materiaux: { ...materiaux, classes_iso: [{ code: 'P', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }, { code: 'K', nom: 'k', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, caracteristiques: [] }, { code: 'X', nom: 'x', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }], materiaux_outil: [{ cle: 'acier_rapide', nom: 'HSS', couleur: '#111111' }] }, operations };
   const ownComplete = completeTables(own).materiaux.classes_iso;
   assert.deepEqual(ownComplete, [
-    { ...own.materiaux.classes_iso[0], image_chaleur: 'copeaux-p-chaleur', image_copeaux: 'copeaux-p-copeaux', caracteristiques: DEFAULT_CHARACTERISTICS.P }, // d'avant D64 : les images et caractéristiques par défaut
-    own.materiaux.classes_iso[1], // null = aucune image, gardé ; l'autre gardée ; [] = aucune caractéristique, gardé
-    { ...own.materiaux.classes_iso[2], image_chaleur: null, image_copeaux: null, caracteristiques: [] }, // une lettre sans semence
+    { ...own.materiaux.classes_iso[0], image_chaleur: 'copeaux-p-chaleur', caracteristiques: DEFAULT_CHARACTERISTICS.P }, // d'avant D64 : les images et caractéristiques par défaut
+    own.materiaux.classes_iso[1], // null = aucune image, gardé ; [] = aucune caractéristique, gardé
+    { ...own.materiaux.classes_iso[2], image_chaleur: null, caracteristiques: [] }, // une lettre sans semence
   ]);
   assert.equal('image_chaleur' in own.materiaux.classes_iso[0], false); // l'objet reçu n'est pas touché
   assert.deepEqual(isoClassOf(own.materiaux.classes_iso, 'K'), own.materiaux.classes_iso[1]);
-  assert.equal(isoClassOf(own.materiaux.classes_iso, 'P').image_copeaux, 'copeaux-p-copeaux');
+  assert.equal(isoClassOf(own.materiaux.classes_iso, 'P').image_chaleur, 'copeaux-p-chaleur');
   assert.equal(isoClassOf(own.materiaux.classes_iso, 'Z'), null);
   assert.deepEqual([...toolMaterialKeyMap(own.materiaux)], [['HSS', 'acier_rapide']]);
   assert.deepEqual(Object.fromEntries(toolMaterialKeyMap(materiaux)), TOOL_MATERIAL_KEYS); // par défaut, les noms d'avant
@@ -67,25 +67,25 @@ test('validateTables : les vraies tables sont valides ; classes ISO et matières
   assert.deepEqual(validateTables(t3), []);
   // Les images d'une classe (D64) : un identifiant d'image, null (aucune) ou absente ; autre chose est une erreur.
   const t4 = tables();
-  t4.materiaux.classes_iso = DEFAULT_ISO_CLASSES.map((c) => (c.code === 'P' ? { ...c, image_chaleur: 'Pas Un Id', image_copeaux: null } : c));
+  t4.materiaux.classes_iso = DEFAULT_ISO_CLASSES.map((c) => (c.code === 'P' ? { ...c, image_chaleur: 'Pas Un Id' } : c));
   assert.deepEqual(validateTables(t4), ["classes_iso[0] (P) : « image_chaleur » doit être l'identifiant d'une image (ou null)"]);
   t4.materiaux.classes_iso[0].image_chaleur = 'img-0123456789abcdef';
   assert.deepEqual(validateTables(t4), []);
   // Avec les fiches des images (l'éditeur) : une image de classe archivée ou inconnue est une erreur nommée ; sans elles, non.
-  const fiches = DEFAULT_ISO_CLASSES.flatMap((c) => [c.image_chaleur, c.image_copeaux]).filter(Boolean)
-    .filter((id) => id !== 'copeaux-k-chaleur').map((id) => ({ id, archivee_le: id === 'copeaux-p-copeaux' ? '2026-09-26T13:00:00.000Z' : null }));
+  const fiches = DEFAULT_ISO_CLASSES.map((c) => c.image_chaleur).filter(Boolean)
+    .filter((id) => id !== 'copeaux-k-chaleur').map((id) => ({ id, archivee_le: id === 'copeaux-p-chaleur' ? '2026-09-26T13:00:00.000Z' : null }));
   const t5 = tables();
   t5.materiaux.classes_iso = structuredClone(DEFAULT_ISO_CLASSES);
   assert.deepEqual(validateTables(t5), []);
   assert.deepEqual(validateTables(t5, { images: fiches }), [
-    "classes_iso[0] (P) : « image_copeaux » : l'image « copeaux-p-copeaux » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)",
+    "classes_iso[0] (P) : « image_chaleur » : l'image « copeaux-p-chaleur » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)",
     "classes_iso[2] (K) : « image_chaleur » : l'image « copeaux-k-chaleur » est inconnue",
   ]);
-  t5.materiaux.classes_iso[0].image_copeaux = null;
-  t5.materiaux.classes_iso[2].image_chaleur = 'copeaux-p-chaleur';
+  t5.materiaux.classes_iso[0].image_chaleur = null;
+  t5.materiaux.classes_iso[2].image_chaleur = 'copeaux-m-chaleur';
   assert.deepEqual(validateTables(t5, { images: fiches }), []);
   assert.deepEqual(validateTables(tables(), { images: [] }), [
-    ...['P', 'M', 'K', 'N', 'S', 'H'].flatMap((code, i) => ['image_chaleur', 'image_copeaux'].map((key) => `classes_iso[${i}] (${code}) : « ${key} » : l'image « copeaux-${code.toLowerCase()}-${key.slice(6)} » est inconnue`)),
+    ...['P', 'M', 'K', 'N', 'S', 'H'].map((code, i) => `classes_iso[${i}] (${code}) : « image_chaleur » : l'image « copeaux-${code.toLowerCase()}-chaleur » est inconnue`),
   ]); // une version d'avant D64, complétée, nomme les images de la semence : sans elles en base, chacune manque
 });
 
@@ -115,7 +115,7 @@ test('tablesDiff : les différences valeur par valeur — Vc, champs d’un mat�
   after.materiaux.materiaux = after.materiaux.materiaux.map((m) => (m.groupe === 1 ? { ...m, vc_pi_min: { ...m.vc_pi_min, carbure_solide: 500 }, durete: 130 } : m)).filter((m) => m.groupe !== 47);
   after.materiaux.groupes_iso = after.materiaux.groupes_iso.filter((g) => g !== 'O - Graphite');
   after.materiaux.materiaux.push({ iso: 'N', groupe: 48, materiau: 'Cuivre et alliages de cuivre', composition: 'x', etat: 'y', durete: 60, exemple: 'C110', vc_pi_min: { acier_rapide: 200, carbure_solide: 300, insert_carbure: 400 } });
-  after.materiaux.classes_iso = after.materiaux.classes_iso.map((c) => (c.code === 'P' ? { ...c, couleur: '#0099cc', image_chaleur: null, image_copeaux: 'img-0123456789abcdef' } : c));
+  after.materiaux.classes_iso = after.materiaux.classes_iso.map((c) => (c.code === 'P' ? { ...c, couleur: '#0099cc', image_chaleur: null } : c));
   after.materiaux.materiaux_outil = after.materiaux.materiaux_outil.map((m) => (m.cle === 'acier_rapide' ? { ...m, nom: 'HSS', couleur: '#cccccc' } : m));
   after.operations.operations = after.operations.operations.map((op) => (op.operation === 'Perçage' ? { ...op, avance_po_rev: 0.008, pictogramme: 'img-0123456789abcdef' } : op));
   const lines = tablesDiff(tables(), after);
@@ -123,7 +123,6 @@ test('tablesDiff : les différences valeur par valeur — Vc, champs d’un mat�
   assert.deepEqual(lines, [
     'Classe P — couleur : #00b0f0 → #0099cc',
     'Classe P — image de chaleur : copeaux-p-chaleur → —',
-    'Classe P — image de copeaux : copeaux-p-copeaux → img-0123456789abcdef',
     'Matière d\'outil renommée : « Acier rapide » → « HSS »',
     'Matière d\'outil « HSS » — couleur : #b4c7e7 → #cccccc',
     `Acier non allié (groupe 1) — dureté : ${p1.durete} → 130`,

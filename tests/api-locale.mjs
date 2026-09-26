@@ -465,21 +465,23 @@ try {
     const doublon = await appel('POST', '/api/prof/editeur/images/televerser', { corps: { nom: 'autre.png', usage: 'outil', type: 'image/png', contenu: contenu.toString('base64') }, cookie });
     assert.deepEqual([doublon.corps.existante, doublon.corps.image.id], [true, imageNeuve.id]);
     const liste = await appel('GET', '/api/prof/editeur/images', { cookie });
-    assert.equal(liste.corps.images.length, 61);
+    assert.equal(liste.corps.images.length, 55);
     assert.deepEqual(liste.corps.images.find((i) => i.id === imageNeuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [] });
   });
 
-  await etape('images de classe ISO (D64) : la semence de 0009 est servie par /images/<id> ; la version publique des tables et l’exercice portent les images de chaque classe ; les douze images sont utilisées par A2026_r0', async () => {
+  await etape('images de classe ISO (D64) : la semence de 0009 est servie par /images/<id> ; la version publique des tables et l’exercice portent l’image de chaleur de chaque classe ; les six images sont utilisées par A2026_r0', async () => {
     const chaleur = await fetch(`${ORIGIN}/images/copeaux-p-chaleur`);
     assert.equal(chaleur.status, 200);
     assert.equal(chaleur.headers.get('content-type'), 'image/png');
     assert.equal(Buffer.compare(Buffer.from(await chaleur.arrayBuffer()), await readFile(join(ROOT, 'site', 'img', 'copeaux', 'copeaux-p-chaleur.png'))), 0);
     const tables = await appel('GET', '/api/tables?version=A2026_r0');
-    assert.deepEqual(tables.corps.tables.materiaux.classes_iso.map((c) => c.image_copeaux), ['copeaux-p-copeaux', 'copeaux-m-copeaux', 'copeaux-k-copeaux', 'copeaux-n-copeaux', 'copeaux-s-copeaux', 'copeaux-h-copeaux', null]);
+    assert.deepEqual(tables.corps.tables.materiaux.classes_iso.map((c) => c.image_chaleur), ['copeaux-p-chaleur', 'copeaux-m-chaleur', 'copeaux-k-chaleur', 'copeaux-n-chaleur', 'copeaux-s-chaleur', 'copeaux-h-chaleur', null]);
+    assert.ok(tables.corps.tables.materiaux.classes_iso.every((c) => !('image_copeaux' in c)));
+    assert.equal((await fetch(`${ORIGIN}/images/copeaux-p-copeaux`)).status, 404);
     const exercice = await appel('GET', `/api/exercice?exercice=${M10}`);
     assert.equal(exercice.corps.tables.materiaux.classes_iso[0].image_chaleur, 'copeaux-p-chaleur');
     const classe = await appel('GET', '/api/prof/editeur/images?usage=classe', { cookie });
-    assert.equal(classe.corps.images.length, 12);
+    assert.equal(classe.corps.images.length, 6);
     assert.ok(classe.corps.images.every((i) => i.usage === 'classe' && i.utilisations.tables.includes('A2026_r0')));
   });
 
@@ -499,7 +501,7 @@ try {
 
   await etape('images et sauvegarde (D59) : l’export porte les 49 images ; après suppression de la neuve, l’import la réclame, la reçoit à part, puis l’aller-retour est identique', async () => {
     const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
-    assert.equal(exporte.corps.images.length, 61);
+    assert.equal(exporte.corps.images.length, 55);
     const neuve = exporte.corps.images.find((i) => i.id === imageNeuve.id);
     assert.equal(typeof neuve.contenu, 'string');
     assert.deepEqual((await appel('POST', '/api/prof/editeur/images/supprimer', { corps: { id: imageNeuve.id }, cookie })).corps.supprimee, true);

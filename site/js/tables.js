@@ -7,9 +7,9 @@
 
 // Les classes ISO 513 du classeur, avec les couleurs des feuilles (UI §1 ; tokens.css avant le 7b) :
 // la couleur vive (lettre, panneau du matériau), celle du texte posé dessus, la teinte de ligne —
-// et, depuis D64, les deux images de la classe (chaleur, forme de copeaux : les identifiants de la
-// semence de la migration 0009, site/img/copeaux/ ; la classe O n'en a pas).
-export const CLASS_IMAGE_KEYS = ['image_chaleur', 'image_copeaux'];
+// et, depuis D64, l'image de chaleur de la classe (l'identifiant de la semence de la migration 0009,
+// site/img/copeaux/ ; la classe O n'en a pas). L'image de forme de copeaux a été retirée (D66).
+export const CLASS_IMAGE_KEYS = ['image_chaleur'];
 
 // Les caractéristiques d'une classe (D65) : des lignes { libelle, texte, solution? } montrées sous le
 // matériau brut de l'écran Question — « Effort : moyen », puis, s'il y a une solution, une ligne à part
@@ -69,7 +69,7 @@ function characteristicsDiff(code, before, after) {
   if (orderA !== orderB) lines.push(`Classe ${code} — l'ordre des caractéristiques a changé.`);
   return lines;
 }
-const classImages = (code) => (code === 'O' ? { image_chaleur: null, image_copeaux: null } : { image_chaleur: `copeaux-${code.toLowerCase()}-chaleur`, image_copeaux: `copeaux-${code.toLowerCase()}-copeaux` });
+const classImages = (code) => ({ image_chaleur: code === 'O' ? null : `copeaux-${code.toLowerCase()}-chaleur` });
 export const DEFAULT_ISO_CLASSES = [
   { code: 'P', nom: 'Acier', couleur: '#00b0f0', couleur_texte: '#ffffff', couleur_ligne: '#c1efff' },
   { code: 'M', nom: 'Acier inoxydable', couleur: '#ffff00', couleur_texte: '#000000', couleur_ligne: '#ffffb7' },
@@ -86,7 +86,7 @@ export const DEFAULT_ISO_CLASSES = [
 // même vide, est gardée.
 export function completeIsoClass(c) {
   if (!isObject(c)) return c;
-  const defaults = DEFAULT_ISO_CLASSES.find((d) => d.code === c.code) ?? { image_chaleur: null, image_copeaux: null, caracteristiques: [] };
+  const defaults = DEFAULT_ISO_CLASSES.find((d) => d.code === c.code) ?? { image_chaleur: null, caracteristiques: [] };
   const out = { ...c };
   for (const key of CLASS_IMAGE_KEYS) if (out[key] === undefined) out[key] = defaults[key];
   if (out.caracteristiques === undefined) out.caracteristiques = structuredClone(defaults.caracteristiques);
@@ -184,7 +184,7 @@ export function tablesDiff(before, after) {
   for (const [code, c] of classesB) {
     const old = classesA.get(code);
     if (!old) { lines.push(`Classe ajoutée : ${code} — ${c.nom}`); continue; }
-    for (const [key, label] of [['nom', 'nom'], ['couleur', 'couleur'], ['couleur_texte', 'couleur du texte'], ['couleur_ligne', 'teinte de ligne'], ['image_chaleur', 'image de chaleur'], ['image_copeaux', 'image de copeaux']]) {
+    for (const [key, label] of [['nom', 'nom'], ['couleur', 'couleur'], ['couleur_texte', 'couleur du texte'], ['couleur_ligne', 'teinte de ligne'], ['image_chaleur', 'image de chaleur']]) {
       if (!same(old[key], c[key])) lines.push(`Classe ${code} — ${label} : ${text(old[key])} → ${text(c[key])}`);
     }
     lines.push(...characteristicsDiff(code, old.caracteristiques, c.caracteristiques));

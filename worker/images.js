@@ -8,7 +8,7 @@ import { CLASS_IMAGE_KEYS, completeTables } from '../site/js/tables.js';
 import { SvgError, sanitizeSvg } from './svg.js';
 
 // Les trois usages : la photo d'un outil (`image` de l'outil), le pictogramme d'une opération, et
-// (D64) l'image d'une classe ISO (chaleur, forme de copeaux : `image_chaleur`, `image_copeaux`).
+// (D64) l'image de chaleur d'une classe ISO (`image_chaleur`).
 export const USAGES = ['outil', 'operation', 'classe'];
 
 // Les types acceptés. Un type se vérifie sur les premiers octets (magicType), jamais sur ce que dit le navigateur.

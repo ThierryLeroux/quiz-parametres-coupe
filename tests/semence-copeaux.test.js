@@ -13,10 +13,10 @@ import { lireFichier } from './aide.js';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
-test('la semence de la migration 0009 est identique aux douze PNG détourés de site/img/copeaux/, sous l’usage « classe »', () => {
+test('la semence de la migration 0009 est identique aux six PNG détourés de site/img/copeaux/, sous l’usage « classe »', () => {
   const db = fausseD1();
   const attendues = composerSemenceCopeaux();
-  assert.equal(attendues.length, 12);
+  assert.equal(attendues.length, 6);
   const enBase = db.sqlite.prepare("SELECT * FROM images WHERE usage = 'classe' ORDER BY id").all().map((row) => ({ ...row }));
   assert.deepEqual(enBase.map((row) => row.id), attendues.map((i) => i.id));
   for (const row of enBase) {
@@ -31,21 +31,20 @@ test('la semence de la migration 0009 est identique aux douze PNG détourés de 
   }
   // Chaque image tient dans une instruction D1 (100 Ko, hexadécimal compris).
   assert.ok(attendues.every((i) => i.taille <= LIMITE_OCTETS), attendues.map((i) => `${i.id} ${i.taille}`).join(', '));
-  assert.deepEqual(attendues.map((i) => i.nom).slice(0, 2), ['Classe H — chaleur', 'Classe H — forme de copeaux']);
-  // Les photos et pictogrammes de 0007 sont toujours là : 48 + 12.
-  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM images').get().n, 60);
+  assert.deepEqual(attendues.map((i) => i.nom), ['Classe H — chaleur', 'Classe K — chaleur', 'Classe M — chaleur', 'Classe N — chaleur', 'Classe P — chaleur', 'Classe S — chaleur']);
+  // Les photos et pictogrammes de 0007 sont toujours là : 48 + 6.
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM images').get().n, 54);
 });
 
-test('chaque classe ISO par défaut nomme ses deux images de la semence (la classe O n’en a pas), et une version d’avant les reçoit à la lecture', async () => {
+test('chaque classe ISO par défaut nomme son image de chaleur de la semence (la classe O n’en a pas), et une version d’avant la reçoit à la lecture', async () => {
   const parClasse = imagesParClasse();
   assert.deepEqual(Object.keys(parClasse).sort(), ['H', 'K', 'M', 'N', 'P', 'S']);
   for (const c of DEFAULT_ISO_CLASSES) {
-    if (c.code === 'O') assert.deepEqual([c.image_chaleur, c.image_copeaux], [null, null]);
-    else assert.deepEqual([c.image_chaleur, c.image_copeaux], [parClasse[c.code].image_chaleur, parClasse[c.code].image_copeaux], c.code);
+    assert.equal(c.image_chaleur, c.code === 'O' ? null : parClasse[c.code].image_chaleur, c.code);
   }
   // A2026_r0 (les JSON du dépôt, sans classes_iso) : complétée, la classe P a ses images ; la ligne en base ne change pas (0009 ne touche pas tables_reference).
   const tables = completeTables({ materiaux: await lireFichier('data/materiaux.json'), operations: await lireFichier('data/operations.json') });
-  assert.deepEqual([tables.materiaux.classes_iso[0].code, tables.materiaux.classes_iso[0].image_chaleur, tables.materiaux.classes_iso[0].image_copeaux], ['P', 'copeaux-p-chaleur', 'copeaux-p-copeaux']);
+  assert.deepEqual([tables.materiaux.classes_iso[0].code, tables.materiaux.classes_iso[0].image_chaleur, 'image_copeaux' in tables.materiaux.classes_iso[0]], ['P', 'copeaux-p-chaleur', false]);
   const db = fausseD1();
   const r0 = JSON.parse(db.sqlite.prepare("SELECT materiaux FROM tables_reference WHERE id = 'A2026_r0'").get().materiaux);
   assert.equal('classes_iso' in r0, false);

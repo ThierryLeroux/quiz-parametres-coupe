@@ -321,13 +321,13 @@ test('migration 0008 : le brouillon des tables est semé depuis A2026_r0 et chaq
 test('images des classes ISO (D64) : le brouillon et les versions portent les images de la semence ; une image de classe archivée ou inconnue met le brouillon en erreur, nommée, et bloque la publication ; retirée (null), la version publiée le garde ; utilisations ; l’import valide le brouillon contre les images, pas une version publiée ; téléverser sous l’usage classe', async () => {
   const serveur = await editeurDeTest();
   const page = await brouillonTables(serveur);
-  assert.deepEqual(page.brouillon.contenu.materiaux.classes_iso.map((c) => [c.code, c.image_chaleur, c.image_copeaux]).slice(0, 2), [['P', 'copeaux-p-chaleur', 'copeaux-p-copeaux'], ['M', 'copeaux-m-chaleur', 'copeaux-m-copeaux']]);
+  assert.deepEqual(page.brouillon.contenu.materiaux.classes_iso.map((c) => [c.code, c.image_chaleur]).slice(0, 2), [['P', 'copeaux-p-chaleur'], ['M', 'copeaux-m-chaleur']]);
   assert.deepEqual(page.erreurs, []);
   // La version publique et l'exercice servi au navigateur portent les images de chaque classe.
   const publique = await serveur.appel('GET', '/api/tables?version=A2026_r0');
   assert.equal(publique.corps.tables.materiaux.classes_iso[0].image_chaleur, 'copeaux-p-chaleur');
   const exercice = await serveur.appel('GET', `/api/exercice?exercice=${M10}`);
-  assert.deepEqual(exercice.corps.tables.materiaux.classes_iso.map((c) => c.image_copeaux), ['copeaux-p-copeaux', 'copeaux-m-copeaux', 'copeaux-k-copeaux', 'copeaux-n-copeaux', 'copeaux-s-copeaux', 'copeaux-h-copeaux', null]);
+  assert.deepEqual(exercice.corps.tables.materiaux.classes_iso.map((c) => c.image_chaleur), ['copeaux-p-chaleur', 'copeaux-m-chaleur', 'copeaux-k-chaleur', 'copeaux-n-chaleur', 'copeaux-s-chaleur', 'copeaux-h-chaleur', null]);
   // Archiver l'image de chaleur de M : le brouillon est en erreur, nommée ; publier et l'aperçu sont refusés.
   assert.equal((await serveur.editeur('POST', 'images/archiver', { id: 'copeaux-m-chaleur', archive: true })).status, 200);
   const enErreur = await brouillonTables(serveur);
@@ -341,27 +341,27 @@ test('images des classes ISO (D64) : le brouillon et les versions portent les im
   assert.match(apercu.corps.erreurs[0].message, /copeaux-m-chaleur » est archivée/);
   // Une image inconnue : enregistrée, mais dite.
   const inconnue = structuredClone(contenu);
-  inconnue.materiaux.classes_iso[0].image_copeaux = 'img-0000000000000000';
+  inconnue.materiaux.classes_iso[0].image_chaleur = 'img-0000000000000000';
   const enregistre = await serveur.editeur('POST', 'tables/enregistrer', { revision: (await brouillonTables(serveur)).brouillon.revision, contenu: inconnue });
   assert.equal(enregistre.status, 200, JSON.stringify(enregistre.corps));
-  assert.ok(enregistre.corps.erreurs.some((e) => /\(P\) : « image_copeaux » : l'image « img-0000000000000000 » est inconnue/.test(e.message)), JSON.stringify(enregistre.corps.erreurs));
+  assert.ok(enregistre.corps.erreurs.some((e) => /\(P\) : « image_chaleur » : l'image « img-0000000000000000 » est inconnue/.test(e.message)), JSON.stringify(enregistre.corps.erreurs));
   // L'image de chaleur de M retirée (null) : le brouillon se publie, et la version garde null (pas l'image de la semence).
   const corrige = carbureDouble(contenu);
   corrige.materiaux.classes_iso[1].image_chaleur = null;
   const publie = await publierTables(serveur, corrige, 'A2026_r1');
   assert.equal(publie.status, 200, JSON.stringify(publie.corps));
   const version = await serveur.editeur('GET', 'tables/version?id=A2026_r1');
-  assert.deepEqual([version.corps.tables.materiaux.classes_iso[1].image_chaleur, version.corps.tables.materiaux.classes_iso[1].image_copeaux], [null, 'copeaux-m-copeaux']);
+  assert.equal(version.corps.tables.materiaux.classes_iso[1].image_chaleur, null);
   // Utilisations : A2026_r0 (complétée) nomme encore l'image archivée, A2026_r1 non ; supprimer reste refusé.
   const images = await serveur.editeur('GET', 'images?usage=classe');
-  assert.equal(images.corps.images.length, 12);
+  assert.equal(images.corps.images.length, 6);
   assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-m-chaleur').utilisations.tables, ['A2026_r0']);
-  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-m-copeaux').utilisations.tables, ['A2026_r0', 'A2026_r1']);
+  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-p-chaleur').utilisations.tables, ['A2026_r0', 'A2026_r1']);
   assert.equal((await serveur.editeur('POST', 'images/supprimer', { id: 'copeaux-m-chaleur' })).status, 409);
   // Import : les versions publiées passent (A2026_r0 nomme l'image archivée), un brouillon qui la nomme est refusé, nommément.
   const exporte = (await serveur.editeur('GET', 'export')).corps;
   const fiches = { ...exporte, images: exporte.images.map(({ contenu: _, ...fiche }) => fiche) };
-  assert.equal(fiches.images.filter((i) => i.usage === 'classe').length, 12);
+  assert.equal(fiches.images.filter((i) => i.usage === 'classe').length, 6);
   assert.deepEqual((await serveur.editeur('POST', 'import/valider', { export: fiches })).corps.erreurs, []);
   const brouillonArchive = structuredClone(fiches);
   brouillonArchive.brouillon_tables.contenu.materiaux.classes_iso = structuredClone(corrige.materiaux.classes_iso);
@@ -369,12 +369,12 @@ test('images des classes ISO (D64) : le brouillon et les versions portent les im
   const validation = await serveur.editeur('POST', 'import/valider', { export: brouillonArchive });
   assert.match(validation.corps.erreurs.join('|'), /Brouillon des tables de référence : classes_iso\[1\] \(M\) : « image_chaleur » : l'image « copeaux-m-chaleur » est archivée/);
   // Téléverser sous l'usage classe : accepté ; le PNG de la semence est un doublon, l'existante est rendue.
-  const png = readFileSync(new URL('../site/img/copeaux/copeaux-p-copeaux.png', import.meta.url));
-  const doublon = await serveur.editeur('POST', 'images/televerser', { nom: 'copeaux P.png', usage: 'classe', type: 'image/png', contenu: png.toString('base64') });
-  assert.deepEqual([doublon.status, doublon.corps.existante, doublon.corps.image.id, doublon.corps.image.usage], [200, true, 'copeaux-p-copeaux', 'classe']);
+  const png = readFileSync(new URL('../site/img/copeaux/copeaux-p-chaleur.png', import.meta.url));
+  const doublon = await serveur.editeur('POST', 'images/televerser', { nom: 'chaleur P.png', usage: 'classe', type: 'image/png', contenu: png.toString('base64') });
+  assert.deepEqual([doublon.status, doublon.corps.existante, doublon.corps.image.id, doublon.corps.image.usage], [200, true, 'copeaux-p-chaleur', 'classe']);
   const neuve = await serveur.editeur('POST', 'images/televerser', { nom: 'chaleur O.png', usage: 'classe', type: 'image/png', contenu: Buffer.concat([png, Buffer.from([0x2a])]).toString('base64') });
   assert.deepEqual([neuve.status, neuve.corps.existante, neuve.corps.image.usage, neuve.corps.image.nom], [200, false, 'classe', 'chaleur O']);
-  assert.equal((await serveur.editeur('GET', 'images?usage=classe')).corps.images.length, 13);
+  assert.equal((await serveur.editeur('GET', 'images?usage=classe')).corps.images.length, 7);
 });
 
 test('caractéristiques des classes ISO (D65) : servies avec l’exercice et la version publique ; une solution trop longue est une erreur nommée qui bloque la publication ; une solution changée est publiée, et l’export la porte', async () => {

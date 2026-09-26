@@ -1,5 +1,5 @@
-// Génère le SQL de la migration 0009 (décision D64) : la semence des images de chaleur et de forme de
-// copeaux par classe ISO — les douze PNG détourés de site/img/copeaux/ (detourer-copeaux.mjs), dans la
+// Génère le SQL de la migration 0009 (décisions D64, D66) : la semence des images de chaleur par classe
+// ISO — les six PNG détourés de site/img/copeaux/ (detourer-copeaux.mjs), dans la
 // table `images` (0007) sous l'usage « classe », identifiant = le nom du fichier sans « .png »
 // (« copeaux-p-chaleur »). Les classes ISO des tables de référence ne sont pas réécrites : une
 // version d'avant reçoit ces identifiants à la lecture (completeTables, site/js/tables.js), comme
@@ -26,7 +26,7 @@ export const LIMITE_OCTETS = 49_000;
 const sql = (text) => `'${String(text).replaceAll("'", "''")}'`;
 const hex = (bytes) => `X'${Buffer.from(bytes).toString('hex').toUpperCase()}'`;
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
-const TYPES = { chaleur: 'chaleur', copeaux: 'forme de copeaux' };
+const TYPES = { chaleur: 'chaleur' };
 
 // Les douze images de la semence, telles que le test les compare aux fichiers :
 // [{ id, nom, usage, type, taille, empreinte, contenu (Buffer) }], dans l'ordre des noms de fichiers.
@@ -34,7 +34,7 @@ export function composerSemenceCopeaux() {
   const images = [];
   for (const name of readdirSync(DETOURES).filter((f) => f.endsWith('.png')).sort()) {
     const id = name.slice(0, -4);
-    const match = /^copeaux-([a-z])-(chaleur|copeaux)$/.exec(id);
+    const match = /^copeaux-([a-z])-(chaleur)$/.exec(id);
     if (!match) throw new Error(`Fichier inattendu dans site/img/copeaux/ : ${name}`);
     const contenu = readFileSync(new URL(name, DETOURES));
     images.push({ id, nom: `Classe ${match[1].toUpperCase()} — ${TYPES[match[2]]}`, usage: 'classe', type: 'image/png', taille: contenu.length, empreinte: sha256(contenu), contenu });
@@ -42,11 +42,11 @@ export function composerSemenceCopeaux() {
   return images;
 }
 
-// Les identifiants des images de chaque classe, tels que les tables les nomment par défaut : { P: { image_chaleur, image_copeaux }, … }.
+// Les identifiants des images de chaque classe, tels que les tables les nomment par défaut : { P: { image_chaleur }, … }.
 export function imagesParClasse() {
   const parClasse = {};
   for (const { id } of composerSemenceCopeaux()) {
-    const [, lettre, type] = /^copeaux-([a-z])-(chaleur|copeaux)$/.exec(id);
+    const [, lettre, type] = /^copeaux-([a-z])-(chaleur)$/.exec(id);
     parClasse[lettre.toUpperCase()] ??= {};
     parClasse[lettre.toUpperCase()][`image_${type}`] = id;
   }
@@ -55,12 +55,12 @@ export function imagesParClasse() {
 
 export function genererSql() {
   const images = composerSemenceCopeaux();
-  const lignes = [`-- Décision D64 : les images de chaleur et de forme de copeaux par classe ISO, deux par classe
--- (P, M, K, N, S, H), semées dans la table images (0007) sous l'usage « classe » et servies par
+  const lignes = [`-- Décisions D64, D66 : les images de chaleur par classe ISO, une par classe
+-- (P, M, K, N, S, H ; les images de forme de copeaux ont été retirées avant la mise en production), semées dans la table images (0007) sous l'usage « classe » et servies par
 -- /images/<id>. Ce fichier a été GÉNÉRÉ par reference/semence-d1/generer-copeaux.mjs à partir des PNG
 -- détourés de site/img/copeaux/ (detourer-copeaux.mjs) tels qu'ils étaient ce jour-là. Les classes ISO
 -- des tables de référence ne sont pas réécrites : une version d'avant reçoit ces identifiants à la
--- lecture (image_chaleur, image_copeaux ; completeTables), comme les couleurs (D61).
+-- lecture (image_chaleur ; completeTables), comme les couleurs (D61).
 -- Une instruction D1 ne dépasse pas 100 Ko : la plus longue ici fait ${Math.max(...images.map((i) => i.taille)) * 2} caractères d'hexadécimal, plus l'entête.
 -- Un fichier de migration appliqué n'est JAMAIS modifié.
 

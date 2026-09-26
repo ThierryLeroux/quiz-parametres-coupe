@@ -1,5 +1,5 @@
-// Détoure les images de chaleur et de forme de copeaux par classe ISO (site/img/copeaux/originaux/,
-// deux par classe : « Chaleur groupe P.png », « Copeaux groupe P.png ») et écrit un PNG à fond
+// Détoure les images de chaleur par classe ISO (site/img/copeaux/originaux/, une par classe :
+// « Chaleur groupe P.png » ; les images de forme de copeaux ont été retirées, D66) et écrit un PNG à fond
 // transparent dans site/img/copeaux/, nommé par l'identifiant d'image de la semence
 // (« copeaux-p-chaleur.png », « copeaux-p-copeaux.png » ; migration 0009). JavaScript pur : png.mjs
 // lit et écrit le PNG, sans dépendance.
@@ -46,7 +46,7 @@ export const DETOURES = new URL('site/img/copeaux/', ROOT);
 
 // « Chaleur groupe P.png » → { id: 'copeaux-p-chaleur', classe: 'P', type: 'chaleur' } ; null si le nom ne dit pas la classe et le type.
 export function decrireOriginal(fileName) {
-  const match = /^(Chaleur|Copeaux) groupe ([A-Z])\.png$/.exec(fileName);
+  const match = /^(Chaleur) groupe ([A-Z])\.png$/.exec(fileName);
   if (!match) return null;
   const type = match[1].toLowerCase();
   return { id: `copeaux-${match[2].toLowerCase()}-${type}`, classe: match[2], type };
@@ -176,7 +176,7 @@ export function detourer(buffer) {
 // Les douze originaux, dans l'ordre des noms : [{ fileName, id, classe, type }].
 export function listerOriginaux() {
   return readdirSync(ORIGINAUX).filter((name) => name.endsWith('.png')).sort()
-    .map((fileName) => { const info = decrireOriginal(fileName); if (info === null) throw new Error(`Nom d'original inattendu : « ${fileName} » (attendu « Chaleur groupe P.png » ou « Copeaux groupe P.png »)`); return { fileName, ...info }; });
+    .map((fileName) => { const info = decrireOriginal(fileName); if (info === null) throw new Error(`Nom d'original inattendu : « ${fileName} » (attendu « Chaleur groupe P.png »)`); return { fileName, ...info }; });
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file:///${process.argv[1].replaceAll('\\', '/')}`).href) {

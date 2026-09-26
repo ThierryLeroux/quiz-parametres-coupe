@@ -26,12 +26,11 @@ export const imageUrl = (id) => `/images/${encodeURIComponent(id)}`;
 export const toolPhotoUrl = (tool) => imageUrl(tool.image ?? tool.id);
 export const operationPicto = (name, operation = null) => imageUrl(operation?.pictogramme ?? operationSlug(name));
 
-// Les deux images d'une classe ISO (D64) — la chaleur dans la coupe, la forme de copeaux — telles que
-// l'écran Question les montre sous le matériau brut, et l'aperçu de l'éditeur : [{ key, label, id, url }],
-// dans cet ordre, pour celles que la classe nomme. Une classe sans image (O), ou inconnue, donne une
-// liste vide : l'espace reste vide, sans erreur. `classesIso` : les classes de la version en usage
-// (data.classesIso, ou celles du brouillon des tables à l'écran).
-export const CLASS_IMAGE_LABELS = { image_chaleur: 'Chaleur', image_copeaux: 'Copeaux' };
+// L'image d'une classe ISO (D64 ; D66 : la chaleur seulement), telle que l'écran Question la montre sous le
+// matériau brut, et l'aperçu de l'éditeur : [{ key, label, id, url }] — vide pour une classe sans image (O),
+// inconnue, ou dont l'image est retirée : l'espace reste vide, sans erreur. `classesIso` : les classes de la
+// version en usage (data.classesIso, ou celles du brouillon des tables à l'écran).
+export const CLASS_IMAGE_LABELS = { image_chaleur: 'Chaleur' };
 
 // Les caractéristiques d'une classe ISO (D65), telles que l'écran Question les montre sous les images :
 // [{ libelle, texte, solution }] — solution vaut null quand la ligne n'en a pas. Les lignes mal formées

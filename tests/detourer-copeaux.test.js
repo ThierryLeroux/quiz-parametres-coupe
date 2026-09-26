@@ -89,12 +89,10 @@ test('fitInside : jamais agrandi, réduit au plus grand côté 256 en moyennant 
   assert.deepEqual(pixelAt(mixed, 0, 0), [100, 100, 100, 64]); // deux pixels opaques sur huit : alpha 2 × 255 / 8 ; la couleur est celle des pixels visibles
 });
 
-test('les douze originaux se nomment « Chaleur groupe P.png » / « Copeaux groupe P.png », deux par classe P, M, K, N, S, H ; les fichiers détourés du dépôt sont ceux que le script produit', () => {
+test('les six originaux se nomment « Chaleur groupe P.png », un par classe P, M, K, N, S, H (plus d’image de copeaux, D66) ; les fichiers détourés du dépôt sont ceux que le script produit', () => {
   const originaux = listerOriginaux();
-  assert.deepEqual(originaux.map((o) => o.id), [
-    'copeaux-h-chaleur', 'copeaux-k-chaleur', 'copeaux-m-chaleur', 'copeaux-n-chaleur', 'copeaux-p-chaleur', 'copeaux-s-chaleur',
-    'copeaux-h-copeaux', 'copeaux-k-copeaux', 'copeaux-m-copeaux', 'copeaux-n-copeaux', 'copeaux-p-copeaux', 'copeaux-s-copeaux',
-  ]);
+  assert.deepEqual(originaux.map((o) => o.id), ['copeaux-h-chaleur', 'copeaux-k-chaleur', 'copeaux-m-chaleur', 'copeaux-n-chaleur', 'copeaux-p-chaleur', 'copeaux-s-chaleur']);
+  assert.equal(decrireOriginal('Copeaux groupe P.png'), null);
   assert.deepEqual(decrireOriginal('Chaleur groupe P.png'), { id: 'copeaux-p-chaleur', classe: 'P', type: 'chaleur' });
   assert.equal(decrireOriginal('chaleur P.png'), null);
   for (const { fileName, id } of originaux) {
