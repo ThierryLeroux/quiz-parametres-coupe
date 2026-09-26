@@ -29,8 +29,11 @@
 //    reste intact et opaque, même dans la bande.
 //    Avant (première version), seuls les pixels à un pixel de la frontière et entre 244 et 252 étaient
 //    adoucis : un liseré gris-blanc restait visible sur le fond nuit.
-// 4. Jamais agrandi ; réduit au plus grand côté COTE_MAX (256 px) si plus grand (moyenne des pixels,
-//    alpha prémultiplié). Les originaux font 237 px au plus : aucun n'est réduit aujourd'hui.
+// 4. Largeur : le double de la largeur d'affichage maximale (170 px sur l'écran Question → LARGEUR_MAX =
+//    340 px), pour la netteté sur un écran haute densité — mais seulement si l'original le permet :
+//    jamais agrandi. Plus large, il est réduit à 340 px (moyenne des pixels, alpha prémultiplié). Les
+//    originaux font 235 à 237 px : ils gardent leur taille, et l'écran limite leur largeur affichée à
+//    largeur ÷ 1,5 (heatImageMaxWidth, site/js/ui/sheets-data.js), soit 157 à 158 px CSS.
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { decodePng, encodePng } from './png.mjs';
 
@@ -38,7 +41,7 @@ export const SEUIL_BLANC = 244; // remplissage depuis les bords : les trois cana
 export const EROSION_PX = 1; // le fond est dilaté d'un pixel (8-connexité)
 export const BANDE_PX = 3; // largeur de la bande adoucie, à partir du fond dilaté (distance euclidienne)
 export const PLANCHER = 200; // min(R, V, B) ≤ 200 : opaque ; 255 : transparent ; linéaire entre
-export const COTE_MAX = 256;
+export const LARGEUR_MAX = 340; // 2 × 170 px, la largeur d'affichage maximale ; jamais d'agrandissement
 
 const ROOT = new URL('../../', import.meta.url);
 export const ORIGINAUX = new URL('site/img/copeaux/originaux/', ROOT);
@@ -137,10 +140,10 @@ export function cutOut(image, { threshold = SEUIL_BLANC, erosion = EROSION_PX, b
   return { width, height, rgba: out };
 }
 
-// Réduit au plus grand côté maxSide (jamais agrandi) : moyenne des pixels source de chaque pixel cible, alpha prémultiplié.
-export function fitInside(image, maxSide = COTE_MAX) {
+// Réduit à la largeur maxWidth (jamais agrandi) : moyenne des pixels source de chaque pixel cible, alpha prémultiplié.
+export function fitWidth(image, maxWidth = LARGEUR_MAX) {
   const { width, height, rgba } = image;
-  const scale = Math.min(1, maxSide / Math.max(width, height));
+  const scale = Math.min(1, maxWidth / width);
   if (scale === 1) return image;
   const w = Math.max(1, Math.round(width * scale));
   const h = Math.max(1, Math.round(height * scale));
@@ -168,7 +171,7 @@ export function fitInside(image, maxSide = COTE_MAX) {
 
 // Un original (Buffer PNG) → { png (Buffer), width, height, avant, apres } : détouré, réduit au besoin, réencodé.
 export function detourer(buffer) {
-  const image = fitInside(cutOut(decodePng(buffer)));
+  const image = fitWidth(cutOut(decodePng(buffer)));
   const png = encodePng(image);
   return { png, width: image.width, height: image.height, avant: buffer.length, apres: png.length };
 }

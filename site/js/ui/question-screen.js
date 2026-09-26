@@ -7,7 +7,7 @@
 
 import { el, showScreen } from './dom.js';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
-import { classFeatures, classImages, operationPicto, toolPhotoUrl } from './sheets-data.js';
+import { classFeatures, classImages, heatImageMaxWidth, operationPicto, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
 
 // Pictogramme d'une grandeur (UI §5) : le fichier SVG sert de masque, la couleur est celle du texte.
@@ -88,7 +88,9 @@ function materialPanel(question, data) {
   const card = materialCard(question.materiau);
   const features = classFeatures(data.classesIso, question.materiau.iso);
   const images = classImages(data.classesIso, question.materiau.iso).map(({ label, url }) => {
-    const figure = el('figure', { class: 'material-image' }, [el('img', { src: url, alt: '', onerror: () => figure.remove() }), el('figcaption', {}, label)]);
+    // Largeur affichée : au plus celle de l'original ÷ 1,5 (heatImageMaxWidth), une fois l'image chargée.
+    const image = el('img', { src: url, alt: '', onerror: () => figure.remove(), onload: () => { const max = heatImageMaxWidth(image.naturalWidth); if (max !== null) figure.style.maxWidth = `${max}px`; } });
+    const figure = el('figure', { class: 'material-image' }, [image, el('figcaption', {}, label)]);
     return figure;
   });
   const list = features.length === 0 ? '' : el('ul', { class: 'material-features small' }, features.map(({ libelle, texte, solution }) => el('li', {}, [

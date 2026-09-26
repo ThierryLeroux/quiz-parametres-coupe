@@ -32,6 +32,12 @@ export const operationPicto = (name, operation = null) => imageUrl(operation?.pi
 // version en usage (data.classesIso, ou celles du brouillon des tables à l'écran).
 export const CLASS_IMAGE_LABELS = { image_chaleur: 'Chaleur' };
 
+// La largeur d'affichage maximale de l'image de chaleur, en px CSS, d'après sa largeur en pixels : ÷ 1,5, pour
+// limiter l'agrandissement sur un écran haute densité. Sur un écran de densité 2, une image de 237 px affichée à
+// 158 px CSS occupe 316 px réels : agrandie × 1,33, au lieu de × 1,43 à 170 px CSS. Les images semées font 235 à
+// 237 px : 157 à 158 px CSS. null si la largeur est inconnue (image pas encore chargée).
+export const heatImageMaxWidth = (naturalWidth) => (Number.isFinite(naturalWidth) && naturalWidth > 0 ? Math.round((naturalWidth / 1.5) * 10) / 10 : null);
+
 // Les caractéristiques d'une classe ISO (D65), telles que l'écran Question les montre sous les images :
 // [{ libelle, texte, solution }] — solution vaut null quand la ligne n'en a pas. Les lignes mal formées
 // (sans libellé ou sans texte) sont sautées ; une classe sans caractéristique donne une liste vide.

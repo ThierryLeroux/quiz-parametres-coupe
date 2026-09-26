@@ -256,7 +256,7 @@ test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agr
   assert.deepEqual(uploadPlan('outil', false, true), { resize: true, maxSide: 800, type: 'image/png', quality: undefined, background: null });
   assert.deepEqual(uploadPlan('operation', false), { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null });
   assert.deepEqual(uploadPlan('operation', false, true), uploadPlan('operation', false));
-  assert.deepEqual(uploadPlan('classe', false), uploadPlan('operation', false)); // une image de classe ISO (D64) : PNG à 256 px, transparence gardée
+  assert.deepEqual(uploadPlan('classe', false), { resize: true, maxSide: 340, type: 'image/png', quality: undefined, background: null }); // image de chaleur (D67) : PNG à 340 px, le double de l'affichage
   assert.deepEqual(uploadPlan('operation', true), { resize: false, type: 'image/svg+xml' });
   assert.deepEqual(uploadPlan('outil', true, true), { resize: false, type: 'image/svg+xml' });
   // hasTransparency : un seul pixel non opaque suffit ; une image vide ou toute opaque n'en a pas.

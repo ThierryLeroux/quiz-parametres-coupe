@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { decodePng, encodePng } from '../reference/semence-d1/png.mjs';
-import { BANDE_PX, COTE_MAX, DETOURES, EROSION_PX, ORIGINAUX, PLANCHER, SEUIL_BLANC, backgroundMask, cutOut, decrireOriginal, detourer, dilate, fitInside, listerOriginaux } from '../reference/semence-d1/detourer-copeaux.mjs';
+import { BANDE_PX, DETOURES, EROSION_PX, ORIGINAUX, PLANCHER, SEUIL_BLANC, backgroundMask, cutOut, decrireOriginal, detourer, dilate, fitWidth, LARGEUR_MAX, listerOriginaux } from '../reference/semence-d1/detourer-copeaux.mjs';
 
 // Une image de w × h pixels, chacun donné par une fonction (x, y) → [r, v, b, a].
 const image = (width, height, pixel) => {
@@ -26,7 +26,7 @@ test('png.mjs : un PNG écrit puis relu rend les mêmes pixels ; les originaux d
 });
 
 test('cutOut : fond transparent, objet érodé d’un pixel, bande de 3 px adoucie selon la blancheur et démélangée du blanc, objet opaque au-delà, blanc enclavé intact', () => {
-  assert.deepEqual([SEUIL_BLANC, EROSION_PX, BANDE_PX, PLANCHER, COTE_MAX], [244, 1, 3, 200, 256]);
+  assert.deepEqual([SEUIL_BLANC, EROSION_PX, BANDE_PX, PLANCHER, LARGEUR_MAX], [244, 1, 3, 200, 340]);
   // 17 × 17 : fond blanc, un carré gris (120) de x, y = 3 à 13 ; dedans, un gris clair (230) près du bord et un au centre, un blanc enclavé près du bord.
   const special = { '5,8': [230, 230, 230], '8,8': [230, 230, 230], '8,6': [255, 255, 255] };
   const source = image(17, 17, (x, y) => {
@@ -77,15 +77,15 @@ test('cutOut, image synthétique : un disque de couleur anticrénelé sur blanc 
   assert.deepEqual(pixelAt(out, 32, 32), [...color, 255]); // le cœur du disque, tel quel
 });
 
-test('fitInside : jamais agrandi, réduit au plus grand côté 256 en moyennant (alpha prémultiplié)', () => {
-  const small = image(10, 4, () => [1, 2, 3, 255]);
-  assert.equal(fitInside(small), small);
-  const big = image(512, 128, (x) => (x < 256 ? [200, 0, 0, 255] : [0, 0, 200, 0]));
-  const reduced = fitInside(big);
-  assert.deepEqual([reduced.width, reduced.height], [256, 64]);
+test('fitWidth : jamais agrandi, réduit à 340 px de large (le double de l’affichage maximal) en moyennant (alpha prémultiplié)', () => {
+  const small = image(237, 4, () => [1, 2, 3, 255]);
+  assert.equal(fitWidth(small), small); // 237 px : gardé tel quel
+  const big = image(680, 170, (x) => (x < 340 ? [200, 0, 0, 255] : [0, 0, 200, 0]));
+  const reduced = fitWidth(big);
+  assert.deepEqual([reduced.width, reduced.height], [340, 85]);
   assert.deepEqual(pixelAt(reduced, 0, 0), [200, 0, 0, 255]);
-  assert.deepEqual(pixelAt(reduced, 255, 63), [0, 0, 0, 0]); // entièrement transparent : couleur nulle
-  const mixed = fitInside(image(4, 2, (x) => (x === 0 ? [100, 100, 100, 255] : [255, 255, 255, 0])), 1);
+  assert.deepEqual(pixelAt(reduced, 339, 84), [0, 0, 0, 0]); // entièrement transparent : couleur nulle
+  const mixed = fitWidth(image(4, 2, (x) => (x === 0 ? [100, 100, 100, 255] : [255, 255, 255, 0])), 1);
   assert.deepEqual(pixelAt(mixed, 0, 0), [100, 100, 100, 64]); // deux pixels opaques sur huit : alpha 2 × 255 / 8 ; la couleur est celle des pixels visibles
 });
 
@@ -98,7 +98,7 @@ test('les six originaux se nomment « Chaleur groupe P.png », un par classe P, 
   for (const { fileName, id } of originaux) {
     const result = detourer(readFileSync(new URL(fileName, ORIGINAUX)));
     assert.equal(Buffer.compare(readFileSync(new URL(`${id}.png`, DETOURES)), result.png), 0, `${id}.png n'est pas ce que le script produit : relancer node reference/semence-d1/detourer-copeaux.mjs`);
-    assert.ok(Math.max(result.width, result.height) <= COTE_MAX);
+    assert.ok(result.width <= LARGEUR_MAX);
     // Détouré : des pixels transparents (le fond), des pixels opaques (la pièce et l'outil), et rien d'agrandi.
     const out = decodePng(result.png);
     let transparent = 0;

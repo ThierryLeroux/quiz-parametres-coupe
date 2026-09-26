@@ -411,7 +411,9 @@ export function insertToken(text, start, end, token) {
 //   transparent : l'image a au moins un pixel non opaque (hasTransparency, lu dans le canvas)
 export function uploadPlan(usage, isSvg, transparent = false) {
   if (isSvg) return { resize: false, type: 'image/svg+xml' };
-  if (usage === 'operation' || usage === 'classe') return { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null };
+  if (usage === 'operation') return { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null };
+  // L'image de chaleur d'une classe (D67) : 340 px, le double de sa largeur d'affichage maximale, en PNG (transparence gardée).
+  if (usage === 'classe') return { resize: true, maxSide: 340, type: 'image/png', quality: undefined, background: null };
   if (transparent) return { resize: true, maxSide: 800, type: 'image/png', quality: undefined, background: null };
   return { resize: true, maxSide: 800, type: 'image/jpeg', quality: 0.85, background: '#ffffff' };
 }

@@ -1342,7 +1342,7 @@ async function showImages(notice = '', filters = { usage: '', query: '' }) {
     }
   } }, [
     el('div', { class: 'field' }, [el('label', { for: 'televerser-usage' }, 'Usage'), uploadUsage]),
-    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence) ; un pictogramme ou une image de classe à 256 px en PNG, ou tel quel en SVG (assaini par le serveur). Un doublon exact n'est pas stocké deux fois.")]),
+    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence) ; un pictogramme à 256 px en PNG, une image de classe à 340 px en PNG, ou tel quel en SVG (assaini par le serveur). Un doublon exact n'est pas stocké deux fois.")]),
     el('button', { class: 'button-outline', type: 'submit' }, 'Téléverser'),
   ]);
 

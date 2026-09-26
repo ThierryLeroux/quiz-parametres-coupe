@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
-import { classFeatures, classImages, feedSheet, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
+import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
@@ -280,4 +280,12 @@ test('classFeatures (D65) : les caractéristiques de la classe du matériau, sol
   assert.deepEqual(classFeatures(data.classesIso, 'Z'), []);
   assert.deepEqual(classFeatures(undefined, 'P'), []);
   assert.deepEqual(classFeatures([{ code: 'P', caracteristiques: [{ libelle: ' Effort ', texte: 'x', solution: '' }, { libelle: '', texte: 'y' }, null] }], 'P'), [{ libelle: 'Effort', texte: 'x', solution: null }]);
+});
+
+test('heatImageMaxWidth : la largeur affichée de l’image de chaleur, au plus la largeur de l’original ÷ 1,5', () => {
+  assert.equal(heatImageMaxWidth(237), 158);
+  assert.equal(heatImageMaxWidth(235), 156.7);
+  assert.equal(heatImageMaxWidth(340), 226.7); // une image générée au double : la largeur d'affichage (170 px) reste la limite
+  assert.equal(heatImageMaxWidth(0), null);
+  assert.equal(heatImageMaxWidth(undefined), null);
 });
