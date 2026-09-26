@@ -40,6 +40,37 @@ test('toutes les combinaisons : la réponse théorique arrondie comme à l’aff
   assert.deepEqual(echecs.slice(0, 10), [], `${echecs.length} échecs (10 premiers)`);
 });
 
+// D69 : f est jugée sur le fz saisi × dents. L'étudiant qui multiplie le fz qu'il a écrit (arrondi comme à
+// l'affichage) par le nombre de dents, puis arrondit le produit ou non, réussit — quel que soit l'outil.
+test('toutes les combinaisons : f = fz affiché × dents, arrondie ou non, réussit la correction (D69)', () => {
+  const echecs = [];
+  for (const question of toutesLesQuestions()) {
+    const attendu = computeParameters(question, data);
+    const affiche = formatParameters(attendu);
+    const produit = Number(affiche.feedPerTooth) * question.teeth;
+    for (const f of [enDecimal(produit), formatParameters({ ...attendu, feedPerRev: produit }).feedPerRev]) {
+      const r = gradeAnswers(attendu, { ...affiche, feedPerRev: f }).fields.feedPerRev;
+      if (!r.ok) echecs.push(`${question.displayId} | fz « ${affiche.feedPerTooth} » × ${question.teeth} : « ${f} » ∉ [${r.min} ; ${r.max}]`);
+    }
+  }
+  assert.deepEqual(echecs.slice(0, 10), [], `${echecs.length} échecs (10 premiers)`);
+});
+
+// D69 : fz fournie ou masquée → f jugée sur la valeur théorique, avec la tolérance de fz reportée. La f affichée,
+// et celle qu'on obtient du fz affiché × dents, réussissent.
+test('toutes les combinaisons : fz non saisie, la f affichée et le fz affiché × dents réussissent (D69, tolérance reportée)', () => {
+  const echecs = [];
+  for (const question of toutesLesQuestions()) {
+    const attendu = computeParameters(question, data);
+    const affiche = formatParameters(attendu);
+    for (const f of [affiche.feedPerRev, enDecimal(Number(affiche.feedPerTooth) * question.teeth)]) {
+      const r = gradeAnswers(attendu, { feedPerRev: f }, ['feedPerRev']).fields.feedPerRev;
+      if (!r.ok) echecs.push(`${question.displayId} | « ${f} » ∉ [${r.min} ; ${r.max}]`);
+    }
+  }
+  assert.deepEqual(echecs.slice(0, 10), [], `${echecs.length} échecs (10 premiers)`);
+});
+
 test('toutes les combinaisons : l’avance affichée n’est jamais « 0.0000 » et garde 3 chiffres significatifs (D14)', () => {
   for (const question of toutesLesQuestions()) {
     const attendu = computeParameters(question, data);
@@ -146,8 +177,8 @@ test('Vf cohérente avec les saisies mais loin de la théorie : acceptée (D15)'
   const question = questionPour({ outil: 'foret_fractionnaire', dimension: 'Ø 1/4 po', dents: 2, materiauOutil: 'Acier rapide', groupeMateriau: ACIER_1020 });
   const attendu = computeParameters(question, data);
 
-  // N à +5 % et f à +20 % sont acceptés ; leur produit, 6,048, est à +26 % de la Vf théorique.
-  const reponses = { vc: '100', feedPerTooth: '0.0015', rpm: '1680', feedPerRev: '0.0036', feedRate: '6.048' };
+  // N à +5 % et fz à +20 % sont acceptés, f = fz × 2 aussi (D69) ; N × f, 6,048, est à +26 % de la Vf théorique.
+  const reponses = { vc: '100', feedPerTooth: '0.0018', rpm: '1680', feedPerRev: '0.0036', feedRate: '6.048' };
   assert.equal(gradeAnswers(attendu, reponses).success, true);
 
   // La Vf théorique, elle, n'est pas cohérente avec ces saisies.

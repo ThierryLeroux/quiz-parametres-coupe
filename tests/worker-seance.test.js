@@ -291,6 +291,33 @@ test('correctionView : tolérance en clair, écart en %, calcul en une ligne (UI
   assert.equal(champs.feedRate.calcul, 'Vf = N × f = 1650 × 0.0030');
 });
 
+test('correctionView (D69) : f attendue = fz saisi × dents, « ±0.1 % de fz × dents » ; fz masquée → tolérance de fz reportée', () => {
+  // Foret Ø 1/2 po, 2 lèvres, acier rapide, acier 1020 : N = 800, fz théorique 0.003, f 0.006.
+  const question = questionPour({ outil: 'foret_fractionnaire', dimension: 'Ø 1/2 po', dents: 2, materiauOutil: 'Acier rapide', groupeMateriau: 1 });
+  const cinq = { ...CINQ_CHAMPS, outils: [{ id: 'foret_fractionnaire', reussites_requises: 2 }] };
+  const vue = (exercice, masques, saisies) => {
+    const reponses = cleanAnswers(saisies);
+    const { result, counters } = gradeQuestion(question, reponses, emptyCounters(), exercice, data);
+    return Object.fromEntries(correctionView(question, reponses, result, 0, counters, data, masques).champs.map((champ) => [champ.champ, champ]));
+  };
+
+  // fz 0.0037 (tolérée) et f 0.0074 = 0.0037 × 2 : f juste, jugée sur le fz saisi.
+  let champs = vue(cinq, [], { vc: '100', feedPerTooth: '0.0037', rpm: '800', feedPerRev: '0.0074', feedRate: '5.92' });
+  assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance, champs.feedPerRev.ecart_pct], [true, '0.0074', '±0.1 % de fz × dents', 0]);
+
+  // fz fausse (0.005) et f théorique (0.006) : f fausse, attendue 0.005 × 2 = 0.0100 ; le calcul reprend le fz saisi.
+  champs = vue(cinq, [], { vc: '100', feedPerTooth: '0.005', rpm: '800', feedPerRev: '0.006', feedRate: '4.8' });
+  assert.deepEqual([champs.feedPerTooth.ok, champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.ecart_pct], [false, false, '0.0100', -40]);
+  assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.005 × 2');
+
+  // fz masquée : f jugée sur la valeur théorique, avec la tolérance de fz reportée.
+  const masquee = { ...cinq, champs_evalues: ['vc', 'n', 'f', 'vf'], champs_masques: ['fz'] };
+  assert.deepEqual(validateExercise(masquee, data), []);
+  champs = vue(masquee, ['feedPerTooth'], { vc: '100', rpm: '800', feedPerRev: '0.0076', feedRate: '6.08' });
+  assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance, champs.feedPerRev.ecart_pct], [false, '0.0060', '±25 %, au plus ±0.001 po par dent', 26.7]);
+  assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = — × 2');
+});
+
 test('correctionView : facteur de vitesse, plafond du RPM, pas d’un filet, réponse vide', () => {
   // Lame à tronçonner : fact_vc = 0.125. Saisie vide : pas d'écart à calculer.
   const lame = questionPour({ outil: 'lame_a_tronconner', dimension: data.outils.find((o) => o.id === 'lame_a_tronconner').dimensions[0].libelle, dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });

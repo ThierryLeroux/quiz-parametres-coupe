@@ -197,7 +197,8 @@ function calculationLine(field, question, expected, shown, tool, operation) {
 // La correction, prête à afficher (UI §3.4). Pour chaque champ : juste ou faux, la saisie, la valeur
 // attendue, et — pour un champ évalué — la tolérance en clair, l'écart en % et le calcul en une ligne.
 // Pour Vf, la valeur attendue est N × f AVEC les N et f saisis (cohérence interne, D15), pas la
-// valeur théorique : c'est sur elle que Vf a été jugée.
+// valeur théorique : c'est sur elle que Vf a été jugée. De même pour f, fz saisi × dents quand fz a été
+// saisi et lu (D69) ; sinon la valeur théorique.
 //   before : compteur de l'outil avant cette correction (« le compteur retombe à zéro (2 → 0) »)
 //   masked : les champs masqués de l'exercice (D52, maskedFields) — sans valeur attendue, et « — » dans les calculs
 export function correctionView(question, answers, result, before, counters, data, masked = []) {
@@ -205,8 +206,15 @@ export function correctionView(question, answers, result, before, counters, data
   const tool = data.outils.find((entry) => entry.id === question.tool.id);
   const operation = data.operationByName.get(tool.operation);
 
-  const typed = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, parseAnswer(answers[field])]));
-  const reference = { ...expected, feedRate: (typed.rpm ?? expected.rpm) * (typed.feedPerRev ?? expected.feedPerRev) };
+  // Comme gradeAnswers : seule la saisie d'un champ évalué compte ; un champ non saisi prend sa valeur théorique.
+  const evaluated = (field) => result.fields[field].min !== null;
+  const typed = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, evaluated(field) ? parseAnswer(answers[field]) : null]));
+  const coherentFeed = evaluated('feedPerRev') && typed.feedPerTooth !== null;
+  const reference = {
+    ...expected,
+    feedPerRev: coherentFeed ? typed.feedPerTooth * question.teeth : expected.feedPerRev,
+    feedRate: evaluated('feedRate') ? (typed.rpm ?? expected.rpm) * (typed.feedPerRev ?? expected.feedPerRev) : expected.feedRate,
+  };
   const displayed = formatParameters(reference);
   const shown = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, masked.includes(field) ? '—' : (typed[field] === null ? displayed[field] : answers[field].replace(',', '.'))]));
 
@@ -215,17 +223,17 @@ export function correctionView(question, answers, result, before, counters, data
     outil: { id: question.tool.id, nom: question.tool.name, avant: before, apres: counters.reussites[question.tool.id] ?? 0 },
     champs: ANSWER_FIELDS.map((field) => {
       if (masked.includes(field)) return { champ: field, evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null };
-      const evaluated = result.fields[field].min !== null;
-      const gap = evaluated && typed[field] !== null && reference[field] !== 0 ? (typed[field] - reference[field]) / reference[field] : null;
+      const graded = evaluated(field);
+      const gap = graded && typed[field] !== null && reference[field] !== 0 ? (typed[field] - reference[field]) / reference[field] : null;
       return {
         champ: field,
-        evalue: evaluated,
+        evalue: graded,
         ok: result.fields[field].ok,
         saisie: answers[field],
         attendu: displayed[field],
-        tolerance: evaluated ? toleranceLabel(expected.feedType, field) : null,
+        tolerance: graded ? toleranceLabel(expected.feedType, field, { coherence: field === 'feedPerRev' && coherentFeed }) : null,
         ecart_pct: gap === null ? null : Number((gap * 100).toFixed(1)),
-        calcul: evaluated ? calculationLine(field, question, expected, shown, tool, operation) : null,
+        calcul: graded ? calculationLine(field, question, expected, shown, tool, operation) : null,
       };
     }),
   };

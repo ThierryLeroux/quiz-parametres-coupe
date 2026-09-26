@@ -9,6 +9,7 @@ export const ANSWER_FIELDS = ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRa
 // Tolérances du tableau de la SPEC §6, en fraction de la valeur de référence.
 //   below / above : écart permis sous / au-dessus de la référence (0 = réponse exacte)
 //   maxDeviation  : écart absolu maximal (po) — l'intervalle retenu est le plus étroit des deux
+//   perTooth      : maxDeviation est par dent, à multiplier par le nombre de dents (f, D69)
 //   margin        : élargissement absolu de chaque côté, ajouté après (rév/min) — D13, complément : un N
 //                   calculé avec 12/π puis arrondi à l'entier tient ainsi dans la tolérance
 // S'y ajoute toujours la demi-unité d'affichage (D13), voir acceptedInterval.
@@ -19,6 +20,11 @@ const within = (fraction) => ({ below: fraction, above: fraction });
 // est exact, Vf doit l'être aussi ; la plage N ± demi-unité × f ± demi-unité et la demi-unité de Vf
 // restent appliquées). Voir feedRateInterval.
 const FEED_RATE_TOLERANCES = { thread: within(0.0001), fixed: within(0.005), proportional: within(0.005) };
+
+// f (D69), quand fz est saisie et lisible : cohérence avec fz_saisi × dents, pour toutes les familles. Voir
+// feedPerRevInterval. Sinon, f est jugée sur la valeur théorique avec `feedPerRev` du tableau ci-dessous :
+// la tolérance de fz reportée sur f.
+const FEED_PER_REV_COHERENCE = within(0.001);
 
 const TOLERANCES = {
   thread: {
@@ -37,7 +43,7 @@ const TOLERANCES = {
     vc: EXACT,
     feedPerTooth: { ...within(0.25), maxDeviation: 0.001 },
     rpm: { ...within(0.05), margin: 1 },
-    feedPerRev: within(0.2),
+    feedPerRev: { ...within(0.25), maxDeviation: 0.001, perTooth: true },
   },
 };
 
@@ -45,13 +51,15 @@ const TOLERANCES = {
 // « exacte », « ±5 % et ±1 rév/min », « de −90 % à +0.1 % », « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ».
 // Écrite à partir des mêmes constantes que la correction : elle ne peut pas la contredire.
 // (La demi-unité d'affichage de D13 n'y est pas dite : elle ne sert qu'à accepter les arrondis.)
-export function toleranceLabel(feedType, field) {
+//   coherence : f jugée sur le fz saisi (D69) — « ±0.1 % de fz × dents » ; sinon la tolérance de fz reportée
+export function toleranceLabel(feedType, field, { coherence = false } = {}) {
   const percent = (fraction) => `${Number((fraction * 100).toPrecision(6))} %`;
   const tolerance = field === 'feedRate' ? FEED_RATE_TOLERANCES[feedType] : TOLERANCES[feedType]?.[field];
   if (!tolerance) throw new Error(`Tolérance inconnue : « ${feedType} », « ${field} »`);
+  if (field === 'feedPerRev' && coherence) return `±${percent(FEED_PER_REV_COHERENCE.above)} de fz × dents`;
   if (tolerance.below === 0 && tolerance.above === 0) return 'exacte';
   let label = tolerance.below === tolerance.above ? `±${percent(tolerance.above)}` : `de −${percent(tolerance.below)} à +${percent(tolerance.above)}`;
-  if (tolerance.maxDeviation !== undefined) label += `, au plus ±${tolerance.maxDeviation} po`;
+  if (tolerance.maxDeviation !== undefined) label += `, au plus ±${tolerance.maxDeviation} po${tolerance.perTooth ? ' par dent' : ''}`;
   if (tolerance.margin !== undefined) label += ` et ±${tolerance.margin} rév/min`;
   return field === 'feedRate' ? `${label} de N × f` : label;
 }
@@ -103,8 +111,26 @@ function feedRateInterval(rpm, feedPerRev, halfUnits, feedType) {
   };
 }
 
+// Intervalle accepté pour f quand fz est saisie (D69) : cohérence avec fz_saisi × dents, comme Vf avec N × f.
+// fz n'est connue qu'à la précision de son affichage (D13) : f doit tomber entre (fz − demi-unité) × dents et
+// (fz + demi-unité) × dents, élargis de ±0,1 % ou de la demi-unité de f.
+function feedPerRevInterval(feedPerTooth, teeth, halfUnits) {
+  const lowest = Math.max(feedPerTooth - halfUnits.feedPerTooth, 0) * teeth;
+  const highest = (feedPerTooth + halfUnits.feedPerTooth) * teeth;
+  return {
+    min: acceptedInterval(lowest, FEED_PER_REV_COHERENCE, halfUnits.feedPerRev).min,
+    max: acceptedInterval(highest, FEED_PER_REV_COHERENCE, halfUnits.feedPerRev).max,
+  };
+}
+
+// La tolérance du tableau pour une question à `teeth` dents : un écart maximal par dent est multiplié par elles.
+function toleranceFor(tolerance, teeth) {
+  return tolerance.perTooth ? { ...tolerance, maxDeviation: tolerance.maxDeviation * teeth } : tolerance;
+}
+
 // Corrige les réponses d'une question.
-//   expected      : valeurs théoriques, résultat de computeParameters (dont feedType, la famille d'avance)
+//   expected      : valeurs théoriques, résultat de computeParameters (dont feedType, la famille d'avance,
+//                   et teeth, le nombre de dents)
 //   answers       : les saisies, en texte : { vc, feedPerTooth, rpm, feedPerRev, feedRate }
 //   fieldsToGrade : champs à corriger ; les autres (pré-remplis, SPEC §10) sont réputés corrects
 //
@@ -115,6 +141,7 @@ function feedRateInterval(rpm, feedPerRev, halfUnits, feedType) {
 export function gradeAnswers(expected, answers, fieldsToGrade = ANSWER_FIELDS) {
   const tolerances = TOLERANCES[expected.feedType];
   if (!tolerances) throw new Error(`Famille d'avance inconnue : « ${expected.feedType} »`);
+  if (!Number.isInteger(expected.teeth) || expected.teeth < 1) throw new Error(`Nombre de dents inconnu : « ${expected.teeth} »`);
   for (const field of fieldsToGrade) {
     if (!ANSWER_FIELDS.includes(field)) throw new Error(`Champ à corriger inconnu : « ${field} »`);
   }
@@ -128,6 +155,11 @@ export function gradeAnswers(expected, answers, fieldsToGrade = ANSWER_FIELDS) {
     values[field] = parseAnswer(answers[field]);
   }
 
+  // La saisie d'un champ à corriger, lue ; null pour un champ fourni ou masqué (même si le navigateur
+  // l'envoie), vide ou illisible. Dans les contrôles de cohérence, un champ non saisi est remplacé par sa
+  // valeur théorique (SPEC §6).
+  const typed = (field) => (fieldsToGrade.includes(field) ? values[field] : null);
+
   const fields = {};
   for (const field of ANSWER_FIELDS) {
     if (!fieldsToGrade.includes(field)) {
@@ -135,11 +167,13 @@ export function gradeAnswers(expected, answers, fieldsToGrade = ANSWER_FIELDS) {
       continue;
     }
 
-    // Vf : on part de ce que l'étudiant a saisi pour N et f ; un champ non saisi (pré-rempli,
-    // vide ou illisible) est remplacé par sa valeur théorique.
-    const { min, max } = field === 'feedRate'
-      ? feedRateInterval(values.rpm ?? expected.rpm, values.feedPerRev ?? expected.feedPerRev, halfUnits, expected.feedType)
-      : acceptedInterval(expected[field], tolerances[field], halfUnits[field]);
+    // Vf : on part de ce que l'étudiant a saisi pour N et f (D15). f : de ce qu'il a saisi pour fz, s'il
+    // l'a saisie ; sinon de la valeur théorique, avec la tolérance de fz reportée (D69).
+    let interval;
+    if (field === 'feedRate') interval = feedRateInterval(typed('rpm') ?? expected.rpm, typed('feedPerRev') ?? expected.feedPerRev, halfUnits, expected.feedType);
+    else if (field === 'feedPerRev' && typed('feedPerTooth') !== null) interval = feedPerRevInterval(typed('feedPerTooth'), expected.teeth, halfUnits);
+    else interval = acceptedInterval(expected[field], toleranceFor(tolerances[field], expected.teeth), halfUnits[field]);
+    const { min, max } = interval;
 
     const value = values[field];
     fields[field] = { ok: value !== null && value >= min && value <= max, value, min, max };

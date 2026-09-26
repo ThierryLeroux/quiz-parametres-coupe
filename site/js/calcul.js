@@ -14,6 +14,7 @@
 //   rpmCapped          true si le plafond limite_rpm a été appliqué
 //   feedPerTooth       avance par dent fz (po/dent)
 //   feedPerToothCapped true si le plafond avance_max_po_rev de l'opération a été appliqué
+//   teeth              nombre de dents tiré — la correction en a besoin pour juger f (D69)
 //   feedPerRev         avance par révolution f = fz × nombre de dents (po/rév)
 //   feedRate           vitesse d'avance Vf = N × f (po/min)
 //   feedType           famille d'avance de l'opération : 'thread' (filetage), 'proportional'
@@ -50,8 +51,9 @@ export function computeParameters(question, data) {
     feedPerTooth = operation.avance_po_rev; // avance fixe
   }
 
-  const feedPerRev = feedPerTooth * question.teeth;
+  const teeth = question.teeth;
+  const feedPerRev = feedPerTooth * teeth;
   const feedRate = rpm * feedPerRev;
 
-  return { vc, rpmRaw, rpm, rpmCapped, feedPerTooth, feedPerToothCapped, feedPerRev, feedRate, feedType };
+  return { vc, rpmRaw, rpm, rpmCapped, feedPerTooth, feedPerToothCapped, teeth, feedPerRev, feedRate, feedType };
 }
