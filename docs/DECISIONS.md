@@ -1696,3 +1696,26 @@ agrandie × 1,43 depuis ses 237 px.
 
 **Conséquences.** `question.css`, `question-screen.js`, `sheets-data.js` (`heatImageMaxWidth`),
 `detourer-copeaux.mjs` (`LARGEUR_MAX`, `fitWidth`), `editeur-data.js` (`uploadPlan`) ; UI §3.3 ; DEMARRAGE §5.
+
+## D68 — La légende de l'image de chaleur s'édite dans les tables (2026-09-26, décidée)
+
+**Contexte.** La légende sous l'image de chaleur (D64, D66) était écrite dans le code, « Chaleur ». Thierry veut
+la choisir classe par classe, ou n'en mettre aucune.
+
+**Décision.**
+
+- Les classes ISO des tables portent `legende_image` : un **texte de 0 à 40 caractères**. Absent — une version
+  d'avant, `A2026_r0` et le brouillon semé —, il est **complété à la lecture à « Chaleur »** (`completeIsoClass`,
+  même approche que les couleurs, D61) : la ligne en base ne change pas. Présent, même vide, il est gardé.
+- **Page Question et aperçu de l'éditeur** : la légende sous l'image vient de ce champ (espaces de bord retirés).
+  **Vide : pas de légende**, et pas d'espace laissé pour elle (aucun `figcaption`). L'aperçu montre désormais
+  la légende sous la vignette, comme la page Question.
+- **Onglet Tables** : une colonne **Légende** dans le tableau des classes, après l'image ; validée en continu,
+  écran et serveur (« classes_iso[0] (P) : « legende_image » a 41 caractères (au plus 40) », un texte ou
+  rien) ; dans les **différences à la publication** (« Classe P — légende de l'image : Chaleur → … », « → — »
+  pour une légende vidée) ; dans l'**export**, avec les tables.
+
+**Conséquences.** `tables.js` (`LEGENDE_IMAGE_MAX`, `DEFAULT_LEGENDE_IMAGE`, complétion, différences),
+`data.js` (validation), `sheets-data.js` (`classImages` : le `label` vient du champ, `null` si vide ;
+`CLASS_IMAGE_LABELS` disparaît), `question-screen.js`, `editeur.js`, `editeur.css` ; SPEC §3 ; UI §3.3, §3.4,
+§3.9. Rapport : `docs/rapports/legende-chaleur.md`.

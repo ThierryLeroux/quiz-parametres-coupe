@@ -155,6 +155,11 @@ Rapport de session : `docs/rapports/images-copeaux.md`.
 
 - [x] **Retouche visuelle de l'image de chaleur** (D67) : lueur de la classe, fondu des bords (10 %), largeur générée 340 px au plus sans agrandir et largeur affichée ≤ original ÷ 1,5 ; marche à suivre pour une base locale qui a appliqué une migration régénérée (DEMARRAGE §5) ; captures des six classes à 1280 et 390 px
 
+## Après images-copeaux — légende de l'image de chaleur éditable (décision D68)
+Rapport de session : `docs/rapports/legende-chaleur.md`.
+
+- [x] Champ `legende_image` des classes ISO (0 à 40 caractères), complété à « Chaleur » à la lecture ; la page Question et l'aperçu de l'éditeur l'affichent sous l'image (vide : rien, sans espace) ; colonne Légende de l'onglet Tables, validée, dans les différences et l'export ; tests, docs, Chrome à 390 et 1280 px
+
 ## Finition
 - [ ] Graphique de progression par opération
 - [ ] Décision D7 (dépôt) close — D6 (sécurité) est fermée par D19
