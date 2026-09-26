@@ -166,6 +166,40 @@ applique à la base de **production**, juste avant de publier le Worker — la
 épingle les séances existantes à cette version 1, **toute seule, au premier push
 sur `main` après la fusion** ; aucune commande à taper.
 
+### Quand une migration pas encore déployée est modifiée
+
+Une migration appliquée ne change plus… sauf celle d'une branche **pas encore fusionnée** : tant qu'elle
+n'est pas en production, on peut la régénérer (ce fut le cas de la `0009`, images de chaleur). Mais la base
+**locale** l'a peut-être déjà appliquée : `npm run dev` ne la relira pas (wrangler note chaque migration
+appliquée dans la table `d1_migrations` et ne la rejoue jamais), et la page sert l'ancienne version. Deux
+remèdes, au choix, **`npm run dev` arrêté** (Ctrl+C), depuis la racine du dépôt, dans PowerShell :
+
+- **Remettre la base locale à neuf** — tout ce que la base locale contenait (séances d'essai, brouillons et
+  images de l'éditeur local) disparaît ; faire d'abord un export dans l'onglet Sauvegarde de l'éditeur local
+  si on y tient. Au prochain `npm run dev`, toutes les migrations sont réappliquées :
+
+  ```powershell
+  Remove-Item -Recurse -Force .wrangler\state\v3\d1
+  npm run dev
+  ```
+
+- **Réécrire seulement ce que la migration sème**, quand elle n'a fait qu'insérer des lignes. Pour la
+  `0009` (les images de chaleur, identifiants `copeaux-…`) :
+
+  ```powershell
+  npx wrangler d1 execute quiz-parametres-coupe --local --command "DELETE FROM images WHERE id LIKE 'copeaux-%'"
+  npx wrangler d1 execute quiz-parametres-coupe --local --file migrations/0009_images_copeaux.sql
+  npm run dev
+  ```
+
+  Si la migration a changé le schéma (`CREATE`, `ALTER`), c'est la remise à neuf qu'il faut.
+
+Puis **recharger la page en forçant** (Ctrl+Maj+R, ou Ctrl+F5) : une image est servie avec un cache d'un an
+(elle ne change jamais sous le même identifiant, D56), et le navigateur garderait sinon l'ancienne. Pour
+vérifier, `http://localhost:8787/images/copeaux-p-chaleur` (en minuscules : `copeaux-P-chaleur` répond 404)
+doit montrer l'image détourée actuelle. En production, la question ne se pose pas : une migration ne s'y
+applique qu'une fois fusionnée, et n'est plus jamais modifiée ensuite.
+
 Pour regarder la base de production (lecture seule, sans risque) :
 
 ```powershell
