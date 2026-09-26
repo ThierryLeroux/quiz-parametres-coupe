@@ -232,10 +232,11 @@ d'opérations sont dans la base, et c'est là qu'on en ajoute — depuis le form
 outil (**Choisir une image…**, puis **Téléverser une image**) ou depuis l'onglet. Une photo
 prise au téléphone est réduite dans le navigateur avant l'envoi (800 px, JPEG ; une image
 détourée avec de la transparence reste en PNG) : inutile de la retoucher. Un SVG est nettoyé par le serveur (scripts, liens et ressources externes refusés).
-Les **images de chaleur et de forme de copeaux** d'une classe ISO (décision D64) se choisissent
-dans l'onglet **Tables de référence** (colonnes **Image de chaleur** et **Image de copeaux** du
-tableau des classes ; leur usage dans l'onglet Images est « image de classe ISO ») : une image
-archivée y devient une erreur à corriger avant de publier.
+L'**image de chaleur** d'une classe ISO et ses **caractéristiques** (décisions D64 à D66) se règlent
+dans l'onglet **Tables de référence** (colonnes **Image de chaleur** et **Caractéristiques** du
+tableau des classes ; l'usage de l'image dans l'onglet Images est « image de classe ISO ») : une
+image archivée y devient une erreur à corriger avant de publier ; les caractéristiques s'ajoutent,
+se retirent et se réordonnent ligne par ligne (libellé, texte, solution facultative).
 Une image utilisée par une version publiée ne se supprime pas : on l'**archive** (elle n'est plus
 proposée, mais reste affichée là où elle est nommée). Les fichiers de `site/img/` du dépôt ne
 sont plus que la semence : y déposer un fichier ne change rien en production.

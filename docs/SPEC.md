@@ -95,7 +95,7 @@ par le moteur** (ni par le VBA). Le seul plafond d'avance est
 Groupes « O - Plastique renforci d'aramid » et « O - Graphite » : **volontairement** attachés à aucun outil (jugés trop rares pour les étudiants) ; ils restent au catalogue pour pouvoir l'être plus tard.
 
 **Images (décisions D56, D57, D64).** Les photos d'outils, les pictogrammes d'opérations et
-les images de chaleur et de forme de copeaux des classes ISO (usage `classe`, D64)
+les images de chaleur des classes ISO (usage `classe`, D64, D66)
 vivent dans la table `images` de la base D1 (migrations `0007` et `0009`), en blob, et sont servis
 par `GET /images/<id>` (type exact, `nosniff`, cache d'un an : une image ne change
 jamais sous le même identifiant). Le champ `image` d'un outil nomme sa photo (une
@@ -119,7 +119,7 @@ est complété par deux listes facultatives, valeurs par défaut (celles de
 
 | Clé | Contenu |
 |---|---|
-| `classes_iso` | les classes ISO 513 : `code` (une lettre majuscule, unique), `nom`, `couleur` (vive : lettre, panneau du matériau), `couleur_texte` (le texte posé dessus), `couleur_ligne` (la teinte de ligne de la feuille) — « #rrggbb » — et, depuis D64, `image_chaleur` et `image_copeaux` (l'identifiant d'une image d'usage `classe`, ou `null` : aucune ; une classe sans ces clés reçoit à la lecture les images de la semence pour sa lettre, `completeIsoClass`), montrées sous le matériau brut de l'écran Question (UI §3.3) — et, depuis D65, `caracteristiques` : au plus 6 lignes `{ libelle (≤ 30), texte (≤ 90), solution? (≤ 90) }`, montrées sous les images (« Effort : moyen », la solution sur une ligne à part) ; absentes, celles de la lettre (P à H : Effort, Chaleur, Copeaux, Problème typique avec sa solution ; O : aucune), une liste présente, même vide, est gardée |
+| `classes_iso` | les classes ISO 513 : `code` (une lettre majuscule, unique), `nom`, `couleur` (vive : lettre, panneau du matériau), `couleur_texte` (le texte posé dessus), `couleur_ligne` (la teinte de ligne de la feuille) — « #rrggbb » — et, depuis D64 et D66, `image_chaleur` (l'identifiant d'une image d'usage `classe`, ou `null` : aucune ; une classe sans la clé reçoit à la lecture l'image de la semence pour sa lettre, `completeIsoClass`), montrée sous le matériau brut de l'écran Question (UI §3.3), et `caracteristiques` (D65, D66) : **0 à 6 lignes** `{ libelle (≤ 20), texte (≤ 90), solution? (≤ 90) }`, montrées à droite de l'image (« Effort : moyen », la solution sur une ligne à part) ; absentes, celles de la lettre (P à H : Effort, Chaleur, Copeaux, Problème typique avec sa solution ; O : aucune), une liste présente, même vide, est gardée. Il n'y a plus d'image de forme de copeaux (D66) |
 | `materiaux_outil` | les trois matières d'outil : `cle` (celle de `vc_pi_min`, fixe : `acier_rapide`, `carbure_solide`, `insert_carbure`, une fois chacune), `nom` (celui que les outils nomment et que l'étudiant lit, unique), `couleur` (la colonne de la table des Vc) |
 
 et `operations[].pictogramme` (facultatif : l'identifiant d'une image de la base ;
@@ -511,9 +511,9 @@ liste (§8), et qui fera partie du contenu signé (jalon 5).
 `identifiant` est le gabarit de nom résolu (§4.6). `outil.barre` est le libellé
 de la barre tirée pour un outil à deux diamètres (`dimension` est alors le Ø
 alésé), sinon `null`. En mode test seulement, `question` porte aussi
-`reponses_test` (ci-dessous). Les images de chaleur et de copeaux de la classe du
-matériau (D64) ne sont pas dans `question` : le navigateur les lit dans les classes ISO
-des tables de sa version (`tables.materiaux.classes_iso[].image_chaleur`, `image_copeaux`).
+`reponses_test` (ci-dessous). L'image de chaleur et les caractéristiques de la classe du
+matériau (D64 à D66) ne sont pas dans `question` : le navigateur les lit dans les classes ISO
+des tables de sa version (`tables.materiaux.classes_iso[].image_chaleur`, `caracteristiques`).
 
 **Règle : rien de ce qui est à trouver ne part au navigateur.** Ni la valeur
 attendue d'un champ évalué, ni les vitesses de coupe du matériau, ni rien qui

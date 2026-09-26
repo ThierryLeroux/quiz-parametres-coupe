@@ -1533,7 +1533,7 @@ matières), `question.js` (la clé de la matière d'après les tables), `sheets-
 **Conséquences.** `site/tables.html`, `site/js/ui/tables.js`, `assembleTables` (`data.js`),
 `GET /api/tables`, `POST /api/prof/editeur/tables/apercu` ; UI §3.5, §3.9.
 
-## D64 — Images de chaleur et de forme de copeaux par classe ISO, sous le matériau brut (2026-09-26, décidée)
+## D64 — Images de chaleur et de forme de copeaux par classe ISO, sous le matériau brut (2026-09-26, décidée ; image de copeaux et mise en page remplacées par D66)
 
 **Contexte.** Thierry a fourni douze petites images, deux par classe ISO (P, M, K, N, S, H) : où la
 chaleur se concentre dans la coupe, et la forme typique du copeau. Elles doivent aider l'étudiant sur
@@ -1599,7 +1599,7 @@ intérieur non relié aux bords (≥ 244 hors du fond) reste intact, même dans 
 anticrénelé vérifie qu'aucun pixel d'alpha > 0,5 plus clair que 200 sur les trois canaux ne reste à moins de
 3 px du fond (l'ancienne méthode en laissait 28).
 
-## D65 — Caractéristiques d'une classe ISO, avec une solution facultative, sous le matériau brut (2026-09-26, décidée)
+## D65 — Caractéristiques d'une classe ISO, avec une solution facultative, sous le matériau brut (2026-09-26, décidée ; format, place et édition remplacés par D66)
 
 **Contexte.** Sous les images de chaleur et de copeaux (D64), Thierry veut quelques lignes de texte par
 classe ISO : ce qui caractérise l'usinage de cette classe, et, pour le problème typique, sa solution.
@@ -1629,3 +1629,40 @@ classe ISO : ce qui caractérise l'usinage de cette classe, et, pour le problèm
 `question-screen.js`, `question.css`, `editeur-data.js` (`characteristicsText`,
 `parseCharacteristics`), `editeur.js`, `editeur.css` ; SPEC §3 ; UI §3.3, §3.9. Rapport :
 `docs/rapports/images-copeaux.md`.
+
+## D66 — Changement pédagogique : l'image de chaleur seule, les caractéristiques de la classe à sa droite (2026-09-26, décidée)
+
+**Contexte.** Thierry revoit D64 et D65 avant toute mise en production : l'image de forme de copeaux fait
+double emploi (l'image de chaleur montre déjà la forme du copeau), et les caractéristiques de la classe se
+lisent mieux à côté de l'image qu'en dessous. D65 avait été construite sur un complément arrivé avant le
+message de base ; celui-ci en fixe le format.
+
+**Décision.** Remplace, dans D64, l'image de copeaux et la mise en page ; dans D65, le format et l'édition.
+
+- **Une seule image par classe, la chaleur** : `image_copeaux` sort du format des classes ISO, de la
+  complétion, de la validation, des différences et de l'onglet Tables ; la migration `0009` (pas encore
+  appliquée en production, donc régénérée) ne sème plus que les **six images de chaleur** ; les six PNG de
+  copeaux et leurs originaux sortent du dépôt. Le détourage retouché (D64, complément) est gardé.
+- **Écran Question** : sous la description du matériau brut, l'image de chaleur avec sa légende et, **à sa
+  droite**, la liste des caractéristiques de la classe ; **sous l'image** quand la place manque (moins de
+  160 px à côté d'elle) et toujours sur téléphone. Chaque ligne : le **libellé en gras**, le texte, en
+  **couleur de texte secondaire**, sans puce (la lettre de classe du panneau sert de repère) ; une
+  **solution** facultative suit sur une ligne à part, en retrait, « → Solution : » en couleur d'accent de la
+  page (`--color-accent-light`) puis le texte en couleur secondaire.
+- **Format** : `caracteristiques`, **0 à 6 lignes** `{ libelle ≤ 20, texte ≤ 90, solution? ≤ 90 }`,
+  complétées à la lecture pour `A2026_r0` et le brouillon (même approche que les couleurs, D61).
+- **Contenu semé** (P à H, dans cet ordre) : Effort, Chaleur, Copeaux, **Problème typique** avec sa
+  solution — le texte du complément de Thierry, qui remplace la ligne « À surveiller » du message de base ;
+  la classe O n'en a pas.
+- **Éditeur, onglet Tables** : les caractéristiques d'une classe s'éditent **ligne par ligne** (libellé,
+  texte, solution ; **Ajouter une ligne**, **↑**, **↓**, **Retirer**, par classe), plus en zone de texte ;
+  validées en continu, écran et serveur ; dans les **différences à la publication** au format « Classe M —
+  Problème typique : écrouissage → … », « Classe M — Problème typique, solution : … → … », ligne ajoutée,
+  retirée, ordre ; dans l'**export**.
+- **Aperçu de l'éditeur** : même affichage — l'image de chaleur de la classe du matériau tiré et, à sa
+  droite, le matériau puis ses caractéristiques.
+
+**Conséquences.** `tables.js` (`CLASS_IMAGE_KEYS = ['image_chaleur']`, limites), `sheets-data.js`,
+`question-screen.js`, `question.css`, `editeur.js` (`characteristicsEditor`, `previewTable`),
+`editeur-data.js` (`moveItem`, `characteristicFrom`), `editeur.css`, `detourer-copeaux.mjs`,
+`generer-copeaux.mjs`, migration `0009` ; SPEC §3, §7 ; UI §3.3, §3.4, §3.9 ; CLAUDE.md ; PLAN ; DEMARRAGE §7.

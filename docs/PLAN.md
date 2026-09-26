@@ -149,7 +149,9 @@ Rapport de session : `docs/rapports/images-copeaux.md`.
 - [x] **Écran Question** : les deux images de la classe sous le matériau brut, même hauteur, légendes, sans fond ni cadre, à 390 px aussi ; l'aperçu de l'éditeur les montre en vignettes
 - [x] **Onglet Tables de référence** : deux colonnes (galerie compacte, téléversement), validation (image existante, non archivée), différences à la publication, export et import
 - [x] Tests, docs (DECISIONS, SPEC §3 et §7, UI §3.3, §3.4 et §3.9), Chrome à 1280 et 390 px, captures dans `captures/images-copeaux/`, aucune requête externe, rapport
-- [x] **Caractéristiques des classes** (D65) : Effort, Chaleur, Copeaux, Problème typique avec sa solution, sous les images ; « → Solution : » sur une ligne à part ; éditables dans l'onglet Tables, validées, dans les différences et l'export ; vérifié à 390 px
+- [x] ~~**Caractéristiques des classes** (D65)~~ — remplacé par D66 ci-dessous : Effort, Chaleur, Copeaux, Problème typique avec sa solution, sous les images ; « → Solution : » sur une ligne à part ; éditables dans l'onglet Tables, validées, dans les différences et l'export ; vérifié à 390 px
+
+- [x] **Changement pédagogique** (D66) : l'image de chaleur seule (`image_copeaux`, les six PNG de copeaux et leurs originaux retirés, `0009` régénérée à six images) ; à sa droite (dessous à 390 px), les caractéristiques de la classe, libellé en gras, texte secondaire, solution sur une ligne à part ; 0 à 6 lignes, libellé ≤ 20, texte et solution ≤ 90, complétées à la lecture ; édition ligne par ligne (Ajouter, ↑, ↓, Retirer), validation, différences, export ; aperçu de l'éditeur au même affichage ; tests, docs, Chrome à 1280 et 390 px, planche des six images
 
 ## Finition
 - [ ] Graphique de progression par opération

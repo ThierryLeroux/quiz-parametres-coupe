@@ -220,49 +220,59 @@ frontière et entre 244 et 252 étaient adoucis. `npm test` : 550 tests (+ 1), `
    `0009` déjà appliquée : il faut effacer `.wrangler/state` (ou la table `d1_migrations` locale) pour qu'elle
    reprenne la nouvelle.
 
-## Caractéristiques des classes (complément, D65)
+## Changement pédagogique : l'image de chaleur seule, les caractéristiques à sa droite (D66)
 
-**Le message de base n'est pas arrivé.** Ton complément parle des « points 3 et 4 du message précédent » :
-je n'ai reçu que le message de la retouche du détourage, qui n'avait pas de ligne de caractéristique.
-J'ai construit la fonction à partir du complément seul (A, B, C), sous les hypothèses ci-dessous ; si le
-message de base disait autre chose (autres points, autre emplacement, autres noms), renvoie-le et
-j'ajusterai.
+Le message de base est arrivé **après** son complément : j'avais d'abord construit les caractéristiques sur
+le complément seul (D65, sous hypothèses). Cette section suit le message de base et le complément ensemble ;
+elle remplace ce que j'avais supposé. Six commits de plus, un par point (le point 4 n'a rien changé : le
+contenu semé était déjà celui du complément), branche poussée. `npm test` : 554 tests, `fail 0` ;
+`npm run test:api` : 31 étapes, la migration `0009` à six images y passe. Chrome à 1280 et 390 px :
+20 vérifications, 7 captures (`1280-11`, `1280-15` à `1280-18`, `390-12`, `390-19`) et la planche, aucune
+requête externe, aucune exception (le 401 d'avant la connexion, attendu). Les captures d'avant ce changement
+sont rangées dans `captures/images-copeaux/avant-d66/`.
 
-`npm test` : 554 tests (+ 4), `fail 0`. Chrome : 9 vérifications de plus, 4 captures (`1280-11` à
-`1280-14`, `390-12`), aucune requête externe, aucune exception.
+1. **L'image de chaleur seule.** `image_copeaux` sort du format (complétion, validation, différences), de
+   l'onglet Tables, du détourage et des tests ; `0009` régénérée ne sème que les six images de chaleur
+   (54 images en base au lieu de 60) ; les six PNG de copeaux et leurs six originaux sortent du dépôt. Le
+   détourage retouché est gardé : les six PNG de chaleur n'ont pas changé.
+2. **Mise en page.** Sous la description du matériau brut : l'image de chaleur (42 % du panneau, 110 à
+   170 px) avec sa légende et, **à sa droite**, la liste ; elle passe **dessous** quand il reste moins de
+   160 px, et toujours sous 640 px (l'image y prend 62 %, 230 px au plus). Mesuré : à 1280 px la liste
+   commence 16 px à droite de l'image, au même haut ; à 390 px elle est sous l'image. Libellé en gras
+   (600), texte en couleur secondaire (#8aa0c6), sans puce ; « → Solution : » en #4fc3f7.
+3. **Format et édition.** `caracteristiques` : 0 à 6 lignes, libellé ≤ 20, texte ≤ 90, solution
+   facultative ≤ 90 (complément A) ; complétées à la lecture pour `A2026_r0` et le brouillon. Dans l'onglet
+   Tables, un petit tableau par classe (Libellé, Texte, Solution) avec **↑ ↓ Retirer** sur chaque ligne et
+   **Ajouter une ligne** (désactivé à 6) — la zone de texte de ma première version disparaît. Différences
+   au format de ton exemple, sans guillemets : « Classe M — Problème typique, solution : ne pas frotter,
+   garder avance et profondeur suffisantes → avance suffisante, arête vive », « Classe M — l'ordre des
+   caractéristiques a changé. », « Classe K — caractéristique retirée : Chaleur », « Classe N —
+   caractéristique ajoutée : Arrosage : abondant ». Vu dans Chrome, publié, puis lu dans l'export.
+4. **Contenu semé** : celui du complément B (Problème typique avec sa solution), qui remplace « À
+   surveiller » du message de base ; aucune ligne pour O.
+5. **Aperçu de l'éditeur** : même affichage — l'image de chaleur en vignette de 72 px et, à sa droite, le
+   matériau puis ses caractéristiques. **Complément C** : à 390 px, la solution de M (55 caractères) se
+   replie sur deux lignes et s'arrête au bord intérieur du panneau (354 px pour 354), sans défilement.
+   **Planche** `captures/images-copeaux/planche-fond-nuit.png` : les six images de chaleur sur #05091a,
+   × 3 (P, M, K ; N, S, H).
 
-- **Modèle** : `classes_iso[].caracteristiques`, des lignes `{ libelle, texte, solution? }`, complétées à la
-  lecture comme les images (une classe sans la clé reçoit les lignes de sa lettre ; une liste présente,
-  même vide, est gardée). Les quatre lignes par classe de ton message, dans l'ordre Effort, Chaleur,
-  Copeaux, Problème typique ; le « → » de ton message a servi de séparateur : ce qui suit est dans
-  `solution`, jamais dans le texte (un test le vérifie). La classe O n'en a pas.
-- **Page Question** : sous les images, une ligne par caractéristique (libellé en gras) ; la solution sur une
-  ligne à part, en retrait, « → Solution : » en couleur d'accent de la page (#4fc3f7), le texte en couleur
-  secondaire (#8aa0c6), couleurs vérifiées dans Chrome.
-- **Point C** : à 390 px, la solution de M (55 caractères, la plus longue) **se replie sur deux lignes**
-  et s'arrête au bord intérieur du panneau (354 px pour 354), sans défilement horizontal. Elle se replie
-  aussi à 1280 px, où le panneau du matériau n'a que la moitié de deux tiers de la largeur.
-- **Onglet Tables** : colonne **Caractéristiques**, une zone de texte, « libellé ; texte ; solution » par ligne
-  ; validation en continu (une solution de 91 caractères : « classes_iso[1] (M) : caractéristique 2 :
-  « solution » a 91 caractères (au plus 90) », Publier bloqué, et refus du serveur) ; différences par
-  libellé (« Classe M — Problème typique, solution : « … » → « … » », ligne ajoutée, retirée, ordre) ;
-  l'export porte la version publiée avec ses caractéristiques (testé).
-- **Défaut trouvé en passant** : quand une version n'avait pas `classes_iso`, la complétion partageait les
-  objets des valeurs par défaut ; modifier les caractéristiques d'une version modifiait les défauts. Corrigé
-  (copie profonde) dans le commit du modèle.
+### Points douteux
 
-### Points douteux du complément
-
-1. **Hypothèses faute du message de base** : la clé `caracteristiques` (et `libelle`, `texte`,
-   `solution`) ; l'emplacement sous les images ; les limites autres que celle de la solution (au plus 6
-   lignes, libellé de 30 caractères, texte de 90) ; aucune caractéristique pour O.
-2. **« Couleur d'accent de la page »** : j'ai pris le bleu clair des titres et liens (#4fc3f7), pas la
-   couleur de la classe du panneau (le jaune de M, le rouge de K…). Si tu voulais la couleur du panneau,
-   c'est une variable à changer dans `question.css`.
-3. **Édition en zone de texte** « libellé ; texte ; solution », comme les dimensions, plutôt qu'un
-   sous-tableau de champs : plus compact dans un tableau déjà large, mais un « ; » dans un texte est
-   impossible (un « ; » de trop part dans la solution).
-4. **L'aperçu de l'éditeur ne montre pas les caractéristiques** (il montre les images) : ce ne sont pas des
-   réponses, et le tableau d'aperçu est déjà large.
-5. **La solution se replie sur deux lignes même à 1280 px** : si tu préfères une ligne, il faudrait un texte
-   plus court (≤ 40 caractères environ) ou une police plus petite.
+1. **Ordre des messages.** Le complément est arrivé avant le message de base. J'ai d'abord livré D65 sur
+   des hypothèses (libellé ≤ 30, zone de texte, caractéristiques sous les deux images) ; tout est remplacé
+   par D66. D65 reste au journal des décisions, marquée comme remplacée par D66 pour le format et l'édition.
+2. **« À surveiller » ou « Problème typique »** : j'ai semé « Problème typique » avec sa solution, comme le
+   complément B le dit (« Point 4 remplacé ») ; les textes « À surveiller » du message de base (avec leurs
+   « ; ») ne sont pas repris. L'exemple de différence du point 3 (« Classe M — À surveiller : … → … ») donne
+   donc « Classe M — Problème typique : … → … ».
+3. **Place à 1280 px** : le panneau du matériau n'a que 320 px de large ; la liste tient à droite de l'image
+   (174 px), mais ses textes se replient sur deux ou trois lignes, et la liste descend plus bas que l'image.
+   Entre 640 et 1000 px, elle passe sous l'image (moins de 160 px à côté).
+4. **Tout le texte de la liste en couleur secondaire**, libellé compris (en gras) : j'ai lu « couleur de
+   texte secondaire » comme valant pour toute la liste.
+5. **Le dossier s'appelle toujours `site/img/copeaux/`** et les identifiants `copeaux-<classe>-chaleur` :
+   les renommer changerait la semence sans gain ; dis-le si tu préfères `chaleur-<classe>`.
+6. **La largeur de l'onglet Tables** grandit : la cellule des caractéristiques fait 640 px au moins ; le
+   tableau des classes défile dans son cadre, à 1280 comme à 390 px.
+7. **Base locale** : si `npm run dev` a tourné sur cette branche avant ce changement, ta D1 locale a
+   l'ancienne `0009` (douze images) : efface `.wrangler/state` pour qu'elle reprenne la nouvelle.
