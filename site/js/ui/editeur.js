@@ -300,7 +300,6 @@ function toolForm(tool, ctx) {
     fact_vc: field('fact_vc', 'Facteur de vitesse (× Vc)', numberInput(`${p}-fact-vc`, tool.fact_vc), '1 = aucun ; 0.25 pour un alésoir.'),
     fact_av: field('fact_av', "Facteur d'avance (× avance)", numberInput(`${p}-fact-av`, tool.fact_av), '1 sauf sur une avance proportionnelle au Ø.'),
     limite_rpm: field('limite_rpm', 'RPM max de la machine', numberInput(`${p}-limite-rpm`, tool.limite_rpm), 'rév/min'),
-    limite_avance: field('limite_avance', "Limite d'avance (non utilisée)", numberInput(`${p}-limite-avance`, tool.limite_avance), 'po/rév ; vide = aucune. Donnée du classeur, ignorée par le moteur.'),
     materiaux_outil: field('materiaux_outil', "Matières d'outil possibles", materials.element, '', 'field--wide'),
     groupes_materiaux_usinables: field('groupes_materiaux_usinables', 'Groupes de matériaux usinables', groupChoices.element, '', 'field--wide'),
   };
@@ -313,7 +312,7 @@ function toolForm(tool, ctx) {
     ['Dimensions', [fields.dimensions.element, el('div', { class: 'field' }, [el('span', { class: 'field-label-text' }, 'Lecture par le moteur'), readings]), fields.dimensions_barre.element, fields.rapport_barre_max.element]],
     ['Dents', [fields.nb_dents_min.element, fields.nb_dents_max.element]],
     ['Facteurs', [fields.fact_vc.element, fields.fact_av.element]],
-    ['Limites', [fields.limite_rpm.element, fields.limite_avance.element]],
+    ['Limites', [fields.limite_rpm.element]],
     ['Matières et groupes permis', [fields.materiaux_outil.element, fields.groupes_materiaux_usinables.element]],
     ...(ctx.copy ? [['Exercice', [fields.reussites_requises.element]]] : []),
   ];
@@ -330,7 +329,7 @@ function toolForm(tool, ctx) {
       fact_vc: readNumber(fields.fact_vc.control),
       fact_av: readNumber(fields.fact_av.control),
       limite_rpm: readNumber(fields.limite_rpm.control),
-      limite_avance: fields.limite_avance.control.value.trim() === '' ? null : readNumber(fields.limite_avance.control),
+      ...(tool.limite_avance !== undefined ? { limite_avance: tool.limite_avance } : {}), // obsolète (D69) : gardée telle quelle, hors du formulaire
       nb_dents_min: readNumber(fields.nb_dents_min.control),
       nb_dents_max: readNumber(fields.nb_dents_max.control),
       materiaux_outil: materials.read(),
@@ -808,7 +807,7 @@ async function showBank(notice = '') {
     ])),
   ]));
   const idInput = el('input', { id: 'nouvel-outil', type: 'text', autocomplete: 'off', placeholder: 'fraise_a_rainurer' });
-  const blank = { nom: 'Nouvel outil', format_identifiant: '[NomOutil] [IdDia]', commentaire: '', operation: bank.tables.operations.operations[0].operation, fact_vc: 1, fact_av: 1, limite_rpm: 10000, limite_avance: null, nb_dents_min: 1, nb_dents_max: 1, materiaux_outil: ['Acier rapide'], groupes_materiaux_usinables: [bank.tables.materiaux.groupes_iso[0]], image: null, dimensions: [{ libelle: 'Ø 1/4 po', valeur: 0.25 }] };
+  const blank = { nom: 'Nouvel outil', format_identifiant: '[NomOutil] [IdDia]', commentaire: '', operation: bank.tables.operations.operations[0].operation, fact_vc: 1, fact_av: 1, limite_rpm: 10000, nb_dents_min: 1, nb_dents_max: 1, materiaux_outil: ['Acier rapide'], groupes_materiaux_usinables: [bank.tables.materiaux.groupes_iso[0]], image: null, dimensions: [{ libelle: 'Ø 1/4 po', valeur: 0.25 }] };
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead("banque d'outils", 'banque'),
     el('h1', { tabindex: '-1' }, "Banque d'outils"),

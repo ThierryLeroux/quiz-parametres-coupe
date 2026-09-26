@@ -233,7 +233,8 @@ function validateTools(tools, ops, groups, toolMaterials, errors) {
 }
 
 // Les clés d'un outil, au format d'outils.json — celles que l'éditeur (jalon 7) montre et enregistre.
-// « colonne_excel » est la provenance (classeur) ; « limite_avance » n'est pas utilisée par le moteur (SPEC §3).
+// « colonne_excel » est la provenance (classeur) ; « limite_avance » est obsolète (D69, SPEC §3) : gardée dans
+// les données, ni lue par le moteur ni montrée par l'éditeur.
 export const TOOL_KEYS = [
   'id', 'colonne_excel', 'nom', 'format_identifiant', 'commentaire', 'operation', 'fact_vc', 'fact_av', 'limite_rpm', 'limite_avance',
   'nb_dents_min', 'nb_dents_max', 'materiaux_outil', 'groupes_materiaux_usinables', 'image', 'dimensions', 'dimensions_barre', 'rapport_barre_max',
@@ -258,8 +259,9 @@ export function toolErrors(tool, opsByName, groups, toolMaterialsOfTables = Obje
   for (const key of ['fact_vc', 'fact_av', 'limite_rpm']) {
     if (!isPositive(tool[key])) error(key, `« ${key} » doit être un nombre > 0`);
   }
-  // Les tarauds n'ont pas de limite d'avance : l'avance est imposée par le pas.
-  if (tool.limite_avance !== null && !isPositive(tool.limite_avance)) error('limite_avance', '« limite_avance » doit être un nombre > 0 ou null');
+  // « limite_avance » est obsolète (D69) : ce n'est pas un plafond, le moteur l'ignore et l'éditeur ne la montre
+  // plus. Acceptée telle que le classeur l'a laissée (null pour les tarauds), ou absente (outil créé depuis).
+  if (tool.limite_avance !== undefined && tool.limite_avance !== null && !isPositive(tool.limite_avance)) error('limite_avance', '« limite_avance » doit être un nombre > 0 ou null');
   // Le catalogue ne sait rien des exercices (décision D11).
   if ('reussites_requises' in tool) error('reussites_requises', "« reussites_requises » n'est plus une propriété d'outil ; elle se règle dans site/exercices/<id>.json");
   if (!isInteger(tool.nb_dents_min, 1) || !isInteger(tool.nb_dents_max, 1)) error('nb_dents_min', '« nb_dents_min » et « nb_dents_max » doivent être des entiers ≥ 1');

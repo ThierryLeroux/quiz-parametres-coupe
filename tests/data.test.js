@@ -167,6 +167,14 @@ test('validateData : fact_av ≠ 1 est permis sur une avance proportionnelle au 
   assert.deepEqual(validateData(donnees), []);
 });
 
+test('validateData : limite_avance, obsolète (D69), est acceptée absente, nulle ou > 0', () => {
+  const donnees = donneesValides();
+  delete donnees.outils.outils[0].limite_avance; // un outil créé dans l'éditeur ne l'a plus
+  assert.deepEqual(validateData(donnees), []);
+  assert.equal(donnees.outils.outils[1].limite_avance, null);
+  assert.equal(donneesValides().outils.outils[0].limite_avance, 0.01);
+});
+
 // Une anomalie à la fois → exactement une erreur, qui nomme l'élément fautif.
 const anomalies = [
   ['Vc nulle', (d) => { d.materiaux.materiaux[0].vc_pi_min.carbure_solide = null; }, /materiaux\[0\] \(groupe 1\).*vc_pi_min\.carbure_solide/],
