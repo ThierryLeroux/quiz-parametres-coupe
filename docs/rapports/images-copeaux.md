@@ -167,3 +167,55 @@ correspondance fichier → classe et type était sans ambiguïté, je n'ai pas e
 9. **Le test de semence de `0007`** ne compte plus que les usages `outil` et `operation` (48) ; celui de
    `0009` compte les 12 et vérifie que la base en a 60. Les comptes 49 → 61 de `worker-images`,
    `worker-editeur` et `test:api` ont suivi.
+
+## Retouche du détourage (même branche, même jour)
+
+À ta demande : un liseré gris-blanc restait sur le fond nuit, parce que seuls les pixels à un pixel de la
+frontière et entre 244 et 252 étaient adoucis. `npm test` : 550 tests (+ 1), `fail 0` ; `npm run test:api` :
+31 étapes, la migration `0009` régénérée y passe.
+
+- **Nouvelle méthode** (`detourer-copeaux.mjs`, trois constantes nommées en tête : `EROSION_PX = 1`,
+  `BANDE_PX = 3`, `PLANCHER = 200`). Après le remplissage depuis les bords (seuil 244 inchangé), le fond est
+  dilaté d'un pixel en 8-connexité (l'anneau extérieur de l'objet devient transparent). Puis, sur une bande
+  de 3 px à partir de ce fond (distance euclidienne entre centres), alpha = clamp((255 − min(R, V, B)) / 55,
+  0, 1) et la couleur est démélangée du blanc. Au-delà de la bande, l'objet reste opaque. Le blanc
+  intérieur non relié aux bords reste intact, même dans la bande.
+- **Vérifié sur Chaleur et Copeaux P** (agrandis sur fond nuit), puis sur les douze : **planche**
+  `captures/images-copeaux/planche-fond-nuit.png` (fond `#05091a`, × 3, quatre par rangée : P chaleur,
+  P copeaux, M chaleur, M copeaux ; K, N ; S, H). Plus de liseré visible.
+- **Tests** : `cutOut` réécrit sur une image de 17 × 17 (anneau érodé même gris foncé, gris 230 à 2 px du
+  fond à alpha 25/55 démélangé, gris 230 au-delà de la bande opaque tel quel, blanc enclavé intact à 2 px du
+  fond) ; **disque bleu anticrénelé sur blanc** : aucun pixel d'alpha > 0,5 plus clair que 200 sur les trois
+  canaux à moins de 3 px du fond. L'ancienne méthode, soumise au même test, en laisse **28** : le test mord.
+  Le test de semence de `0009` compare la base aux fichiers : il a suivi sans retouche.
+- **Poids** (octets) :
+
+  | Fichier | Originaux | 1re version | Retouche |
+  |---|---|---|---|
+  | Chaleur H, K, M, N, P, S | 42 319 · 46 196 · 46 316 · 39 211 · 44 415 · 46 576 | 38 924 · 43 971 · 43 140 · 35 876 · 40 892 · 43 336 | 36 341 · 40 744 · 39 685 · 33 116 · 38 073 · 39 369 |
+  | Copeaux H, K, M, N, P, S | 14 566 · 18 622 · 18 940 · 14 934 · 15 210 · 14 677 | 13 075 · 16 237 · 17 097 · 13 934 · 14 028 · 12 921 | 12 074 · 15 361 · 16 459 · 12 490 · 13 500 · 12 167 |
+  | **Total** | **361 982** | **333 431** | **309 379** (− 15 % sur les originaux) |
+
+  La migration `0009` passe de 671 à 623 Ko ; sa plus longue instruction de 88 à 82 Ko (limite D1 : 100 Ko).
+
+### Points douteux de la retouche
+
+1. **L'érosion d'un pixel mange une partie du trait noir** des dessins de copeaux, là où ce trait longe le
+   fond : 146 à 267 pixels sombres (min < 100) retirés par image de copeaux, 206 à 371 par image de chaleur
+   (le bord net de la pièce et de l'outil). Sur l'arc extérieur du copeau P, le contour noir d'un à deux
+   pixels devient plus mince ou disparaît par endroits (visible en agrandissant la planche). Si tu tiens au
+   trait, `EROSION_PX = 0` le garde, mais le liseré reviendrait en partie : c'est l'anneau érodé qui le
+   portait.
+2. **Le blanc intérieur reste intact, même dans la bande** : je l'ai lu comme « tout pixel ≥ 244 hors du
+   fond reste opaque », puisque l'autre lecture (appliquer la formule dans la bande) l'aurait rendu
+   transparent près du bord. Conséquence : quelques pixels blancs restent visibles près du fond sur trois
+   images de chaleur (H : 2, K : 3, S : 1) — un reflet à la pointe de l'outil, enclavé — et les fissures
+   blanches des copeaux K et H restent blanches, comme voulu.
+3. **Le gris clair de la pièce près du fond perd de l'opacité** : un gris à 230 à moins de 3 px du fond
+   passe à alpha 0,45, démélangé en gris plus foncé ; sur le fond nuit, le bord de la pièce paraît
+   légèrement assombri sur 3 px, sans liseré. C'est l'effet voulu de la formule, mais il touche aussi des
+   gris qui ne sont pas de l'anticrénelage.
+4. **La migration `0009` a été modifiée** (régénérée) : correct tant qu'elle n'est appliquée nulle part.
+   Sur ton poste, si `npm run dev` a tourné sur cette branche avant la retouche, ta D1 locale a l'ancienne
+   `0009` déjà appliquée : il faut effacer `.wrangler/state` (ou la table `d1_migrations` locale) pour qu'elle
+   reprenne la nouvelle.

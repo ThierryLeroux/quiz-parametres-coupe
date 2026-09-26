@@ -1587,3 +1587,14 @@ blanc composé dans l'image, alors que l'écran est sur fond nuit (UI §1).
 (`classImages`), `question-screen.js`, `question.css` ; `worker/images.js` (`USAGES`, utilisations),
 `worker/editeur.js` (`draftTablesErrors`), `index.js` ; l'éditeur (`editeur.js`, `editeur-data.js`) ;
 SPEC §3, §7 ; UI §3.3, §3.4, §3.9 ; CLAUDE.md ; PLAN ; DEMARRAGE §7. Rapport : `docs/rapports/images-copeaux.md`.
+
+**Complément (2026-09-26) — retouche du détourage.** La première méthode (alpha partiel sur un pixel de
+chaque côté de la frontière, entre 244 et 252 seulement) laissait un **liseré gris-blanc** sur le fond
+nuit. Remplacée, à la demande de Thierry, avant toute mise en production de `0009` (la migration est
+régénérée) : après le remplissage depuis les bords (seuil 244 inchangé), le fond est **dilaté d'un pixel**
+(érosion de l'objet, 8-connexité, `EROSION_PX = 1`) ; puis, sur une **bande de 3 pixels** à partir de ce
+fond (distance euclidienne, `BANDE_PX = 3`), alpha = clamp((255 − min(R, V, B)) / (255 − 200), 0, 1)
+(`PLANCHER = 200`) et la couleur est démélangée du blanc ; au-delà, l'objet reste opaque ; le blanc
+intérieur non relié aux bords (≥ 244 hors du fond) reste intact, même dans la bande. Un test sur un disque
+anticrénelé vérifie qu'aucun pixel d'alpha > 0,5 plus clair que 200 sur les trois canaux ne reste à moins de
+3 px du fond (l'ancienne méthode en laissait 28).

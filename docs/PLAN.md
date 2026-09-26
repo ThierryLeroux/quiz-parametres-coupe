@@ -144,7 +144,7 @@ Rapport de session : `docs/rapports/jalon-7b-editeur.md`. Deux parties ; la B at
 ## Après le jalon 7b — images de chaleur et de forme de copeaux par classe ISO (décision D64)
 Rapport de session : `docs/rapports/images-copeaux.md`.
 
-- [x] **Détourage** des douze originaux de Thierry (`site/img/copeaux/originaux/`) par `reference/semence-d1/detourer-copeaux.mjs` (JavaScript pur) : remplissage depuis les bords sur les pixels proches du blanc (seuil 244, mesuré), bord adouci démélangé du blanc, jamais agrandi, 256 px au plus ; les PNG détourés dans `site/img/copeaux/`, un test vérifie qu'ils sont ceux du script
+- [x] **Détourage** des douze originaux de Thierry (`site/img/copeaux/originaux/`) par `reference/semence-d1/detourer-copeaux.mjs` (JavaScript pur) : remplissage depuis les bords sur les pixels proches du blanc (seuil 244, mesuré), objet érodé d'un pixel et bande de 3 px adoucie, démélangée du blanc (retouchés : plus de liseré gris-blanc), jamais agrandi, 256 px au plus ; les PNG détourés dans `site/img/copeaux/`, un test vérifie qu'ils sont ceux du script
 - [x] **Semence** : migration `0009` (usage `classe`, identifiants `copeaux-p-chaleur`…) ; chaque classe ISO porte `image_chaleur` et `image_copeaux`, complétés à la lecture comme les couleurs (D61) ; test de semence
 - [x] **Écran Question** : les deux images de la classe sous le matériau brut, même hauteur, légendes, sans fond ni cadre, à 390 px aussi ; l'aperçu de l'éditeur les montre en vignettes
 - [x] **Onglet Tables de référence** : deux colonnes (galerie compacte, téléversement), validation (image existante, non archivée), différences à la publication, export et import
