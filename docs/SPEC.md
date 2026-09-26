@@ -46,7 +46,7 @@ tables. Le format ci-dessous reste celui des tables en base.
 |---|---|---|
 | `materiaux.json` | `revision` de la table ; 47 matériaux, classes ISO 513 P/M/K/N/S/H/O, groupe VDI 3323, dureté, exemple AISI/SAE, **Vc (pi/min)** pour 3 matériaux d'outil, `debut_famille` | `Vitesses de coupe` / `tblVitesse` |
 | `operations.json` | `revision` de la table ; 19 opérations : machine, direction d'avance, avance/rév., avance max, drapeaux *filetage* et *proportionnelle au Ø* | `Avances d'usinage` / `tblAvance` |
-| `outils.json` | 29 outils : gabarit de nom (`format_identifiant`, §4.6), opération, facteurs Vc/avance, limites RPM/avance, plage de nb de dents, matériaux d'outil possibles, groupes ISO usinables, liste des dimensions (libellé + valeur) ; pour un outil à deux diamètres, `dimensions_barre` et `rapport_barre_max` | `Liste d'outils` (masquée) |
+| `outils.json` | 29 outils : gabarit de nom (`format_identifiant`, §4.6), opération, facteurs Vc/avance, limite RPM (et `limite_avance`, obsolète : D69), plage de nb de dents, matériaux d'outil possibles, groupes ISO usinables, liste des dimensions (libellé + valeur) ; pour un outil à deux diamètres, `dimensions_barre` et `rapport_barre_max` | `Liste d'outils` (masquée) |
 
 Unités : **impériales** (pouces, pi/min, rév/min, po/min). Les dimensions
 métriques sont déjà converties en pouces dans `outils.json` ; le libellé affiché
@@ -88,9 +88,12 @@ Le champ `note` des opérations a été supprimé (D29) : il contredisait la tab
 (« .008 × Ø 1/4 = .002 ») et n'était plus affiché ; l'encadré de la feuille des
 avances est calculé depuis les avances.
 
-Champ `limite_avance` de `outils.json` : présent dans le classeur, **non utilisé
-par le moteur** (ni par le VBA). Le seul plafond d'avance est
-`avance_max_po_rev` de l'opération (§5).
+Champ `limite_avance` de `outils.json` : **obsolète** (D69). Présent dans le
+classeur, ce **n'est pas un plafond** : ni le moteur ni le VBA ne l'utilisent ; le
+seul plafond d'avance est `avance_max_po_rev` de l'opération (§5). La clé reste
+**acceptée** dans les données — absente, `null` ou un nombre > 0 —, sans
+migration : les outils semés la gardent, l'éditeur ne la montre plus et la garde
+telle quelle à l'enregistrement, un outil créé dans l'éditeur ne l'a pas.
 
 Groupes « O - Plastique renforci d'aramid » et « O - Graphite » : **volontairement** attachés à aucun outil (jugés trop rares pour les étudiants) ; ils restent au catalogue pour pouvoir l'être plus tard.
 
@@ -178,6 +181,14 @@ deux diamètres (décision D25) : pour la barre à aléser, **N se calcule avec 
 usiné et l'avance avec le Ø de la barre** (alésage : 0,006 × Ø barre, plafonnée
 à 0,006 po/tour ; rainurage interne : 0,003 × Ø barre, plafonnée à 0,003).
 
+**Même chaîne pour toutes les opérations (décision D69)** : tournage, perçage
+(au tour comme à la perceuse) et fraisage. Le pas d'un filet métrique est
+converti en pouces (mm / 25,4) à la lecture de la dimension (§4). L'avance ne
+dépend pas de la matière de l'outil (une seule colonne dans la table des
+avances). Un exercice règle ses grandeurs évaluées, fournies ou masquées pour
+tous ses outils (D52) : il n'y a pas d'état par outil. `computeParameters` rend
+aussi le nombre de dents tiré, dont la correction de f a besoin (§6).
+
 La feuille des formules montre aussi, **à titre indicatif**, la formule exacte
 `N = Vc × 12 / (π × Ø)` (D29) ; la correction reste sur `Vc × 4 / Ø`. Un N calculé
 avec 12/π est plus bas de 4,5 % : il tient dans la tolérance de N (§6) pour
@@ -213,13 +224,13 @@ commande CNC et dans les libellés ; la saisie accepte le point et la virgule
 | Vc | exact | exact | exact |
 | Avance par dent | ±0,1 % | exact | ±25 %, borné à ±0,001 po |
 | N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 %, élargie de ±1 rév/min | ±5 %, élargie de ±1 rév/min |
-| Avance par révolution | ±0,1 % | ±0,1 % | ±20 % |
+| Avance par révolution | fz saisie : **±0,1 % de *fz_saisi × dents*** (cohérence, D69) ; sinon ±0,1 % | fz saisie : ±0,1 % de *fz_saisi × dents* ; sinon ±0,1 % | fz saisie : ±0,1 % de *fz_saisi × dents* ; sinon **±25 %, borné à ±0,001 po par dent** |
 | Vitesse d'avance | **±0,01 %** de *N_saisi × f_saisi* (cohérence interne, D15, D53) | ±0,5 % de *N_saisi × f_saisi* | ±0,5 % de *N_saisi × f_saisi* |
 
 Précisions :
 
-- Sauf pour Vf, l'intervalle est centré sur la **valeur théorique** (§5, non
-  arrondie) ; ses bornes sont incluses.
+- Sauf pour Vf, et pour f quand fz est saisie, l'intervalle est centré sur la
+  **valeur théorique** (§5, non arrondie) ; ses bornes sont incluses.
 - **Tolérance effective (décision D13)** : la plus large entre celle du tableau
   et **une demi-unité du dernier chiffre affiché** (§5) — ±0,5 rév/min pour N,
   ±0,00005 po pour une avance affichée à 4 décimales, ±0,0005 po/min pour Vf.
@@ -237,6 +248,21 @@ Précisions :
   ensuite (elle ne change rien à ces deux exemples).
 - N en filetage : borne basse à −90 % (la vitesse peut être réduite pour
   fileter). Le VBA appliquait −90,1 % ; ce n'est pas repris.
+- **Avance par révolution (décision D69)**, toutes familles : f est jugée par la
+  **cohérence** avec l'avance par dent, comme Vf avec N × f.
+  - **fz évaluée et lisible** : f acceptée à ±0,1 % de *fz_saisi × dents*. fz
+    n'est connue qu'à la précision de son affichage (D13) : la référence est la
+    plage (fz ± demi-unité) × dents, élargie de ±0,1 % ou de la demi-unité de f.
+    Ex. foret Ø 1/2 po, 2 lèvres (fz théorique 0,003, affichée « 0.0030 ») : fz
+    « 0.0037 » (+23 %, tolérée) et f « 0.0074 » sont justes toutes les deux ;
+    une f cohérente avec un fz faux est juste, l'erreur est comptée sur fz.
+  - **fz fournie, masquée, vide ou illisible** : f jugée sur la valeur
+    théorique, avec la **tolérance de fz reportée** : ±25 % borné à ±0,001 po
+    **par dent** (× nombre de dents) en avance proportionnelle — foret Ø 1/2 po :
+    [0,0045 ; 0,0075] ; Ø 1 po : [0,010 ; 0,014] —, ±0,1 % en avance fixe et en
+    filetage. La demi-unité de f (D13) s'y ajoute.
+  - La ligne de correction écrit « ±0.1 % de fz × dents » dans le premier cas,
+    « ±25 %, au plus ±0.001 po par dent » ou « ±0.1 % » dans le second (UI §3.4).
 - **Vitesse d'avance (décisions D15, D53)**, toutes familles : vérifiée par la
   **cohérence interne** de la réponse — *N_saisi × f_saisi* —, pas la valeur
   théorique : ±0,5 % en avance fixe et proportionnelle, **±0,01 % en filetage**
@@ -244,7 +270,8 @@ Précisions :
   N et f sont corrigés à part, chacun dans sa cellule : une Vf cohérente avec un
   N faux est bonne, et l'erreur est comptée sur N.
   - Un champ N ou f non saisi (pré-rempli, masqué, vide ou illisible) est remplacé
-    par sa valeur théorique.
+    par sa valeur théorique — de même fz pour f. Une valeur que le navigateur
+    enverrait pour une grandeur fournie ou masquée ne compte pas (D69).
   - N et f ne sont connus qu'à la précision de leur affichage (D13) : le produit
     de référence est pris sur toute la plage (N ± demi-unité) × (f ± demi-unité),
     puis élargi de la tolérance de la famille ou de la demi-unité de Vf. Ex. lame

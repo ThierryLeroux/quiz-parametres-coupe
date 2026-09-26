@@ -130,7 +130,7 @@ Rapport de session : `docs/rapports/jalon-7b-editeur.md`. Deux parties ; la B at
 - [x] **Gabarit de nomenclature éditable** (D24, D58) : champ de texte, boutons qui insèrent les jetons permis pour cet outil, exemple composé en direct et « Autre exemple » ; un jeton inconnu ou sans valeur est une erreur sous le champ (`toolErrors`) qui bloque Publier
 - [x] **Export et import avec les images** (D59) : les images font partie de la sauvegarde, envoyées à part, une par requête, pour rester sous la limite ; l'aller-retour reste identique
 - [x] Tests, docs (SPEC, UI §3.9, DEMARRAGE), Chrome à 1280 et 390 px, captures dans `captures/jalon-7b/`, rapport de la partie A ; branche poussée
-- [ ] **`limite_avance`** (D51) : à trancher avec les exercices d'avances ; jusque-là, éditable et marquée « non utilisée »
+- [x] **`limite_avance`** (D51) : tranchée avec les exercices d'avances (D69) — obsolète, retirée du formulaire, acceptée dans les données
 
 **Partie B — tables de référence versionnées** (décisions D61 à D63)
 - [x] Onglet **Tables de référence** : un brouillon unique des tables, modifiable, et des versions publiées immuables, comme les exercices — matériaux usinés (nom, groupe ISO, Vc par matériau d'outil, `debut_famille` D27), groupes ISO (code, nom, couleur), matériaux d'outil (nom, couleur), opérations (famille, avances, pictogramme) ; les couleurs passent dans les tables, semées depuis `tokens.css` ; le quiz et les feuilles les lisent de la version en usage
@@ -159,6 +159,18 @@ Rapport de session : `docs/rapports/images-copeaux.md`.
 Rapport de session : `docs/rapports/legende-chaleur.md`.
 
 - [x] Champ `legende_image` des classes ISO (0 à 40 caractères), complété à « Chaleur » à la lecture ; la page Question et l'aperçu de l'éditeur l'affichent sous l'image (vide : rien, sans espace) ; colonne Légende de l'onglet Tables, validée, dans les différences et l'export ; tests, docs, Chrome à 390 et 1280 px
+
+## Chantier « avances » — exercices de fz, f et Vf (décision D69)
+Rapport de session : `docs/rapports/avances.md`.
+
+- [x] D69 : une même chaîne pour toutes les opérations (fz selon la famille, f = fz × dents, Vf = N × f), états par exercice (D52) sans état par outil, aucune quatrième matière d'outil
+- [x] **Correction de f par cohérence** (`correction.js`, tests d'abord) : fz saisie et lisible → ±0,1 % de fz_saisi × dents, sur la plage (fz ± demi-unité) × dents, élargie de la demi-unité de f ; sinon valeur théorique avec la tolérance de fz reportée (±25 %, au plus ±0,001 po par dent ; ±0,1 % en fixe et filetage) ; « ±0.1 % de fz × dents » et valeur attendue fz saisi × dents dans la correction ; une saisie envoyée pour une grandeur non évaluée ne compte plus (f et Vf) ; `tests/chaine.test.js` étendu à tout le catalogue
+- [x] **`limite_avance`** retirée du formulaire d'outil de l'éditeur ; clé acceptée dans les données (absente, `null` ou > 0), gardée telle quelle à l'enregistrement ; SPEC §3 la dit obsolète
+- [x] Chrome, mode test (`test-complet`), 1280 et 390 px : foret, barre à aléser, SDTMR métrique, fraise à nombre de dents tiré, outil à avance fixe ; aide de fz relevée pour les trois familles ; aucune erreur console hors le 401 attendu de l'éditeur avant connexion, aucune requête externe ; captures dans `captures/avances/`
+- [x] Tableau de validation des avances de fraisage et de perçage dans le rapport
+- [ ] **Thierry** : publier l'exercice de tournage (perçage au tour compris) dans l'éditeur
+- [ ] **Thierry** : valider les avances de fraisage et de perçage (tableau du rapport), puis publier l'exercice de fraisage
+- [ ] Points douteux du rapport (aide de fz en avance fixe, ligne de calcul d'un filet métrique, largeur de la cohérence à une dent, nombre de dents faux avec la tolérance reportée)
 
 ## Finition
 - [ ] Graphique de progression par opération
