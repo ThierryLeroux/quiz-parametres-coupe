@@ -109,6 +109,38 @@
   box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--panel-color) 55%, transparent);
 }
 
+/* Les deux images de la classe ISO (chaleur, forme de copeaux : D64), sous la description du matériau
+   brut : même hauteur, une légende sous chacune, sans fond ni cadre (elles sont détourées). La hauteur
+   suit la largeur du panneau — à 390 px, les deux tiennent côte à côte — et plafonne à 110 px. */
+.material-images {
+  --material-image-height: min(110px, calc(35vw - 30px));
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.material-image {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.material-image img {
+  display: block;
+  height: var(--material-image-height);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.material-image figcaption {
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
 /* --- Questionnaire ----------------------------------------------------------------------------------------- */
 
 .answer-grid {
@@ -276,6 +308,8 @@
   .field .field-label { min-height: 3.7em; align-items: flex-start; }
   .question-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .answer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* Deux panneaux côte à côte : la hauteur des images de la classe suit la moitié de la largeur. */
+  .material-images { --material-image-height: min(110px, calc(18vw - 45px)); }
 }
 
 @media (min-width: 1000px) {
@@ -286,6 +320,8 @@
   }
 
   .answer-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  /* La question prend deux tiers de la largeur, le panneau du matériau la moitié de ça. */
+  .material-images { --material-image-height: min(110px, calc(12vw - 45px)); }
 }
 
 /* Mode test (D26) : n'apparaît que si le serveur local a joint les réponses attendues à la question. */

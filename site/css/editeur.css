@@ -213,6 +213,8 @@
 
 /* Aperçu : nombres en chasse fixe. */
 .apercu-table td.num { font-family: var(--font-number); }
+/* Les deux images de la classe ISO du matériau tiré (D64), en vignettes devant son nom. */
+.apercu-classe-image { height: 28px; width: auto; margin-right: 6px; vertical-align: middle; }
 
 /* Sauvegarde. */
 .sauvegarde-etapes { margin: var(--space-4) 0 0; padding-left: 1.5em; display: grid; gap: var(--space-4); }

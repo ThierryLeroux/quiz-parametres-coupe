@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
-import { feedSheet, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
+import { classImages, feedSheet, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
@@ -92,6 +92,21 @@ test('factorLines : un facteur n’apparaît que s’il diffère de 1', () => {
   assert.deepEqual(factorLines({ fact_vc: 1, fact_av: 1 }), []);
   assert.deepEqual(factorLines({ fact_vc: 0.25, fact_av: 1 }), ['Vitesse réduite × 0.25']);
   assert.deepEqual(factorLines({ fact_vc: 0.125, fact_av: 1.5 }), ['Vitesse réduite × 0.125', 'Avance augmentée × 1.5']);
+});
+
+test('classImages (D64) : les deux images de la classe du matériau, servies par /images/<id>, dans l’ordre chaleur puis copeaux ; rien pour la classe O, une classe inconnue ou une image retirée', () => {
+  assert.deepEqual(classImages(data.classesIso, 'P'), [
+    { key: 'image_chaleur', label: 'Chaleur', id: 'copeaux-p-chaleur', url: '/images/copeaux-p-chaleur' },
+    { key: 'image_copeaux', label: 'Copeaux', id: 'copeaux-p-copeaux', url: '/images/copeaux-p-copeaux' },
+  ]);
+  for (const code of ['M', 'K', 'N', 'S', 'H']) assert.deepEqual(classImages(data.classesIso, code).map((i) => i.id), [`copeaux-${code.toLowerCase()}-chaleur`, `copeaux-${code.toLowerCase()}-copeaux`]);
+  assert.deepEqual(classImages(data.classesIso, 'O'), []);
+  assert.deepEqual(classImages(data.classesIso, 'Z'), []);
+  assert.deepEqual(classImages(undefined, 'P'), []); // un catalogue sans classes (serveur d'avant) : l'espace reste vide
+  // Le brouillon des tables tel qu'à l'écran : une image retirée (null), l'autre choisie ; une classe d'avant D64 sans ses clés reçoit celles de la semence.
+  const draft = [{ code: 'P', image_chaleur: null, image_copeaux: 'img-0123456789abcdef' }, { code: 'K' }];
+  assert.deepEqual(classImages(draft, 'P'), [{ key: 'image_copeaux', label: 'Copeaux', id: 'img-0123456789abcdef', url: '/images/img-0123456789abcdef' }]);
+  assert.deepEqual(classImages(draft, 'K').map((i) => i.url), ['/images/copeaux-k-chaleur', '/images/copeaux-k-copeaux']);
 });
 
 test('materialCard : lettre de classe, matériau et groupe, composition, état, dureté, exemple — jamais les Vc', () => {

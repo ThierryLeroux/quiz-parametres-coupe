@@ -23,7 +23,7 @@ import {
   dimensionReadings, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
-import { imageUrl } from './sheets-data.js';
+import { classImages, imageUrl } from './sheets-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
@@ -415,13 +415,15 @@ function fieldStateChoice(draft) {
   return { element, read };
 }
 
-// Une table de résultats d'aperçu.
-function previewTable(response) {
+// Une table de résultats d'aperçu. `classesIso` : les classes de la version de tables en usage (ou du
+// brouillon des tables à l'écran) — la cellule du matériau usiné montre les deux images de sa classe (D64).
+function previewTable(response, classesIso = []) {
   const columns = previewColumns(response.champs_evalues, response.champs_masques ?? []);
   const rows = previewRows(response.questions, response.champs_evalues, response.champs_masques ?? []);
+  const images = (r) => classImages(classesIso, response.questions[r].materiau.classe).map(({ url, label }) => el('img', { class: 'apercu-classe-image', src: url, alt: label, title: label, loading: 'lazy' }));
   return el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table apercu-table' }, [
     el('thead', {}, el('tr', {}, columns.map((label, i) => el('th', { class: i >= 4 ? 'num' : null }, label)))),
-    el('tbody', {}, rows.map((row) => el('tr', {}, row.map((cell, i) => el('td', { class: i === 0 || i >= 4 ? 'num' : null }, cell))))),
+    el('tbody', {}, rows.map((row, r) => el('tr', {}, row.map((cell, i) => el('td', { class: i === 0 || i >= 4 ? 'num' : null }, i === 3 ? [...images(r), cell] : cell))))),
   ]));
 }
 
@@ -662,7 +664,7 @@ async function showExercise(id, notice = '') {
         el('div', { class: 'eyebrow' }, 'Aperçu'),
         el('h2', {}, `Dix questions tirées ${label}`),
         el('p', { class: 'muted small' }, 'Avec la nomenclature composée et les réponses attendues des grandeurs évaluées. Rien n\'est enregistré ; les étudiants ne voient jamais ces réponses.'),
-        previewTable(result),
+        previewTable(result, tables.materiaux.classes_iso),
         el('div', { class: 'form-actions' }, [el('button', { class: 'button-outline', type: 'button', onclick: () => preview(body, label) }, 'Dix autres'), el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Fermer')]),
       ]));
       dialogSlot.scrollIntoView({ block: 'nearest' });
@@ -1156,7 +1158,7 @@ async function showTables(notice = '') {
         el('div', { class: 'eyebrow' }, 'Aperçu'),
         el('h2', {}, `Dix questions de « ${exercises.find((e) => e.id === exercice)?.titre ?? exercice} » avec ces tables`),
         el('p', { class: 'muted small' }, "Le brouillon de l'exercice, tiré avec le brouillon des tables tel qu'il est à l'écran. Rien n'est enregistré."),
-        previewTable(result),
+        previewTable(result, readTables().materiaux.classes_iso),
         el('div', { class: 'form-actions' }, [el('button', { class: 'button-outline', type: 'button', onclick: preview }, 'Dix autres'), el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Fermer')]),
       ]));
       dialogSlot.scrollIntoView({ block: 'nearest' });

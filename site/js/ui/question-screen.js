@@ -7,7 +7,7 @@
 
 import { el, showScreen } from './dom.js';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
-import { operationPicto, toolPhotoUrl } from './sheets-data.js';
+import { classImages, operationPicto, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
 
 // Pictogramme d'une grandeur (UI §5) : le fichier SVG sert de masque, la couleur est celle du texte.
@@ -79,15 +79,22 @@ function toolPanel(question, data) {
   ]);
 }
 
-// Panneau du matériau brut, à la couleur de sa classe ISO (UI §1).
-function materialPanel(question) {
+// Panneau du matériau brut, à la couleur de sa classe ISO (UI §1). Sous la description, les deux images
+// de la classe (chaleur, forme de copeaux : D64), à la même hauteur, chacune avec sa légende ; une
+// classe sans image, ou une image qui manque, laisse l'espace vide.
+function materialPanel(question, data) {
   const card = materialCard(question.materiau);
+  const images = classImages(data.classesIso, question.materiau.iso).map(({ label, url }) => {
+    const figure = el('figure', { class: 'material-image' }, [el('img', { src: url, alt: '', onerror: () => figure.remove() }), el('figcaption', {}, label)]);
+    return figure;
+  });
   return el('section', { class: 'panel material-card', style: `--panel-color: var(${card.color}); --badge-text: var(${card.textColor})` }, [
     el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Matériau brut'), el('div', { class: 'swatch smaller' }, `classe ISO ${card.letter}`)]),
     el('div', { class: 'material-body' }, [
       el('div', { class: 'iso-badge', 'aria-hidden': 'true' }, card.letter),
       el('div', {}, [el('h2', {}, card.title), ...card.lines.map((line) => el('p', { class: 'small' }, line))]),
     ]),
+    images.length === 0 ? '' : el('div', { class: 'material-images' }, images),
   ]);
 }
 
@@ -242,7 +249,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     el('div', { class: 'question-main' }, [
       el('div', { class: 'question-head' }, [title, el('div', { class: 'muted smaller' }, `${total} question${total > 1 ? 's' : ''} réussie${total > 1 ? 's' : ''}`)]),
       testBanner,
-      el('div', { class: 'question-cards' }, [toolPanel(question, data), materialPanel(question)]),
+      el('div', { class: 'question-cards' }, [toolPanel(question, data), materialPanel(question, data)]),
       el('section', { class: 'panel' }, [
         el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Questionnaire'), el('div', { class: 'muted smaller' }, "clique une case pour voir l'aide")]),
         el('form', { novalidate: true, onsubmit: check }, [el('div', { class: 'answer-grid' }, fields), help, reminder, actionsRow]),

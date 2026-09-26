@@ -3,6 +3,7 @@
 // données : ajouter une opération à operations.json l'ajoute à la feuille des avances.
 
 import { TOOL_MATERIAL_KEYS } from '../data.js';
+import { CLASS_IMAGE_KEYS, isoClassOf } from '../tables.js';
 
 // Une avance en pouces, comme sur la feuille de l'atelier : sans zéro de tête, au moins trois
 // décimales — 0.006 → « .006" », 0.0015 → « .0015" », 0.01 → « .010" ».
@@ -24,6 +25,17 @@ export function operationSlug(name) {
 export const imageUrl = (id) => `/images/${encodeURIComponent(id)}`;
 export const toolPhotoUrl = (tool) => imageUrl(tool.image ?? tool.id);
 export const operationPicto = (name, operation = null) => imageUrl(operation?.pictogramme ?? operationSlug(name));
+
+// Les deux images d'une classe ISO (D64) — la chaleur dans la coupe, la forme de copeaux — telles que
+// l'écran Question les montre sous le matériau brut, et l'aperçu de l'éditeur : [{ key, label, id, url }],
+// dans cet ordre, pour celles que la classe nomme. Une classe sans image (O), ou inconnue, donne une
+// liste vide : l'espace reste vide, sans erreur. `classesIso` : les classes de la version en usage
+// (data.classesIso, ou celles du brouillon des tables à l'écran).
+export const CLASS_IMAGE_LABELS = { image_chaleur: 'Chaleur', image_copeaux: 'Copeaux' };
+export function classImages(classesIso, code) {
+  const c = isoClassOf(classesIso, code);
+  return CLASS_IMAGE_KEYS.filter((key) => typeof c?.[key] === 'string' && c[key] !== '').map((key) => ({ key, label: CLASS_IMAGE_LABELS[key], id: c[key], url: imageUrl(c[key]) }));
+}
 
 // --- Vitesses de coupe -----------------------------------------------------------------------------------------
 // Toutes les classes et toutes les lignes, quel que soit l'exercice ; aucune ligne surlignée.
