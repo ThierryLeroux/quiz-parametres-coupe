@@ -256,6 +256,7 @@ test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agr
   assert.deepEqual(uploadPlan('outil', false, true), { resize: true, maxSide: 800, type: 'image/png', quality: undefined, background: null });
   assert.deepEqual(uploadPlan('operation', false), { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null });
   assert.deepEqual(uploadPlan('operation', false, true), uploadPlan('operation', false));
+  assert.deepEqual(uploadPlan('classe', false), uploadPlan('operation', false)); // une image de classe ISO (D64) : PNG à 256 px, transparence gardée
   assert.deepEqual(uploadPlan('operation', true), { resize: false, type: 'image/svg+xml' });
   assert.deepEqual(uploadPlan('outil', true, true), { resize: false, type: 'image/svg+xml' });
   // hasTransparency : un seul pixel non opaque suffit ; une image vide ou toute opaque n'en a pas.
@@ -286,7 +287,7 @@ test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agr
   assert.equal(canDeleteImage({ versions: [], brouillons: ['x'], banque: [], tables: [] }), false);
   assert.match(imageDeleteConfirmation({ id: 'img-abc', nom: 'Fraise' }), /^Supprimer l'image « Fraise » \(img-abc\)/);
   assert.match(imageArchiveConfirmation({ id: 'mvlnr', nom: 'MVLNR' }), /toujours/);
-  assert.deepEqual(Object.keys(USAGE_LABELS), ['outil', 'operation']);
+  assert.deepEqual(Object.keys(USAGE_LABELS), ['outil', 'operation', 'classe']);
 });
 
 test('tables de référence (D61, D62) : famille d’avance et drapeaux, groupes dérivés des lignes, libellés des utilisations, avis de version, ligne des tables dans les différences d’une publication', () => {

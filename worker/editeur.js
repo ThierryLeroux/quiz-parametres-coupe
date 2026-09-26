@@ -97,7 +97,8 @@ export function previewQuestions(exercise, data, random, count = 10) {
 // Un export est relu et comparé à ce que la base contient. Règle : rien n'est jamais supprimé, et
 // une version publiée est immuable. Retourne { erreurs, plan, resume } ; un import n'est appliqué
 // que sans erreur (base.applyImport).
-//   received : le JSON de l'export ; existing : base.exportEditorData(db) ; tablesValid(tables) : erreurs des tables (validateData)
+//   received : le JSON de l'export ; existing : base.exportEditorData(db) ; tablesErrors(tables) : erreurs d'une version des
+//   tables ; draftTablesErrors(tables) : celles du brouillon des tables (avec les images, D64 : une image archivée y est une erreur)
 export const EXPORT_FORMAT = 'quiz-parametres-coupe/editeur/1';
 
 // Le mot que la requête d'import doit porter, tel quel ; l'écran l'exige aussi (editeur.js du site).
@@ -106,7 +107,7 @@ export const IMPORT_WORD = 'IMPORTER';
 export const REPLACE_WORD = 'REMPLACER';
 export const importWord = (resume) => (resume?.banque?.retires?.length > 0 ? REPLACE_WORD : IMPORT_WORD);
 
-export function importPlan(received, existing, { tablesErrors, draftErrorsOf, latestTablesId = null }) {
+export function importPlan(received, existing, { tablesErrors, draftTablesErrors = tablesErrors, draftErrorsOf, latestTablesId = null }) {
   const erreurs = [];
   const plan = { tables_ajoutees: [], brouillon_tables: null, banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [] };
   if (!isObject(received) || received.format !== EXPORT_FORMAT) return { erreurs: [`Ce fichier n'est pas un export de l'éditeur (format attendu : ${EXPORT_FORMAT}).`], plan, resume: null };
@@ -147,7 +148,7 @@ export function importPlan(received, existing, { tablesErrors, draftErrorsOf, la
     const contenu = isObject(bt?.contenu) ? cleanTables(bt.contenu) : null;
     if (contenu === null) erreurs.push('Brouillon des tables de référence : illisible.');
     else {
-      const problems = tablesErrors(contenu);
+      const problems = draftTablesErrors(contenu);
       if (problems.length > 0) erreurs.push(`Brouillon des tables de référence : ${problems.join(' ; ')}`);
       else plan.brouillon_tables = { contenu, base_id: isText(bt.base_id) && tablesById.has(bt.base_id) ? bt.base_id : null };
     }

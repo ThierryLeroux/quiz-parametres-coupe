@@ -37,7 +37,7 @@ function freeId(wanted, taken) {
 
 const state = {
   connected: false,
-  images: { outil: null, operation: null }, // les fiches des images de la base, par usage (chargées à la demande)
+  images: { outil: null, operation: null, classe: null }, // les fiches des images de la base, par usage (chargées à la demande)
   dirty: false, // des modifications non enregistrées sur la page courante
 };
 
@@ -379,7 +379,7 @@ async function uploadImage(file, usage) {
   return { ...result.image, existante: result.existante, retires: result.retires };
 }
 
-// Les fiches des images d'un usage (« outil », « operation »), chargées une fois puis tenues à jour par rememberImage.
+// Les fiches des images d'un usage (« outil », « operation », « classe »), chargées une fois puis tenues à jour par rememberImage.
 async function loadImages(usage) {
   if (state.images[usage] === null) {
     const response = await guarded(() => editorImages(usage));
@@ -397,7 +397,7 @@ function rememberImage(image) {
 }
 
 // Après une action de l'onglet Images, les caches sont oubliés : les galeries relisent la base.
-const forgetImages = () => { state.images = { outil: null, operation: null }; };
+const forgetImages = () => { state.images = { outil: null, operation: null, classe: null }; };
 
 // Un état par grandeur (D52) : une ligne par grandeur, trois boutons radio. Retourne { element, read() → { champs_evalues, champs_masques? } }.
 function fieldStateChoice(draft) {
@@ -992,6 +992,8 @@ async function showTables(notice = '') {
   if (page === null) return;
   const pictos = await loadImages('operation');
   if (pictos === null) return;
+  const classImagesList = await loadImages('classe');
+  if (classImagesList === null) return;
   const exercises = (await guarded(() => editorListExercises()))?.exercices ?? [];
   let { revision } = page.brouillon;
   const draft = page.brouillon.contenu;
@@ -1000,7 +1002,7 @@ async function showTables(notice = '') {
   const dialogSlot = el('div');
   const touch = () => { state.dirty = true; };
 
-  // --- Classes ISO : code, nom, trois couleurs.
+  // --- Classes ISO : code, nom, trois couleurs, et les deux images de la classe (chaleur, copeaux ; galerie compacte).
   const classes = editableRows(draft.materiaux.classes_iso, (c, i) => {
     const code = textInput(`cl-${i}-code`, c.code, { maxlength: '1', class: 'input-court mono' });
     const nom = textInput(`cl-${i}-nom`, c.nom);
@@ -1011,11 +1013,14 @@ async function showTables(notice = '') {
     const paint = () => { swatch.style.background = couleur.value; swatch.style.color = texte.value; swatch.textContent = code.value.toUpperCase(); };
     for (const input of [code, couleur, texte]) input.addEventListener('input', paint);
     paint();
+    const pickerFor = (key) => imagePicker({ usage: 'classe', images: state.images.classe, value: c[key] ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: () => { touch(); validate(); }, idPrefix: `cl-${i}-${key.replace('image_', '')}`, compact: true });
+    const chaleur = pickerFor('image_chaleur');
+    const copeaux = pickerFor('image_copeaux');
     return {
-      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne)]),
-      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value }),
+      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(copeaux.element, 'picto-cell')]),
+      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), image_copeaux: copeaux.read() }),
     };
-  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }), () => { touch(); validate(); });
+  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, image_copeaux: null }), () => { touch(); validate(); });
 
   // --- Matières d'outil : clé fixe, nom, couleur.
   const toolMaterialRows = draft.materiaux.materiaux_outil.map((m, i) => {
@@ -1086,7 +1091,7 @@ async function showTables(notice = '') {
   const publishButton = el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
   function validate() {
     const current = readTables();
-    const errors = validateTables(current);
+    const errors = validateTables(current, { images: state.images.classe }); // une image de classe inconnue ou archivée est une erreur
     errorsList.replaceChildren(...errors.map((message) => el('li', {}, message)));
     publishButton.disabled = errors.length > 0;
     publishButton.textContent = errors.length > 0 ? `Publier (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` : 'Publier…';
@@ -1193,8 +1198,8 @@ async function showTables(notice = '') {
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Classes ISO'),
-      el('p', { class: 'muted small' }, 'La lettre de classe, son nom, et ses couleurs : celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe.'),
-      table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne'], classes.body),
+      el('p', { class: 'muted small' }, "La lettre de classe, son nom, ses couleurs (celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe), et ses deux images — la chaleur dans la coupe, la forme de copeaux —, montrées sous le matériau brut de l'écran Question. Une image archivée doit être remplacée avant de publier."),
+      table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Image de copeaux'], classes.body, 'tables-edit--classes'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe')),
     ]),
     el('section', { class: 'panel' }, [
@@ -1285,14 +1290,14 @@ async function showImages(notice = '', filters = { usage: '', query: '' }) {
     }
   } }, [
     el('div', { class: 'field' }, [el('label', { for: 'televerser-usage' }, 'Usage'), uploadUsage]),
-    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence) ; un pictogramme à 256 px, ou tel quel en SVG (assaini par le serveur). Un doublon exact n'est pas stocké deux fois.")]),
+    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence) ; un pictogramme ou une image de classe à 256 px en PNG, ou tel quel en SVG (assaini par le serveur). Un doublon exact n'est pas stocké deux fois.")]),
     el('button', { class: 'button-outline', type: 'submit' }, 'Téléverser'),
   ]);
 
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead('images', 'images'),
     el('h1', { tabindex: '-1' }, 'Images'),
-    el('p', { class: 'muted small' }, "Les photos d'outils et les pictogrammes d'opérations, dans la base. Une image ne change jamais sous le même identifiant ; une image utilisée par une version publiée ne se supprime pas : elle s'archive (retirée des galeries, toujours affichée). Une image jamais utilisée peut être supprimée."),
+    el('p', { class: 'muted small' }, "Les photos d'outils, les pictogrammes d'opérations et les images des classes ISO (chaleur, forme de copeaux), dans la base. Une image ne change jamais sous le même identifiant ; une image utilisée par une version publiée ne se supprime pas : elle s'archive (retirée des galeries, toujours affichée). Une image jamais utilisée peut être supprimée."),
     status,
     el('div', { class: 'ajout-outil' }, [
       el('div', { class: 'field' }, [el('label', { for: 'images-usage' }, 'Usage'), usageSelect]),

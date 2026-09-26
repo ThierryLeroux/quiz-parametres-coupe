@@ -92,7 +92,10 @@ export function validateData({ materiaux, operations, outils }) {
 
 // Les deux tables de référence seules (matériaux, opérations), sans outils : ce contre quoi un
 // brouillon de tables se valide (D61). Retourne la liste de toutes les erreurs.
-export function validateTables({ materiaux, operations }) {
+//   images : facultatif, les fiches des images de la base ([{ id, archivee_le }]) — l'éditeur les donne
+//            pour qu'une image de classe (D64) inconnue ou archivée soit une erreur nommée ; sans elles
+//            (le catalogue d'une séance, une version publiée), seul le format des identifiants est vérifié
+export function validateTables({ materiaux, operations }, { images = null } = {}) {
   const errors = [];
   const groups = listOf(materiaux, 'groupes_iso', 'materiaux.json', errors);
   const materials = listOf(materiaux, 'materiaux', 'materiaux.json', errors);
@@ -102,7 +105,7 @@ export function validateTables({ materiaux, operations }) {
   if (!isText(materiaux?.revision)) errors.push('materiaux.json : « revision » doit être un texte non vide (ex. « A2026_r0 »)');
   if (!isText(operations?.revision)) errors.push('operations.json : « revision » doit être un texte non vide (ex. « A2026_r0 »)');
 
-  const classes = validateIsoClasses(materiaux, errors);
+  const classes = validateIsoClasses(materiaux, errors, images);
   validateToolMaterials(materiaux, errors);
   validateMaterials(materials, groups, classes, errors);
   validateOperations(ops, errors);
@@ -118,9 +121,11 @@ const isImageRef = (v) => typeof v === 'string' && IMAGE_REF.test(v);
 
 // Les classes ISO d'une table (D61) : facultatives (valeurs par défaut sinon) ; présentes, chacune a un
 // code d'une lettre majuscule unique, un nom, trois couleurs « #rrggbb » et, facultatives (D64), ses deux
-// images (l'identifiant d'une image de la base, ou null : aucune). Retourne les codes.
-function validateIsoClasses(materiaux, errors) {
+// images (l'identifiant d'une image de la base, ou null : aucune — et, quand les fiches des images sont
+// données, une image qui existe et n'est pas archivée). Retourne les codes.
+function validateIsoClasses(materiaux, errors, images = null) {
   const classes = isoClassesOf(materiaux);
+  const known = Array.isArray(images) ? new Map(images.filter(isObject).map((image) => [image.id, image])) : null;
   if (materiaux?.classes_iso !== undefined && (!Array.isArray(materiaux.classes_iso) || materiaux.classes_iso.length === 0)) {
     errors.push('materiaux.json : « classes_iso » doit être une liste non vide (ou être absente)');
   }
@@ -131,7 +136,10 @@ function validateIsoClasses(materiaux, errors) {
     if (!isText(c.nom)) errors.push(`${where} : « nom » est vide`);
     for (const key of ['couleur', 'couleur_texte', 'couleur_ligne']) if (!isColor(c[key])) errors.push(`${where} : « ${key} » doit être une couleur « #rrggbb »`);
     for (const key of CLASS_IMAGE_KEYS) {
-      if (c[key] !== undefined && c[key] !== null && !isImageRef(c[key])) errors.push(`${where} : « ${key} » doit être l'identifiant d'une image (ou null)`);
+      if (c[key] === undefined || c[key] === null) continue;
+      if (!isImageRef(c[key])) errors.push(`${where} : « ${key} » doit être l'identifiant d'une image (ou null)`);
+      else if (known !== null && !known.has(c[key])) errors.push(`${where} : « ${key} » : l'image « ${c[key]} » est inconnue`);
+      else if (known !== null && known.get(c[key]).archivee_le) errors.push(`${where} : « ${key} » : l'image « ${c[key]} » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)`);
     }
   });
   checkUnique(classes.filter(isObject).map((c) => c.code), 'materiaux.json : classe ISO', errors);

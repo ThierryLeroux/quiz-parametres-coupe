@@ -388,12 +388,12 @@ export function insertToken(text, start, end, token) {
 // Ce que le navigateur fait d'un fichier avant l'envoi : un SVG part tel quel (le serveur l'assainit) ;
 // une photo d'outil est réduite au plus grand côté de 800 px — en JPEG à 0,85 sur fond blanc si elle est
 // opaque (une photo d'atelier : 40 à 150 Ko), en PNG sans fond si elle a de la transparence (D60 : une
-// photo détourée reste détourée sur le fond nuit) ; un pictogramme en image matricielle est réduit à
-// 256 px, en PNG (aplats et transparence gardés). Jamais agrandi.
+// photo détourée reste détourée sur le fond nuit) ; un pictogramme en image matricielle, ou l'image d'une
+// classe ISO (D64), est réduit à 256 px, en PNG (aplats et transparence gardés). Jamais agrandi.
 //   transparent : l'image a au moins un pixel non opaque (hasTransparency, lu dans le canvas)
 export function uploadPlan(usage, isSvg, transparent = false) {
   if (isSvg) return { resize: false, type: 'image/svg+xml' };
-  if (usage === 'operation') return { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null };
+  if (usage === 'operation' || usage === 'classe') return { resize: true, maxSide: 256, type: 'image/png', quality: undefined, background: null };
   if (transparent) return { resize: true, maxSide: 800, type: 'image/png', quality: undefined, background: null };
   return { resize: true, maxSide: 800, type: 'image/jpeg', quality: 0.85, background: '#ffffff' };
 }
@@ -441,9 +441,9 @@ export function imageUsageLabel(utilisations) {
 // Une image utilisée par une version publiée ne se supprime jamais (D56) : le bouton n'existe que sans utilisation.
 export const canDeleteImage = (utilisations) => Object.values(utilisations).every((list) => list.length === 0);
 
-export const USAGE_LABELS = { outil: "photo d'outil", operation: "pictogramme d'opération" };
+export const USAGE_LABELS = { outil: "photo d'outil", operation: "pictogramme d'opération", classe: 'image de classe ISO' };
 export const imageDeleteConfirmation = (image) => `Supprimer l'image « ${image.nom} » (${image.id}) ? Elle n'est utilisée nulle part ; elle disparaît sans retour.`;
-export const imageArchiveConfirmation = (image) => `Archiver l'image « ${image.nom} » ? Elle ne sera plus proposée dans la galerie ; les outils et opérations qui la nomment l'affichent toujours. Elle pourra être rétablie.`;
+export const imageArchiveConfirmation = (image) => `Archiver l'image « ${image.nom} » ? Elle ne sera plus proposée dans la galerie ; les outils, opérations et classes qui la nomment l'affichent toujours (le brouillon des tables la signalera). Elle pourra être rétablie.`;
 
 // --- Erreurs par champ ----------------------------------------------------------------------------------------------
 

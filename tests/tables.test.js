@@ -71,6 +71,22 @@ test('validateTables : les vraies tables sont valides ; classes ISO et matières
   assert.deepEqual(validateTables(t4), ["classes_iso[0] (P) : « image_chaleur » doit être l'identifiant d'une image (ou null)"]);
   t4.materiaux.classes_iso[0].image_chaleur = 'img-0123456789abcdef';
   assert.deepEqual(validateTables(t4), []);
+  // Avec les fiches des images (l'éditeur) : une image de classe archivée ou inconnue est une erreur nommée ; sans elles, non.
+  const fiches = DEFAULT_ISO_CLASSES.flatMap((c) => [c.image_chaleur, c.image_copeaux]).filter(Boolean)
+    .filter((id) => id !== 'copeaux-k-chaleur').map((id) => ({ id, archivee_le: id === 'copeaux-p-copeaux' ? '2026-09-26T13:00:00.000Z' : null }));
+  const t5 = tables();
+  t5.materiaux.classes_iso = structuredClone(DEFAULT_ISO_CLASSES);
+  assert.deepEqual(validateTables(t5), []);
+  assert.deepEqual(validateTables(t5, { images: fiches }), [
+    "classes_iso[0] (P) : « image_copeaux » : l'image « copeaux-p-copeaux » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)",
+    "classes_iso[2] (K) : « image_chaleur » : l'image « copeaux-k-chaleur » est inconnue",
+  ]);
+  t5.materiaux.classes_iso[0].image_copeaux = null;
+  t5.materiaux.classes_iso[2].image_chaleur = 'copeaux-p-chaleur';
+  assert.deepEqual(validateTables(t5, { images: fiches }), []);
+  assert.deepEqual(validateTables(tables(), { images: [] }), [
+    ...['P', 'M', 'K', 'N', 'S', 'H'].flatMap((code, i) => ['image_chaleur', 'image_copeaux'].map((key) => `classes_iso[${i}] (${code}) : « ${key} » : l'image « copeaux-${code.toLowerCase()}-${key.slice(6)} » est inconnue`)),
+  ]); // une version d'avant D64, complétée, nomme les images de la semence : sans elles en base, chacune manque
 });
 
 test('colorVariables : les variables CSS de tokens.css, à partir des classes et des matières de la version en usage ; le K de nuit composé', () => {

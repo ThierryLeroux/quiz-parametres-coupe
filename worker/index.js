@@ -839,8 +839,9 @@ async function editeurBanque(request, env, { now }) {
 
 // --- Les tables de référence versionnées (D61, D63) : un brouillon, des versions immuables -------------------------
 
-// Les erreurs d'un brouillon de tables : celles des deux tables (validateTables), sans outils.
-const tablesErrors = (contenu) => validateTables(contenu).map((message) => ({ champ: '', message }));
+// Les erreurs d'un brouillon de tables : celles des deux tables (validateTables), sans outils ; avec les
+// fiches des images, une image de classe inconnue ou archivée est une erreur (D64).
+const tablesErrors = (contenu, images = null) => validateTables(contenu, { images }).map((message) => ({ champ: '', message }));
 
 // GET /api/prof/editeur/tables — le brouillon des tables (complété), ses erreurs, les versions publiées
 // avec leurs utilisations, la révision suggérée pour la prochaine publication.
@@ -853,7 +854,7 @@ async function editeurTables(request, env, { now }) {
   return json({
     brouillon: { contenu, revision: draft.revision, modifie_le: draft.modifie_le, base_id: draft.base_id },
     modifie: base_ === null || !sameContent(tablesContent(contenu), tablesContent(tablesOf(base_))),
-    erreurs: tablesErrors(contenu),
+    erreurs: tablesErrors(contenu, await base.listImages(env.DB)),
     versions: versions.map((v) => ({ id: v.id, creee_le: v.creee_le, utilisations: { versions_exercice: v.versions_exercice, brouillons: v.brouillons } })),
     derniere: versions[0]?.id ?? null,
     suggestion: nextRevision(versions[0]?.id ?? 'A2026_r0'),
@@ -876,7 +877,7 @@ async function editeurTablesEnregistrer(request, env, { now }) {
   if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision du brouillon est requise.');
   const contenu = cleanTables(body.contenu);
   if (contenu === null) throw new HttpError(400, 'Le brouillon des tables est mal formé : « materiaux » et « operations » sont attendus.');
-  const erreurs = tablesErrors(contenu);
+  const erreurs = tablesErrors(contenu, await base.listImages(env.DB));
   const saved = await base.saveTablesDraft(env.DB, body.revision, contenu, now.toISOString(), logEntry(teacher, now, 'editeur_tables_enregistrement', `révision ${body.revision + 1}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s)` : ''}`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findTablesDraft(env.DB)).revision });
   return json({ enregistre: true, revision: body.revision + 1, erreurs });
@@ -894,7 +895,7 @@ async function editeurTablesPublier(request, env, { now }) {
   const contenu = tablesOf(draft.contenu);
   contenu.materiaux = { ...contenu.materiaux, revision: body.id };
   contenu.operations = { ...contenu.operations, revision: body.id };
-  const erreurs = tablesErrors(contenu);
+  const erreurs = tablesErrors(contenu, await base.listImages(env.DB));
   if (erreurs.length > 0) throw new HttpError(400, `Le brouillon des tables a ${erreurs.length} erreur(s) : il ne peut pas être publié.`, { erreurs });
   const previous = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
   if (previous !== null && sameContent(tablesContent(contenu), tablesContent(tablesOf(previous)))) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${previous.id}.`);
@@ -914,7 +915,7 @@ async function editeurTablesApercu(request, env, { now, random }) {
   const contenu = cleanTables(body.contenu);
   if (contenu === null) throw new HttpError(400, 'Le brouillon des tables est mal formé.');
   const tables = tablesOf(contenu);
-  const erreursTables = tablesErrors(tables);
+  const erreursTables = tablesErrors(tables, await base.listImages(env.DB));
   if (erreursTables.length > 0) throw new HttpError(400, "Le brouillon des tables a des erreurs : corrige-les avant l'aperçu.", { erreurs: erreursTables });
   const erreurs = draftErrors(record.brouillon, tables);
   if (erreurs.length > 0) throw new HttpError(400, `L'exercice « ${record.brouillon.titre} » a des erreurs avec ces tables : ${erreurs.map((e) => `${e.champ} : ${e.message}`).join(' ; ')}`, { erreurs });
@@ -1104,8 +1105,13 @@ async function editeurExport(request, env, { now }) {
 // doivent être envoyées à part (images/importer) avant l'import.
 async function planImport(env, received) {
   const existing = { ...await base.exportEditorData(env.DB), images: await base.listImages(env.DB) };
+  // Les images que l'import laissera : celles de la base, et les fiches de l'export (leur état d'archivage) —
+  // le brouillon des tables de l'export est validé contre elles (D64) ; une version publiée, immuable, ne l'est pas.
+  const images = new Map(existing.images.map((i) => [i.id, i]));
+  for (const i of Array.isArray(received?.images) ? received.images : []) if (i && typeof i.id === 'string') images.set(i.id, { id: i.id, archivee_le: typeof i.archivee_le === 'string' ? i.archivee_le : null });
   return importPlan(received, existing, {
     tablesErrors: (t) => validateTables({ materiaux: t.materiaux, operations: t.operations }),
+    draftTablesErrors: (t) => validateTables({ materiaux: t.materiaux, operations: t.operations }, { images: [...images.values()] }),
     draftErrorsOf: (contenu, tables) => draftErrors(contenu, tablesOf(tables)),
     latestTablesId: (await base.findLatestTables(env.DB)).id,
   });
