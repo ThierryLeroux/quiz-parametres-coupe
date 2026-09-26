@@ -422,7 +422,11 @@ function previewTable(response, classesIso = []) {
   const rows = previewRows(response.questions, response.champs_evalues, response.champs_masques ?? []);
   const material = (r, text) => {
     const code = response.questions[r].materiau.classe;
-    const images = classImages(classesIso, code).map(({ url, label }) => el('img', { class: 'apercu-classe-image', src: url, alt: label, title: label, loading: 'lazy' }));
+    // L'image de chaleur avec sa légende dessous, comme sur l'écran Question (D68 : vide, pas de légende).
+    const images = classImages(classesIso, code).map(({ url, label }) => el('figure', { class: 'apercu-classe-figure' }, [
+      el('img', { class: 'apercu-classe-image', src: url, alt: '', loading: 'lazy' }),
+      label === null ? '' : el('figcaption', {}, label),
+    ]));
     const features = classFeatures(classesIso, code);
     return el('div', { class: 'apercu-materiau' }, [
       ...images,

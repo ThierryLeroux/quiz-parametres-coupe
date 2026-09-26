@@ -30,7 +30,6 @@ export const operationPicto = (name, operation = null) => imageUrl(operation?.pi
 // matériau brut, et l'aperçu de l'éditeur : [{ key, label, id, url }] — vide pour une classe sans image (O),
 // inconnue, ou dont l'image est retirée : l'espace reste vide, sans erreur. `classesIso` : les classes de la
 // version en usage (data.classesIso, ou celles du brouillon des tables à l'écran).
-export const CLASS_IMAGE_LABELS = { image_chaleur: 'Chaleur' };
 
 // La largeur d'affichage maximale de l'image de chaleur, en px CSS, d'après sa largeur en pixels : ÷ 1,5, pour
 // limiter l'agrandissement sur un écran haute densité. Sur un écran de densité 2, une image de 237 px affichée à
@@ -47,9 +46,12 @@ export function classFeatures(classesIso, code) {
   const clean = (v) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null);
   return lines.filter((l) => clean(l?.libelle) && clean(l?.texte)).map((l) => ({ libelle: clean(l.libelle), texte: clean(l.texte), solution: clean(l.solution) }));
 }
+// `label` est la légende de l'image, celle de la classe (legende_image, D68 : « Chaleur » par défaut) ; null
+// quand elle est vide — pas de légende, et pas d'espace laissé pour elle.
 export function classImages(classesIso, code) {
   const c = isoClassOf(classesIso, code);
-  return CLASS_IMAGE_KEYS.filter((key) => typeof c?.[key] === 'string' && c[key] !== '').map((key) => ({ key, label: CLASS_IMAGE_LABELS[key], id: c[key], url: imageUrl(c[key]) }));
+  const label = typeof c?.legende_image === 'string' && c.legende_image.trim() !== '' ? c.legende_image.trim() : null;
+  return CLASS_IMAGE_KEYS.filter((key) => typeof c?.[key] === 'string' && c[key] !== '').map((key) => ({ key, label, id: c[key], url: imageUrl(c[key]) }));
 }
 
 // --- Vitesses de coupe -----------------------------------------------------------------------------------------

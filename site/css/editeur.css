@@ -222,7 +222,9 @@
 /* Aperçu : nombres en chasse fixe. */
 .apercu-table td.num { font-family: var(--font-number); }
 /* Les deux images de la classe ISO du matériau tiré (D64), en vignettes devant son nom. */
-.apercu-classe-image { flex: none; width: 72px; height: auto; }
+.apercu-classe-figure { flex: none; width: 72px; margin: 0; }
+.apercu-classe-image { display: block; width: 72px; height: auto; }
+.apercu-classe-figure figcaption { margin-top: 2px; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
 /* Le matériau usiné de l'aperçu, comme sur l'écran Question (D66) : l'image de chaleur, et à sa droite le matériau
    puis les caractéristiques de la classe, en texte secondaire, la solution sur une ligne à part. */
 .apercu-table td.apercu-materiau-cell { min-width: 340px; }

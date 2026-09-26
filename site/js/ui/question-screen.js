@@ -90,7 +90,8 @@ function materialPanel(question, data) {
   const images = classImages(data.classesIso, question.materiau.iso).map(({ label, url }) => {
     // Largeur affichée : au plus celle de l'original ÷ 1,5 (heatImageMaxWidth), une fois l'image chargée.
     const image = el('img', { src: url, alt: '', onerror: () => figure.remove(), onload: () => { const max = heatImageMaxWidth(image.naturalWidth); if (max !== null) figure.style.maxWidth = `${max}px`; } });
-    const figure = el('figure', { class: 'material-image' }, [image, el('figcaption', {}, label)]);
+    // La légende vient des tables (D68) ; vide, pas de figcaption du tout.
+    const figure = el('figure', { class: 'material-image' }, [image, label === null ? '' : el('figcaption', {}, label)]);
     return figure;
   });
   const list = features.length === 0 ? '' : el('ul', { class: 'material-features small' }, features.map(({ libelle, texte, solution }) => el('li', {}, [

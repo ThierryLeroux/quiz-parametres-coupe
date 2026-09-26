@@ -100,6 +100,11 @@ test('classImages (D64, D66) : l’image de chaleur de la classe du matériau, s
   assert.deepEqual(classImages(data.classesIso, 'O'), []);
   assert.deepEqual(classImages(data.classesIso, 'Z'), []);
   assert.deepEqual(classImages(undefined, 'P'), []); // un catalogue sans classes (serveur d'avant) : l'espace reste vide
+  // La légende vient de legende_image (D68) : « Chaleur » par défaut, le texte de la classe sinon, null si vide.
+  assert.equal(classImages([{ code: 'P', legende_image: '  Zone la plus chaude  ' }], 'P')[0].label, 'Zone la plus chaude');
+  assert.equal(classImages([{ code: 'P', legende_image: '' }], 'P')[0].label, null);
+  assert.equal(classImages([{ code: 'P', legende_image: '   ' }], 'P')[0].label, null);
+  assert.equal(classImages([{ code: 'P' }], 'P')[0].label, 'Chaleur'); // une classe d'avant D68
   // Le brouillon des tables tel qu'à l'écran : une image retirée (null), une autre choisie ; une classe d'avant D64 sans la clé reçoit celle de la semence.
   const draft = [{ code: 'P', image_chaleur: null }, { code: 'M', image_chaleur: 'img-0123456789abcdef' }, { code: 'K' }];
   assert.deepEqual(classImages(draft, 'P'), []);
