@@ -22,7 +22,7 @@ import {
   archiveConfirmation, canDeleteImage, characteristicFrom, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
-import { classImages, imageUrl } from './sheets-data.js';
+import { classFeatures, classImages, imageUrl } from './sheets-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
@@ -415,14 +415,29 @@ function fieldStateChoice(draft) {
 }
 
 // Une table de résultats d'aperçu. `classesIso` : les classes de la version de tables en usage (ou du
-// brouillon des tables à l'écran) — la cellule du matériau usiné montre les deux images de sa classe (D64).
+// brouillon des tables à l'écran) — la cellule du matériau usiné montre, comme l'écran Question, l'image de
+// chaleur de sa classe et, à sa droite, ses caractéristiques avec leur solution (D64 à D66).
 function previewTable(response, classesIso = []) {
   const columns = previewColumns(response.champs_evalues, response.champs_masques ?? []);
   const rows = previewRows(response.questions, response.champs_evalues, response.champs_masques ?? []);
-  const images = (r) => classImages(classesIso, response.questions[r].materiau.classe).map(({ url, label }) => el('img', { class: 'apercu-classe-image', src: url, alt: label, title: label, loading: 'lazy' }));
+  const material = (r, text) => {
+    const code = response.questions[r].materiau.classe;
+    const images = classImages(classesIso, code).map(({ url, label }) => el('img', { class: 'apercu-classe-image', src: url, alt: label, title: label, loading: 'lazy' }));
+    const features = classFeatures(classesIso, code);
+    return el('div', { class: 'apercu-materiau' }, [
+      ...images,
+      el('div', {}, [
+        el('div', {}, text),
+        features.length === 0 ? '' : el('ul', { class: 'apercu-caracteristiques' }, features.map(({ libelle, texte, solution }) => el('li', {}, [
+          el('strong', {}, `${libelle} : `), texte,
+          solution === null ? '' : el('div', { class: 'apercu-solution' }, [el('span', { class: 'material-feature-arrow' }, '→ Solution : '), solution]),
+        ]))),
+      ]),
+    ]);
+  };
   return el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table apercu-table' }, [
     el('thead', {}, el('tr', {}, columns.map((label, i) => el('th', { class: i >= 4 ? 'num' : null }, label)))),
-    el('tbody', {}, rows.map((row, r) => el('tr', {}, row.map((cell, i) => el('td', { class: i === 0 || i >= 4 ? 'num' : null }, i === 3 ? [...images(r), cell] : cell))))),
+    el('tbody', {}, rows.map((row, r) => el('tr', {}, row.map((cell, i) => el('td', { class: i === 0 || i >= 4 ? 'num' : i === 3 ? 'apercu-materiau-cell' : null }, i === 3 ? material(r, cell) : cell))))),
   ]));
 }
 
