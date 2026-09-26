@@ -4,10 +4,12 @@
 // SVG assaini dans svg.js, les routes dans index.js.
 
 import { operationSlug } from '../site/js/ui/sheets-data.js';
+import { CLASS_IMAGE_KEYS, completeTables } from '../site/js/tables.js';
 import { SvgError, sanitizeSvg } from './svg.js';
 
-// Les deux usages : la photo d'un outil (`image` de l'outil), le pictogramme d'une opération.
-export const USAGES = ['outil', 'operation'];
+// Les trois usages : la photo d'un outil (`image` de l'outil), le pictogramme d'une opération, et
+// (D64) l'image d'une classe ISO (chaleur, forme de copeaux : `image_chaleur`, `image_copeaux`).
+export const USAGES = ['outil', 'operation', 'classe'];
 
 // Les types acceptés. Un type se vérifie sur les premiers octets (magicType), jamais sur ce que dit le navigateur.
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
@@ -131,15 +133,19 @@ export const imageView = ({ id, nom, usage, type, taille, empreinte, creee_le, a
 // brouillons, la banque et les tables comptent aussi : supprimer une image qu'un brouillon nomme
 // laisserait un trou.
 //   versions : [{ exercice_id, numero, contenu }] ; exercices : [{ id, brouillon }] ; banque : [{ id, outil }] ;
-//   tables   : [{ id, operations }] — un pictogramme d'opération est `pictogramme`, sinon le nom de l'opération en slug
+//   tables   : [{ id, materiaux, operations }] — un pictogramme d'opération est `pictogramme`, sinon le nom de
+//              l'opération en slug ; les images d'une classe ISO sont celles de la classe complétée (D64 : une
+//              version d'avant nomme les images de la semence)
 export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [] }) {
   const inTools = (tools) => (Array.isArray(tools) ? tools : []).some((tool) => tool?.image === id);
   const pictoOf = (op) => op?.pictogramme ?? operationSlug(String(op?.operation ?? ''));
+  const inTables = (t) => (Array.isArray(t.operations?.operations) ? t.operations.operations : []).some((op) => pictoOf(op) === id)
+    || completeTables({ materiaux: t.materiaux, operations: t.operations }).materiaux.classes_iso.some((c) => CLASS_IMAGE_KEYS.some((key) => c?.[key] === id));
   return {
     versions: versions.filter((v) => inTools(v.contenu?.outils)).map((v) => `${v.exercice_id} v${v.numero}`),
     brouillons: exercices.filter((e) => inTools(e.brouillon?.outils)).map((e) => e.id),
     banque: banque.filter((b) => b.outil?.image === id).map((b) => b.id),
-    tables: tables.filter((t) => (Array.isArray(t.operations?.operations) ? t.operations.operations : []).some((op) => pictoOf(op) === id)).map((t) => t.id),
+    tables: tables.filter(inTables).map((t) => t.id),
   };
 }
 

@@ -52,6 +52,14 @@ test('règles pures : identifiants, nom lisible, type d’après les octets, bas
   assert.deepEqual(usages, { versions: [`${M10} v1`], brouillons: [M10], banque: ['mvlnr', 'mvlnr_2'], tables: [] });
   assert.equal(usagesText(usages), `version publiée ${M10} v1 · brouillon ${M10} · banque mvlnr, mvlnr_2`);
   assert.deepEqual(imageUsages('percage', { tables: [{ id: 'A2026_r0', operations: { operations: [{ operation: 'Perçage' }] } }, { id: 'B', operations: { operations: [{ operation: 'Perçage', pictogramme: 'img-abc' }] } }] }).tables, ['A2026_r0']);
+  // Les images d'une classe ISO (D64) : une version d'avant (sans classes_iso) nomme celles de la semence ; une version qui a retiré l'image ne la nomme plus.
+  const tables = [
+    { id: 'A2026_r0', materiaux: {}, operations: { operations: [] } },
+    { id: 'B', materiaux: { classes_iso: [{ code: 'P', image_chaleur: null, image_copeaux: 'img-abc' }] }, operations: { operations: [] } },
+  ];
+  assert.deepEqual(imageUsages('copeaux-p-chaleur', { tables }).tables, ['A2026_r0']);
+  assert.deepEqual(imageUsages('img-abc', { tables }).tables, ['B']);
+  assert.deepEqual(imageUsages('copeaux-p-copeaux', { tables }).tables, ['A2026_r0']);
 });
 
 test('GET /images/<id> : public, sans cookie ; type exact, nosniff, cache d’un an, ETag et 304 ; SVG avec une politique sans script ; inconnu → 404', async () => {
@@ -80,7 +88,7 @@ test('téléverser : type vérifié sur les octets, doublon non stocké (l’ima
   const doublon = await serveur.editeur('POST', 'images/televerser', { nom: 'alesoir-photo.png', usage: 'outil', type: 'image/png', contenu: base64(ALESOIR) });
   assert.equal(doublon.status, 200, JSON.stringify(doublon.corps));
   assert.deepEqual([doublon.corps.existante, doublon.corps.image.id, doublon.corps.image.nom], [true, 'alesoir', 'Alésoir']);
-  assert.equal(serveur.db.sqlite.prepare('SELECT COUNT(*) AS n FROM images').get().n, 48);
+  assert.equal(serveur.db.sqlite.prepare('SELECT COUNT(*) AS n FROM images').get().n, 60);
   // Une photo neuve : stockée sous un identifiant tiré de son empreinte, nommée d'après le fichier.
   const neuve = await serveur.editeur('POST', 'images/televerser', { nom: 'Fraise à rainurer.png', usage: 'outil', type: 'image/png', contenu: base64(photoNeuve()) });
   assert.equal(neuve.status, 200, JSON.stringify(neuve.corps));
@@ -95,7 +103,7 @@ test('téléverser : type vérifié sur les octets, doublon non stocké (l’ima
   // Le même contenu encore, sous un autre nom : l'existante, pas de seconde ligne.
   const encore = await serveur.editeur('POST', 'images/televerser', { nom: 'autre nom.png', usage: 'operation', type: 'image/png', contenu: base64(photoNeuve()) });
   assert.deepEqual([encore.corps.existante, encore.corps.image.id], [true, image.id]);
-  assert.equal(serveur.db.sqlite.prepare('SELECT COUNT(*) AS n FROM images').get().n, 49);
+  assert.equal(serveur.db.sqlite.prepare('SELECT COUNT(*) AS n FROM images').get().n, 61);
   // Refus : type annoncé qui ne correspond pas aux octets, fichier qui n'est pas une image, usage ou type inconnu, contenu absent, trop grand.
   const mauvaisType = await serveur.editeur('POST', 'images/televerser', { nom: 'x.jpg', usage: 'outil', type: 'image/jpeg', contenu: base64(ALESOIR) });
   assert.deepEqual([mauvaisType.status, mauvaisType.corps.erreur], [400, 'Le fichier est en image/png, pas en image/jpeg.']);
@@ -105,7 +113,7 @@ test('téléverser : type vérifié sur les octets, doublon non stocké (l’ima
   assert.match((await serveur.editeur('POST', 'images/televerser', { nom: 'x.png', usage: 'outil', type: 'image/png', contenu: '' })).corps.erreur, /absent ou illisible/);
   const grosse = Buffer.concat([ALESOIR, Buffer.alloc(MAX_IMAGE_BYTES)]);
   assert.match((await serveur.editeur('POST', 'images/televerser', { nom: 'x.png', usage: 'outil', type: 'image/png', contenu: base64(grosse) })).corps.erreur, /au plus 600 Ko/);
-  assert.equal(serveur.db.sqlite.prepare('SELECT COUNT(*) AS n FROM images').get().n, 49);
+  assert.equal(serveur.db.sqlite.prepare('SELECT COUNT(*) AS n FROM images').get().n, 61);
   const actions = serveur.journalEnseignant().slice(depart);
   assert.deepEqual(actions.map((l) => l.action), ['editeur_image_televersement']);
   assert.equal(actions[0].details, `${image.id} · Fraise à rainurer · outil · image/png · ${ALESOIR.length + 1} octets`);
@@ -146,7 +154,7 @@ test('liste avec les utilisations ; archiver (toujours servie, retirée du choix
   const serveur = await editeurDeTest();
   const { status, corps } = await serveur.editeur('GET', 'images');
   assert.equal(status, 200);
-  assert.equal(corps.images.length, 48);
+  assert.equal(corps.images.length, 60);
   const mvlnr = corps.images.find((i) => i.id === 'mvlnr');
   assert.deepEqual(mvlnr.utilisations, { versions: [`${M10} v1`], brouillons: [M10], banque: ['mvlnr'], tables: [] });
   assert.deepEqual(corps.images.find((i) => i.id === 'percage').utilisations, { versions: [], brouillons: [], banque: [], tables: ['A2026_r0'] });
@@ -186,19 +194,19 @@ test('export et import (D59) : les images sont dans l’export (base64) ; l’im
   assert.equal((await source.editeur('POST', 'images/archiver', { id: 'alesoir_2', archive: true })).status, 200);
   const { status, corps: exporte } = await source.editeur('GET', 'export');
   assert.equal(status, 200);
-  assert.equal(exporte.images.length, 49);
+  assert.equal(exporte.images.length, 61);
   const exportee = exporte.images.find((i) => i.id === neuve.id);
   assert.deepEqual(Object.keys(exportee).sort(), ['archivee_le', 'contenu', 'creee_le', 'empreinte', 'id', 'nom', 'taille', 'type', 'usage']);
   assert.equal(Buffer.compare(Buffer.from(exportee.contenu, 'base64'), photoNeuve()), 0);
   assert.notEqual(exporte.images.find((i) => i.id === 'alesoir_2').archivee_le, null);
-  assert.match(source.journalEnseignant().at(-1).details, /49 image\(s\)$/);
+  assert.match(source.journalEnseignant().at(-1).details, /61 image\(s\)$/);
 
   // Sur une base neuve : l'export sans le contenu des images (c'est ce que le navigateur envoie).
   const cible = await editeurDeTest();
   const fiches = { ...exporte, images: exporte.images.map(({ contenu, ...fiche }) => fiche) };
   const validation = await cible.editeur('POST', 'import/valider', { export: fiches });
   assert.deepEqual(validation.corps.erreurs, []);
-  assert.deepEqual([validation.corps.resume.images_manquantes, validation.corps.resume.images_presentes, validation.corps.resume.images_modifiees], [[neuve.id], 48, ['alesoir_2']]);
+  assert.deepEqual([validation.corps.resume.images_manquantes, validation.corps.resume.images_presentes, validation.corps.resume.images_modifiees], [[neuve.id], 60, ['alesoir_2']]);
   const tropTot = await cible.editeur('POST', 'import', { export: fiches, confirmation: IMPORT_WORD });
   assert.equal(tropTot.status, 400);
   assert.deepEqual(tropTot.corps.images_manquantes, [neuve.id]);

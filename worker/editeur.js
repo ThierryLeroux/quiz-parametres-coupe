@@ -9,6 +9,7 @@ import { DRAFT_KEYS, draftErrors, fieldsToGrade, maskedFields } from '../site/js
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools } from '../site/js/progression.js';
 import { generateQuestion } from '../site/js/question.js';
+import { USAGES } from './images.js';
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
@@ -119,7 +120,7 @@ export function importPlan(received, existing, { tablesErrors, draftErrorsOf, la
   const imagesManquantes = [];
   const imagesPresentes = [];
   images.forEach((i, n) => {
-    if (!isObject(i) || !IMAGE_ID.test(String(i.id)) || !isText(i.empreinte) || !isText(i.nom) || !['outil', 'operation'].includes(i.usage)) return erreurs.push(`Images, entrée ${n + 1} : fiche illisible (identifiant, nom, usage ou empreinte).`);
+    if (!isObject(i) || !IMAGE_ID.test(String(i.id)) || !isText(i.empreinte) || !isText(i.nom) || !USAGES.includes(i.usage)) return erreurs.push(`Images, entrée ${n + 1} : fiche illisible (identifiant, nom, usage ou empreinte).`);
     const known = existingImages.get(i.id);
     if (known === undefined) return imagesManquantes.push(i.id);
     if (known.empreinte !== i.empreinte) return erreurs.push(`Image « ${i.id} » : la base en a une autre sous le même identifiant ; une image ne change jamais sous le même identifiant.`);

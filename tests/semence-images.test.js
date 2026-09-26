@@ -1,6 +1,6 @@
 // Tests de la migration 0007 et de sa semence (jalon 7b, décision D56) : les photos d'outils et les
 // pictogrammes d'opérations du dépôt, en base, identiques aux fichiers ; chaque outil de la banque et
-// chaque opération des tables ont leur image.
+// chaque opération des tables ont leur image. (Les images de classe ISO de 0009 : semence-copeaux.test.js.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -16,7 +16,7 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 test('la semence de la migration 0007 est identique aux fichiers du dépôt : 29 photos PNG et 19 pictogrammes SVG assainis, avec leur empreinte', () => {
   const db = fausseD1();
   const attendues = composerSemenceImages();
-  const enBase = db.sqlite.prepare('SELECT * FROM images ORDER BY usage, id').all().map((row) => ({ ...row }));
+  const enBase = db.sqlite.prepare("SELECT * FROM images WHERE usage IN ('outil', 'operation') ORDER BY usage, id").all().map((row) => ({ ...row }));
   assert.equal(enBase.length, 48);
   assert.deepEqual(enBase.map((row) => row.id).sort(), attendues.map((i) => i.id).sort());
   for (const row of enBase) {

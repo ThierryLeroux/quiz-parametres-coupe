@@ -465,7 +465,7 @@ try {
     const doublon = await appel('POST', '/api/prof/editeur/images/televerser', { corps: { nom: 'autre.png', usage: 'outil', type: 'image/png', contenu: contenu.toString('base64') }, cookie });
     assert.deepEqual([doublon.corps.existante, doublon.corps.image.id], [true, imageNeuve.id]);
     const liste = await appel('GET', '/api/prof/editeur/images', { cookie });
-    assert.equal(liste.corps.images.length, 49);
+    assert.equal(liste.corps.images.length, 61);
     assert.deepEqual(liste.corps.images.find((i) => i.id === imageNeuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [] });
   });
 
@@ -485,7 +485,7 @@ try {
 
   await etape('images et sauvegarde (D59) : l’export porte les 49 images ; après suppression de la neuve, l’import la réclame, la reçoit à part, puis l’aller-retour est identique', async () => {
     const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
-    assert.equal(exporte.corps.images.length, 49);
+    assert.equal(exporte.corps.images.length, 61);
     const neuve = exporte.corps.images.find((i) => i.id === imageNeuve.id);
     assert.equal(typeof neuve.contenu, 'string');
     assert.deepEqual((await appel('POST', '/api/prof/editeur/images/supprimer', { corps: { id: imageNeuve.id }, cookie })).corps.supprimee, true);

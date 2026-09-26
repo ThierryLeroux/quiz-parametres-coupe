@@ -6,7 +6,11 @@
 // deux versions, valeur par valeur. Fonctions PURES, partagées par le serveur et le navigateur.
 
 // Les classes ISO 513 du classeur, avec les couleurs des feuilles (UI §1 ; tokens.css avant le 7b) :
-// la couleur vive (lettre, panneau du matériau), celle du texte posé dessus, la teinte de ligne.
+// la couleur vive (lettre, panneau du matériau), celle du texte posé dessus, la teinte de ligne —
+// et, depuis D64, les deux images de la classe (chaleur, forme de copeaux : les identifiants de la
+// semence de la migration 0009, site/img/copeaux/ ; la classe O n'en a pas).
+export const CLASS_IMAGE_KEYS = ['image_chaleur', 'image_copeaux'];
+const classImages = (code) => (code === 'O' ? { image_chaleur: null, image_copeaux: null } : { image_chaleur: `copeaux-${code.toLowerCase()}-chaleur`, image_copeaux: `copeaux-${code.toLowerCase()}-copeaux` });
 export const DEFAULT_ISO_CLASSES = [
   { code: 'P', nom: 'Acier', couleur: '#00b0f0', couleur_texte: '#ffffff', couleur_ligne: '#c1efff' },
   { code: 'M', nom: 'Acier inoxydable', couleur: '#ffff00', couleur_texte: '#000000', couleur_ligne: '#ffffb7' },
@@ -15,7 +19,17 @@ export const DEFAULT_ISO_CLASSES = [
   { code: 'S', nom: 'Alliages réfractaires et titane', couleur: '#ffc000', couleur_texte: '#000000', couleur_ligne: '#fff1c5' },
   { code: 'H', nom: 'Matériaux durcis', couleur: '#d9d9d9', couleur_texte: '#000000', couleur_ligne: '#eeeeee' },
   { code: 'O', nom: 'Plastiques et graphite', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#d9d9d9' },
-];
+].map((c) => ({ ...c, ...classImages(c.code) }));
+
+// Une classe ISO complétée (D64) : une clé d'image absente reçoit l'image par défaut de sa lettre
+// (null si la semence n'en a pas) ; une clé présente, même null (« aucune image »), est gardée.
+export function completeIsoClass(c) {
+  if (!isObject(c)) return c;
+  const defaults = DEFAULT_ISO_CLASSES.find((d) => d.code === c.code) ?? { image_chaleur: null, image_copeaux: null };
+  const out = { ...c };
+  for (const key of CLASS_IMAGE_KEYS) if (out[key] === undefined) out[key] = defaults[key];
+  return out;
+}
 
 // Les trois matières d'outil : la clé (celle de vc_pi_min, fixe), le nom (celui que les outils
 // nomment et que l'étudiant lit) et la couleur de la colonne de la table des Vc.
@@ -32,7 +46,8 @@ export const isColor = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
 
 // Une version de tables complétée : classes ISO, matières d'outil et pictogrammes absents reçoivent
 // leurs valeurs par défaut (une version d'avant le 7b n'en a pas ; la table en base ne change pas,
-// D61). Ne modifie pas l'objet reçu.
+// D61) ; une classe sans ses clés d'images reçoit celles de la semence (une version d'avant D64).
+// Ne modifie pas l'objet reçu.
 export function completeTables(tables) {
   const materiaux = isObject(tables?.materiaux) ? tables.materiaux : {};
   const operations = isObject(tables?.operations) ? tables.operations : {};
@@ -40,7 +55,7 @@ export function completeTables(tables) {
     ...tables,
     materiaux: {
       ...materiaux,
-      classes_iso: Array.isArray(materiaux.classes_iso) ? materiaux.classes_iso : DEFAULT_ISO_CLASSES.map((c) => ({ ...c })),
+      classes_iso: (Array.isArray(materiaux.classes_iso) ? materiaux.classes_iso : DEFAULT_ISO_CLASSES).map(completeIsoClass),
       materiaux_outil: Array.isArray(materiaux.materiaux_outil) ? materiaux.materiaux_outil : DEFAULT_TOOL_MATERIALS.map((m) => ({ ...m })),
     },
     operations,
@@ -49,6 +64,9 @@ export function completeTables(tables) {
 
 // Les classes ISO d'une table de matériaux (complétée ou non), et les matières d'outil.
 export const isoClassesOf = (materiaux) => (Array.isArray(materiaux?.classes_iso) ? materiaux.classes_iso : DEFAULT_ISO_CLASSES);
+
+// La classe ISO d'un code, complétée (ses couleurs, ses images), dans une liste de classes ; null si le code est inconnu.
+export const isoClassOf = (classes, code) => completeIsoClass((classes ?? []).find((c) => isObject(c) && c.code === code) ?? null);
 export const toolMaterialsOf = (materiaux) => (Array.isArray(materiaux?.materiaux_outil) ? materiaux.materiaux_outil : DEFAULT_TOOL_MATERIALS);
 
 // Nom de matière d'outil → clé de vc_pi_min, d'après la table (les valeurs par défaut sont TOOL_MATERIAL_KEYS de data.js).
@@ -104,7 +122,7 @@ export function tablesDiff(before, after) {
   for (const [code, c] of classesB) {
     const old = classesA.get(code);
     if (!old) { lines.push(`Classe ajoutée : ${code} — ${c.nom}`); continue; }
-    for (const [key, label] of [['nom', 'nom'], ['couleur', 'couleur'], ['couleur_texte', 'couleur du texte'], ['couleur_ligne', 'teinte de ligne']]) {
+    for (const [key, label] of [['nom', 'nom'], ['couleur', 'couleur'], ['couleur_texte', 'couleur du texte'], ['couleur_ligne', 'teinte de ligne'], ['image_chaleur', 'image de chaleur'], ['image_copeaux', 'image de copeaux']]) {
       if (!same(old[key], c[key])) lines.push(`Classe ${code} — ${label} : ${text(old[key])} → ${text(c[key])}`);
     }
   }

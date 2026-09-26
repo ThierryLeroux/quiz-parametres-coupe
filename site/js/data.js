@@ -2,7 +2,7 @@
 // Tout ce qui interprète le contenu brut des JSON (libellés, filetages,
 // conversions mm → po) vit ici ; le reste du moteur ne voit que des pouces.
 
-import { TOOL_MATERIAL_CLES, completeTables, isColor, isoClassesOf, toolMaterialKeyMap, toolMaterialsOf } from './tables.js';
+import { CLASS_IMAGE_KEYS, TOOL_MATERIAL_CLES, completeTables, isColor, isoClassesOf, toolMaterialKeyMap, toolMaterialsOf } from './tables.js';
 
 const MM_PER_INCH = 25.4;
 
@@ -112,8 +112,13 @@ export function validateTables({ materiaux, operations }) {
 // Les noms des matières d'outil d'une table (ceux que les outils nomment), ceux par défaut sinon.
 export const toolMaterialNames = (materiaux) => toolMaterialsOf(materiaux).filter(isObject).map((m) => m.nom);
 
+// L'identifiant d'une image de la base (D56 : le même motif que worker/images.js), tel qu'une table le nomme.
+const IMAGE_REF = /^[a-z0-9]+([_-][a-z0-9]+)*$/;
+const isImageRef = (v) => typeof v === 'string' && IMAGE_REF.test(v);
+
 // Les classes ISO d'une table (D61) : facultatives (valeurs par défaut sinon) ; présentes, chacune a un
-// code d'une lettre majuscule unique, un nom et trois couleurs « #rrggbb ». Retourne les codes.
+// code d'une lettre majuscule unique, un nom, trois couleurs « #rrggbb » et, facultatives (D64), ses deux
+// images (l'identifiant d'une image de la base, ou null : aucune). Retourne les codes.
 function validateIsoClasses(materiaux, errors) {
   const classes = isoClassesOf(materiaux);
   if (materiaux?.classes_iso !== undefined && (!Array.isArray(materiaux.classes_iso) || materiaux.classes_iso.length === 0)) {
@@ -125,6 +130,9 @@ function validateIsoClasses(materiaux, errors) {
     if (typeof c.code !== 'string' || !/^[A-Z]$/.test(c.code)) errors.push(`${where} : « code » doit être une lettre majuscule`);
     if (!isText(c.nom)) errors.push(`${where} : « nom » est vide`);
     for (const key of ['couleur', 'couleur_texte', 'couleur_ligne']) if (!isColor(c[key])) errors.push(`${where} : « ${key} » doit être une couleur « #rrggbb »`);
+    for (const key of CLASS_IMAGE_KEYS) {
+      if (c[key] !== undefined && c[key] !== null && !isImageRef(c[key])) errors.push(`${where} : « ${key} » doit être l'identifiant d'une image (ou null)`);
+    }
   });
   checkUnique(classes.filter(isObject).map((c) => c.code), 'materiaux.json : classe ISO', errors);
   return classes.filter(isObject).map((c) => c.code);
@@ -183,7 +191,7 @@ function validateOperations(ops, errors) {
       if (typeof op[flag] !== 'boolean') errors.push(`${where} : « ${flag} » doit être true ou false`);
     }
     // Le pictogramme (D61) : l'identifiant d'une image de la base, facultatif (sinon le slug du nom, images de la semence).
-    if (op.pictogramme !== undefined && op.pictogramme !== null && !(typeof op.pictogramme === 'string' && /^[a-z0-9]+([_-][a-z0-9]+)*$/.test(op.pictogramme))) {
+    if (op.pictogramme !== undefined && op.pictogramme !== null && !isImageRef(op.pictogramme)) {
       errors.push(`${where} : « pictogramme » doit être l'identifiant d'une image (ou absent)`);
     }
 
