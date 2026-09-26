@@ -160,15 +160,17 @@ test('caractéristiques d’une classe (D65) : quatre lignes par défaut pour P 
   assert.deepEqual(characteristicsErrors([
     { libelle: '', texte: 'a' },
     { libelle: 'Effort', texte: 'b', solution: 'x'.repeat(91) },
+    { libelle: 'x'.repeat(21), texte: 'd' },
     { libelle: 'Effort', texte: 'c', solution: ' ', note: 1 },
   ]), [
     'caractéristique 1 : « libelle » est vide',
     'caractéristique 2 : « solution » a 91 caractères (au plus 90)',
-    'caractéristique 3 : clé inconnue « note »',
-    "caractéristique 3 : « solution » est vide (l'omettre s'il n'y en a pas)",
+    'caractéristique 3 : « libelle » a 21 caractères (au plus 20)',
+    'caractéristique 4 : clé inconnue « note »',
+    "caractéristique 4 : « solution » est vide (l'omettre s'il n'y en a pas)",
     'libellé de caractéristique en double : « Effort »',
   ]);
-  assert.deepEqual(characteristicsErrors([{ libelle: 'a', texte: 'x'.repeat(90), solution: 'y'.repeat(90) }]), []);
+  assert.deepEqual(characteristicsErrors([{ libelle: 'x'.repeat(20), texte: 'x'.repeat(90), solution: 'y'.repeat(90) }]), []);
   assert.match(characteristicsErrors(Array.from({ length: 7 }, (_, i) => ({ libelle: `l${i}`, texte: 't' })))[0], /au plus 6 caractéristiques/);
   const t = tables();
   t.materiaux.classes_iso = structuredClone(DEFAULT_ISO_CLASSES);
@@ -186,12 +188,12 @@ test('caractéristiques d’une classe (D65) : quatre lignes par défaut pour P 
   const s = after.materiaux.classes_iso[4].caracteristiques;
   [s[0], s[1]] = [s[1], s[0]];
   assert.deepEqual(tablesDiff(tables(), after), [
-    'Classe P — Effort : « moyen » → « moyen à élevé »',
-    'Classe P — Effort, solution : — → « plaquette robuste »',
-    'Classe P — Problème typique, solution : « respecter la Vc de la table, nuance revêtue » → —',
-    'Classe M — Problème typique, solution : « ne pas frotter, garder avance et profondeur suffisantes » → « avance suffisante »',
+    'Classe P — Effort : moyen → moyen à élevé',
+    'Classe P — Effort, solution : — → plaquette robuste',
+    'Classe P — Problème typique, solution : respecter la Vc de la table, nuance revêtue → —',
+    'Classe M — Problème typique, solution : ne pas frotter, garder avance et profondeur suffisantes → avance suffisante',
     'Classe K — caractéristique retirée : Chaleur',
-    'Classe N — caractéristique ajoutée : Arrosage : « abondant »',
+    'Classe N — caractéristique ajoutée : Arrosage : abondant',
     "Classe S — l'ordre des caractéristiques a changé.",
   ]);
 });

@@ -282,20 +282,22 @@ export const tablesNotice = (current, latest) => (current === latest ? null : `U
 
 // --- Formulaire d'outil ---------------------------------------------------------------------------------------------
 
-// Les caractéristiques d'une classe ISO (D65) dans une zone de texte, une par ligne :
-// « libellé ; texte » ou « libellé ; texte ; solution ».
-export function characteristicsText(list) {
-  return (Array.isArray(list) ? list : []).map((c) => [c.libelle, c.texte, ...(c.solution ? [c.solution] : [])].join(' ; ')).join('\n');
+// Les caractéristiques d'une classe ISO (D65) s'éditent ligne par ligne (ajouter, retirer, monter,
+// descendre). Déplacer la ligne i de delta (−1 : monter, +1 : descendre) : une nouvelle liste ; hors bornes, la même.
+export function moveItem(list, i, delta) {
+  const j = i + delta;
+  if (i < 0 || i >= list.length || j < 0 || j >= list.length) return list;
+  const next = [...list];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
 }
 
-// L'inverse : les lignes tapées → [{ libelle, texte, solution? }] ; une ligne vide est ignorée, un
-// « ; » de trop reste dans la solution (la validation dit les longueurs et les champs vides).
-export function parseCharacteristics(textValue) {
-  return String(textValue ?? '').split(/\r?\n/).map((row) => row.trim()).filter((row) => row !== '').map((row) => {
-    const [libelle = '', texte = '', ...rest] = row.split(';').map((part) => part.trim());
-    const solution = rest.join(' ; ').trim();
-    return solution === '' ? { libelle, texte } : { libelle, texte, solution };
-  });
+// Une ligne de caractéristique lue de ses trois champs : la solution vide est omise.
+export function characteristicFrom(libelle, texte, solution) {
+  const out = { libelle: String(libelle ?? '').trim(), texte: String(texte ?? '').trim() };
+  const s = String(solution ?? '').trim();
+  if (s !== '') out.solution = s;
+  return out;
 }
 
 // Les dimensions dans une zone de texte, une par ligne : « Ø 1/4 po ; 0.25 » (libellé ; valeur).

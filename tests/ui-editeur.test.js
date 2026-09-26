@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
-  characteristicsText, filterImages, fittedSize, parseCharacteristics, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  characteristicFrom, filterImages, fittedSize, moveItem, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
@@ -355,12 +355,14 @@ test('site/img/outils/ : une photo de semence par outil du catalogue (la liste d
   for (const tool of data.outils) assert.ok(files.includes(`${tool.image ?? tool.id}.png`), `${tool.id} : photo manquante`);
 });
 
-test('caractéristiques d’une classe en texte (D65) : « libellé ; texte ; solution », une par ligne, aller-retour', () => {
-  const lines = DEFAULT_ISO_CLASSES.find((c) => c.code === 'M').caracteristiques;
-  const txt = characteristicsText(lines);
-  assert.equal(txt, "Effort ; moyen à élevé\nChaleur ; élevée, concentrée sur l'arête\nCopeaux ; longs, tenaces, difficiles à fragmenter\nProblème typique ; écrouissage ; ne pas frotter, garder avance et profondeur suffisantes");
-  assert.deepEqual(parseCharacteristics(txt), lines);
-  assert.deepEqual(parseCharacteristics('  Effort ;  élevé ; \n\n Chaleur ; faible ; a ; b '), [{ libelle: 'Effort', texte: 'élevé' }, { libelle: 'Chaleur', texte: 'faible', solution: 'a ; b' }]);
-  assert.deepEqual(parseCharacteristics('Effort'), [{ libelle: 'Effort', texte: '' }]); // la validation dira « texte » vide
-  assert.equal(characteristicsText(undefined), '');
+test('caractéristiques d’une classe (D65), édition ligne par ligne : déplacer une ligne, lire ses trois champs (solution vide omise)', () => {
+  const lines = ['a', 'b', 'c'];
+  assert.deepEqual(moveItem(lines, 1, -1), ['b', 'a', 'c']);
+  assert.deepEqual(moveItem(lines, 1, 1), ['a', 'c', 'b']);
+  assert.equal(moveItem(lines, 0, -1), lines); // déjà en tête : la même liste
+  assert.equal(moveItem(lines, 2, 1), lines);
+  assert.deepEqual(lines, ['a', 'b', 'c']); // la liste reçue n'est pas touchée
+  assert.deepEqual(characteristicFrom(' Effort ', ' moyen ', '  '), { libelle: 'Effort', texte: 'moyen' });
+  assert.deepEqual(characteristicFrom('Problème typique', 'écrouissage', ' ne pas frotter '), { libelle: 'Problème typique', texte: 'écrouissage', solution: 'ne pas frotter' });
+  assert.deepEqual(characteristicFrom(undefined, null, undefined), { libelle: '', texte: '' });
 });

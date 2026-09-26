@@ -16,10 +16,10 @@ import {
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors } from '../exercice.js';
-import { tablesDiff } from '../tables.js';
+import { CHARACTERISTIC_LIMITS, tablesDiff } from '../tables.js';
 import { applyTableColors, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, characteristicsText, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseCharacteristics, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, characteristicFrom, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classImages, imageUrl } from './sheets-data.js';
@@ -986,6 +986,43 @@ function editableRows(rows, build, blank, onChange) {
   };
 }
 
+// Les caractéristiques d'une classe ISO (D65), ligne par ligne : libellé, texte, solution facultative, avec
+// ↑ ↓ Retirer, et « Ajouter une ligne » (au plus CHARACTERISTIC_LIMITS.lignes). Retourne { element, read() }.
+function characteristicsEditor(lines, idPrefix, code, onChange) {
+  let items = lines.map((l) => ({ ...l }));
+  let built = [];
+  const body = el('tbody');
+  const addButton = el('button', { class: 'button-small button-small--neutral', type: 'button' }, 'Ajouter une ligne');
+  const readAll = () => built.map((b) => b.read());
+  function render() {
+    built = items.map((line, n) => {
+      const input = (key, width) => el('input', { id: `${idPrefix}-${n}-${key}`, type: 'text', autocomplete: 'off', class: width, value: line[key] ?? '', 'aria-label': `Classe ${code}, ligne ${n + 1} : ${{ libelle: 'libellé', texte: 'texte', solution: 'solution' }[key]}` });
+      const libelle = input('libelle', 'input-moyen');
+      const texte = input('texte', 'input-long');
+      const solution = input('solution', 'input-long');
+      const move = (delta) => { items = moveItem(readAll(), n, delta); render(); onChange(); };
+      const tr = el('tr', {}, [
+        el('td', {}, libelle), el('td', {}, texte), el('td', {}, solution),
+        el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
+          el('button', { class: 'button-small button-small--neutral', type: 'button', title: 'Monter', disabled: n === 0, onclick: () => move(-1) }, '↑'),
+          el('button', { class: 'button-small button-small--neutral', type: 'button', title: 'Descendre', disabled: n === items.length - 1, onclick: () => move(1) }, '↓'),
+          el('button', { class: 'button-small', type: 'button', title: 'Retirer', onclick: () => { items = readAll(); items.splice(n, 1); render(); onChange(); } }, 'Retirer'),
+        ])),
+      ]);
+      return { tr, read: () => characteristicFrom(libelle.value, texte.value, solution.value) };
+    });
+    body.replaceChildren(...built.map((b) => b.tr));
+    addButton.disabled = items.length >= CHARACTERISTIC_LIMITS.lignes;
+  }
+  addButton.addEventListener('click', () => { items = [...readAll(), { libelle: '', texte: '' }]; render(); onChange(); });
+  render();
+  const element = el('div', { class: 'caracteristiques' }, [
+    el('table', { class: 'caracteristiques-table' }, [el('thead', {}, el('tr', {}, ['Libellé', 'Texte', 'Solution (facultative)', ''].map((h) => el('th', {}, h)))), body]),
+    addButton,
+  ]);
+  return { element, read: readAll };
+}
+
 async function showTables(notice = '') {
   const page = await guarded(() => editorTables());
   if (page === null) return;
@@ -1014,11 +1051,11 @@ async function showTables(notice = '') {
     paint();
     const pickerFor = (key) => imagePicker({ usage: 'classe', images: state.images.classe, value: c[key] ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: () => { touch(); validate(); }, idPrefix: `cl-${i}-${key.replace('image_', '')}`, compact: true });
     const chaleur = pickerFor('image_chaleur');
-    // Les caractéristiques (D65) : une par ligne, « libellé ; texte » ou « libellé ; texte ; solution ».
-    const features = el('textarea', { id: `cl-${i}-caracteristiques`, rows: '5', spellcheck: 'true', class: 'caracteristiques-texte', 'aria-label': `Caractéristiques de la classe ${c.code}` }, characteristicsText(c.caracteristiques));
+    // Les caractéristiques (D65) : ligne par ligne — libellé, texte, solution facultative —, ajouter, retirer, monter, descendre.
+    const features = characteristicsEditor(c.caracteristiques ?? [], `cl-${i}-car`, c.code, () => { touch(); validate(); });
     return {
-      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(features, 'caracteristiques-cell')]),
-      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), caracteristiques: parseCharacteristics(features.value) }),
+      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(features.element, 'caracteristiques-cell')]),
+      read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), caracteristiques: features.read() }),
     };
   }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, caracteristiques: [] }), () => { touch(); validate(); });
 
@@ -1198,7 +1235,7 @@ async function showTables(notice = '') {
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Classes ISO'),
-      el('p', { class: 'muted small' }, "La lettre de classe, son nom, ses couleurs (celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe), et son image de chaleur (la chaleur dans la coupe), montrée sous le matériau brut de l'écran Question. Une image archivée doit être remplacée avant de publier. Les caractéristiques, montrées dessous : une par ligne, « libellé ; texte », ou « libellé ; texte ; solution » — la solution s'affiche sur une ligne à part, « → Solution : … » ; au plus 6 lignes, libellé de 30 caractères, texte et solution de 90."),
+      el('p', { class: 'muted small' }, "La lettre de classe, son nom, ses couleurs (celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe), et son image de chaleur (la chaleur dans la coupe), montrée sous le matériau brut de l'écran Question. Une image archivée doit être remplacée avant de publier. Les caractéristiques, montrées à droite de l'image : au plus 6 lignes, chacune avec un libellé (20 caractères au plus), un texte (90) et, facultative, une solution (90), montrée sur une ligne à part, « → Solution : … »."),
       table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Caractéristiques'], classes.body, 'tables-edit--classes'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe')),
     ]),

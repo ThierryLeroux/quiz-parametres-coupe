@@ -14,7 +14,7 @@ export const CLASS_IMAGE_KEYS = ['image_chaleur'];
 // Les caractéristiques d'une classe (D65) : des lignes { libelle, texte, solution? } montrées sous le
 // matériau brut de l'écran Question — « Effort : moyen », puis, s'il y a une solution, une ligne à part
 // « → Solution : … ». Longueurs maximales (caractères), dites par la validation.
-export const CHARACTERISTIC_LIMITS = { libelle: 30, texte: 90, solution: 90, lignes: 6 };
+export const CHARACTERISTIC_LIMITS = { libelle: 20, texte: 90, solution: 90, lignes: 6 };
 const line = (libelle, texte, solution) => (solution === undefined ? { libelle, texte } : { libelle, texte, solution });
 export const DEFAULT_CHARACTERISTICS = {
   P: [line('Effort', 'moyen'), line('Chaleur', 'modérée, bien évacuée par le copeau'), line('Copeaux', 'longs et continus, à fragmenter par le brise-copeau'), line('Problème typique', 'usure en cratère à Vc élevée', 'respecter la Vc de la table, nuance revêtue')],
@@ -54,12 +54,12 @@ export function characteristicsErrors(list) {
 // Les différences entre les caractéristiques de deux versions d'une classe, par libellé.
 function characteristicsDiff(code, before, after) {
   const lines = [];
-  const quote = (v) => (v === undefined || v === null || v === '' ? '—' : `« ${v} »`);
+  const quote = (v) => (v === undefined || v === null || v === '' ? '—' : String(v));
   const a = new Map((before ?? []).map((c) => [c.libelle, c]));
   const b = new Map((after ?? []).map((c) => [c.libelle, c]));
   for (const [libelle, c] of b) {
     const old = a.get(libelle);
-    if (!old) { lines.push(`Classe ${code} — caractéristique ajoutée : ${libelle} : « ${c.texte} »${c.solution ? `, solution « ${c.solution} »` : ''}`); continue; }
+    if (!old) { lines.push(`Classe ${code} — caractéristique ajoutée : ${libelle} : ${c.texte}${c.solution ? ` → Solution : ${c.solution}` : ''}`); continue; }
     if ((old.texte ?? '') !== (c.texte ?? '')) lines.push(`Classe ${code} — ${libelle} : ${quote(old.texte)} → ${quote(c.texte)}`);
     if ((old.solution ?? '') !== (c.solution ?? '')) lines.push(`Classe ${code} — ${libelle}, solution : ${quote(old.solution)} → ${quote(c.solution)}`);
   }
