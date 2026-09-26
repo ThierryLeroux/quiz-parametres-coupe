@@ -153,6 +153,8 @@ Rapport de session : `docs/rapports/images-copeaux.md`.
 
 - [x] **Changement pédagogique** (D66) : l'image de chaleur seule (`image_copeaux`, les six PNG de copeaux et leurs originaux retirés, `0009` régénérée à six images) ; à sa droite (dessous à 390 px), les caractéristiques de la classe, libellé en gras, texte secondaire, solution sur une ligne à part ; 0 à 6 lignes, libellé ≤ 20, texte et solution ≤ 90, complétées à la lecture ; édition ligne par ligne (Ajouter, ↑, ↓, Retirer), validation, différences, export ; aperçu de l'éditeur au même affichage ; tests, docs, Chrome à 1280 et 390 px, planche des six images
 
+- [x] **Retouche visuelle de l'image de chaleur** (D67) : lueur de la classe, fondu des bords (10 %), largeur générée 340 px au plus sans agrandir et largeur affichée ≤ original ÷ 1,5 ; marche à suivre pour une base locale qui a appliqué une migration régénérée (DEMARRAGE §5) ; captures des six classes à 1280 et 390 px
+
 ## Finition
 - [ ] Graphique de progression par opération
 - [ ] Décision D7 (dépôt) close — D6 (sécurité) est fermée par D19

@@ -1666,3 +1666,33 @@ message de base ; celui-ci en fixe le format.
 `question-screen.js`, `question.css`, `editeur.js` (`characteristicsEditor`, `previewTable`),
 `editeur-data.js` (`moveItem`, `characteristicFrom`), `editeur.css`, `detourer-copeaux.mjs`,
 `generer-copeaux.mjs`, migration `0009` ; SPEC §3, §7 ; UI §3.3, §3.4, §3.9 ; CLAUDE.md ; PLAN ; DEMARRAGE §7.
+
+## D67 — L'image de chaleur : lueur de la classe, fondu des bords, largeur affichée bornée (2026-09-26, décidée)
+
+**Contexte.** Sur le fond nuit, l'image de chaleur (D66) restait un rectangle aux bords francs, sans le halo
+des autres images de l'écran ; affichée jusqu'à 170 px CSS, elle occupait 340 px réels sur un écran de densité 2 :
+agrandie × 1,43 depuis ses 237 px.
+
+**Décision.**
+
+- **Lueur** : `.material-image img` reçoit le traitement de `.tool-photo`, `drop-shadow(0 0 var(--glow)
+  var(--panel-color))` — la couleur de la classe ISO de la question, celle que le panneau pose depuis les
+  tables (`applyTableColors` ; le rouge K de nuit pour K).
+- **Fondu des bords** : `mask-image` (et `-webkit-mask-image`) de deux `linear-gradient` croisés
+  (`mask-composite: intersect`, `-webkit-mask-composite: source-in`), transparents aux bords et pleinement
+  opaques au centre, sur **10 %** de chaque côté (`--fondu-bords`). Mesuré sur les six images : la zone
+  chaude est à 22,9 % au moins de chaque bord (aucun pixel touché jusqu'à 22 %) ; seule la queue du copeau,
+  qui sort du cadre en haut, est atténuée — à 10 %, 3,8 à 7,9 % de ses pixels colorés, dont 1,3 à 3,8 % sous
+  la moitié de leur opacité (à 12 % : 4,9 à 9,9 %). Vu à densité 3 : 10 et 12 % ne se distinguent presque pas.
+- **Netteté** : le détourage génère au **double de la largeur d'affichage maximale, 340 px**, seulement si
+  l'original le permet — **jamais agrandi**. Les originaux font 235 à 237 px : ils gardent leur taille, et la
+  **largeur affichée est bornée à la largeur de l'original ÷ 1,5** (`heatImageMaxWidth`, posée sur la figure
+  une fois l'image chargée), soit 156,7 à 158 px CSS au lieu de 170 — agrandissement × 1,33 sur un écran de
+  densité 2 au lieu de × 1,43. Une image de classe téléversée est réduite à 340 px (PNG).
+- **Liseré** : aucun n'est visible après la lueur et le fondu (gros plans à densité 3 des six classes) ;
+  `EROSION_PX` reste à 1.
+- **Base locale** : une migration pas encore déployée peut être régénérée ; la base locale qui l'a déjà
+  appliquée se remet à neuf, ou se réécrit pour les lignes semées — marche à suivre dans `DEMARRAGE.md` §5.
+
+**Conséquences.** `question.css`, `question-screen.js`, `sheets-data.js` (`heatImageMaxWidth`),
+`detourer-copeaux.mjs` (`LARGEUR_MAX`, `fitWidth`), `editeur-data.js` (`uploadPlan`) ; UI §3.3 ; DEMARRAGE §5.

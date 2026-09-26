@@ -102,9 +102,9 @@ jamais sous le même identifiant). Le champ `image` d'un outil nomme sa photo (u
 image d'usage `outil` ; sinon l'identifiant de l'outil) ; le pictogramme d'une opération
 est son `pictogramme` s'il en a un, sinon le slug de son nom. Les fichiers de
 `site/img/outils/`, de `site/img/pictos/operations/` et de `site/img/copeaux/` ne sont plus que la **semence**
-(29 PNG, 19 SVG assainis, 12 PNG détourés par `reference/semence-d1/detourer-copeaux.mjs`) et les données des tests. L'éditeur téléverse (réduction
+(29 PNG, 19 SVG assainis, 6 PNG détourés par `reference/semence-d1/detourer-copeaux.mjs`, 340 px de large au plus, jamais agrandis) et les données des tests. L'éditeur téléverse (réduction
 dans le navigateur : photo 800 px, en JPEG sur fond blanc ou en PNG sans fond si elle a
-au moins un pixel non opaque (D60) ; pictogramme ou image de classe 256 px en PNG ; SVG tel quel
+au moins un pixel non opaque (D60) ; pictogramme 256 px en PNG ; image de classe 340 px en PNG (D67) ; SVG tel quel
 puis assaini par liste blanche ou refusé), renomme, archive (retirée des galeries,
 toujours servie) ou supprime (jamais utilisée seulement) ; un doublon exact n'est
 pas stocké deux fois (empreinte SHA-256).

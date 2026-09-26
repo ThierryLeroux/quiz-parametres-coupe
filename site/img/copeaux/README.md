@@ -9,7 +9,7 @@ retirées avant la mise en production (décision D66).
 - `originaux/` — les fichiers tels que reçus (« Chaleur groupe P.png », RVBA 8 bits, fond blanc composé
   dans l'image). **C'est la source** ; ils ne sont pas servis.
 - `copeaux-<classe>-chaleur.png` — les mêmes, **détourés** (fond transparent, objet érodé d'un pixel,
-  bande de 3 px adoucie et démélangée du blanc, jamais agrandis, au plus 256 px) par
+  bande de 3 px adoucie et démélangée du blanc, jamais agrandis, 340 px de large au plus — le double de la largeur affichée) par
   `node reference/semence-d1/detourer-copeaux.mjs`, qui dit sa méthode et ses constantes en tête. Ne pas
   les retoucher à la main : relancer le script (un test vérifie qu'ils sont exactement ce qu'il produit).
 

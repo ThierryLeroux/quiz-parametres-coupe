@@ -276,3 +276,71 @@ sont rangées dans `captures/images-copeaux/avant-d66/`.
    tableau des classes défile dans son cadre, à 1280 comme à 390 px.
 7. **Base locale** : si `npm run dev` a tourné sur cette branche avant ce changement, ta D1 locale a
    l'ancienne `0009` (douze images) : efface `.wrangler/state` pour qu'elle reprenne la nouvelle.
+
+## Retouche visuelle de l'image de chaleur (D67)
+
+Quatre commits de plus, un par point (2 et 3 ensemble : le même bloc de CSS ; le point 5 n'a rien changé),
+branche poussée. `npm test` : 555 tests (+ 1), `fail 0`. Chrome : les six classes sur la page Question,
+31 vérifications, aucune requête externe, aucune erreur console. Captures dans
+`captures/images-copeaux/chaleur/` : `1280-classe-<c>.png` et `390-classe-<c>.png` (le panneau du matériau,
+six classes), `zoom3-classe-<c>.png` (l'image seule à densité 3, pour juger les bords),
+`zoom3-classe-p-fondu-12.png` et `-6.png` (comparaison du fondu) ; planche sur fond nuit inchangée
+(`planche-fond-nuit.png` : les PNG n'ont pas changé).
+
+1. **Base locale.** Ta D1 locale a la `0009` d'avant la retouche : wrangler note chaque migration appliquée
+   (`d1_migrations`) et ne la rejoue pas. **Je n'ai pas touché ta base** (`.wrangler/state`) : j'ai reproduit
+   sa situation sur une D1 jetable (toutes les migrations, puis l'ancienne `0009` du commit `cb1d250`), qui
+   servait l'**ancienne** image (40 892 octets), puis essayé les deux remèdes. Commandes, `npm run dev` arrêté,
+   depuis la racine du dépôt, dans PowerShell :
+
+   ```powershell
+   # Remède A — réécrire seulement les six images (le reste de ta base locale est gardé)
+   npx wrangler d1 execute quiz-parametres-coupe --local --command "DELETE FROM images WHERE id LIKE 'copeaux-%'"
+   npx wrangler d1 execute quiz-parametres-coupe --local --file migrations/0009_images_copeaux.sql
+   npm run dev
+
+   # Remède B — remettre la base locale à neuf (tout le local disparaît : exporter d'abord si besoin)
+   Remove-Item -Recurse -Force .wrangler\state\v3\d1
+   npm run dev
+   ```
+
+   Vérifié sur la base jetable, pour A comme pour B : `/images/copeaux-p-chaleur` sert **38 073 octets,
+   identiques au fichier détouré actuel** ; les six images `copeaux-%` sont en base, `/images/copeaux-p-copeaux`
+   répond 404. Ensuite, **recharger en forçant** (Ctrl+Maj+R) : l'image est servie avec un cache d'un an, et le
+   navigateur garderait l'ancienne. Attention à la casse : `/images/copeaux-P-chaleur` (P majuscule, comme
+   dans ta demande) répond **404** — les identifiants sont en minuscules. DEMARRAGE §5 a maintenant la marche
+   à suivre, « Quand une migration pas encore déployée est modifiée ».
+2. **Lueur** : `drop-shadow(0 0 var(--glow) var(--panel-color))` sur `.material-image img`, la couleur de la
+   classe de la question (vérifiée pour les six ; K prend le rouge de nuit, comme son panneau).
+3. **Fondu : 10 % retenu** (`--fondu-bords`). Mesures sur les six images : la zone chaude (jaune-orangé)
+   commence à 22,9 % du bord au plus près — aucun pixel touché jusqu'à 22 % ; la queue du copeau, qui sort
+   du cadre en haut, est la seule atténuée : à 10 %, 3,8 à 7,9 % de ses pixels colorés, dont 1,3 à 3,8 %
+   sous la moitié de leur opacité ; à 12 %, 4,9 à 9,9 % (1,8 à 4,8 %). Les gros plans à 10 et 12 % ne se
+   distinguent presque pas ; j'ai pris la valeur qui atténue le moins le copeau.
+4. **Netteté.** Tailles réelles : les six originaux font **235 à 237 × 153 à 154 px** ; la largeur d'affichage
+   maximale est 170 px CSS, son double 340 px. **L'original ne le permet pas sans agrandir** : le script garde
+   leur taille (`LARGEUR_MAX = 340`, `fitWidth` : réduit au-delà, jamais agrandi — les PNG ne changent pas),
+   et l'écran borne la largeur affichée à **largeur ÷ 1,5 = 156,7 à 158 px CSS** (mesuré : 157,3 et 158 px à
+   390 px ; 134,4 px à 1280 px, où le panneau est plus étroit que la borne). Sur un écran de densité 2,
+   l'agrandissement passe de × 1,43 à × 1,33 ; à densité 1, l'image est réduite. Une image de classe
+   téléversée est désormais réduite à 340 px (au lieu de 256), pour qu'une image plus grande fournie plus
+   tard profite du double.
+5. **Liseré : aucun visible** sur les six gros plans à densité 3 (lueur et fondu compris) ; `EROSION_PX` reste
+   à 1, et je n'ai donc pas produit le rendu à 2.
+
+### Points douteux de la retouche visuelle
+
+1. **La lueur se voit surtout dans les creux de l'image, et elle y prend la couleur de la classe.** Le masque
+   du fondu coupe tout ce qui dépasse du rectangle de l'image : la lueur n'apparaît qu'à l'intérieur, dans les
+   zones transparentes (le vide au-dessus du copeau, la fente sous la pointe de l'outil). Pour M (jaune), S
+   (orangé) et K (rouge), ce voile coloré **touche la zone chaude et peut se lire comme de la chaleur** — du
+   jaune à la pointe, sur une carte où le jaune veut dire « le plus chaud » (voir `zoom3-classe-m.png`). Deux
+   corrections possibles : une lueur plus faible (40 % de la couleur, comme le contour des panneaux), ou la
+   lueur posée sur la figure plutôt que sur l'image, pour qu'elle entoure le rectangle fondu au lieu de
+   remplir les creux. Je n'ai rien changé : c'est ce que le point 2 demandait, mais je le déconseille pour M,
+   S et K.
+2. **Fondu à 10 % plutôt que 12 %** : écart invisible à l'œil, mesure légèrement meilleure pour le copeau.
+3. **Téléversement d'une image de classe à 340 px** au lieu de 256 : hors de la demande, mais c'est la même
+   règle du double.
+4. **Casse de l'identifiant** : si tu tiens à `copeaux-P-chaleur`, il faudrait élargir la règle des
+   identifiants d'images (minuscules seulement, D56) ; je ne l'ai pas fait.
