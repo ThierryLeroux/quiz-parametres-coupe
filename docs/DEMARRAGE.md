@@ -55,8 +55,9 @@ le navigateur (ne jamais coller de mot de passe ou de jeton dans le terminal).
 ## 4. Publier sur Cloudflare (décision D20)
 
 Le site et son serveur de correction sont publiés ensemble, par **un seul
-Worker Cloudflare** nommé `quiz` (`wrangler.jsonc` ; décision D72 — la base D1,
-elle, s'appelle `quiz-parametres-coupe`). C'est
+Worker Cloudflare** nommé `quiz-parametres-coupe` (`wrangler.jsonc` ; comme la
+base D1). **Ce nom ne se change pas** (D73) : déployer sous un autre nom créerait
+un second Worker, sans les secrets. C'est
 `.github/workflows/deploy.yml` qui publie : à chaque push sur `main`, GitHub
 lance `npm test`, applique les migrations de la base (étape 5), puis
 `wrangler deploy`. Si un test échoue, rien n'est publié.
@@ -67,8 +68,9 @@ lance `npm test`, applique les migrations de la base (étape 5), puis
 2. **Sous-domaine `workers.dev`.** Dans le tableau de bord : *Compute* →
    *Workers & Pages*. L'encadré **Account details**, dans la colonne de droite,
    montre le sous-domaine du compte ; le crayon à côté permet de le renommer.
-   Le quiz sera à l'adresse `https://quiz.<sous-domaine>.workers.dev` — avec le
-   sous-domaine `tgm-tmi` : **`https://quiz.tgm-tmi.workers.dev`** (D72).
+   Le quiz sera à l'adresse `https://quiz-parametres-coupe.<sous-domaine>.workers.dev`
+   — avec le sous-domaine `tgm-tmi` : **`https://quiz-parametres-coupe.tgm-tmi.workers.dev`**
+   (D72, D73).
 3. **Identifiant du compte.** Dans le même encadré *Account details*, copier
    *Account ID* (32 caractères). Ce n'est pas un secret, mais on le range avec
    le jeton.
@@ -88,95 +90,52 @@ lance `npm test`, applique les migrations de la base (étape 5), puis
 7. **Premier déploiement.** Pousser sur `main`. Le déroulement se suit dans
    l'onglet *Actions* du dépôt (flux « deploy ») ; l'adresse publiée figure à la
    fin du journal de l'étape *wrangler-action*. Vérifier que
-   `https://quiz.tgm-tmi.workers.dev/api/version` répond `{"version":"…"}`.
+   `https://quiz-parametres-coupe.tgm-tmi.workers.dev/api/version` répond `{"version":"…"}`.
 
 En local, rien de tout cela n'est nécessaire : `npm install` une fois, le
 fichier `.dev.vars` de l'étape 5, puis `npm run dev` sert le site et l'API sur
 http://localhost:8787, avec une base D1 locale, sans compte Cloudflare.
 
-### Changer l'adresse du site : de `quiz-parametres-coupe.thierryleroux.workers.dev` à `quiz.tgm-tmi.workers.dev` (décision D72)
+### Changer l'adresse du site : de `quiz-parametres-coupe.thierryleroux.workers.dev` à `quiz-parametres-coupe.tgm-tmi.workers.dev` (décisions D72, D73)
 
-L'adresse est faite de deux morceaux : le **nom du Worker** (`quiz-parametres-coupe` → `quiz`) et le
-**sous-domaine du compte** (`thierryleroux` → `tgm-tmi`). Les deux se changent dans le tableau de bord
-Cloudflare, **dans l'ordre ci-dessous**, en une seule séance de travail d'une demi-heure.
+L'adresse est faite de deux morceaux : le **nom du Worker** (`quiz-parametres-coupe`, qui **ne change pas**) et
+le **sous-domaine du compte** (`thierryleroux` → `tgm-tmi`). Seul le second change, dans le tableau de bord
+Cloudflare. Le Worker reste le même : ses trois secrets, sa liaison à la base et ses données ne bougent pas, et
+il n'y a aucun secret à reposer. Le changement touche tous les Workers du compte à la fois, et ne demande aucun
+redéploiement.
 
-**Pourquoi cet ordre.** Changer seulement le nom dans `wrangler.jsonc` et déployer ne renomme rien : cela
-**crée un second Worker**, vide, sans les trois secrets, et laisse l'ancien tourner sur la même base. Et
-Cloudflare ne montre jamais la valeur d'un secret une fois posé. Le Worker se renomme donc d'abord **dans le
-tableau de bord** (il garde son identifiant, ses versions, ses secrets et sa liaison à la base), et la branche
-qui porte `"name": "quiz"` n'est fusionnée qu'**ensuite** : le déploiement vise alors le Worker déjà renommé.
+**Avant de commencer.** Choisir un moment **sans cours en marche** : au changement de sous-domaine, le site ne
+répond pas pendant quelques minutes, et les étudiants devront se réidentifier (matricule et NIP ; leur
+progression est gardée). Noter **le code d'une attestation déjà émise** (espace professeur, colonne
+Attestation) : c'est lui qui prouvera, à chaque vérification, que rien n'a bougé côté cryptographie.
 
-**Avant de commencer.**
+**Étape 1 — Fusionner la branche** sur GitHub. Suivre le flux *deploy* dans l'onglet *Actions* : il doit finir
+en vert (tests, migrations, déploiement du Worker `quiz-parametres-coupe`, le même qu'avant). L'adresse ne change
+pas encore.
 
-- Choisir un moment **sans cours en marche** : pendant quelques minutes le site ne répond pas, et les
-  étudiants devront se réidentifier (matricule et NIP ; leur progression est gardée).
-- Ne rien pousser sur `main` d'ici la fin, et **ne pas encore fusionner** la branche du changement d'adresse.
-- Sortir du gestionnaire de mots de passe les valeurs de `CLE_SECRETE`, `CLE_ADMIN` et `CLE_CONSULTATION`
-  (étape 5.4) : elles ne servent qu'au plan B, mais il faut les avoir sous la main.
-- Noter **le code d'une attestation déjà émise** (espace professeur, colonne Attestation) : c'est lui qui
-  prouvera, à chaque étape, que `CLE_SECRETE` n'a pas changé.
+**Étape 2 — Vérifier sur l'adresse actuelle**, `https://quiz-parametres-coupe.thierryleroux.workers.dev` :
+`…/api/version` répond ; la nouvelle page d'accueil montre les exercices ; `…/prof` accepte `CLE_ADMIN` ;
+`…/verifier` dit « Attestation valide » pour le code noté.
 
-**Étape 1 — Renommer le Worker.** Tableau de bord Cloudflare (https://dash.cloudflare.com) → *Compute* →
-*Workers & Pages* → cliquer **`quiz-parametres-coupe`** → onglet **Settings** (*Paramètres*). Chercher le
-**nom du Worker** avec un crayon ou un bouton *Rename* (en haut des réglages, section *General* ; l'endroit
-exact n'est pas documenté par Cloudflare et peut bouger) → taper **`quiz`** → confirmer.
+**Étape 3 — Changer le sous-domaine du compte.** Tableau de bord (https://dash.cloudflare.com) → *Compute* →
+*Workers & Pages* → page d'ensemble : dans la colonne de droite, l'encadré **Account details** montre
+**Subdomain** `thierryleroux.workers.dev` → crayon (ou *Change*) → taper **`tgm-tmi`** → confirmer. Une mise en
+garde dit que tous les Workers du compte changeront d'adresse : c'est voulu. Si le nom est pris, essayer
+**`tgmtmi`**, puis **`tgm-tmi-usinage`** (minuscules, chiffres et traits d'union, jamais au début ni à la fin ;
+pas de « cvm »). Attendre quelques minutes — sans ouvrir la nouvelle adresse avant la confirmation, pour que le
+navigateur ne garde pas en mémoire un « introuvable ».
 
-- Vérifier aussitôt, toujours dans *Settings* : sous **Variables and Secrets**, les trois secrets
-  `CLE_SECRETE`, `CLE_ADMIN`, `CLE_CONSULTATION` (type *Secret*, valeur masquée) ; sous **Bindings**, `DB` →
-  `quiz-parametres-coupe` ; sous **Domains & Routes**, `quiz.thierryleroux.workers.dev` actif.
-- Le site est maintenant à `https://quiz.thierryleroux.workers.dev` (l'ancienne adresse ne répond plus).
-  Vérifier : `…/api/version` répond ; `…/prof` accepte `CLE_ADMIN` ; `…/verifier` dit « Attestation valide »
-  pour le code noté.
-- Si un secret manque ou que la vérification échoue : renommer le Worker en `quiz-parametres-coupe` pour
-  revenir en arrière, et s'arrêter là.
-
-**Étape 2 — Fusionner la branche** sur GitHub (celle qui met `"name": "quiz"` dans `wrangler.jsonc`). Suivre
-le flux *deploy* dans l'onglet *Actions* : il doit finir en vert, et le journal de *wrangler-action* nommer le
-Worker `quiz`. Dans *Workers & Pages*, il ne doit y avoir **qu'un** Worker, `quiz` ; si un nouveau
-`quiz-parametres-coupe` est apparu (quelqu'un a déployé l'ancienne configuration), le supprimer : supprimer un
-Worker ne touche pas à la base D1. Recharger `https://quiz.thierryleroux.workers.dev` : la nouvelle page
-d'accueil s'affiche.
-
-**Étape 3 — Changer le sous-domaine du compte.** *Compute* → *Workers & Pages* → page d'ensemble : dans la
-colonne de droite, l'encadré **Account details** montre **Subdomain** `thierryleroux.workers.dev` → crayon (ou
-*Change*) → taper **`tgm-tmi`** → confirmer. Une mise en garde dit que tous les Workers du compte changeront
-d'adresse : c'est voulu. Si le nom est pris, essayer **`tgmtmi`**, puis **`tgm-tmi-usinage`** (minuscules,
-chiffres et traits d'union, jamais au début ni à la fin ; pas de « cvm »). Attendre quelques minutes — sans
-ouvrir la nouvelle adresse avant la confirmation, pour que le navigateur ne garde pas en mémoire un « introuvable ».
-Aucun redéploiement n'est nécessaire.
-
-**Étape 4 — Vérifier sur `https://quiz.tgm-tmi.workers.dev`** (ou le sous-domaine retenu) : `…/api/version`,
-l'accueil et ses exercices, `…/prof` avec `CLE_ADMIN`, `…/verifier` avec le code noté (« Attestation
-valide »). Si l'adresse ne répond toujours pas après une trentaine de minutes, regarder
-https://www.cloudflarestatus.com avant de toucher à quoi que ce soit.
+**Étape 4 — Vérifier sur `https://quiz-parametres-coupe.tgm-tmi.workers.dev`** (ou le sous-domaine retenu) : les
+mêmes quatre vérifications qu'à l'étape 2. Si l'adresse ne répond toujours pas après une trentaine de minutes,
+regarder https://www.cloudflarestatus.com avant de toucher à quoi que ce soit.
 
 **Étape 5 — Remplacer les liens.** Sur Léa, chaque lien `https://quiz-parametres-coupe.thierryleroux.workers.dev/?exercice=<id>`
-devient `https://quiz.tgm-tmi.workers.dev/?exercice=<id>` (le bouton **Copier le lien** de la page de
-l'exercice, ou **Copier le lien étudiant** de l'éditeur, donne le bon). Mettre à jour les favoris de l'espace
-professeur. Les QR des attestations déjà remises ne s'ouvrent plus : leur **code** se vérifie sur la nouvelle
-page `/verifier`, et l'adresse entière du QR, collée dans le même champ, marche aussi.
+devient `https://quiz-parametres-coupe.tgm-tmi.workers.dev/?exercice=<id>` (le bouton **Copier le lien** de la
+page de l'exercice, ou **Copier le lien étudiant** de l'éditeur, donne le bon). Mettre à jour les favoris de
+l'espace professeur. Les QR des attestations déjà remises ne s'ouvrent plus : leur **code** se vérifie sur la
+nouvelle page `/verifier`, et l'adresse entière du QR, collée dans le même champ, marche aussi.
 
 Le jeton d'API de GitHub (étape 4) n'a rien à changer : il vaut pour tout le compte.
-
-**Plan B — si le tableau de bord ne permet pas de renommer.** Fusionner la branche : GitHub crée un Worker
-`quiz`, **sans secrets** (le site y répond par une erreur). Puis, dans PowerShell à la racine du dépôt, `main`
-à jour (`git pull`), poser les trois secrets sur ce Worker **avec exactement les valeurs du gestionnaire de mots
-de passe** (surtout pas de nouvelles) :
-
-```powershell
-npx wrangler secret put CLE_SECRETE
-npx wrangler secret put CLE_ADMIN
-npx wrangler secret put CLE_CONSULTATION
-```
-
-(wrangler lit le nom `quiz` dans `wrangler.jsonc`.) Vérifier aussitôt sur `https://quiz.thierryleroux.workers.dev/verifier`
-que le code noté répond « Attestation valide » : sinon, la valeur collée de `CLE_SECRETE` n'est pas la bonne —
-la reposer avant que quiconque se connecte. Supprimer ensuite l'ancien Worker `quiz-parametres-coupe`
-(*Settings* → *Delete*), qui sinon continue de tourner sur la même base (la base n'est pas touchée). Puis
-étapes 3 à 5. **Sans les valeurs des secrets, ne pas faire le plan B** : un nouveau `CLE_SECRETE` rendrait
-invalides toutes les attestations et tous les NIP. Il resterait alors à ne changer que le sous-domaine (étape
-3) : l'adresse serait `https://quiz-parametres-coupe.tgm-tmi.workers.dev`, et `wrangler.jsonc` garderait
-l'ancien nom.
 
 ## 5. Base de données et secrets du serveur (décision D22)
 
@@ -304,7 +263,7 @@ npx wrangler d1 execute quiz-parametres-coupe --remote --command "SELECT exercic
 
 ## 7. Ouvrir l'espace professeur (décisions D34, D44 à D46)
 
-L'espace professeur est à `https://quiz.tgm-tmi.workers.dev/prof` — on y arrive aussi par le lien
+L'espace professeur est à `https://quiz-parametres-coupe.tgm-tmi.workers.dev/prof` — on y arrive aussi par le lien
 **Espace professeur** de la page d'accueil (D71)
 (en local : http://localhost:8787/prof). Il demande **une clé** — l'une des deux
 posées à l'étape 5.4 (en local : celles de `.dev.vars`) :

@@ -169,7 +169,7 @@ test('verificationOutcome : quatre issues, ton et texte ; l’annulation donne l
 });
 
 test('qrModules : la bibliothèque vendorisée encode une adresse de vérification en un QR carré, avec sa marge de 4 modules', () => {
-  const url = 'https://quiz.tgm-tmi.workers.dev/verifier?exercice=m10-tournage-vc&matricule=2412345&nom=Tremblay&prenom=Camille'
+  const url = 'https://quiz-parametres-coupe.tgm-tmi.workers.dev/verifier?exercice=m10-tournage-vc&matricule=2412345&nom=Tremblay&prenom=Camille'
     + '&reussite=2026-09-21T13%3A48%3A10.000Z&revision=r0&questions=17&code=ABCDE-FGHJK&signature=' + 'a'.repeat(43);
   const { count, size, path } = qrModules(url);
   assert.ok(count >= 21 && count <= 177 && (count - 21) % 4 === 0, `${count} modules`); // une version de QR : 21, 25, 29…

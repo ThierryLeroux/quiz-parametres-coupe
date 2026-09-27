@@ -391,7 +391,7 @@ efface son journal, mais ses attestations restent, annulées (D45).
 
 **Le navigateur ne conserve que** `{ matricule, prenom, jeton, exercice }`
 (`site/js/session.js`), dans `localStorage` sous une seule clé
-(`quiz-parametres-coupe:seance`, qui ne suit pas le nom du Worker, D72) : de quoi
+(`quiz-parametres-coupe:seance`, qui ne change pas avec l'adresse du site, D72, D73) : de quoi
 offrir « Reprendre, <prénom> » sur la page de l'exercice sans redemander le NIP.
 Le jeton nomme son exercice (D71) : sur la page d'un autre exercice, il n'est ni
 offert, ni essayé, ni effacé ; un jeton gardé avant, sans exercice, est offert

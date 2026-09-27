@@ -6,12 +6,12 @@
 // Les secrets (CLE_SECRETE, CLE_ADMIN, CLE_CONSULTATION) ne sont PAS ici : « wrangler secret put » en production,
 // fichier .dev.vars en local (docs/DEMARRAGE.md, étape 5).
 //
-// Le Worker s'appelle « quiz » (D72) : l'adresse est https://quiz.tgm-tmi.workers.dev (nom du Worker, puis
-// sous-domaine du compte). Changer ce nom et déployer crée un SECOND Worker, sans secrets : un changement de nom
-// se fait d'abord dans le tableau de bord Cloudflare (docs/DEMARRAGE.md §4). La base D1, elle, garde son nom.
+// L'adresse est https://quiz-parametres-coupe.tgm-tmi.workers.dev : le nom du Worker, puis le sous-domaine du
+// compte (D72, D73). Ce nom est celui du Worker de production : NE PAS LE CHANGER — déployer sous un autre nom
+// crée un second Worker, sans les secrets, et laisse l'ancien tourner sur la même base.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "quiz",
+  "name": "quiz-parametres-coupe",
   "main": "worker/index.js",
   "compatibility_date": "2026-09-20",
   "assets": { "directory": "./site", "binding": "ASSETS" },

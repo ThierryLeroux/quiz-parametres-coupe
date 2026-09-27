@@ -33,7 +33,7 @@ test('homeGroups (D71) : un groupe par cours, dans l’ordre des rangs, un même
 test('listedExerciseMeta et exerciseLink (D71) : la ligne sous un exercice de l’accueil ; le lien de sa page', () => {
   assert.equal(listedExerciseMeta({ nombre_outils: 9, champs_evalues: ['vc'] }), '9 outils · champ évalué : vitesse de coupe');
   assert.equal(listedExerciseMeta({ nombre_outils: 1, champs_evalues: ['vc', 'n'] }), '1 outil · champs évalués : vitesse de coupe, vitesse de rotation');
-  assert.equal(exerciseLink('https://quiz.tgm-tmi.workers.dev', 'm10-tournage-vc'), 'https://quiz.tgm-tmi.workers.dev/?exercice=m10-tournage-vc');
+  assert.equal(exerciseLink('https://quiz-parametres-coupe.tgm-tmi.workers.dev', 'm10-tournage-vc'), 'https://quiz-parametres-coupe.tgm-tmi.workers.dev/?exercice=m10-tournage-vc');
   assert.equal(exerciseLink('http://localhost:8787', 'a b'), 'http://localhost:8787/?exercice=a%20b');
 });
 

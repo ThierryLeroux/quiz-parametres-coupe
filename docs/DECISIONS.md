@@ -1917,7 +1917,7 @@ un exercice avant de le donner.
 §10 ; UI §1 à §3 ; tests. Remplace, dans UI §3.1, « aucun moyen d'en changer depuis la page » ; précise D10 et D18 ;
 remplace les textes du complément de D70.
 
-## D72 — Nouvelle adresse : `quiz.tgm-tmi.workers.dev` — le Worker s'appelle `quiz`, renommé dans le tableau de bord (2026-09-27, décidée)
+## D72 — Nouvelle adresse : `quiz.tgm-tmi.workers.dev` — le Worker s'appelle `quiz`, renommé dans le tableau de bord (2026-09-27, décidée ; nom du Worker, adresse et procédure remplacés par D73)
 
 **Contexte.** Le site est à `https://quiz-parametres-coupe.thierryleroux.workers.dev` : long, et fait du nom de
 Thierry. Il le veut à `https://quiz.tgm-tmi.workers.dev` (sans « cvm »). L'adresse d'un Worker est
@@ -1954,3 +1954,28 @@ base ; et une valeur de secret ne se relit jamais chez Cloudflare.
 `DEMARRAGE.md` §4 et §7 ; tests (nom du Worker et de la base, aucune adresse dans le code, sel inchangé, une
 attestation émise sous l'ancienne adresse vérifiée sous la nouvelle). PLAN : l'action de Thierry dans le tableau de
 bord.
+
+## D73 — Le Worker garde son nom : seule l'adresse du compte change, `quiz-parametres-coupe.tgm-tmi.workers.dev` (2026-09-27, décidée)
+
+**Contexte.** D72 prévoyait de renommer le Worker `quiz` dans le tableau de bord Cloudflare avant de fusionner. Thierry
+n'y trouve pas le renommage. Il choisit de **ne pas renommer le Worker** et de ne changer que le sous-domaine du compte :
+pas de plan B, aucun secret à reposer.
+
+**Décision.**
+
+- Le Worker **garde le nom `quiz-parametres-coupe`**, celui de production (`wrangler.jsonc`) : la fusion redéploie le
+  Worker existant, avec ses trois secrets et sa liaison D1. **Ce nom ne se change pas** : un autre nom déployé créerait
+  un second Worker, sans les secrets. `deploy.yml` reste tel qu'il était.
+- **Adresse cible : `https://quiz-parametres-coupe.tgm-tmi.workers.dev`** — seul le sous-domaine du compte change
+  (`thierryleroux` → `tgm-tmi` ; à défaut `tgmtmi`, puis `tgm-tmi-usinage`), dans le tableau de bord, après la fusion.
+- **Procédure courte** (`DEMARRAGE.md` §4) : fusionner, vérifier, changer le sous-domaine, vérifier, remplacer les liens
+  de Léa. L'étape de renommage et le plan B de D72 sont retirés.
+- **Inchangé depuis D72** : aucune adresse n'est écrite dans le code ; le sel HKDF, la clé de `localStorage` et le format
+  d'export ne changent pas ; ce qui cesse de fonctionner (l'ancienne adresse, le QR des attestations déjà émises, le
+  jeton gardé et le cookie professeur) et ce qui reste valide (chaque attestation, par son code ou par l'adresse
+  entière de son QR collée ; les séances, les NIP, toute la base). Les tests qui le gardent restent.
+
+**Conséquences.** `wrangler.jsonc` (le nom de production, un commentaire) ; `deploy.yml` ramené à la version de `main` ;
+commentaires de `worker/crypto.js` et `site/js/session.js` ; `DEMARRAGE.md` §4 et §7 ; SPEC §7 ; CLAUDE.md ; PLAN ;
+tests (nom du Worker, adresses d'exemple) ; rapport `docs/rapports/accueil-et-libelles.md` (§6, « Suites données »).
+Remplace D72 pour le nom du Worker, l'adresse et la procédure.

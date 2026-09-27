@@ -41,8 +41,9 @@ la lisibilité priment sur l'élégance technique.**
 
 - HTML/CSS/JS natif (modules ES), **aucun framework, aucune étape de build**.
   `site/` est publié tel quel.
-- **Un seul Worker Cloudflare**, nommé `quiz` (`worker/`, `wrangler.jsonc` ; adresse `https://quiz.tgm-tmi.workers.dev`,
-  D72 — la base D1 et le dépôt gardent le nom `quiz-parametres-coupe`, et le sel HKDF aussi, qui ne change jamais) sert `site/` comme
+- **Un seul Worker Cloudflare**, `quiz-parametres-coupe` (`worker/`, `wrangler.jsonc` ; adresse
+  `https://quiz-parametres-coupe.tgm-tmi.workers.dev`, D72, D73 — **ne jamais changer son nom** : un autre nom
+  déployé crée un second Worker sans les secrets ; le sel HKDF ne change jamais non plus) sert `site/` comme
   ressources statiques et expose l'API du **serveur de correction** sous `/api/`
   (D19 : l'état de séance, la correction et la signature de la réussite vivent
   sur le serveur ; le navigateur affiche). Base **D1** (liaison `DB`), secrets

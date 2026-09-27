@@ -147,7 +147,7 @@ test('cadenceFor : CADENCE_S en secondes entières, sur le poste seulement ; sin
   assert.equal(cadenceFor('3', '127.0.0.1'), 3000);
   assert.equal(cadenceFor('120', '[::1]'), 120000);
   for (const [variable, hote] of [
-    ['1', 'quiz.tgm-tmi.workers.dev'], ['1', 'localhost.exemple.com'], ['1', undefined],
+    ['1', 'quiz-parametres-coupe.tgm-tmi.workers.dev'], ['1', 'localhost.exemple.com'], ['1', undefined],
     [undefined, 'localhost'], ['', 'localhost'], ['0', 'localhost'], ['1.5', 'localhost'], ['-1', 'localhost'], ['1000', 'localhost'], [1, 'localhost'],
   ]) assert.equal(cadenceFor(variable, hote), CADENCE_MS, `${String(variable)} / ${String(hote)}`);
 });
@@ -210,7 +210,7 @@ test('questionView (cinq champs évalués) : aucune valeur attendue ne part vers
 test('isTestMode : la variable MODE_TEST=1 ET une requête adressée au poste lui-même ; rien d’autre', () => {
   for (const hote of ['localhost', '127.0.0.1', '[::1]']) assert.equal(isTestMode('1', hote), true, hote);
   for (const [variable, hote] of [
-    ['1', 'quiz.tgm-tmi.workers.dev'], ['1', 'localhost.exemple.com'], ['1', ''], ['1', undefined],
+    ['1', 'quiz-parametres-coupe.tgm-tmi.workers.dev'], ['1', 'localhost.exemple.com'], ['1', ''], ['1', undefined],
     [undefined, 'localhost'], ['', 'localhost'], ['0', 'localhost'], ['true', 'localhost'], [1, 'localhost'], [true, 'localhost'],
   ]) assert.equal(isTestMode(variable, hote), false, `${String(variable)} / ${String(hote)}`);
 });

@@ -179,7 +179,7 @@ Rapport de session : `docs/rapports/avances.md`.
 - [ ] **Thierry** : publier l'exercice de tournage (perçage au tour compris) dans l'éditeur ; micro-forets écartés par ses dimensions (à partir de Ø 1/16 po : #52 et plus gros, 1.6 mm et plus)
 - [ ] **Thierry, en production, par l'éditeur** : ajouter deux fraises à surfacer de 3 po, à 5 et à 7 dents (fz = 0,004 × 3 = 0,012 → 0,010) ; puis publier l'exercice de fraisage
 
-## Chantier « accueil et libellés » — six retouches du remue-méninges de Thierry (décisions D71, D72)
+## Chantier « accueil et libellés » — six retouches du remue-méninges de Thierry (décisions D71 à D73)
 Rapport de session : `docs/rapports/accueil-et-libelles.md`.
 
 - [x] **Grandeurs en toutes lettres** dans les rétroactions (« Ta vitesse de rotation de 3200 tr/min est à +6.7 % de 3000 tr/min (tolérance : ±5 % et ±1 tr/min). »), formules gardées en symboles ; **« tr/min » partout**, plus aucun « RPM » ni « rév/min » affiché (quiz, feuilles, attestation, `/verifier`, éditeur, docs)
@@ -187,8 +187,8 @@ Rapport de session : `docs/rapports/accueil-et-libelles.md`.
 - [x] **Accueil unique** regroupé par **cours** (champ Cours de l'éditeur, publié avec la version, cours connus proposés, conseil d'écriture), une seule porte professeur
 - [x] **Page de description** d'un exercice (`?exercice=<id>`) : « ← Tous les exercices » (sans toucher à aucune séance), « Copier le lien », questions posées, outils questionnés, matériaux usinés ; le jeton gardé nomme son exercice
 - [x] **Doublon de titre** signalé à la publication, sans bloquer
-- [x] **Worker renommé `quiz`** dans la configuration (D72), aucune adresse dans le code, sel HKDF inchangé ; procédure Cloudflare dans `DEMARRAGE.md` §4
-- [ ] **Thierry, dans le tableau de bord Cloudflare, dans l'ordre** : renommer le Worker en `quiz`, fusionner la branche, changer le sous-domaine en `tgm-tmi` (`DEMARRAGE.md` §4) ; puis remplacer les liens de Léa
+- [x] ~~Worker renommé `quiz` (D72)~~ — le renommage est introuvable dans le tableau de bord : **le Worker garde son nom**, seul le sous-domaine change (D73) ; aucune adresse dans le code, sel HKDF inchangé ; procédure courte dans `DEMARRAGE.md` §4
+- [ ] **Thierry, dans l'ordre** (`DEMARRAGE.md` §4) : fusionner la branche, vérifier, changer le sous-domaine en `tgm-tmi` dans le tableau de bord Cloudflare, vérifier sur `quiz-parametres-coupe.tgm-tmi.workers.dev`, remplacer les liens de Léa
 - [ ] **Thierry, dans l'éditeur** : mettre le cours « M10 » aux deux M10 et les publier ; renommer « M10 — Tournage : Vc et RPM » (le titre est une donnée de production)
 
 ## Finition

@@ -1,4 +1,4 @@
-# Rapport — accueil et libellés (décisions D71, D72)
+# Rapport — accueil et libellés (décisions D71 à D73)
 
 Session du 2026-09-27, branche `accueil-et-libelles` (partie de `main` après la fusion d'`avances`). Six éléments
 tirés du remue-méninges de Thierry : libellés et unités, virgule décimale, accueil unique, bouton retour, page de
@@ -152,16 +152,16 @@ son titre : change l'un des deux. » Vu dans Chrome avec une copie du M10.
 pour chaque outil. La page les dit une fois, sous « Questions posées pour chaque outil », plutôt que de répéter la
 même ligne sur les neuf outils.
 
-## 6. Nouvelle adresse : `quiz.tgm-tmi.workers.dev`
+## 6. Nouvelle adresse : `quiz-parametres-coupe.tgm-tmi.workers.dev`
 
-**Ce qui a été fait (D72).**
+Le renommage du Worker, prévu d'abord (D72), est introuvable dans le tableau de bord. **Le Worker garde son nom**, et
+seul le sous-domaine du compte change (D73, voir « Suites données » plus bas).
 
-- `wrangler.jsonc` : le Worker s'appelle **`quiz`**.
-- Le dépôt et la **base D1** gardent le nom `quiz-parametres-coupe`, tout comme les commandes `d1` de
-  `package.json`, `deploy.yml` et des scripts.
-- `deploy.yml` ne nomme pas le Worker : `wrangler deploy` le lit dans `wrangler.jsonc`. Je n'y ai ajouté qu'un
-  commentaire, et il n'y a rien d'autre à changer dans GitHub Actions. Le jeton d'API vaut pour tout le compte :
-  rien à changer non plus.
+**Ce qui a été fait (D72, D73).**
+
+- `wrangler.jsonc` garde le nom de production, **`quiz-parametres-coupe`**, avec un commentaire : ce nom ne se change
+  pas. La fusion redéploie donc **le Worker existant**, avec ses trois secrets et sa liaison D1. `deploy.yml` est
+  identique à celui de `main`.
 - **Aucune adresse n'est écrite dans le code** (vérifié, et un test le garde) :
   - le QR prend l'origine de la requête (D33) ;
   - l'attestation affiche l'adresse de la page ;
@@ -170,69 +170,42 @@ même ligne sur les neuf outils.
   Tout suit donc la nouvelle adresse sans autre changement. Seuls `DEMARRAGE.md` et des exemples de tests la
   nomment.
 - **Ce qui ne doit pas changer, et ne change pas** (un test le garde) :
-  - la valeur de `CLE_SECRETE` ;
-  - le **sel de la cryptographie** (`quiz-parametres-coupe` dans `worker/crypto.js`). Le changer, ou changer le
-    secret, rendrait tous les NIP méconnaissables et toutes les attestations « signature invalide » ;
+  - le **sel de la cryptographie** (`quiz-parametres-coupe` dans `worker/crypto.js`). Le changer rendrait tous les
+    NIP méconnaissables et toutes les attestations « signature invalide » ;
   - la clé du stockage local ;
   - le format d'export.
 - Un test simule le déménagement : une attestation émise sous l'ancienne adresse se vérifie sous la nouvelle, par
   son **code** comme par **l'adresse entière de son QR collée**, et la séance se reprend. Avec une autre
   `CLE_SECRETE`, rien ne passe.
+- Le jeton d'API de GitHub vaut pour tout le compte : rien à changer.
 
-### Ce qui ne suit pas tout seul
+### Marche à suivre, pas à pas
 
-- **Changer le nom dans `wrangler.jsonc` ne renomme pas le Worker.** Le déploiement **crée un second Worker**, vide :
-  - sans les trois secrets (`CLE_SECRETE`, `CLE_ADMIN`, `CLE_CONSULTATION`) ;
-  - avec la liaison D1, qui vient de `wrangler.jsonc` ;
-  - et l'ancien Worker continue de tourner sur la même base.
-- Une valeur de secret **ne se relit jamais** chez Cloudflare. D'où la procédure ci-dessous : renommer d'abord
-  **dans le tableau de bord**. Le Worker renommé garde son identifiant, ses versions, ses secrets et sa liaison D1.
-  Je n'ai trouvé aucune page officielle qui dise noir sur blanc que les secrets suivent. Ils sont rattachés à
-  l'identifiant du Worker, qui ne change pas, donc c'est très probable ; c'est pour ça que la procédure les vérifie
-  aussitôt.
-- Le **sous-domaine** se change pour tout le compte : tous les Workers déménagent ensemble, sans redéploiement.
-
-### Marche à suivre, pas à pas, dans le bon ordre
-
-(Même texte dans `DEMARRAGE.md` §4. Les menus de Cloudflare bougent. L'emplacement exact du renommage n'est pas
-documenté officiellement : je dis quoi chercher.)
+(Même texte dans `DEMARRAGE.md` §4.) Le sous-domaine se change pour tout le compte, sans redéploiement. Le Worker
+reste le même : aucun secret à reposer.
 
 **Avant de commencer.**
 
-- Choisis un moment sans cours en marche : quelques minutes sans réponse, puis les étudiants se réidentifient.
-- Ne pousse rien sur `main`, et **ne fusionne pas encore** cette branche.
-- Sors du gestionnaire de mots de passe les trois secrets. Ils ne servent qu'au plan B, mais aie-les sous la main.
-- Note le **code d'une attestation déjà émise** (espace professeur, colonne Attestation). C'est lui qui prouvera, à
-  chaque étape, que `CLE_SECRETE` n'a pas changé.
+- Choisis un moment sans cours en marche. Au changement de sous-domaine, le site ne répond pas pendant quelques
+  minutes, puis les étudiants se réidentifient.
+- Note le **code d'une attestation déjà émise** (espace professeur, colonne Attestation). Il servira aux
+  vérifications.
 
-**Étape 1 — Renommer le Worker.**
+**Étape 1 — Fusionner cette branche.** Fusionne `accueil-et-libelles` sur GitHub. Dans *Actions*, le flux *deploy*
+doit finir en vert : tests, migrations, puis déploiement du Worker `quiz-parametres-coupe`, le même qu'avant.
+L'adresse ne change pas encore.
 
-1. Va sur https://dash.cloudflare.com → *Compute* → *Workers & Pages* → **`quiz-parametres-coupe`** → onglet
-   **Settings**.
-2. Cherche le nom du Worker, avec un crayon ou un bouton *Rename* (en haut, section *General*). Tape **`quiz`**, puis
-   confirme.
-3. Vérifie aussitôt, dans *Settings* :
-   - *Variables and Secrets* : les trois secrets, de type *Secret* ;
-   - *Bindings* : `DB` → `quiz-parametres-coupe` ;
-   - *Domains & Routes* : `quiz.thierryleroux.workers.dev` actif.
-4. Le site est maintenant à `https://quiz.thierryleroux.workers.dev`. Vérifie trois choses :
-   - `…/api/version` répond ;
-   - `…/prof` accepte ta clé ;
-   - `…/verifier` dit « Attestation valide » pour le code noté.
-5. Si quelque chose manque, renomme le Worker en `quiz-parametres-coupe` et arrête-toi là.
+**Étape 2 — Vérifier sur l'adresse actuelle**, `https://quiz-parametres-coupe.thierryleroux.workers.dev` :
 
-**Étape 2 — Fusionner cette branche.**
-
-1. Fusionne `accueil-et-libelles` sur GitHub.
-2. Dans *Actions*, le flux *deploy* doit finir en vert et viser le Worker `quiz`.
-3. Dans *Workers & Pages*, il ne doit y avoir **qu'un** Worker, `quiz`. Si un nouveau `quiz-parametres-coupe` est
-   apparu, supprime-le : cela ne touche pas à la base D1.
-4. Recharge `https://quiz.thierryleroux.workers.dev` : la nouvelle page d'accueil s'affiche.
+- `…/api/version` répond ;
+- la nouvelle page d'accueil montre les exercices ;
+- `…/prof` accepte ta clé ;
+- `…/verifier` dit « Attestation valide » pour le code noté.
 
 **Étape 3 — Changer le sous-domaine du compte.**
 
-1. *Compute* → *Workers & Pages* → page d'ensemble. Dans l'encadré **Account details**, à droite, clique le crayon
-   (ou *Change*) à côté de *Subdomain* `thierryleroux.workers.dev`.
+1. Va sur https://dash.cloudflare.com → *Compute* → *Workers & Pages*, page d'ensemble. Dans l'encadré **Account
+   details**, à droite, clique le crayon (ou *Change*) à côté de *Subdomain* `thierryleroux.workers.dev`.
 2. Tape **`tgm-tmi`**, puis confirme. La mise en garde dit que tous les Workers du compte changent d'adresse : c'est
    voulu.
 3. Si le nom est pris, essaie **`tgmtmi`**, puis **`tgm-tmi-usinage`**. Permis : minuscules, chiffres et traits
@@ -241,45 +214,21 @@ documenté officiellement : je dis quoi chercher.)
 4. Attends quelques minutes, sans ouvrir la nouvelle adresse avant la confirmation (le navigateur retiendrait un
    « introuvable »).
 
-**Étape 4 — Vérifier sur `https://quiz.tgm-tmi.workers.dev`** (ou le sous-domaine retenu) :
-
-- `…/api/version` répond ;
-- l'accueil montre ses exercices ;
-- `…/prof` accepte ta clé ;
-- `…/verifier` dit « valide » pour le code noté.
-
-Si l'adresse ne répond pas après une trentaine de minutes, regarde https://www.cloudflarestatus.com avant de
-toucher à quoi que ce soit.
+**Étape 4 — Vérifier sur `https://quiz-parametres-coupe.tgm-tmi.workers.dev`** (ou le sous-domaine retenu) : les
+mêmes quatre vérifications qu'à l'étape 2. Si l'adresse ne répond pas après une trentaine de minutes, regarde
+https://www.cloudflarestatus.com avant de toucher à quoi que ce soit.
 
 **Étape 5 — Remplacer les liens.**
 
 - Sur Léa, chaque `https://quiz-parametres-coupe.thierryleroux.workers.dev/?exercice=<id>` devient
-  `https://quiz.tgm-tmi.workers.dev/?exercice=<id>`. **Copier le lien** (page de l'exercice) ou **Copier le lien
-  étudiant** (éditeur) donne le bon.
+  `https://quiz-parametres-coupe.tgm-tmi.workers.dev/?exercice=<id>`. **Copier le lien** (page de l'exercice) ou
+  **Copier le lien étudiant** (éditeur) donne le bon.
 - Mets à jour tes favoris.
-
-**Plan B — si le tableau de bord ne permet pas de renommer.**
-
-1. Fusionne la branche. GitHub crée un Worker `quiz` **sans secrets**, qui répond par une erreur.
-2. Dans PowerShell, `main` à jour, pose les trois secrets **avec exactement les valeurs du gestionnaire** :
-   `npx wrangler secret put CLE_SECRETE`, puis `CLE_ADMIN`, puis `CLE_CONSULTATION`. wrangler lit le nom `quiz` dans
-   `wrangler.jsonc`.
-3. Vérifie aussitôt le code noté sur `https://quiz.thierryleroux.workers.dev/verifier`. S'il ne répond pas
-   « valide », la valeur de `CLE_SECRETE` n'est pas la bonne : repose-la avant que quiconque se connecte.
-4. Supprime l'ancien Worker `quiz-parametres-coupe`, qui sinon tourne encore sur la même base (la base n'est pas
-   touchée).
-5. Reprends aux étapes 3 à 5.
-
-**Sans les valeurs des secrets, ne fais pas le plan B** : un nouveau `CLE_SECRETE` invaliderait toutes les
-attestations et tous les NIP. On ne changerait alors que le sous-domaine, donc l'adresse deviendrait
-`quiz-parametres-coupe.tgm-tmi.workers.dev`, et je remettrais l'ancien nom dans `wrangler.jsonc`.
 
 ### Ce qui cessera de fonctionner
 
-- **L'ancienne adresse** ne répondra plus, sans redirection possible :
-  - un nom de Worker renommé ne redirige pas ;
-  - un sous-domaine changé non plus : d'après des cas rapportés (la documentation de Cloudflare n'en dit rien),
-    l'ancien ne répond plus du tout, aussitôt.
+- **L'ancienne adresse** ne répondra plus, sans redirection possible. D'après des cas rapportés (la documentation de
+  Cloudflare n'en dit rien), un ancien sous-domaine ne répond plus du tout, aussitôt.
 - **Les liens sur Léa** sont à remplacer (étape 5).
 - **Le QR des attestations déjà remises** ne s'ouvre plus, et la ligne imprimée « Vérification :
   quiz-parametres-coupe.thierryleroux.workers.dev/verifier — code … » nomme l'ancienne adresse.
@@ -289,12 +238,13 @@ attestations et tous les NIP. On ne changerait alors que le sous-domaine, donc l
 ### Ce qui reste valide
 
 - **Chaque attestation** :
-  - par son **code**, saisi sur `https://quiz.tgm-tmi.workers.dev/verifier` ;
+  - par son **code**, saisi sur `https://quiz-parametres-coupe.tgm-tmi.workers.dev/verifier` ;
   - ou par l'**adresse entière de son QR collée** dans le même champ, puisque la vérification ne regarde pas l'hôte
     (testé).
 - **Les données signées du QR** restent lisibles hors ligne par n'importe quel lecteur de QR : nom, matricule,
   exercice, date, nombre de questions, code.
-- **Toutes les séances, les NIP, les exercices, la banque, les tables et les images** : même base, même secret.
+- **Toutes les séances, les NIP, les exercices, la banque, les tables et les images** : même Worker, même base, même
+  secret.
 - Les attestations émises **après** le déménagement portent la nouvelle adresse dans leur QR, automatiquement.
 
 ## Tests
@@ -308,9 +258,10 @@ attestations et tous les NIP. On ne changerait alors que le sous-domaine, donc l
   - cours : format, validation, API, publication, export ;
   - jeton par exercice ;
   - doublon de titre ;
-  - nom du Worker et de la base ; aucune adresse dans le code ; sel inchangé ;
+  - nom du Worker (celui de production) et de la base ; aucune adresse dans le code ; sel inchangé ;
   - attestation vérifiée après le déménagement.
-- `npm run test:api` : **31 étapes réussies** sur `wrangler dev` et une vraie D1 locale, avec le Worker nommé `quiz`.
+- `npm run test:api` : **31 étapes réussies** sur `wrangler dev` et une vraie D1 locale (relancé après D73, avec le
+  nom de production).
 - **Chrome** (fr-CA, 1280 et 390 px), sur une base jetable avec des cours posés par l'API, dont un « m-10 » pour
   vérifier le regroupement : **44 vérifications sur 44**.
   - Aucune requête hors du site, aucune exception.
@@ -322,7 +273,8 @@ attestations et tous les NIP. On ne changerait alors que le sous-domaine, donc l
 
 ## Ce qu'il te reste à faire
 
-1. **Cloudflare**, dans l'ordre ci-dessus (renommer, fusionner, sous-domaine), puis les liens de Léa.
+1. **Cloudflare**, dans l'ordre ci-dessus : fusionner, vérifier, changer le sous-domaine, vérifier, puis les liens
+   de Léa.
 2. **Dans l'éditeur, en production** :
    - mettre le cours **« M10 »** aux deux M10 et les **publier**. Les versions semées n'ont pas de cours : d'ici là,
      ils sont sous « Autres exercices ». Cela crée une version 2 de chacun ; les séances en cours gardent la leur ;
@@ -349,6 +301,26 @@ attestations et tous les NIP. On ne changerait alors que le sous-domaine, donc l
    scanné pourrait alors mener ailleurs. Cloudflare recommande d'ailleurs un domaine à soi pour un site en
    production : une adresse qui ne changerait plus jamais, QR compris. Ce domaine serait payant ; à voir, pas
    urgent.
-7. **Emplacement du renommage dans le tableau de bord.** Le renommage d'un Worker existe (le rôle *Editor* peut
-   « rename », et l'API le permet sans recréer le Worker). En revanche, l'emplacement exact du bouton n'est pas
-   documenté. Si tu ne le trouves pas, dis-le-moi avant le plan B.
+7. ~~**Emplacement du renommage dans le tableau de bord.**~~ Tranché (D73) : pas de renommage, le Worker garde son
+   nom.
+
+## Suites données
+
+**Réponse de Thierry (2026-09-27), élément 6.** Le renommage du Worker est introuvable dans le tableau de bord. Le
+Worker n'est donc pas renommé ; seul le sous-domaine change. Adresse cible :
+`quiz-parametres-coupe.tgm-tmi.workers.dev`. Pas de plan B, aucun secret à reposer. Devenu la décision **D73**, qui
+remplace D72 pour le nom du Worker, l'adresse et la procédure.
+
+- `wrangler.jsonc` reprend le nom de production, `quiz-parametres-coupe`. Par rapport à `main`, il ne diffère que
+  par un commentaire ; `deploy.yml` est identique à celui de `main`.
+- Tests :
+  - celui du nom du Worker attend maintenant le nom de production ;
+  - les adresses d'exemple sont passées à `quiz-parametres-coupe.tgm-tmi.workers.dev` ;
+  - sont gardés : aucune adresse dans le code, le sel inchangé, l'attestation vérifiée après le déménagement.
+- `DEMARRAGE.md` §4 et la section 6 ci-dessus : l'étape de renommage et le plan B sont retirés. La procédure est
+  courte : fusionner, vérifier, changer le sous-domaine, vérifier, remplacer les liens de Léa. La nouvelle adresse
+  est écrite partout.
+- Éléments 1 à 5 : inchangés.
+- `npm test` : 608 réussis, 0 échec. `npm run test:api` : 31 étapes réussies.
+- **La fusion est sans risque.** Elle redéploie le même Worker, avec ses secrets. Elle n'ajoute aucune migration.
+  Les versions déjà publiées, sans cours, restent valides, et un jeton gardé d'avant se comporte comme avant.

@@ -112,12 +112,13 @@ test('mode test : MODE_TEST ne figure ni dans wrangler.jsonc ni dans le déploie
   }
 });
 
-test('nouvelle adresse (D72) : le Worker s’appelle « quiz », la base D1 garde son nom ; aucune adresse du site dans le code ; le sel de la cryptographie ne change pas', async () => {
+test('nouvelle adresse (D72, D73) : le Worker garde son nom de production, la base D1 aussi ; aucune adresse du site dans le code ; le sel de la cryptographie ne change pas', async () => {
   const lire = (chemin) => readFile(new URL(`../${chemin}`, import.meta.url), 'utf8');
   const config = await lire('wrangler.jsonc');
-  assert.match(config, /^\s*"name": "quiz",$/m);
+  // D73 : seul le sous-domaine du compte change ; un autre nom déployé créerait un second Worker, sans les secrets.
+  assert.match(config, /^\s*"name": "quiz-parametres-coupe",$/m);
   assert.match(config, /"database_name": "quiz-parametres-coupe"/);
-  // Les commandes « d1 » nomment la base, qui ne change pas ; deploy.yml ne nomme pas le Worker.
+  // Les commandes « d1 » nomment la base ; deploy.yml ne nomme pas le Worker (wrangler deploy le lit dans wrangler.jsonc).
   assert.match(await lire('.github/workflows/deploy.yml'), /d1 migrations apply quiz-parametres-coupe --remote/);
   assert.match(await lire('package.json'), /d1 migrations apply quiz-parametres-coupe --local/);
   assert.doesNotMatch(await lire('.github/workflows/deploy.yml'), /--name/);
@@ -865,23 +866,23 @@ test('réussite : l’attestation est figée à l’instant de la dernière réu
   assert.equal(serveur.attestations('2412346').length, 1);
 });
 
-test('nouvelle adresse (D72) : une attestation émise sous l’ancienne adresse se vérifie sous la nouvelle — par son code, ou par l’adresse entière de son QR collée — tant que CLE_SECRETE est la même', async () => {
+test('nouvelle adresse (D72, D73) : une attestation émise sous l’ancienne adresse se vérifie sous la nouvelle — par son code, ou par l’adresse entière de son QR collée — tant que CLE_SECRETE est la même', async () => {
   const ancien = serveurDeTest({ hote: 'https://quiz-parametres-coupe.thierryleroux.workers.dev' });
   const { jeton } = await reussir(ancien, { ...CAMILLE, matricule: '2412347' });
   const { corps } = await ancien.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
   assert.ok(corps.url_verification.startsWith('https://quiz-parametres-coupe.thierryleroux.workers.dev/verifier?'), corps.url_verification);
-  // Le Worker renommé, sur le nouveau sous-domaine : la même base, la même CLE_SECRETE.
-  const nouveau = serveurDeTest({ hote: 'https://quiz.tgm-tmi.workers.dev', db: ancien.db });
+  // Le même Worker, sur le nouveau sous-domaine du compte (D73) : la même base, la même CLE_SECRETE.
+  const nouveau = serveurDeTest({ hote: 'https://quiz-parametres-coupe.tgm-tmi.workers.dev', db: ancien.db });
   assert.equal((await nouveau.appel('POST', '/api/verification', { corps: { code: corps.code } })).corps.resultat, 'valide');
   assert.equal((await nouveau.appel('POST', '/api/verification', { corps: claimsDe(corps.url_verification) })).corps.resultat, 'valide');
   // La séance se reprend (matricule et NIP) et l'attestation, rouverte, porte la nouvelle adresse dans son QR ; son code ne change pas.
   const reprise = await nouveau.appel('POST', '/api/reprise', { corps: { exercice: M10, matricule: '2412347', nip: CAMILLE.nip } });
   assert.equal(reprise.status, 200);
   const rouverte = (await nouveau.appel('GET', `/api/attestation?exercice=${M10}`, { jeton: reprise.corps.jeton })).corps;
-  assert.ok(rouverte.url_verification.startsWith('https://quiz.tgm-tmi.workers.dev/verifier?'), rouverte.url_verification);
+  assert.ok(rouverte.url_verification.startsWith('https://quiz-parametres-coupe.tgm-tmi.workers.dev/verifier?'), rouverte.url_verification);
   assert.deepEqual([rouverte.code, rouverte.signature], [corps.code, corps.signature]);
   // Avec une autre CLE_SECRETE, rien ne se vérifie ni ne se reprend : le secret doit suivre tel quel.
-  const autreCle = serveurDeTest({ hote: 'https://quiz.tgm-tmi.workers.dev', db: ancien.db, secret: 'une-autre-cle' });
+  const autreCle = serveurDeTest({ hote: 'https://quiz-parametres-coupe.tgm-tmi.workers.dev', db: ancien.db, secret: 'une-autre-cle' });
   assert.equal((await autreCle.appel('POST', '/api/verification', { corps: { code: corps.code } })).corps.resultat, 'invalide');
   assert.equal((await autreCle.appel('POST', '/api/reprise', { corps: { exercice: M10, matricule: '2412347', nip: CAMILLE.nip } })).status, 401);
 });
