@@ -184,8 +184,8 @@ attendue et tolérance de f), §3.9 (groupe Limites) ; PLAN (section « Chantier
 
 Suite de la session, sur la même branche : tes réponses sont consignées dans **D70**, un commit par point (la
 décision, la correction de f, les aides, la ligne de calcul des filets, le script de `test-complet`, les docs,
-cette section). `npm test` : 587 tests (+ 19 depuis la première partie), dont un `todo` (le ❓ ci-dessous),
-`fail 0` avant chaque commit. Chrome en mode test à 1280 et 390 px : huit outils visés vus aux deux largeurs,
+cette section). `npm test` : 587 tests (+ 19 depuis la première partie), `fail 0` avant chaque commit ; après la
+dernière retouche (plus bas), **588 tests, `fail 0`, aucun `todo`**. Chrome en mode test à 1280 et 390 px : huit outils visés vus aux deux largeurs,
 `test-complet` publié par le nouveau script pendant que `wrangler dev` tournait, captures dans
 `captures/avances-d70/` (hors dépôt), aucune exception, aucune erreur console, aucune requête externe, aucun
 défilement horizontal à 390 px.
@@ -204,12 +204,11 @@ Les tests demandés passent : SDTMR M42 x 4.5 avec fz « 4.5 » et f « 4.5 » �
 vert sur tout le catalogue, f = fz affiché × dents (arrondie ou non) avec fz saisie, fournie et masquée. Sur tout
 le catalogue, **avec fz fournie, plus aucune f calculée avec une dent de trop ou de moins n'est acceptée**.
 
-❓ **Un test demandé contredit la règle** : « barre à aléser, fz « 0.0060 », f +1 % → refusée ». La barre à aléser
-n'a qu'une dent et son avance est **proportionnelle** : la règle à une dent la juge à ±25 %, au plus ±0.001 po,
-soit [0.005 ; 0.007] pour 0.006 — f +1 % (0.00606) y est **acceptée**. Dans Chrome, f +30 % est refusée
-(« tolérance : ±25 %, au plus ±0.001 po »). J'ai appliqué la règle, écrit le test selon elle, et laissé un test
-`todo` qui nomme la contradiction. Si tu veux f à ±0,1 % à une dent pour toutes les familles (comme le fixe et le
-filetage), c'est une ligne à changer : dis-le-moi.
+**Barre à aléser, fz « 0.0060 », f +1 %** : le test demandé la voulait refusée ; il contredisait la règle. La
+barre n'a qu'une dent et son avance est proportionnelle : à une dent, f = fz, même tolérance que fz, ±25 %, au
+plus ±0.001 po, soit [0.005 ; 0.007] pour 0.006. **Tu as gardé la règle** (2026-09-27) : f +1 % est acceptée, f
++30 % refusée (« tolérance : ±25 %, au plus ±0.001 po », vu dans Chrome) ; le test `todo` est retiré, D70 le
+consigne.
 
 ### Point 2 — la demi-unité de f, la plus large des deux
 
@@ -219,7 +218,7 @@ produit × 1,001, fz × dents + ½ unité de f)]. Bornes obtenues par le moteur,
 | Cas | fz affiché | f affichée | D69 | D70 |
 |---|---|---|---|---|
 | MVLNR 2.000" (fixe, 1 dent), fz saisie | « 0.0050 » | « 0.0050 » | [0.0049 ; 0.0051] | **[0.00495 ; 0.00505]** (valeur théorique ±0,1 %, ½ unité) |
-| Barre à aléser Ø 1 1/4 po, Ø alésé 2.000" (1 dent), fz saisie | « 0.0060 » | « 0.0060 » | [0.0059 ; 0.0061] | **[0.005 ; 0.007]** (±25 %, au plus ±0.001 po : voir le ❓) |
+| Barre à aléser Ø 1 1/4 po, Ø alésé 2.000" (1 dent), fz saisie | « 0.0060 » | « 0.0060 » | [0.0059 ; 0.0061] | **[0.005 ; 0.007]** (±25 %, au plus ±0.001 po : la règle gardée) |
 | SDTMR M42 x 4.5 (1 dent), fz saisie | « 0.17717 » | « 0.17717 » | cohérence avec la fz saisie (« 4.5 » acceptait f « 4.5 ») | **[0.1769882 ; 0.1773425]** |
 | Foret Ø 1/2 po, 2 dents, fz saisie | « 0.0030 » | « 0.0060 » | [0.00585 ; 0.00615] | **[0.0058941 ; 0.0061061]** |
 | Foret à pointer Ø 1/2 po, 2 dents, fz saisie | « 0.0010 » | « 0.0020 » | [0.00185 ; 0.00215] (±7,5 %) | **[0.0018981 ; 0.0021021]** (±5,1 %) |
@@ -241,10 +240,10 @@ multipliée par les dents, que la cohérence doit garder pour un étudiant qui a
   M16 x 2). Une dimension est métrique si sa valeur est un filet « Ø x pas » en mm, ou si son libellé est en mm :
   la règle qui distinguait déjà « SDTMR (impérial) » et « SDTMR (métrique) » dans la progression, maintenant une
   seule fonction (`isMetricDimension`, `data.js`).
-- ❓ **Lecture retenue pour les filets** : pour un filet, fz est le pas, pas le Ø. L'aide de fz dit « Filetage :
-  fz = pas, en pouces : mm / 25.4. » en métrique, et « Filetage : fz = pas = 1 / filets au pouce. » en impérial
-  (l'ancienne phrase disait les deux à la fois). Le rappel du Ø n'est pas ajouté à l'aide de fz en avance fixe
-  (MCLNR) : elle y dit justement « quel que soit le Ø ». À corriger si tu voulais le rappel partout.
+- **Filets et avance fixe, lecture confirmée** (2026-09-27) : pour un filet, fz est le pas, pas le Ø ; l'aide de
+  fz dit « Filetage : fz = pas, en pouces : mm / 25.4. » en métrique, et « Filetage : fz = pas = 1 / filets au
+  pouce. » en impérial (l'ancienne phrase disait les deux à la fois). Pas de rappel du Ø dans l'aide de fz d'un
+  filet ni en avance fixe (MCLNR), qui dit justement « quel que soit le Ø ».
 
 ### Point 5 du rapport — la ligne de calcul d'un filet
 
@@ -272,16 +271,32 @@ deux fraises à surfacer de 3 po, à 5 et à 7 dents, à ajouter **en production
 0.012 → plafonnée à 0.010 ; f = 0.050 et 0.070). Rien n'a été touché dans `site/data/` ni dans la semence. Les
 deux actions restent à toi (PLAN).
 
-### Nouveaux points douteux
+### Dernière retouche (2026-09-27)
 
-1. **Le test de la barre à aléser** (❓ ci-dessus) : f +1 % est acceptée par la règle à une dent en avance
-   proportionnelle.
-2. **fz masquée et nombre de dents** : la règle « fz masquée → tolérance reportée » est inchangée ; sur tout le
+Trois commits de plus sur la branche : la décision (D70, complément), le code, les docs ; puis cette mise à jour.
+
+- **La barre à aléser** : la règle est gardée, le test `todo` retiré (plus haut).
+- **D'où vient la valeur attendue** : quand la valeur attendue d'un champ **jugé juste** vient de la cohérence
+  avec les saisies, la note le dit au lieu d'« attendu » — « Juste (0.000284 = ton fz × 2) », « Juste (3048.000 =
+  ton N × ta f) », et « N × ta f » ou « ton N × f » quand un seul des deux facteurs de Vf est une saisie ; un champ
+  faux garde « Faux — attendu … ». Le serveur joint à chaque champ corrigé `coherence` (`null`, ou les grandeurs
+  saisies dont la valeur est faite, avec les dents pour f) ; le texte est une règle d'affichage pure
+  (`coherenceSource`, `fieldResultNote`, `text.js`), testée. Un fz **fourni** n'est pas une saisie : la f
+  attendue d'après lui garde « attendu ». Vu dans Chrome à 1280 et 390 px (captures dans
+  `captures/avances-note/`) : « Juste (0.0240 = ton fz × 3) » sur une fraise à 3 lèvres, « Juste (0.0133 = ton fz ×
+  2) » et « Juste (5.043 = ton N × ta f) » sur un foret Ø 61/64 po ; aucune exception, aucune erreur console,
+  aucune requête externe.
+- **Les aides des filets** : lecture confirmée (plus haut), rien à changer.
+- SPEC §7 (la clé `coherence` de la correction), UI §3.4, PLAN.
+
+### Points restants
+
+1. **fz masquée et nombre de dents** : la règle « fz masquée → tolérance reportée » est inchangée ; sur tout le
    catalogue, une f calculée avec une dent de trop ou de moins y passe encore pour les alésoirs (6 et 8 dents),
    la fraise en bout hélicoïdale à 4 et 5 lèvres et la fraise à surfacer à 4 et 5 inserts (certains Ø). C'est
    le prix de ±25 % quand l'étudiant ne voit pas fz ; avec fz fournie ou saisie, ce n'est plus le cas.
-3. **« Juste (… attendu) » sur une f exacte** : avec fz saisie, la valeur attendue de f est fz saisi × dents.
-   Pour le Foret Ø 0.6 mm, la f du mode test (« 0.000283 », la théorique) s'affiche « Juste (0.000284
-   attendu) », parce que 0.000142 × 2 = 0.000284. C'est cohérent avec Vf (« Juste (3048.000 attendu) »), mais
-   l'étudiant qui a la valeur exacte lit une « attendue » un peu différente.
-4. **La lecture des aides des filets** (❓ ci-dessus, points 3 et 4).
+2. **Deux coquilles dans les données**, vues en passant, **non corrigées** (c'est dans l'éditeur, en production,
+   qu'elles se corrigent) : le libellé « M20 X 2.5 », avec un X majuscule, sur le taraud métrique, la barre à
+   fileter métrique et le SDTMR métrique (les autres libellés écrivent « x ») ; la note « Le jobber lenght » du
+   foret fractionnaire et du foret métrique (« length », ou « longueur jobber »). Elles sont aussi dans la
+   semence du dépôt, qui ne change pas.
