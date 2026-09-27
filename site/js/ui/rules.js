@@ -2,7 +2,7 @@
 // PURES, sans DOM, testées sous Node ; question-screen.js ne fait que les mettre à l'écran.
 // Elles reçoivent ce que renvoie le serveur (SPEC §7) et le catalogue (loadData).
 
-import { TOOL_MATERIAL_KEYS } from '../data.js';
+import { TOOL_MATERIAL_KEYS, isMetricDimension } from '../data.js';
 
 // --- Outils de même nom -------------------------------------------------------------------------------------
 // Le TITRE de la question est le gabarit de l'outil résolu par le serveur (question.identifiant,
@@ -14,9 +14,7 @@ import { TOOL_MATERIAL_KEYS } from '../data.js';
 
 // Un outil est métrique si ses dimensions le sont : filet « ØxPas » en mm, ou libellé en mm.
 function toolUnit(tool) {
-  const { libelle, valeur } = tool.dimensions[0];
-  const metric = typeof valeur === 'string' ? valeur.includes('x') : /\bmm\b/.test(libelle);
-  return metric ? 'métrique' : 'impérial';
+  return isMetricDimension(tool.dimensions[0]) ? 'métrique' : 'impérial';
 }
 
 const toolRange = (tool) => `${tool.dimensions[0].libelle} à ${tool.dimensions.at(-1).libelle}`;
@@ -91,11 +89,24 @@ export function diameterLines(question) {
 }
 
 // --- Aide contextuelle (UI §3.3) : la méthode, jamais la valeur, ni la ligne ni la colonne -------------------------
+
+// La dimension tirée est-elle métrique (D70) ? Lue dans le catalogue — la valeur d'un filet « Ø x pas » —, ou, à
+// défaut, dans son libellé (« Ø 6.0 mm »).
+export function questionIsMetric(question, data) {
+  const tool = data.outils.find((entry) => entry.id === question.outil.id);
+  const dimension = tool?.dimensions.find((entry) => entry.libelle === question.dimension);
+  return isMetricDimension({ libelle: question.dimension, valeur: dimension?.valeur });
+}
+
+// Le rappel d'une dimension métrique (D70), pour les aides de N et de fz quand le Ø sert.
+const INCHES_REMINDER = ' Le Ø se met en pouces : mm / 25.4.';
+
 // Retourne { parts, table } :
 //   parts : le texte, en morceaux — { text, accent } où accent vaut 'material' ou 'tool' pour les
 //           mots à colorer comme le panneau correspondant, ou undefined
 //   table : la feuille que le bouton « Ouvrir la table » ouvre ('vc' ou 'avances'), ou null
-export function helpLine(field, question, family) {
+//   metric : la dimension tirée est métrique (questionIsMetric) — le rappel « mm / 25.4 », seulement alors (D70)
+export function helpLine(field, question, family, metric = false) {
   const plain = (text, table = null) => ({ parts: [{ text }], table });
   if (field === 'vc') {
     return {
@@ -111,18 +122,19 @@ export function helpLine(field, question, family) {
   }
   if (field === 'feedPerTooth') {
     const byFamily = {
-      proportional: question.outil.barre
+      proportional: (question.outil.barre
         ? ' Avance proportionnelle au Ø : avance × Ø de la barre (pas le Ø usiné), sans dépasser l’avance max.'
-        : ' Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.',
-      thread: ' Filetage : fz = pas = 1 / filets au pouce (ou mm / 25.4).',
-      fixed: '',
+        : ' Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.') + (metric ? INCHES_REMINDER : ''),
+      // Filetage : fz est le pas ; en métrique, le pas en mm se met en pouces (D70).
+      thread: metric ? ' Filetage : fz = pas, en pouces : mm / 25.4.' : ' Filetage : fz = pas = 1 / filets au pouce.',
+      fixed: ' Avance fixe : la valeur de la table, telle quelle, quel que soit le Ø.',
     };
     return plain(`Avance par dent → table des avances, à l'opération de l'outil.${byFamily[family]}`, 'avances');
   }
   if (field === 'rpm') {
     const factor = question.outil.fact_vc === 1 ? '' : `, × ${question.outil.fact_vc} pour cet outil`;
     const which = question.outil.barre ? 'Ø usiné (le trou, pas la barre)' : 'Ø';
-    return plain(`RPM → N = Vc × 4 / ${which}, plafonnée au RPM max de la machine${factor}.`);
+    return plain(`RPM → N = Vc × 4 / ${which}, plafonnée au RPM max de la machine${factor}.${metric ? INCHES_REMINDER : ''}`);
   }
   if (field === 'feedPerRev') return plain('Avance totale par révolution → f = fz × nombre de dents.');
   return plain("Vitesse d'avance → Vf = N × f.");

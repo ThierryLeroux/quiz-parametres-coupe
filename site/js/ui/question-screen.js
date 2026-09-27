@@ -6,7 +6,7 @@
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
 import { el, showScreen } from './dom.js';
-import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
+import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
 import { classFeatures, classImages, heatImageMaxWidth, operationPicto, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
 
@@ -119,6 +119,7 @@ function materialPanel(question, data) {
 export function renderQuestion(main, { seance, data, labels }, actions) {
   const { question } = seance;
   const family = feedFamily(data.operationByName.get(question.outil.operation));
+  const metric = questionIsMetric(question, data); // le rappel « mm / 25.4 » des aides (D70)
   const toolColor = `var(${toolMaterialColor(question.outil.materiau, data)})`;
   const materialColor = `var(${materialCard(question.materiau).color})`;
   const inputs = {};
@@ -128,7 +129,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   // Aide contextuelle, au clic seulement : la méthode, jamais la valeur (rules.js).
   const help = el('div', { class: 'help-line', hidden: true, 'aria-live': 'polite' });
   function showHelp(field) {
-    const { parts, table } = helpLine(field, question, family);
+    const { parts, table } = helpLine(field, question, family, metric);
     const colors = { tool: toolColor, material: materialColor };
     help.replaceChildren(
       el('p', {}, parts.map((part) => (part.accent ? el('span', { style: `color: ${colors[part.accent]}` }, part.text) : part.text))),

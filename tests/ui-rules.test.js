@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
 import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
@@ -141,8 +141,8 @@ test('helpLine : la méthode, jamais la valeur, sans nommer la ligne ni la colon
   assert.equal(vc.table, 'vc');
 
   assert.equal(texte(helpLine('feedPerTooth', QUESTION, 'proportional')), "Avance par dent → table des avances, à l'opération de l'outil. Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.");
-  assert.equal(texte(helpLine('feedPerTooth', QUESTION, 'thread')), "Avance par dent → table des avances, à l'opération de l'outil. Filetage : fz = pas = 1 / filets au pouce (ou mm / 25.4).");
-  assert.equal(texte(helpLine('feedPerTooth', QUESTION, 'fixed')), "Avance par dent → table des avances, à l'opération de l'outil.");
+  assert.equal(texte(helpLine('feedPerTooth', QUESTION, 'thread')), "Avance par dent → table des avances, à l'opération de l'outil. Filetage : fz = pas = 1 / filets au pouce.");
+  assert.equal(texte(helpLine('feedPerTooth', QUESTION, 'fixed')), "Avance par dent → table des avances, à l'opération de l'outil. Avance fixe : la valeur de la table, telle quelle, quel que soit le Ø."); // D70
   assert.equal(helpLine('feedPerTooth', QUESTION, 'fixed').table, 'avances');
 
   assert.equal(texte(helpLine('rpm', QUESTION, 'fixed')), 'RPM → N = Vc × 4 / Ø, plafonnée au RPM max de la machine, × 0.25 pour cet outil.');
@@ -151,6 +151,32 @@ test('helpLine : la méthode, jamais la valeur, sans nommer la ligne ni la colon
   assert.equal(texte(helpLine('feedRate', QUESTION, 'fixed')), "Vitesse d'avance → Vf = N × f.");
   for (const champ of ['rpm', 'feedPerRev', 'feedRate']) assert.equal(helpLine(champ, QUESTION, 'fixed').table, null);
   for (const champ of ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate']) assert.doesNotMatch(texte(helpLine(champ, QUESTION, 'thread')), /\d{3}/, champ); // aucune valeur
+});
+
+test('helpLine, dimension métrique (D70) : « Le Ø se met en pouces : mm / 25.4. » pour N, et pour fz quand le Ø sert', () => {
+  const RAPPEL = ' Le Ø se met en pouces : mm / 25.4.';
+  const foret = { outil: { id: 'foret_metrique', fact_vc: 1, fact_av: 1 }, dimension: 'Ø 6.0 mm' };
+  assert.equal(texte(helpLine('rpm', foret, 'proportional', true)), `RPM → N = Vc × 4 / Ø, plafonnée au RPM max de la machine.${RAPPEL}`);
+  assert.equal(texte(helpLine('feedPerTooth', foret, 'proportional', true)), `Avance par dent → table des avances, à l'opération de l'outil. Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.${RAPPEL}`);
+  // Filetage métrique : fz est le pas, qui se met en pouces ; l'impérial n'en dit rien.
+  assert.equal(texte(helpLine('feedPerTooth', foret, 'thread', true)), "Avance par dent → table des avances, à l'opération de l'outil. Filetage : fz = pas, en pouces : mm / 25.4.");
+  // Avance fixe : le Ø ne sert pas à fz, pas de rappel ; il reste pour N (MCLNR « 10 mm »).
+  assert.doesNotMatch(texte(helpLine('feedPerTooth', foret, 'fixed', true)), /mm \/ 25\.4/);
+  assert.match(texte(helpLine('rpm', { outil: { fact_vc: 0.25 } }, 'fixed', true)), /× 0\.25 pour cet outil\. Le Ø se met en pouces : mm \/ 25\.4\.$/);
+  // Dimension impériale : aucun rappel.
+  for (const champ of ['feedPerTooth', 'rpm']) for (const famille of ['proportional', 'thread', 'fixed']) assert.doesNotMatch(texte(helpLine(champ, foret, famille)), /mm/, `${champ} ${famille}`);
+});
+
+test('questionIsMetric : la dimension tirée, lue dans le catalogue (filet « Ø x pas ») ou dans son libellé (D70)', () => {
+  const q = (outil, dimension) => ({ outil: { id: outil }, dimension });
+  assert.equal(questionIsMetric(q('foret_metrique', 'Ø 6.0 mm'), data), true);
+  assert.equal(questionIsMetric(q('mclnr', '10 mm'), data), true);
+  assert.equal(questionIsMetric(q('taraud_metrique', 'M10 x 1.50'), data), true);
+  assert.equal(questionIsMetric(q('sdtmr_2', 'M42 x 4.5'), data), true);
+  assert.equal(questionIsMetric(q('foret_fractionnaire', 'Ø 1/4 po'), data), false);
+  assert.equal(questionIsMetric(q('taraud_imperial', '1/4- 20 UNC'), data), false);
+  assert.equal(questionIsMetric(q('foret_a_numero', '#40'), data), false);
+  assert.equal(questionIsMetric(q('outil_inconnu', 'Ø 3 mm'), data), true); // hors catalogue : le libellé
 });
 
 // --- Question corrigée -------------------------------------------------------------------------------------------------------

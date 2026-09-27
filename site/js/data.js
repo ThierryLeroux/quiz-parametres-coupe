@@ -18,6 +18,13 @@ const NUMBER = String.raw`(\d*\.?\d+)`; // accepte « 0.25 », « .3125 » et «
 const IMPERIAL_THREAD = new RegExp(`^${NUMBER}-(\\d+)$`); // Ø (po) - filets au pouce
 const METRIC_THREAD = new RegExp(`^${NUMBER}x${NUMBER}$`); // Ø (mm) x pas (mm)
 
+// Une dimension est métrique si sa valeur est un filet « Ø x pas » en mm, ou si son libellé est en mm
+// (« Ø 6.0 mm », « 10 mm ») : les deux façons dont le catalogue écrit une dimension métrique. Sert aux aides de
+// fz et de N (D70) et à distinguer deux outils de même nom (rules.js).
+export function isMetricDimension({ libelle, valeur }) {
+  return typeof valeur === 'string' ? METRIC_THREAD.test(valeur) : /\bmm\b/.test(libelle);
+}
+
 // Interprète la valeur d'une dimension de filetage (SPEC §4.3) :
 //   « 0.25-20 » → Ø 0,25 po, pas = 1/20 po
 //   « 10x1.5 »  → Ø 10/25,4 po, pas = 1,5/25,4 po

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { TOOL_MATERIAL_KEYS, loadData, parseThread, validateData } from '../site/js/data.js';
+import { TOOL_MATERIAL_KEYS, isMetricDimension, loadData, parseThread, validateData } from '../site/js/data.js';
 
 const lire = async (nom) => JSON.parse(await readFile(new URL(`../site/data/${nom}`, import.meta.url), 'utf8'));
 
@@ -34,6 +34,15 @@ test('parseThread : filetage impérial « Ø-filets/po »', () => {
 test('parseThread : filetage métrique « ØxPas » converti en pouces', () => {
   assert.deepEqual(parseThread('10x1.5'), { diameter: 10 / 25.4, pitch: 1.5 / 25.4 });
   assert.deepEqual(parseThread('1.6x0.35'), { diameter: 1.6 / 25.4, pitch: 0.35 / 25.4 });
+});
+
+test('isMetricDimension : un filet « Ø x pas » en mm, ou un libellé en mm (D70)', () => {
+  assert.equal(isMetricDimension({ libelle: 'M10 x 1.50', valeur: '10x1.5' }), true);
+  assert.equal(isMetricDimension({ libelle: 'Ø 6.0 mm', valeur: 0.23622 }), true);
+  assert.equal(isMetricDimension({ libelle: '10 mm', valeur: 0.3937 }), true);
+  assert.equal(isMetricDimension({ libelle: '1/4- 20 UNC', valeur: '0.25-20' }), false);
+  assert.equal(isMetricDimension({ libelle: 'Ø 1/4 po', valeur: 0.25 }), false);
+  assert.equal(isMetricDimension({ libelle: '#40', valeur: 0.098 }), false);
 });
 
 test('parseThread : valeur illisible → null', () => {
