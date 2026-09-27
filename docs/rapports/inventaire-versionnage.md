@@ -1,9 +1,11 @@
 # Inventaire — le versionnage aujourd'hui, et deux voies pour l'alléger (élément E5)
 
-Session du 2026-09-27, branche `inventaire-versionnage`, partie de `main` (`206d86a`). **Lecture seule** : aucune
-ligne de code, aucune migration, aucune donnée touchée ; rien n'a été lu en production. Ce qui suit vient du code
-de `main` (serveur, moteur, écrans, migrations) et des décisions D47 à D73. Les numéros de ligne renvoient à
-`main`.
+Session du 2026-09-27, branche `inventaire-versionnage`. **Lecture seule** : aucune ligne de code, aucune
+migration, aucune donnée touchée ; rien n'a été lu en production. Ce qui suit vient du code de `main` (serveur,
+moteur, écrans, migrations) et des décisions D47 à D74. Rédigé d'abord sur `main` à `206d86a`, puis **recalé sur
+`main` à `07bd878`**, après la fusion de `gestion-du-contenu` (D74). Ce lot ne change rien au versionnage ; seuls
+deux renvois de ligne ont bougé, et la publication refuse désormais un titre déjà pris. Les numéros de ligne
+renvoient à `main` à `07bd878`.
 
 ## En bref
 
@@ -39,8 +41,8 @@ de `main` (serveur, moteur, écrans, migrations) et des décisions D47 à D73. L
 
 | Élément | Où dans D1 | Versionné ? | Comment une version se crée |
 |---|---|---|---|
-| **Exercice** | `exercices` (le brouillon, une ligne par exercice) et `versions_exercice` (les versions) | **Oui** : versions numérotées 1, 2, 3…, **immuables** (D47) | Gestion du contenu → **Publier** : le brouillon, s'il est valide et différent de la dernière version, est copié tel quel comme version n + 1, avec la version de tables du brouillon ([worker/index.js:806-823](../../worker/index.js#L806-L823), [worker/base.js:489-502](../../worker/base.js#L489-L502)) |
-| **Tables de référence** (matériaux, Vc, opérations, avances, classes ISO, couleurs, images de classe, pictogrammes) | `brouillon_tables` (une seule ligne) et `tables_reference` (les versions) | **Oui** : versions **immuables**, identifiées par leur révision (« A2026_r0 », « A2026_r1 »…) (D61) | Onglet Tables → **Publier** avec une révision (suggérée) : le brouillon devient une version, la révision est écrite dans les deux JSON ([worker/index.js:904-922](../../worker/index.js#L904-L922), [worker/base.js:386-400](../../worker/base.js#L386-L400)) |
+| **Exercice** | `exercices` (le brouillon, une ligne par exercice) et `versions_exercice` (les versions) | **Oui** : versions numérotées 1, 2, 3…, **immuables** (D47) | Gestion du contenu → **Publier** : le brouillon, s'il est valide, différent de la dernière version et si aucun autre exercice publié et non archivé ne porte son titre (D74), est copié tel quel comme version n + 1, avec la version de tables du brouillon ([worker/index.js:807-829](../../worker/index.js#L807-L829), [worker/base.js:489-502](../../worker/base.js#L489-L502)) |
+| **Tables de référence** (matériaux, Vc, opérations, avances, classes ISO, couleurs, images de classe, pictogrammes) | `brouillon_tables` (une seule ligne) et `tables_reference` (les versions) | **Oui** : versions **immuables**, identifiées par leur révision (« A2026_r0 », « A2026_r1 »…) (D61) | Onglet Tables → **Publier** avec une révision (suggérée) : le brouillon devient une version, la révision est écrite dans les deux JSON ([worker/index.js:910-928](../../worker/index.js#L910-L928), [worker/base.js:386-400](../../worker/base.js#L386-L400)) |
 | **Version de tables d'un exercice** | `exercices.tables_id` (le brouillon) et `versions_exercice.tables_id` (la version) | Figée dans chaque version d'exercice | « Passer à A2026_rN… » change celle du brouillon (D62) ; la publication suivante la fige |
 | **Banque d'outils** | `banque_outils` (un outil par ligne) | **Non** : modifiable sur place. Son numéro `revision` sert seulement au contrôle de concurrence (D48) ; aucun historique | Enregistrer l'outil. Un exercice n'y fait pas référence : il en prend une **copie** (D47), et modifier la banque ne change aucun exercice |
 | **Copie d'un outil dans un exercice** (nom, photo, gabarit, dimensions, facteurs, limites, dents, matières, groupes, réussites exigées) | Dans le JSON du brouillon et de chaque version | **Oui**, avec la version de l'exercice | Publier l'exercice |
