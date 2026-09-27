@@ -256,8 +256,9 @@ export function tablesUsageLabel({ versions_exercice: versions, brouillons }) {
 
 // Ce qu'un changement de version de tables change POUR CET EXERCICE (D62) : les erreurs qui
 // apparaîtraient (matière, groupe ou opération que la nouvelle version n'a plus), les Vc qui changent
-// dans les groupes et matières que ses outils tirent, les avances et pictogrammes des opérations de
-// ses outils, les matériaux ajoutés ou retirés dans ses groupes. Retourne { erreurs, lignes }.
+// dans les groupes et matières que ses outils tirent, les avances des opérations de ses outils, les
+// matériaux ajoutés ou retirés dans ses groupes. Le pictogramme n'y est plus : il est de la présentation en
+// direct, la même pour toutes les versions (D76). Retourne { erreurs, lignes }.
 //   draft : le brouillon de l'exercice ; before, after : les deux versions de tables (complétées ou non)
 //   draftErrorsOf : (draft, tables) → [{ champ, message }] (draftErrors d'exercice.js, injectée : pas de cycle d'import)
 export function exerciseTablesImpact(draft, before, after, draftErrorsOf) {
@@ -299,7 +300,7 @@ export function exerciseTablesImpact(draft, before, after, draftErrorsOf) {
     const old = opsA.get(name);
     const now = opsB.get(name);
     if (!old || !now) continue; // absente : c'est une erreur, déjà dite
-    for (const [field, label] of [['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø'], ['pictogramme', 'pictogramme']]) {
+    for (const [field, label] of [['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø']]) {
       if (JSON.stringify(old[field] ?? null) !== JSON.stringify(now[field] ?? null)) lignes.push(`Opération « ${name} » — ${label} : ${text(old[field])} → ${text(now[field])}`);
     }
   }

@@ -361,10 +361,10 @@ test('exerciseTablesImpact (D62) : ce qu’un changement de version de tables ch
   after.operations.operations = after.operations.operations.map((op) => (op.operation === 'Perçage' ? { ...op, avance_po_rev: 0.009 } : op.operation === 'Chariotage finition' ? { ...op, avance_po_rev: 0.007, pictogramme: 'img-0123456789abcdef' } : op));
   const impact = exerciseTablesImpact(draft, before, after, draftErrors);
   assert.deepEqual(impact.erreurs, []);
+  // Le pictogramme du chariotage finition a changé aussi : il est de la présentation en direct (D76), plus dit ici.
   assert.deepEqual(impact.lignes, [
     `Acier non allié (groupe 1), Insert de carbure de tungstène : ${p1.vc_pi_min.insert_carbure} → 999 pi/min`,
     'Opération « Chariotage finition » — avance (po/rév) : 0.005 → 0.007',
-    'Opération « Chariotage finition » — pictogramme : — → img-0123456789abcdef',
   ]);
   // Un groupe retiré (K - Fonte grise, que le MCLNR usine) et une matière renommée : des erreurs nommées, et le matériau retiré est dit.
   const removed = structuredClone(before);

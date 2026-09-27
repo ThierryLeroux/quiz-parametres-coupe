@@ -56,8 +56,8 @@ export function characteristicsErrors(list) {
   return errors;
 }
 
-// Les différences entre les caractéristiques de deux versions d'une classe, par libellé.
-function characteristicsDiff(code, before, after) {
+// Les différences entre les caractéristiques de deux versions d'une classe, par libellé (presentation.js, D75).
+export function characteristicsDiff(code, before, after) {
   const lines = [];
   const quote = (v) => (v === undefined || v === null || v === '' ? '—' : String(v));
   const a = new Map((before ?? []).map((c) => [c.libelle, c]));
@@ -170,14 +170,26 @@ export function nextRevision(id) {
   return `${id}_r1`;
 }
 
-// --- Différences entre deux versions de tables, valeur par valeur (D61) ------------------------------------------
+// --- La liste blanche de la présentation en direct (D75, D76) ------------------------------------------------------
+// Ce qui ne fait qu'afficher : pour chaque liste, la clé qui désigne la ligne (versionnée) et les champs en direct.
+// Ces champs ne se publient plus : ils se modifient dans la présentation (presentation.js), qui se pose par-dessus
+// toute version. Les différences d'une publication et la comparaison d'un brouillon ne portent que sur le reste.
+export const PRESENTATION_FIELDS = {
+  classes_iso: { key: 'code', fields: ['nom', 'couleur', 'couleur_texte', 'couleur_ligne', 'image_chaleur', 'legende_image', 'caracteristiques'] },
+  materiaux_outil: { key: 'cle', fields: ['couleur'] },
+  operations: { key: 'operation', fields: ['pictogramme'] },
+};
+
+// --- Différences entre deux versions de tables, valeur par valeur (D61 ; sans la présentation, D76) ---------------
 // Retourne des lignes de texte : « Acier non allié (groupe 1), Acier rapide : 100 → 110 pi/min »,
-// « Matériau ajouté : … », « Opération « Perçage » — avance : 0.006 → 0.008 po/rév », « Classe P — couleur : … ».
+// « Matériau ajouté : … », « Opération « Perçage » — avance : 0.006 → 0.008 po/rév », « Classe ajoutée : X — … ».
+// Les champs de la présentation (couleurs, nom d'une classe, images, légende, caractéristiques, pictogramme) n'y
+// sont plus : ils ne passent plus par la publication (presentationDiff les dit, dans le panneau de la présentation).
 const text = (v) => (v === undefined || v === null || v === '' ? '—' : String(v));
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 const MATERIAL_FIELDS = [['iso', 'classe'], ['materiau', 'matériau'], ['composition', 'composition'], ['etat', 'état'], ['durete', 'dureté'], ['exemple', 'exemple'], ['debut_famille', 'début de famille']];
-const OPERATION_FIELDS = [['machine', 'machine-outil'], ['direction_avance', 'direction d\'avance'], ['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø'], ['pictogramme', 'pictogramme']];
+const OPERATION_FIELDS = [['machine', 'machine-outil'], ['direction_avance', 'direction d\'avance'], ['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø']];
 
 export function tablesDiff(before, after) {
   const a = completeTables(before);
@@ -185,27 +197,22 @@ export function tablesDiff(before, after) {
   const lines = [];
   const bool = (v) => (v === true ? 'oui' : v === false ? 'non' : text(v));
 
-  // Classes ISO, par code.
+  // Classes ISO, par code : ajoutées ou retirées, et l'ordre ; leur présentation est à part.
   const classesA = new Map(a.materiaux.classes_iso.map((c) => [c.code, c]));
   const classesB = new Map(b.materiaux.classes_iso.map((c) => [c.code, c]));
-  for (const [code, c] of classesB) {
-    const old = classesA.get(code);
-    if (!old) { lines.push(`Classe ajoutée : ${code} — ${c.nom}`); continue; }
-    for (const [key, label] of [['nom', 'nom'], ['couleur', 'couleur'], ['couleur_texte', 'couleur du texte'], ['couleur_ligne', 'teinte de ligne'], ['image_chaleur', 'image de chaleur'], ['legende_image', "légende de l'image"]]) {
-      if (!same(old[key], c[key])) lines.push(`Classe ${code} — ${label} : ${text(old[key])} → ${text(c[key])}`);
-    }
-    lines.push(...characteristicsDiff(code, old.caracteristiques, c.caracteristiques));
-  }
+  for (const [code, c] of classesB) if (!classesA.has(code)) lines.push(`Classe ajoutée : ${code} — ${c.nom}`);
   for (const code of classesA.keys()) if (!classesB.has(code)) lines.push(`Classe retirée : ${code}`);
+  const classOrderA = [...classesA.keys()].filter((code) => classesB.has(code)).join('|');
+  const classOrderB = [...classesB.keys()].filter((code) => classesA.has(code)).join('|');
+  if (classOrderA !== classOrderB) lines.push("L'ordre des classes ISO a changé.");
 
-  // Matières d'outil, par clé.
+  // Matières d'outil, par clé : le nom (que les outils nomment) ; la couleur est de la présentation.
   const toolsA = new Map(a.materiaux.materiaux_outil.map((m) => [m.cle, m]));
   const toolsB = new Map(b.materiaux.materiaux_outil.map((m) => [m.cle, m]));
   for (const [cle, m] of toolsB) {
     const old = toolsA.get(cle);
     if (!old) { lines.push(`Matière d'outil ajoutée : ${m.nom}`); continue; }
     if (!same(old.nom, m.nom)) lines.push(`Matière d'outil renommée : « ${text(old.nom)} » → « ${text(m.nom)} »`);
-    if (!same(old.couleur, m.couleur)) lines.push(`Matière d'outil « ${m.nom} » — couleur : ${text(old.couleur)} → ${text(m.couleur)}`);
   }
   for (const [cle, m] of toolsA) if (!toolsB.has(cle)) lines.push(`Matière d'outil retirée : ${m.nom}`);
 
@@ -247,9 +254,16 @@ export function tablesDiff(before, after) {
   return lines;
 }
 
-// Le contenu d'un brouillon de tables ou d'une version, tel qu'on le compare : sans les commentaires
-// « _… » ni la révision (qui est le nom de la version, posé à la publication).
+// Le contenu d'un brouillon de tables ou d'une version, tel qu'on le compare : ses VALEURS — sans les commentaires
+// « _… », ni la révision (qui est le nom de la version, posé à la publication), ni les champs de la présentation
+// (D76) : une ligne des listes de la présentation n'y garde que ce qui n'est pas en direct (sa clé, le nom d'une
+// matière d'outil, les avances d'une opération…).
 export function tablesContent(tables) {
   const strip = (o) => Object.fromEntries(Object.entries(o ?? {}).filter(([key]) => !key.startsWith('_') && key !== 'revision'));
-  return { materiaux: strip(tables?.materiaux), operations: strip(tables?.operations) };
+  const values = (rows, list) => (Array.isArray(rows) ? rows.map((row) => (isObject(row) ? Object.fromEntries(Object.entries(row).filter(([key]) => !PRESENTATION_FIELDS[list].fields.includes(key))) : row)) : rows);
+  const materiaux = strip(tables?.materiaux);
+  const operations = strip(tables?.operations);
+  for (const list of ['classes_iso', 'materiaux_outil']) if (list in materiaux) materiaux[list] = values(materiaux[list], list);
+  if ('operations' in operations) operations.operations = values(operations.operations, 'operations');
+  return { materiaux, operations };
 }

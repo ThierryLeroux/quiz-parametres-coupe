@@ -377,43 +377,38 @@ test('images des classes ISO (D64) : le brouillon et les versions portent les im
   assert.equal((await serveur.editeur('GET', 'images?usage=classe')).corps.images.length, 7);
 });
 
-test('caractéristiques des classes ISO (D65) : servies avec l’exercice et la version publique ; une solution trop longue est une erreur nommée qui bloque la publication ; une solution changée est publiée, et l’export la porte', async () => {
+// Les caractéristiques et la légende sont de la présentation en direct (D76) : elles se modifient dans le panneau de la
+// présentation (tests/worker-presentation.test.js), plus par le brouillon des tables — une retouche de ces seuls champs
+// dans le brouillon n'est pas une différence à publier.
+test('caractéristiques des classes ISO (D65) : servies avec l’exercice et la version publique ; retouchées dans le brouillon seul, rien à publier (D76) ; l’export les porte', async () => {
   const serveur = await editeurDeTest();
   const exercice = await serveur.appel('GET', `/api/exercice?exercice=${M10}`);
   assert.deepEqual(exercice.corps.tables.materiaux.classes_iso[1].caracteristiques.map((l) => l.libelle), ['Effort', 'Chaleur', 'Copeaux', 'Problème typique']);
   assert.equal((await serveur.appel('GET', '/api/tables?version=A2026_r0')).corps.tables.materiaux.classes_iso[0].caracteristiques[3].solution, 'respecter la Vc de la table, nuance revêtue');
   const page = await brouillonTables(serveur);
-  const trop = structuredClone(page.brouillon.contenu);
-  trop.materiaux.classes_iso[1].caracteristiques[3].solution = 'x'.repeat(91);
-  const refus = await publierTables(serveur, trop, 'A2026_r1');
-  assert.equal(refus.status, 400);
-  assert.ok((await brouillonTables(serveur)).erreurs.some((e) => e.message === 'classes_iso[1] (M) : caractéristique 4 : « solution » a 91 caractères (au plus 90)'));
-  const bon = structuredClone(page.brouillon.contenu);
-  bon.materiaux.classes_iso[1].caracteristiques[3].solution = 'avance suffisante, arête vive';
-  const publie = await publierTables(serveur, bon, 'A2026_r1');
+  const retouche = structuredClone(page.brouillon.contenu);
+  retouche.materiaux.classes_iso[1].caracteristiques[3].solution = 'avance suffisante, arête vive';
+  const refus = await publierTables(serveur, retouche, 'A2026_r1');
+  assert.equal(refus.status, 400, JSON.stringify(refus.corps));
+  assert.match(refus.corps.erreur, /Aucune différence à publier/);
+  const publie = await publierTables(serveur, carbureDouble(page.brouillon.contenu), 'A2026_r1');
   assert.equal(publie.status, 200, JSON.stringify(publie.corps));
-  const version = await serveur.editeur('GET', 'tables/version?id=A2026_r1');
-  assert.equal(version.corps.tables.materiaux.classes_iso[1].caracteristiques[3].solution, 'avance suffisante, arête vive');
   const exporte = (await serveur.editeur('GET', 'export')).corps;
-  assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].caracteristiques[3].solution, 'avance suffisante, arête vive');
+  assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].caracteristiques[3].solution, 'ne pas frotter, garder avance et profondeur suffisantes');
 });
 
-test('légende de l’image des classes ISO (D68) : « Chaleur » servie avec l’exercice et la version publique ; 41 caractères refusés à la publication ; une légende changée ou vidée est publiée, et l’export la porte', async () => {
+test('légende de l’image des classes ISO (D68) : « Chaleur » servie avec l’exercice et la version publique ; retouchée dans le brouillon seul, rien à publier (D76) ; l’export la porte', async () => {
   const serveur = await editeurDeTest();
   assert.ok((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.tables.materiaux.classes_iso.every((c) => c.legende_image === 'Chaleur'));
   assert.equal((await serveur.appel('GET', '/api/tables?version=A2026_r0')).corps.tables.materiaux.classes_iso[0].legende_image, 'Chaleur');
   const page = await brouillonTables(serveur);
-  const trop = structuredClone(page.brouillon.contenu);
-  trop.materiaux.classes_iso[0].legende_image = 'x'.repeat(41);
-  assert.equal((await publierTables(serveur, trop, 'A2026_r1')).status, 400);
-  assert.ok((await brouillonTables(serveur)).erreurs.some((e) => e.message === 'classes_iso[0] (P) : « legende_image » a 41 caractères (au plus 40)'));
-  const bon = structuredClone(page.brouillon.contenu);
-  bon.materiaux.classes_iso[0].legende_image = 'Où la chaleur se concentre';
-  bon.materiaux.classes_iso[1].legende_image = '';
-  const publie = await publierTables(serveur, bon, 'A2026_r1');
-  assert.equal(publie.status, 200, JSON.stringify(publie.corps));
-  const version = (await serveur.editeur('GET', 'tables/version?id=A2026_r1')).corps.tables.materiaux.classes_iso;
-  assert.deepEqual([version[0].legende_image, version[1].legende_image, version[2].legende_image], ['Où la chaleur se concentre', '', 'Chaleur']);
+  const retouche = structuredClone(page.brouillon.contenu);
+  retouche.materiaux.classes_iso[0].legende_image = 'Où la chaleur se concentre';
+  retouche.materiaux.classes_iso[1].legende_image = '';
+  const refus = await publierTables(serveur, retouche, 'A2026_r1');
+  assert.equal(refus.status, 400, JSON.stringify(refus.corps));
+  assert.match(refus.corps.erreur, /Aucune différence à publier/);
+  assert.equal((await publierTables(serveur, carbureDouble(page.brouillon.contenu), 'A2026_r1')).status, 200);
   const exporte = (await serveur.editeur('GET', 'export')).corps;
-  assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].legende_image, '');
+  assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].legende_image, 'Chaleur');
 });

@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import {
   DEFAULT_LEGENDE_IMAGE, LEGENDE_IMAGE_MAX, DEFAULT_CHARACTERISTICS, DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, characteristicsErrors, colorVariables, completeTables, isTablesId, isoClassOf, nextRevision, tablesContent, tablesDiff, toolMaterialKeyMap,
 } from '../site/js/tables.js';
+import { presentationDiff, presentationOf } from '../site/js/presentation.js';
 import { TOOL_MATERIAL_KEYS, assembleTables, validateTables } from '../site/js/data.js';
 import { lireFichier } from './aide.js';
 
@@ -109,7 +110,7 @@ test('nextRevision et isTablesId : « A2026_r0 » → « A2026_r1 », « H2025_r
   assert.deepEqual(['A2026_r0', 'H2025_r1', 'v2.1', 'a', 'A2026 r1', '', '_x', 'a'.repeat(41), 'A/1'].map(isTablesId), [true, true, true, true, false, false, false, false, false]);
 });
 
-test('tablesDiff : les différences valeur par valeur — Vc, champs d’un matériau, ajouts et retraits, opérations, classes, matières d’outil, ordre ; rien si identiques', () => {
+test('tablesDiff : les différences valeur par valeur — Vc, champs d’un matériau, ajouts et retraits, opérations, classes, matières d’outil, ordre ; rien si identiques ; sans les champs de la présentation (D76)', () => {
   assert.deepEqual(tablesDiff(tables(), tables()), []);
   const after = completeTables(tables());
   after.materiaux.materiaux = after.materiaux.materiaux.map((m) => (m.groupe === 1 ? { ...m, vc_pi_min: { ...m.vc_pi_min, carbure_solide: 500 }, durete: 130 } : m)).filter((m) => m.groupe !== 47);
@@ -120,19 +121,20 @@ test('tablesDiff : les différences valeur par valeur — Vc, champs d’un mat�
   after.operations.operations = after.operations.operations.map((op) => (op.operation === 'Perçage' ? { ...op, avance_po_rev: 0.008, pictogramme: 'img-0123456789abcdef' } : op));
   const lines = tablesDiff(tables(), after);
   const p1 = materiaux.materiaux.find((m) => m.groupe === 1);
+  // La couleur, l'image et la légende de la classe P, la couleur de l'acier rapide et le pictogramme du perçage ont
+  // changé aussi : ils sont de la présentation en direct (D76), pas des valeurs publiées — tablesDiff ne les dit plus.
   assert.deepEqual(lines, [
-    'Classe P — couleur : #00b0f0 → #0099cc',
-    'Classe P — image de chaleur : copeaux-p-chaleur → —',
-    "Classe P — légende de l'image : Chaleur → Zone chaude",
     'Matière d\'outil renommée : « Acier rapide » → « HSS »',
-    'Matière d\'outil « HSS » — couleur : #b4c7e7 → #cccccc',
     `Acier non allié (groupe 1) — dureté : ${p1.durete} → 130`,
     `Acier non allié (groupe 1), Carbure de tungstène solide : ${p1.vc_pi_min.carbure_solide} → 500 pi/min`,
     'Matériau ajouté : N — Cuivre et alliages de cuivre (groupe 48)',
     'Matériau retiré : O — Graphite (groupe 47)',
     'Opération « Perçage » — avance (po/rév) : 0.006 → 0.008',
-    'Opération « Perçage » — pictogramme : — → img-0123456789abcdef',
   ]);
+  // Une classe ajoutée ou retirée, et l'ordre des classes, sont des valeurs (le code est la clé que les matériaux nomment).
+  const classes = completeTables(tables());
+  classes.materiaux.classes_iso = [classes.materiaux.classes_iso[1], classes.materiaux.classes_iso[0], ...classes.materiaux.classes_iso.slice(2, 6), { code: 'X', nom: 'Nouvelle', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee' }];
+  assert.deepEqual(tablesDiff(tables(), classes), ['Classe ajoutée : X — Nouvelle', 'Classe retirée : O', "L'ordre des classes ISO a changé."]);
   const reordered = tables();
   [reordered.operations.operations[0], reordered.operations.operations[1]] = [reordered.operations.operations[1], reordered.operations.operations[0]];
   assert.deepEqual(tablesDiff(tables(), reordered), ["L'ordre des opérations a changé."]);
@@ -142,6 +144,16 @@ test('tablesDiff : les différences valeur par valeur — Vc, champs d’un mat�
   assert.deepEqual(tablesDiff(tables(), ops), ['Opération ajoutée : Lamage', `Opération retirée : ${operations.operations[0].operation}`]);
   // tablesContent : les commentaires « _… » ne comptent pas.
   assert.deepEqual(Object.keys(tablesContent(tables()).materiaux), ['groupes_iso', 'materiaux']); // ni les commentaires, ni la révision
+  // … ni les champs de la présentation (D76) : une classe n'y garde que son code, une matière d'outil sa clé et son nom,
+  // une opération ses valeurs ; deux tables qui ne diffèrent que par la présentation ont le même contenu.
+  const valeurs = tablesContent(after);
+  assert.deepEqual(valeurs.materiaux.classes_iso.map((c) => Object.keys(c)), Array.from({ length: 7 }, () => ['code']));
+  assert.deepEqual(valeurs.materiaux.materiaux_outil[0], { cle: 'acier_rapide', nom: 'HSS' });
+  assert.equal('pictogramme' in valeurs.operations.operations.find((op) => op.operation === 'Perçage'), false);
+  const peinte = completeTables(tables());
+  peinte.materiaux.classes_iso[0] = { ...peinte.materiaux.classes_iso[0], nom: 'Aciers', couleur: '#123456', legende_image: '', caracteristiques: [] };
+  peinte.operations.operations[0] = { ...peinte.operations.operations[0], pictogramme: 'img-0123456789abcdef' };
+  assert.deepEqual(tablesContent(peinte), tablesContent(completeTables(tables())));
 });
 
 test('caractéristiques d’une classe (D65) : quatre lignes par défaut pour P à H (Effort, Chaleur, Copeaux, Problème typique avec sa solution), aucune pour O ; validation ; différences', () => {
@@ -188,7 +200,9 @@ test('caractéristiques d’une classe (D65) : quatre lignes par défaut pour P 
   after.materiaux.classes_iso[3].caracteristiques.push({ libelle: 'Arrosage', texte: 'abondant' });
   const s = after.materiaux.classes_iso[4].caracteristiques;
   [s[0], s[1]] = [s[1], s[0]];
-  assert.deepEqual(tablesDiff(tables(), after), [
+  // Les caractéristiques sont de la présentation (D76) : tablesDiff ne les dit plus, presentationDiff les dit.
+  assert.deepEqual(tablesDiff(tables(), after), []);
+  assert.deepEqual(presentationDiff(presentationOf(tables()), presentationOf(after)), [
     'Classe P — Effort : moyen → moyen à élevé',
     'Classe P — Effort, solution : — → plaquette robuste',
     'Classe P — Problème typique, solution : respecter la Vc de la table, nuance revêtue → —',
@@ -219,5 +233,6 @@ test('légende de l’image d’une classe (D68) : « Chaleur » par défaut et 
   ]);
   const after = completeTables(tables());
   after.materiaux.classes_iso[1].legende_image = '';
-  assert.deepEqual(tablesDiff(tables(), after), ["Classe M — légende de l'image : Chaleur → —"]);
+  assert.deepEqual(tablesDiff(tables(), after), []); // de la présentation (D76)
+  assert.deepEqual(presentationDiff(presentationOf(tables()), presentationOf(after)), ["Classe M — légende de l'image : Chaleur → —"]);
 });
