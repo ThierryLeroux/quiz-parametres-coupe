@@ -466,7 +466,7 @@ try {
     assert.deepEqual([doublon.corps.existante, doublon.corps.image.id], [true, imageNeuve.id]);
     const liste = await appel('GET', '/api/prof/editeur/images', { cookie });
     assert.equal(liste.corps.images.length, 55);
-    assert.deepEqual(liste.corps.images.find((i) => i.id === imageNeuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [] });
+    assert.deepEqual(liste.corps.images.find((i) => i.id === imageNeuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [], presentation: [] });
   });
 
   await etape('images de classe ISO (D64) : la semence de 0009 est servie par /images/<id> ; la version publique des tables et l’exercice portent l’image de chaleur de chaque classe ; les six images sont utilisées par A2026_r0', async () => {
@@ -550,6 +550,30 @@ try {
     assert.equal(nouvelle.corps.seance.exercice.version, '3');
     const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
     assert.deepEqual([exporte.corps.tables_reference.map((t) => t.id), exporte.corps.brouillon_tables.base_id, exporte.corps.exercices.find((e) => e.id === M10).tables_id], [['A2026_r0', 'A2026_r1'], 'A2026_r1', 'A2026_r1']);
+  });
+
+  // --- Chantier E5, jalon E5-1 : la présentation des tables en direct (D76), sur la vraie D1 -------------------------
+
+  await etape('présentation en direct (D76) : la légende de P appliquée atteint la version 1 de Camille et les feuilles de A2026_r0 ; champ hors liste blanche → 400 ; « Rétablir » la remet ; l’export porte l’historique', async () => {
+    const page = await appel('GET', '/api/prof/editeur/presentation', { cookie });
+    assert.deepEqual([page.status, page.corps.appliquee, page.corps.revision, page.corps.derniere_tables, page.corps.historique], [200, false, 0, 'A2026_r1', []]);
+    const presentation = structuredClone(page.corps.presentation);
+    presentation.classes_iso[0].legende_image = 'Zone de coupe';
+    const hors = structuredClone(presentation);
+    hors.classes_iso[0].vc_pi_min = { insert_carbure: 1 };
+    assert.equal((await appel('POST', '/api/prof/editeur/presentation/appliquer', { corps: { revision: 0, presentation: hors }, cookie })).status, 400);
+    const applique = await appel('POST', '/api/prof/editeur/presentation/appliquer', { corps: { revision: 0, presentation }, cookie });
+    assert.deepEqual([applique.status, applique.corps.lignes], [200, ["Classe P — légende de l'image : Chaleur → Zone de coupe"]], JSON.stringify(applique.corps));
+    const version1 = await appel('GET', `/api/exercice?exercice=${M10}&version=1`);
+    assert.deepEqual([version1.corps.tables.materiaux.revision, version1.corps.tables.materiaux.classes_iso[0].legende_image], ['A2026_r0', 'Zone de coupe']);
+    assert.equal((await appel('GET', '/api/tables?version=A2026_r0')).corps.tables.materiaux.classes_iso[0].legende_image, 'Zone de coupe');
+    assert.equal((await appel('POST', '/api/prof/editeur/presentation/appliquer', { corps: { revision: 0, presentation }, cookie })).status, 409);
+    const historique = (await appel('GET', '/api/prof/editeur/presentation', { cookie })).corps.historique;
+    const retablie = await appel('POST', '/api/prof/editeur/presentation/retablir', { corps: { revision: 1, historique: historique[0].id }, cookie });
+    assert.deepEqual([retablie.status, retablie.corps.revision], [200, 2], JSON.stringify(retablie.corps));
+    assert.equal((await appel('GET', `/api/exercice?exercice=${M10}&version=1`)).corps.tables.materiaux.classes_iso[0].legende_image, 'Chaleur');
+    const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
+    assert.deepEqual(exporte.corps.presentation_tables.historique.map((h) => h.action), ['application', 'retablissement']);
   });
 
   await etape('déconnexion professeur : le cookie est effacé', async () => {
