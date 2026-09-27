@@ -9,6 +9,8 @@
 // try/catch, et loadSession retourne null plutôt que de lever une exception : l'étudiant
 // s'identifie alors, tout simplement.
 
+// La clé ne suit pas le nom du Worker (« quiz », D72) : un changement d'adresse change de toute façon l'origine,
+// donc le stockage ; elle ne change jamais.
 export const SESSION_KEY = 'quiz-parametres-coupe:seance';
 
 const KEYS = ['matricule', 'prenom', 'jeton'];

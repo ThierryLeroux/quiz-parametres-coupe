@@ -28,6 +28,8 @@ jobs:
       - run: npm test
       # D'abord les migrations de la base D1 (migrations/), puis le Worker : le code publié trouve
       # toujours le schéma qu'il attend. Le jeton d'API doit avoir le droit « D1 : Edit ».
+      # « quiz-parametres-coupe » est ici le nom de la BASE D1, qui ne change pas ; le Worker (« quiz »,
+      # D72) est celui que nomme wrangler.jsonc, et wrangler deploy le lit là.
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

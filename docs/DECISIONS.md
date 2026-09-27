@@ -1916,3 +1916,41 @@ un exercice avant de le donner.
 `cours`, titre publié), `session.js`, `home-screen.js` et un module pur de la page de description ; SPEC §5 à §8,
 §10 ; UI §1 à §3 ; tests. Remplace, dans UI §3.1, « aucun moyen d'en changer depuis la page » ; précise D10 et D18 ;
 remplace les textes du complément de D70.
+
+## D72 — Nouvelle adresse : `quiz.tgm-tmi.workers.dev` — le Worker s'appelle `quiz`, renommé dans le tableau de bord (2026-09-27, décidée)
+
+**Contexte.** Le site est à `https://quiz-parametres-coupe.thierryleroux.workers.dev` : long, et fait du nom de
+Thierry. Il le veut à `https://quiz.tgm-tmi.workers.dev` (sans « cvm »). L'adresse d'un Worker est
+`<nom du Worker>.<sous-domaine du compte>.workers.dev` : il faut changer les deux. Changer seulement `name` dans
+`wrangler.jsonc` puis déployer **crée un second Worker**, vide de secrets, et laisse l'ancien tourner sur la même
+base ; et une valeur de secret ne se relit jamais chez Cloudflare.
+
+**Décision.**
+
+- Le Worker s'appelle **`quiz`** (`wrangler.jsonc`, `name`). Le **dépôt** et la **base D1** gardent leur nom
+  (`quiz-parametres-coupe` : `database_name`, les commandes `d1` de `package.json`, `deploy.yml` et des scripts) ;
+  `deploy.yml` ne nomme pas le Worker (`wrangler deploy` le lit dans `wrangler.jsonc`) : il ne change pas.
+- **Le Worker se renomme d'abord dans le tableau de bord Cloudflare** (il garde son identifiant, ses versions, ses
+  secrets et sa liaison D1), **puis** la branche est fusionnée (le déploiement vise alors le Worker déjà renommé),
+  **puis** le sous-domaine du compte passe de `thierryleroux` à `tgm-tmi` (à défaut : `tgmtmi`, puis
+  `tgm-tmi-usinage`). Procédure pas à pas, vérifications et solution de repli (nouveau Worker, les trois secrets
+  reposés **avec les mêmes valeurs**) : `DEMARRAGE.md` §4 et le rapport `docs/rapports/accueil-et-libelles.md`.
+- **`CLE_SECRETE` ne change pas de valeur** — sinon plus aucun NIP n'est reconnu et toute attestation répond
+  « signature invalide ». Ne changent pas non plus ce que la cryptographie ou les données portent : le **sel HKDF**
+  `quiz-parametres-coupe` (`worker/crypto.js`), la clé de `localStorage`, le format d'export. Un test le garde.
+- **Aucune adresse n'est écrite dans le code** (vérifié, et un test le garde) : l'adresse du QR est l'origine de
+  la requête (D33), l'attestation affiche `location.host`, le lien d'un exercice est composé sur l'origine de la
+  page. Tout suit la nouvelle adresse sans autre changement ; seuls `DEMARRAGE.md` et les exemples des tests la
+  nomment.
+- **Ce qui cesse de fonctionner** : l'ancienne adresse (plus de réponse, aucune redirection possible depuis un
+  sous-domaine rendu) — les liens sur Léa sont à remplacer, et le **QR des attestations déjà émises** ne s'ouvre
+  plus. **Ce qui reste valide** : chaque attestation, par son **code** saisi sur la nouvelle page `/verifier`, ou
+  par l'**adresse entière de son QR collée** dans le champ (la vérification ne regarde pas l'hôte) ; les données
+  du QR restent lisibles hors ligne par n'importe quel lecteur de QR ; les séances, les NIP et la production
+  entière (même base, même secret). Le navigateur change d'origine : le jeton gardé et le cookie professeur sont
+  perdus — l'étudiant se réidentifie (matricule et NIP), le professeur se reconnecte.
+
+**Conséquences.** `wrangler.jsonc` ; commentaires de `deploy.yml`, `worker/crypto.js`, `site/js/session.js` ;
+`DEMARRAGE.md` §4 et §7 ; tests (nom du Worker et de la base, aucune adresse dans le code, sel inchangé, une
+attestation émise sous l'ancienne adresse vérifiée sous la nouvelle). PLAN : l'action de Thierry dans le tableau de
+bord.

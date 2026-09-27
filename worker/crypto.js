@@ -16,7 +16,9 @@ function base64url(bytes) {
 }
 
 // Sous-clé HMAC dérivée du secret du serveur, propre à un usage : connaître le résultat d'un usage
-// n'apprend rien sur un autre.
+// n'apprend rien sur un autre. Le sel « quiz-parametres-coupe » est une constante de la cryptographie, pas
+// le nom du Worker (« quiz » depuis D72) : le changer changerait toutes les sous-clés — plus aucun NIP reconnu,
+// toute attestation « signature invalide ». Il ne change jamais.
 //   secret : CLE_SECRETE        usage : « nip », « attestation »…
 async function subKey(secret, usage) {
   if (typeof secret !== 'string' || secret === '') throw new Error("CLE_SECRETE n'est pas configurée sur le serveur");
