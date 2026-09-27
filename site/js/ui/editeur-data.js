@@ -115,6 +115,21 @@ export function sessionsLabel(row) {
 // Le lien à donner aux étudiants sur Léa : celui de la page de l'exercice (le même que « Copier le lien » de cette page).
 export const studentLink = exerciseLink;
 
+// --- Le titre identifie l'exercice pour les étudiants (D71) -------------------------------------------------------
+
+// Les AUTRES exercices publiés et non archivés dont le titre publié est celui-ci, sans tenir compte de la casse, des
+// accents ni des espaces : [{ id, titre }]. La confirmation de publication les signale, sans bloquer.
+//   rows : la liste de l'éditeur (titre_publie, archive_le) ; exceptId : l'exercice qu'on publie
+export function sameTitleExercises(title, rows, exceptId) {
+  const key = (text) => plain(text).replace(/\s+/g, ' ').trim();
+  if (key(title) === '') return [];
+  return rows
+    .filter((row) => row.id !== exceptId && row.archive_le === null && typeof row.titre_publie === 'string' && key(row.titre_publie) === key(title))
+    .map((row) => ({ id: row.id, titre: row.titre_publie }));
+}
+
+export const sameTitleWarning = (twins) => `${twins.length > 1 ? "D'autres exercices publiés portent" : 'Un autre exercice publié porte'} déjà ce titre : ${twins.map((t) => `« ${t.titre} » (${t.id})`).join(', ')}. Les étudiants reconnaissent un exercice à son titre : change l'un des deux.`;
+
 // --- Le cours d'un exercice (D71) -------------------------------------------------------------------------------
 
 // Les cours que les AUTRES exercices utilisent (brouillon ou dernière version publiée), un par cours — la première

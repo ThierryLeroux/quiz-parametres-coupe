@@ -19,7 +19,7 @@ import { copyOfTool, draftErrors } from '../exercice.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, sameTitleExercises, sameTitleWarning, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -661,6 +661,10 @@ async function showExercise(id, notice = '') {
   const dialogSlot = el('div');
   publishButton.addEventListener('click', async () => {
     if (!(await save())) return;
+    // Le titre identifie l'exercice pour les étudiants (D71) : un autre exercice publié du même titre est signalé.
+    const listing = await guarded(() => editorListExercises());
+    if (listing === null) return;
+    const twins = sameTitleExercises(readDraft().titre, listing.exercices, id);
     const diff = versionDiff(page.derniere_version?.contenu ?? null, readDraft(), { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id });
     const numero = (page.derniere_version?.numero ?? 0) + 1;
     const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
@@ -680,6 +684,7 @@ async function showExercise(id, notice = '') {
       el('h2', {}, `Publier la version ${numero} de « ${readDraft().titre} » ?`),
       el('p', { class: 'small' }, page.derniere_version === null ? "Première publication : l'exercice devient accessible aux étudiants par son lien." : `Différences avec la version ${page.derniere_version.numero} :`),
       el('ul', { class: 'editeur-diff' }, diffLines(diff).map((line) => el('li', {}, line))),
+      ...(twins.length > 0 ? [el('p', { class: 'small avis-doublon', role: 'alert' }, sameTitleWarning(twins))] : []),
       ...(deducibleWarnings(readDraft()).length > 0 ? [
         el('p', { class: 'small' }, "Avertissement, sans effet sur la publication : une grandeur à trouver se déduit des grandeurs fournies."),
         el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft()).map((line) => el('li', {}, line))),
