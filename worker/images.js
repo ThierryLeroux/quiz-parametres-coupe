@@ -4,6 +4,7 @@
 // SVG assaini dans svg.js, les routes dans index.js.
 
 import { operationSlug } from '../site/js/ui/sheets-data.js';
+import { imagesOfPresentation } from '../site/js/presentation.js';
 import { CLASS_IMAGE_KEYS, completeTables } from '../site/js/tables.js';
 import { SvgError, sanitizeSvg } from './svg.js';
 
@@ -136,7 +137,9 @@ export const imageView = ({ id, nom, usage, type, taille, empreinte, creee_le, a
 //   tables   : [{ id, materiaux, operations }] — un pictogramme d'opération est `pictogramme`, sinon le nom de
 //              l'opération en slug ; les images d'une classe ISO sont celles de la classe complétée (D64 : une
 //              version d'avant nomme les images de la semence)
-export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [] }) {
+//   presentation : { actuelle (le contenu appliqué, ou null), historique: [{ id, contenu }] } — la présentation en
+//              direct (D76) : une image qu'elle nomme, actuelle ou dans l'historique, est utilisée (« Rétablir » la remettrait)
+export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [], presentation = { actuelle: null, historique: [] } }) {
   const inTools = (tools) => (Array.isArray(tools) ? tools : []).some((tool) => tool?.image === id);
   const pictoOf = (op) => op?.pictogramme ?? operationSlug(String(op?.operation ?? ''));
   const inTables = (t) => (Array.isArray(t.operations?.operations) ? t.operations.operations : []).some((op) => pictoOf(op) === id)
@@ -146,6 +149,10 @@ export function imageUsages(id, { versions = [], exercices = [], banque = [], ta
     brouillons: exercices.filter((e) => inTools(e.brouillon?.outils)).map((e) => e.id),
     banque: banque.filter((b) => b.outil?.image === id).map((b) => b.id),
     tables: tables.filter(inTables).map((t) => t.id),
+    presentation: [
+      ...(imagesOfPresentation(presentation.actuelle).includes(id) ? ['actuelle'] : []),
+      ...(presentation.historique ?? []).filter((h) => imagesOfPresentation(h.contenu).includes(id)).map((h) => `historique n° ${h.id}`),
+    ],
   };
 }
 
@@ -158,5 +165,6 @@ export function usagesText(usages) {
   if (usages.brouillons.length > 0) parts.push(`brouillon${usages.brouillons.length > 1 ? 's' : ''} ${usages.brouillons.join(', ')}`);
   if (usages.banque.length > 0) parts.push(`banque ${usages.banque.join(', ')}`);
   if (usages.tables.length > 0) parts.push(`tables ${usages.tables.join(', ')}`);
+  if ((usages.presentation ?? []).length > 0) parts.push(`présentation des tables (${usages.presentation.join(', ')})`);
   return parts.join(' · ');
 }

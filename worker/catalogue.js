@@ -10,9 +10,14 @@
 // jamais : elle est gardée en mémoire une fois assemblée. Le brouillon, lui, est toujours relu.
 // Une version de tables d'avant le 7b (« A2026_r0 ») est complétée à la lecture (completeTables, D61) :
 // classes ISO et matières d'outil avec leurs couleurs par défaut, celles de tokens.css.
+//
+// La présentation des tables en direct (D75, D76) ne passe PAS par ce cache : une version assemblée garde ses
+// valeurs et sa présentation d'origine — c'est avec elle que le serveur tire, corrige et atteste. La présentation
+// en vigueur (loadPresentation) se pose par-dessus ensuite, seulement dans ce que le serveur montre (index.js).
 
 import { assembleData } from '../site/js/data.js';
 import { engineExercise } from '../site/js/exercice.js';
+import { currentPresentation } from '../site/js/presentation.js';
 import { completeTables } from '../site/js/tables.js';
 import * as base from './base.js';
 
@@ -60,7 +65,29 @@ export function assembleDraft(exerciseId, draft, tables) {
   return { data: assembleData(tablesOf(tables), tools), exercise, version: null, tables_id: tables.id ?? null };
 }
 
+// La dernière version publiée des tables, complétée : { id, materiaux, operations }. Gardée en mémoire par identifiant
+// (une version ne change jamais) ; seul l'identifiant de la plus récente est relu à chaque fois.
+const latestTables = new Map();
+export async function loadLatestTables(db) {
+  const id = await base.findLatestTablesId(db);
+  if (!latestTables.has(id)) {
+    if (latestTables.size >= 20) latestTables.clear();
+    latestTables.set(id, { id, ...tablesOf(await base.findTables(db, id)) });
+  }
+  return latestTables.get(id);
+}
+
+// La présentation en vigueur (D76) : { contenu (celle du panneau : currentPresentation), stocke (celle enregistrée, ou
+// null : rien d'appliqué), revision, modifiee_le, enseignant, latest (la dernière version des tables) }. Relue à chaque
+// requête : elle change sans nouvelle version.
+export async function loadPresentation(db) {
+  const row = await base.findPresentation(db);
+  const latest = await loadLatestTables(db);
+  return { contenu: currentPresentation(row.contenu, latest), stocke: row.contenu, revision: row.revision, modifiee_le: row.modifiee_le, enseignant: row.enseignant, latest };
+}
+
 // Pour les tests et le Worker : oublier ce qui est en mémoire.
 export function forgetAssembled() {
   assembled.clear();
+  latestTables.clear();
 }

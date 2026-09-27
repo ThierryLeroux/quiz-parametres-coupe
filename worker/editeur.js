@@ -8,6 +8,7 @@ import { TOOL_KEYS } from '../site/js/data.js';
 import { DRAFT_KEYS, draftErrors, fieldsToGrade, maskedFields } from '../site/js/exercice.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools } from '../site/js/progression.js';
+import { normalizePresentation } from '../site/js/presentation.js';
 import { generateQuestion } from '../site/js/question.js';
 import { USAGES } from './images.js';
 
@@ -98,7 +99,8 @@ export function previewQuestions(exercise, data, random, count = 10) {
 // une version publiée est immuable. Retourne { erreurs, plan, resume } ; un import n'est appliqué
 // que sans erreur (base.applyImport).
 //   received : le JSON de l'export ; existing : base.exportEditorData(db) ; tablesErrors(tables) : erreurs d'une version des
-//   tables ; draftTablesErrors(tables) : celles du brouillon des tables (avec les images, D64 : une image archivée y est une erreur)
+//   tables ; draftTablesErrors(tables) : celles du brouillon des tables (avec les images, D64 : une image archivée y est une erreur) ;
+//   presentationErrorsOf(contenu) : celles d'un contenu de la présentation des tables ou de son historique (D76)
 export const EXPORT_FORMAT = 'quiz-parametres-coupe/editeur/1';
 
 // Le mot que la requête d'import doit porter, tel quel ; l'écran l'exige aussi (editeur.js du site).
@@ -107,9 +109,9 @@ export const IMPORT_WORD = 'IMPORTER';
 export const REPLACE_WORD = 'REMPLACER';
 export const importWord = (resume) => (resume?.banque?.retires?.length > 0 ? REPLACE_WORD : IMPORT_WORD);
 
-export function importPlan(received, existing, { tablesErrors, draftTablesErrors = tablesErrors, draftErrorsOf, latestTablesId = null }) {
+export function importPlan(received, existing, { tablesErrors, draftTablesErrors = tablesErrors, draftErrorsOf, latestTablesId = null, presentationErrorsOf = () => [] }) {
   const erreurs = [];
-  const plan = { tables_ajoutees: [], brouillon_tables: null, banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [] };
+  const plan = { tables_ajoutees: [], brouillon_tables: null, presentation: { historique_ajoute: [], remplace: null }, banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [] };
   if (!isObject(received) || received.format !== EXPORT_FORMAT) return { erreurs: [`Ce fichier n'est pas un export de la Gestion du contenu (format attendu : ${EXPORT_FORMAT}).`], plan, resume: null };
 
   // Les images (D59) : leurs fiches seulement — le contenu voyage à part, une image par requête
@@ -153,6 +155,40 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
       else plan.brouillon_tables = { contenu, base_id: isText(bt.base_id) && tablesById.has(bt.base_id) ? bt.base_id : null };
     }
   }
+  // La présentation des tables et son historique (D76) : les contenus d'historique de l'export s'ajoutent (un contenu déjà
+  // là, remplacé à la même date, n'est pas doublé) ; la présentation de l'export remplace celle de la base si elle en
+  // diffère — celle de la base va à l'historique (« import »). Absente (un export d'avant) ou jamais appliquée (null) :
+  // la présentation de la base ne change pas.
+  const receivedPresentation = received.presentation_tables;
+  if (receivedPresentation !== undefined && receivedPresentation !== null) {
+    if (!isObject(receivedPresentation)) erreurs.push('Présentation des tables : illisible.');
+    else {
+      const current = existing.presentation_tables ?? { contenu: null, modifiee_le: null, enseignant: null, historique: [] };
+      const seen = new Set((current.historique ?? []).map((h) => `${h.remplacee_le}|${canonicalText(h.contenu)}`));
+      (Array.isArray(receivedPresentation.historique) ? receivedPresentation.historique : []).forEach((h, n) => {
+        const where = `Présentation des tables, historique ${n + 1}`;
+        if (!isObject(h) || !isText(h.remplacee_le) || !HISTORY_ACTIONS.includes(h.action)) return erreurs.push(`${where} : illisible (contenu, date ou action).`);
+        const problems = presentationErrorsOf(h.contenu);
+        if (problems.length > 0) return erreurs.push(`${where} : ${problems.join(' ; ')}`);
+        const key = `${h.remplacee_le}|${canonicalText(h.contenu)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const textOrNull = (v) => (isText(v) ? v : null);
+        plan.presentation.historique_ajoute.push({ contenu: normalizePresentation(h.contenu), posee_le: textOrNull(h.posee_le), posee_par: textOrNull(h.posee_par), remplacee_le: h.remplacee_le, remplacee_par: textOrNull(h.remplacee_par), action: h.action });
+      });
+      if (receivedPresentation.contenu !== null && receivedPresentation.contenu !== undefined) {
+        const problems = presentationErrorsOf(receivedPresentation.contenu);
+        if (problems.length > 0) erreurs.push(`Présentation des tables : ${problems.join(' ; ')}`);
+        else if (current.contenu === null || !sameContent(current.contenu, receivedPresentation.contenu)) {
+          plan.presentation.remplace = {
+            avant: { contenu: current.contenu, modifiee_le: current.modifiee_le, enseignant: current.enseignant },
+            apres: { contenu: normalizePresentation(receivedPresentation.contenu), modifiee_le: isText(receivedPresentation.modifiee_le) ? receivedPresentation.modifiee_le : null, enseignant: isText(receivedPresentation.enseignant) ? receivedPresentation.enseignant : null },
+          };
+        }
+      }
+    }
+  }
+
   // La version de tables la plus récente une fois l'import fait : celle qu'un exercice sans tables_id prend (D62).
   const newestTablesId = [...tablesById.keys()].at(-1) ?? latestTablesId; // la dernière : celles de la base dans l'ordre, puis celles ajoutées
 
@@ -213,9 +249,14 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
     images_presentes: imagesPresentes.length,
     images_modifiees: plan.images_modifiees.map((i) => i.id),
     brouillon_tables: plan.brouillon_tables !== null,
+    presentation_remplacee: plan.presentation.remplace !== null,
+    presentation_historique: plan.presentation.historique_ajoute.length,
   };
   return { erreurs, plan, resume };
 }
+
+// Ce qui a remplacé un contenu de l'historique de la présentation (migration 0010).
+const HISTORY_ACTIONS = ['application', 'retablissement', 'import'];
 
 // L'identifiant d'une image (images.js porte la même règle) : semence « mvlnr », « percage », téléversement « img-<empreinte> ».
 const IMAGE_ID = /^[a-z0-9]+([_-][a-z0-9]+)*$/;
@@ -223,5 +264,5 @@ const IMAGE_ID = /^[a-z0-9]+([_-][a-z0-9]+)*$/;
 // Ce que le journal des actions note d'un import : « 1 table, 29 outils, 2 exercices ajoutés, 1 remplacé, 3 versions ».
 export function importDetails(resume) {
   const b = resume.banque;
-  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s) · images : ${resume.images_presentes ?? 0} présente(s), ${resume.images_modifiees?.length ?? 0} fiche(s) mise(s) à jour`;
+  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s) · images : ${resume.images_presentes ?? 0} présente(s), ${resume.images_modifiees?.length ?? 0} fiche(s) mise(s) à jour · présentation des tables : ${resume.presentation_remplacee ? 'remplacée' : 'inchangée'}, ${resume.presentation_historique ?? 0} contenu(s) ajouté(s) à l'historique`;
 }

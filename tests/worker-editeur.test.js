@@ -61,7 +61,7 @@ test('chaque route de la Gestion du contenu refuse le rôle consultation (403) e
   const serveur = serveurDeTest();
   const consultation = await connexion(serveur, 'cle-consultation-de-test');
   assert.ok(EDITOR_ROUTES.length >= 15, `${EDITOR_ROUTES.length} routes`);
-  const photographie = () => ['exercices', 'versions_exercice', 'banque_outils', 'tables_reference', 'journal_enseignant'].map((table) => serveur.db.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all().map((row) => ({ ...row })));
+  const photographie = () => ['exercices', 'versions_exercice', 'banque_outils', 'tables_reference', 'presentation_tables', 'presentation_tables_historique', 'journal_enseignant'].map((table) => serveur.db.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all().map((row) => ({ ...row })));
   const avant = photographie();
   for (const route of EDITOR_ROUTES) {
     const [methode, chemin] = route.split(' ');
@@ -447,7 +447,7 @@ test('export puis import : l’export réimporté ne change rien (aller-retour i
   const validation = await serveur.editeur('POST', 'import/valider', { export: exporte });
   assert.equal(validation.status, 200, JSON.stringify(validation.corps));
   assert.deepEqual(validation.corps.erreurs, []);
-  assert.deepEqual(validation.corps.resume, { tables_ajoutees: [], banque: { ajoutes: [], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: [], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [], exercices_gardes: [], images_manquantes: [], images_presentes: 54, images_modifiees: [], brouillon_tables: true });
+  assert.deepEqual(validation.corps.resume, { tables_ajoutees: [], banque: { ajoutes: [], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: [], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [], exercices_gardes: [], images_manquantes: [], images_presentes: 54, images_modifiees: [], brouillon_tables: true, presentation_remplacee: false, presentation_historique: 0 });
   assert.equal((await serveur.editeur('POST', 'import', { export: exporte, confirmation: 'oui' })).status, 400);
   const avant = ['seances', 'corrections', 'attestations'].map((t) => serveur.db.sqlite.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all().map((r) => ({ ...r })));
   const importe = await serveur.editeur('POST', 'import', { export: exporte, confirmation: IMPORT_WORD });
@@ -477,7 +477,7 @@ test('import par fusion (D49) : ajoute les exercices, versions et tables absents
   assert.equal((await cible.editeur('POST', 'exercice/creer', { id: 'local', titre: 'Local' })).status, 200);
   const validation = await cible.editeur('POST', 'import/valider', { export: exporte });
   assert.deepEqual(validation.corps.erreurs, []);
-  assert.deepEqual({ ...validation.corps.resume, versions_ajoutees: [...validation.corps.resume.versions_ajoutees].sort() }, { tables_ajoutees: [], banque: { ajoutes: [{ id: 'alesoir_3', nom: 'Alésoir (copie)' }], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: ['nouveau'], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [`${M10} v2`, 'nouveau v1'], exercices_gardes: ['local'], images_manquantes: [], images_presentes: 54, images_modifiees: [], brouillon_tables: true });
+  assert.deepEqual({ ...validation.corps.resume, versions_ajoutees: [...validation.corps.resume.versions_ajoutees].sort() }, { tables_ajoutees: [], banque: { ajoutes: [{ id: 'alesoir_3', nom: 'Alésoir (copie)' }], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: ['nouveau'], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [`${M10} v2`, 'nouveau v1'], exercices_gardes: ['local'], images_manquantes: [], images_presentes: 54, images_modifiees: [], brouillon_tables: true, presentation_remplacee: false, presentation_historique: 0 });
   assert.equal((await cible.editeur('POST', 'import', { export: exporte, confirmation: IMPORT_WORD })).status, 200);
   const liste = (await cible.editeur('GET', 'exercices')).corps.exercices;
   const parId = (id) => liste.find((e) => e.id === id);

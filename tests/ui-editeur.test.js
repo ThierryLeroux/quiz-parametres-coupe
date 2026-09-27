@@ -239,14 +239,16 @@ test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases,
   const banque = { ajoutes: [{ id: 'x', nom: 'Fraise X' }], modifies: [], retires: [], gardes: 28 };
   const resume = { tables_ajoutees: [], banque, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 48, images_modifiees: [] };
   const lines = importSummaryLines(resume);
-  assert.deepEqual(lines.slice(0, 5), ['Images : 48 déjà dans la base ; aucune à envoyer.', 'Tables de référence ajoutées : aucun.', "Banque d'outils — ajoutés : Fraise X (x) ; modifiés : aucun ; inchangés : 28.", "Banque d'outils — aucun outil ne disparaît.", 'Exercices ajoutés : nouveau.']);
+  assert.deepEqual(lines.slice(0, 6), ['Images : 48 déjà dans la base ; aucune à envoyer.', 'Tables de référence ajoutées : aucun.', 'Présentation des tables : inchangée.', "Banque d'outils — ajoutés : Fraise X (x) ; modifiés : aucun ; inchangés : 28.", "Banque d'outils — aucun outil ne disparaît.", 'Exercices ajoutés : nouveau.']);
+  // La présentation des tables remplacée par l'import (D76) : effet immédiat, dit en clair.
+  assert.equal(importSummaryLines({ ...resume, presentation_remplacee: true, presentation_historique: 3 })[2], "Présentation des tables : remplacée par celle de l'export, avec effet immédiat pour les étudiants (l'actuelle va à l'historique) ; 3 contenu(s) ajouté(s) à son historique.");
   assert.equal(lines.at(-1), 'Les séances, les journaux et les attestations ne sont pas touchés.');
   assert.equal(importSummaryLines({ ...resume, images_manquantes: ['img-1', 'img-2'], images_modifiees: ['mvlnr'] })[0], "Images : 48 déjà dans la base ; 2 à envoyer avant l'import (une par requête) ; 1 fiche(s) mise(s) à jour (nom, archivage).");
   assert.equal(importSummaryLines({ ...resume, images_manquantes: undefined, images_presentes: undefined })[0], 'Images : 0 déjà dans la base ; aucune à envoyer.'); // un export d'avant les images
   assert.equal(importWordFor(resume), IMPORT_WORD);
   // Des outils disparaîtraient (D50) : nommés, et le mot devient REMPLACER.
   const perte = { ...resume, banque: { ...banque, retires: [{ id: 'mvlnr', nom: 'MVLNR' }, { id: 'alesoir', nom: 'Alésoir' }] } };
-  assert.match(importSummaryLines(perte)[3], /^Banque d'outils — DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
+  assert.match(importSummaryLines(perte)[4], /^Banque d'outils — DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
   assert.equal(importWordFor(perte), REPLACE_WORD);
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], ['IMPORTER', 'REMPLACER']);
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], [SERVER_IMPORT_WORD, SERVER_REPLACE_WORD]); // les mêmes mots des deux côtés
@@ -320,6 +322,10 @@ test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agr
   assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [] }), 'jamais utilisée');
   assert.equal(canDeleteImage({ versions: [], brouillons: [], banque: [], tables: [] }), true);
   assert.equal(canDeleteImage({ versions: [], brouillons: ['x'], banque: [], tables: [] }), false);
+  // La présentation en direct (D76) : actuelle, ou dans l'historique — l'image est utilisée.
+  assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: ['actuelle', 'historique n° 2', 'historique n° 5'] }), 'présentation des tables · historique de la présentation (2 contenus)');
+  assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: ['historique n° 2'] }), 'historique de la présentation');
+  assert.equal(canDeleteImage({ versions: [], brouillons: [], banque: [], tables: [], presentation: ['historique n° 2'] }), false);
   assert.match(imageDeleteConfirmation({ id: 'img-abc', nom: 'Fraise' }), /^Supprimer l'image « Fraise » \(img-abc\)/);
   assert.match(imageArchiveConfirmation({ id: 'mvlnr', nom: 'MVLNR' }), /toujours/);
   assert.deepEqual(Object.keys(USAGE_LABELS), ['outil', 'operation', 'classe']);

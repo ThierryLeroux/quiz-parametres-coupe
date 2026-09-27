@@ -339,35 +339,51 @@ test('images des classes ISO (D64) : le brouillon et les versions portent les im
   const apercu = await serveur.editeur('POST', 'tables/apercu', { contenu, exercice: M10 });
   assert.equal(apercu.status, 400);
   assert.match(apercu.corps.erreurs[0].message, /copeaux-m-chaleur » est archivée/);
-  // Une image inconnue : enregistrée, mais dite.
+  // L'image d'une classe est de la présentation en direct (D76) : une image inconnue mise dans le brouillon, pour une
+  // classe que la présentation connaît, est sans effet — ni erreur, ni publication.
   const inconnue = structuredClone(contenu);
   inconnue.materiaux.classes_iso[0].image_chaleur = 'img-0000000000000000';
   const enregistre = await serveur.editeur('POST', 'tables/enregistrer', { revision: (await brouillonTables(serveur)).brouillon.revision, contenu: inconnue });
   assert.equal(enregistre.status, 200, JSON.stringify(enregistre.corps));
-  assert.ok(enregistre.corps.erreurs.some((e) => /\(P\) : « image_chaleur » : l'image « img-0000000000000000 » est inconnue/.test(e.message)), JSON.stringify(enregistre.corps.erreurs));
-  // L'image de chaleur de M retirée (null) : le brouillon se publie, et la version garde null (pas l'image de la semence).
-  const corrige = carbureDouble(contenu);
-  corrige.materiaux.classes_iso[1].image_chaleur = null;
-  const publie = await publierTables(serveur, corrige, 'A2026_r1');
+  assert.ok(!enregistre.corps.erreurs.some((e) => /img-0000000000000000/.test(e.message)), JSON.stringify(enregistre.corps.erreurs));
+  // Elle se change dans la présentation : une image inconnue y est refusée, nommée ; l'image de M retirée (null)
+  // s'applique, le brouillon n'est plus en erreur, et la version publiée ensuite prend la présentation (M sans image).
+  const presentation = (await serveur.editeur('GET', 'presentation')).corps;
+  const mauvaise = structuredClone(presentation.presentation);
+  mauvaise.classes_iso[0].image_chaleur = 'img-0000000000000000';
+  const refusee = await serveur.editeur('POST', 'presentation/appliquer', { revision: presentation.revision, presentation: mauvaise });
+  assert.equal(refusee.status, 400);
+  assert.ok(refusee.corps.erreurs.includes("classes_iso[0] (P) : « image_chaleur » : l'image « img-0000000000000000 » est inconnue"), JSON.stringify(refusee.corps));
+  const sansM = structuredClone(presentation.presentation);
+  sansM.classes_iso[1].image_chaleur = null;
+  assert.equal((await serveur.editeur('POST', 'presentation/appliquer', { revision: presentation.revision, presentation: sansM })).status, 200);
+  assert.deepEqual((await brouillonTables(serveur)).erreurs, []);
+  const publie = await publierTables(serveur, carbureDouble(contenu), 'A2026_r1');
   assert.equal(publie.status, 200, JSON.stringify(publie.corps));
   const version = await serveur.editeur('GET', 'tables/version?id=A2026_r1');
   assert.equal(version.corps.tables.materiaux.classes_iso[1].image_chaleur, null);
-  // Utilisations : A2026_r0 (complétée) nomme encore l'image archivée, A2026_r1 non ; supprimer reste refusé.
+  assert.equal(version.corps.tables.materiaux.classes_iso[0].image_chaleur, 'copeaux-p-chaleur'); // la présentation, pas le champ caché du brouillon
+  // Utilisations : A2026_r0 (complétée) nomme encore l'image archivée, A2026_r1 non ; la présentation de départ, gardée
+  // dans l'historique, la nomme aussi ; supprimer reste refusé.
   const images = await serveur.editeur('GET', 'images?usage=classe');
   assert.equal(images.corps.images.length, 6);
-  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-m-chaleur').utilisations.tables, ['A2026_r0']);
+  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-m-chaleur').utilisations, { versions: [], brouillons: [], banque: [], tables: ['A2026_r0'], presentation: ['historique n° 1'] });
   assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-p-chaleur').utilisations.tables, ['A2026_r0', 'A2026_r1']);
+  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-p-chaleur').utilisations.presentation, ['actuelle', 'historique n° 1']);
   assert.equal((await serveur.editeur('POST', 'images/supprimer', { id: 'copeaux-m-chaleur' })).status, 409);
-  // Import : les versions publiées passent (A2026_r0 nomme l'image archivée), un brouillon qui la nomme est refusé, nommément.
+  // Import : les versions publiées passent (A2026_r0 nomme l'image archivée). Le brouillon des tables se valide avec la
+  // présentation par-dessus (D76) : un champ caché qui nomme l'image archivée ne bloque rien ; une classe NOUVELLE, si.
   const exporte = (await serveur.editeur('GET', 'export')).corps;
   const fiches = { ...exporte, images: exporte.images.map(({ contenu: _, ...fiche }) => fiche) };
   assert.equal(fiches.images.filter((i) => i.usage === 'classe').length, 6);
   assert.deepEqual((await serveur.editeur('POST', 'import/valider', { export: fiches })).corps.erreurs, []);
-  const brouillonArchive = structuredClone(fiches);
-  brouillonArchive.brouillon_tables.contenu.materiaux.classes_iso = structuredClone(corrige.materiaux.classes_iso);
-  brouillonArchive.brouillon_tables.contenu.materiaux.classes_iso[1].image_chaleur = 'copeaux-m-chaleur';
-  const validation = await serveur.editeur('POST', 'import/valider', { export: brouillonArchive });
-  assert.match(validation.corps.erreurs.join('|'), /Brouillon des tables de référence : classes_iso\[1\] \(M\) : « image_chaleur » : l'image « copeaux-m-chaleur » est archivée/);
+  const cache = structuredClone(fiches);
+  cache.brouillon_tables.contenu.materiaux.classes_iso[1].image_chaleur = 'copeaux-m-chaleur';
+  assert.deepEqual((await serveur.editeur('POST', 'import/valider', { export: cache })).corps.erreurs, []);
+  const nouvelle = structuredClone(fiches);
+  nouvelle.brouillon_tables.contenu.materiaux.classes_iso.push({ code: 'X', nom: 'Nouvelle', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: 'copeaux-m-chaleur', legende_image: '', caracteristiques: [] });
+  const validation = await serveur.editeur('POST', 'import/valider', { export: nouvelle });
+  assert.match(validation.corps.erreurs.join('|'), /Brouillon des tables de référence : classes_iso\[7\] \(X\) : « image_chaleur » : l'image « copeaux-m-chaleur » est archivée/);
   // Téléverser sous l'usage classe : accepté ; le PNG de la semence est un doublon, l'existante est rendue.
   const png = readFileSync(new URL('../site/img/copeaux/copeaux-p-chaleur.png', import.meta.url));
   const doublon = await serveur.editeur('POST', 'images/televerser', { nom: 'chaleur P.png', usage: 'classe', type: 'image/png', contenu: png.toString('base64') });

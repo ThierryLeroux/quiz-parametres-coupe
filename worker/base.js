@@ -354,6 +354,47 @@ export async function listTables(db) {
   return results.map((row) => decodeJson(row, ['materiaux', 'operations']));
 }
 
+// L'identifiant de la version des tables la plus récente, sans son contenu (catalogue.js la garde en mémoire par identifiant).
+export async function findLatestTablesId(db) {
+  return (await db.prepare('SELECT id FROM tables_reference ORDER BY rowid DESC LIMIT 1').first())?.id ?? null;
+}
+
+// --- La présentation des tables en direct (E5-1, D75, D76, migration 0010) : une seule ligne, et son historique ---
+
+// La présentation enregistrée : { contenu (objet, ou null : rien d'appliqué), revision, modifiee_le, enseignant }.
+export async function findPresentation(db) {
+  const row = await db.prepare('SELECT contenu, revision, modifiee_le, enseignant FROM presentation_tables WHERE id = 1').first();
+  return { ...row, contenu: row.contenu === null ? null : JSON.parse(row.contenu) };
+}
+
+// L'historique des contenus remplacés, dans l'ordre où ils l'ont été (d'insertion), contenus décodés.
+export async function listPresentationHistory(db) {
+  const { results } = await db.prepare('SELECT * FROM presentation_tables_historique ORDER BY id').all();
+  return results.map((row) => decodeJson(row, ['contenu']));
+}
+
+export async function findPresentationHistory(db, id) {
+  return decodeJson(await db.prepare('SELECT * FROM presentation_tables_historique WHERE id = ?').bind(id).first(), ['contenu']);
+}
+
+// Applique une présentation, seulement si sa révision est encore celle qu'on a lue (D48) ; puis le contenu remplacé va
+// à l'historique et la ligne au journal, dans un même lot. La mise à jour seule décide (comme publishTables) : retourne
+// false si quelqu'un a appliqué entre-temps, et rien n'est écrit.
+//   p : { revision, contenu, remplace: { contenu, posee_le, posee_par }, action ('application', 'retablissement'), now, enseignant }
+export async function setPresentation(db, p, entry) {
+  const { meta } = await db.prepare('UPDATE presentation_tables SET contenu = ?, revision = revision + 1, modifiee_le = ?, enseignant = ? WHERE id = 1 AND revision = ?')
+    .bind(JSON.stringify(p.contenu), p.now, p.enseignant, p.revision).run();
+  if (meta.changes !== 1) return false;
+  await db.batch([historyStatement(db, { ...p.remplace, remplacee_le: p.now, remplacee_par: p.enseignant, action: p.action }), teacherLogStatement(db, entry)]);
+  return true;
+}
+
+//   h : { contenu, posee_le, posee_par, remplacee_le, remplacee_par, action }
+function historyStatement(db, h) {
+  return db.prepare('INSERT INTO presentation_tables_historique (contenu, posee_le, posee_par, remplacee_le, remplacee_par, action) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(JSON.stringify(h.contenu), h.posee_le ?? null, h.posee_par ?? null, h.remplacee_le, h.remplacee_par ?? null, h.action);
+}
+
 // Les versions des tables (sans contenu), de la plus récente à la plus ancienne, avec le nombre de
 // versions d'exercice et de brouillons d'exercice qui les utilisent (D61).
 export async function listTablesVersions(db) {
@@ -640,17 +681,25 @@ export async function listImagesWithContent(db) {
 
 // --- Sauvegarde : export complet, import par fusion (D49) ---
 
-// Tout ce que la Gestion du contenu gère : tables de référence (versions et brouillon, D61), banque, exercices
-// avec leur version de tables (D62) et toutes leurs versions.
+// Tout ce que la Gestion du contenu gère : tables de référence (versions et brouillon, D61), la présentation des tables
+// et son historique (D76), banque, exercices avec leur version de tables (D62) et toutes leurs versions.
 export async function exportEditorData(db) {
   const tables = await listTables(db);
   const draft = await findTablesDraft(db);
+  const presentation = await findPresentation(db);
+  const historique = await listPresentationHistory(db);
   const banque = await listBankTools(db);
   const exercices = await listExercises(db);
   const { results: versions } = await db.prepare('SELECT exercice_id, numero, contenu, tables_id, publiee_le FROM versions_exercice ORDER BY exercice_id, numero').all();
   return {
     tables_reference: tables.map(({ id, materiaux, operations, creee_le }) => ({ id, materiaux, operations, creee_le })),
     brouillon_tables: draft === null ? null : { contenu: draft.contenu, base_id: draft.base_id },
+    presentation_tables: {
+      contenu: presentation.contenu,
+      modifiee_le: presentation.modifiee_le,
+      enseignant: presentation.enseignant,
+      historique: historique.map(({ contenu, posee_le, posee_par, remplacee_le, remplacee_par, action }) => ({ contenu, posee_le, posee_par, remplacee_le, remplacee_par, action })),
+    },
     banque: banque.map(({ id, outil, rang, archive_le }) => ({ id, outil, rang, archive_le })),
     exercices: exercices.map(({ id, brouillon, archive_le, cree_le, publie_le, rang, tables_id }) => ({
       id, brouillon, tables_id, archive_le, cree_le, publie_le, rang,
@@ -677,6 +726,15 @@ export async function applyImport(db, plan, now, entry) {
   }
   // Les fiches d'images (nom, état d'archivage) : le contenu, lui, a voyagé à part (D59) et ne change jamais.
   for (const i of plan.images_modifiees ?? []) statements.push(db.prepare('UPDATE images SET nom = ?, archivee_le = ? WHERE id = ?').bind(i.nom, i.archivee_le, i.id));
+  // La présentation des tables (D76) : les contenus d'historique absents d'abord, puis, si elle change, la présentation
+  // de la base à l'historique (« import ») et celle de l'export à sa place ; la révision monte (un panneau ouvert ailleurs le verra).
+  const presentation = plan.presentation ?? { historique_ajoute: [], remplace: null };
+  for (const h of presentation.historique_ajoute) statements.push(historyStatement(db, h));
+  if (presentation.remplace !== null) {
+    const { avant, apres } = presentation.remplace;
+    if (avant.contenu !== null) statements.push(historyStatement(db, { contenu: avant.contenu, posee_le: avant.modifiee_le, posee_par: avant.enseignant, remplacee_le: now, remplacee_par: entry.enseignant, action: 'import' }));
+    statements.push(db.prepare('UPDATE presentation_tables SET contenu = ?, revision = revision + 1, modifiee_le = ?, enseignant = ? WHERE id = 1').bind(JSON.stringify(apres.contenu), apres.modifiee_le ?? now, apres.enseignant ?? null));
+  }
   statements.push(teacherLogStatement(db, entry));
   await db.batch(statements);
 }

@@ -86,6 +86,9 @@ export function applyPresentation(tables, presentation) {
       if (entry === undefined) return row;
       const out = { ...row };
       for (const field of fields) if (field in entry) out[field] = structuredClone(entry[field]);
+      // Un pictogramme null est le pictogramme par défaut (l'image nommée d'après l'opération) : la clé reste absente,
+      // comme dans les tables, pour que rien ne change à ce qui est servi quand la présentation est celle de la version.
+      if (list === 'operations' && out.pictogramme === null) delete out.pictogramme;
       return out;
     });
   };
@@ -139,7 +142,8 @@ export function presentationErrors(presentation, { images = null, archived = 'er
     else if (known.get(value).archivee_le && archived !== 'permis') errors.push(`${where} : « ${field} » : l'image « ${value} » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)`);
   };
   for (const list of PRESENTATION_LISTS) {
-    if (!(list in presentation)) continue;
+    // Les trois listes sont exigées : une liste absente n'effacerait pas en silence ce qui a été appliqué.
+    if (!(list in presentation)) { errors.push(`« ${list} » manque`); continue; }
     const entries = presentation[list];
     if (!Array.isArray(entries)) { errors.push(`« ${list} » doit être une liste`); continue; }
     const { key, fields } = PRESENTATION_FIELDS[list];

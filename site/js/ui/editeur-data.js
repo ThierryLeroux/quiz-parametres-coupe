@@ -493,6 +493,11 @@ export function imageUsageLabel(utilisations) {
   if (utilisations.brouillons.length > 0) parts.push(plural(utilisations.brouillons.length, 'brouillon', 'brouillons'));
   if (utilisations.banque.length > 0) parts.push(plural(utilisations.banque.length, 'outil de la banque', 'outils de la banque'));
   if (utilisations.tables.length > 0) parts.push(plural(utilisations.tables.length, 'version des tables', 'versions des tables'));
+  // La présentation en direct (D76) : actuelle, ou dans l'historique (« Rétablir » la remettrait).
+  const presentation = utilisations.presentation ?? [];
+  if (presentation.includes('actuelle')) parts.push('présentation des tables');
+  const history = presentation.filter((where) => where !== 'actuelle').length;
+  if (history > 0) parts.push(history === 1 ? 'historique de la présentation' : `historique de la présentation (${history} contenus)`);
   return parts.length === 0 ? 'jamais utilisée' : parts.join(' · ');
 }
 
@@ -571,6 +576,8 @@ export function importSummaryLines(resume) {
   return [
     `Images : ${resume.images_presentes ?? 0} déjà dans la base ; ${manquantes.length === 0 ? 'aucune à envoyer' : `${manquantes.length} à envoyer avant l'import (une par requête)`}${(resume.images_modifiees ?? []).length > 0 ? ` ; ${resume.images_modifiees.length} fiche(s) mise(s) à jour (nom, archivage)` : ''}.`,
     `Tables de référence ajoutées : ${list(resume.tables_ajoutees)}${resume.brouillon_tables ? ' ; le brouillon des tables est remplacé' : ''}.`,
+    // La présentation des tables en direct (D76) : remplacée par celle de l'export (effet immédiat pour les étudiants).
+    `Présentation des tables : ${resume.presentation_remplacee ? "remplacée par celle de l'export, avec effet immédiat pour les étudiants (l'actuelle va à l'historique)" : 'inchangée'}${(resume.presentation_historique ?? 0) > 0 ? ` ; ${resume.presentation_historique} contenu(s) ajouté(s) à son historique` : ''}.`,
     `Banque d'outils — ajoutés : ${names(b.ajoutes)} ; modifiés : ${names(b.modifies)} ; inchangés : ${b.gardes}.`,
     b.retires.length > 0
       ? `Banque d'outils — DISPARAÎTRAIENT : ${names(b.retires)}. Les copies déjà faites dans les exercices ne changent pas, mais ces outils ne pourront plus être ajoutés. Pour importer quand même, il faudra taper ${REPLACE_WORD}.`
