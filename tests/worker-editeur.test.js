@@ -352,6 +352,50 @@ test('publier : bloqué par une erreur de validation (400, erreurs jointes) ; pu
   assert.equal((await serveur.editeur('POST', 'exercice/publier', { id: M10, revision: 4 })).status, 400);
 });
 
+test('publier (D74) : un titre porté par un AUTRE exercice publié et non archivé bloque la publication, même hors de l’écran ; brouillon libre, republier le même exercice passe, un archivé ne compte pas, un doublon existant reste', async () => {
+  const serveur = await editeurDeTest();
+  const publier = (id, revision) => serveur.editeur('POST', 'exercice/publier', { id, revision });
+  const versions = async (id) => (await serveur.editeur('GET', 'exercices')).corps.exercices.find((e) => e.id === id).versions.map((v) => v.numero);
+  const publications = () => serveur.journalEnseignant().filter((l) => l.action === 'editeur_publication').length;
+
+  // Le brouillon reste libre : dupliquer, puis donner le titre du M10 publié (autre casse, espaces en trop) s'enregistre.
+  assert.equal((await serveur.editeur('POST', 'exercice/creer', { id: 'm10-bis', depuis: M10 })).status, 200);
+  const bis = await ouvrir(serveur, 'm10-bis');
+  const enDouble = await enregistrer(serveur, 'm10-bis', bis.exercice.revision, { ...bis.exercice.brouillon, titre: `  ${m10.titre.toUpperCase()}  ` });
+  assert.deepEqual([enDouble.status, enDouble.corps.erreurs], [200, []]);
+  assert.equal((await serveur.editeur('POST', 'exercice/renommer', { id: 'm10-bis', titre: m10.titre })).status, 200);
+
+  // Publier : refusé (400), le message nomme l'exercice en conflit (titre et identifiant) et dit quoi faire ; rien d'écrit.
+  const refus = await publier('m10-bis', (await ouvrir(serveur, 'm10-bis')).exercice.revision);
+  assert.equal(refus.status, 400);
+  assert.equal(refus.corps.erreur, `Publication refusée : un autre exercice publié porte déjà ce titre : « ${m10.titre} » (${M10}). Les étudiants reconnaissent un exercice à son titre : change le titre de l'un des deux, puis publie.`);
+  assert.deepEqual(refus.corps.doublons, [{ id: M10, titre: m10.titre }]);
+  assert.deepEqual([await versions('m10-bis'), publications()], [[], 0]);
+  assert.equal((await serveur.appel('POST', '/api/creation', { corps: { ...CAMILLE, exercice: 'm10-bis' } })).status, 400); // toujours inexistant pour les étudiants
+
+  // Republier le M10 lui-même ne se bloque pas : m10-bis, jamais publié, ne compte pas.
+  const page = await ouvrir(serveur, M10);
+  const coursM10 = await enregistrer(serveur, M10, page.exercice.revision, { ...page.exercice.brouillon, cours: 'M10' });
+  assert.equal((await publier(M10, coursM10.corps.revision)).status, 200);
+
+  // Un exercice archivé ne compte pas : le M10 archivé, m10-bis se publie sous ce titre.
+  assert.equal((await serveur.editeur('POST', 'exercice/archiver', { id: M10, archive: true })).status, 200);
+  const ok = await publier('m10-bis', (await ouvrir(serveur, 'm10-bis')).exercice.revision);
+  assert.deepEqual([ok.status, ok.corps.numero], [200, 1]);
+
+  // Rétablir le M10 n'est pas une publication : le doublon existe alors, et reste en place ; il bloque la prochaine
+  // publication de l'un comme de l'autre, jusqu'à ce qu'un titre change.
+  assert.equal((await serveur.editeur('POST', 'exercice/archiver', { id: M10, archive: false })).status, 200);
+  assert.deepEqual((await serveur.appel('GET', '/api/exercices')).corps.exercices.filter((e) => e.titre === m10.titre).map((e) => e.id), [M10, 'm10-bis']);
+  const m10Page = await ouvrir(serveur, M10);
+  const retouche = await enregistrer(serveur, M10, m10Page.exercice.revision, { ...m10Page.exercice.brouillon, cours: 'M-10' });
+  const bloque = await publier(M10, retouche.corps.revision);
+  assert.deepEqual([bloque.status, bloque.corps.doublons], [400, [{ id: 'm10-bis', titre: m10.titre }]]);
+  const renomme = await enregistrer(serveur, M10, retouche.corps.revision, { ...m10Page.exercice.brouillon, cours: 'M-10', titre: `${m10.titre} (1)` });
+  assert.equal((await publier(M10, renomme.corps.revision)).status, 200);
+  assert.deepEqual(await versions(M10), [3, 2, 1]);
+});
+
 // --- Aperçu (B7) ---------------------------------------------------------------------------------------------------
 
 test('aperçu : dix questions avec la nomenclature composée et les réponses attendues des grandeurs évaluées, sur le brouillon (même non enregistré) ou sur une version ; rien n’est enregistré', async () => {

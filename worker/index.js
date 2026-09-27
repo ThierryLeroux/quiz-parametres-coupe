@@ -11,7 +11,7 @@
 
 import pkg from '../package.json' with { type: 'json' };
 import { validateData, validateTables } from '../site/js/data.js';
-import { draftErrors, maskedFields } from '../site/js/exercice.js';
+import { draftErrors, maskedFields, sameTitleExercises, sameTitleRefusal } from '../site/js/exercice.js';
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
   ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PURGE_WORD, anonymizedDetails, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader,
@@ -802,7 +802,8 @@ async function editeurSupprimer(request, env, { now }) {
   return json({ supprime: true, id: record.id });
 }
 
-// POST /api/prof/editeur/exercice/publier — { id, revision } : le brouillon devient la version suivante, s'il est valide.
+// POST /api/prof/editeur/exercice/publier — { id, revision } : le brouillon devient la version suivante, s'il est valide
+// et si aucun autre exercice publié et non archivé ne porte son titre (D74).
 async function editeurPublier(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
@@ -815,6 +816,11 @@ async function editeurPublier(request, env, { now }) {
   // Une version identique à la précédente ne se publie pas (D51) : l'écran désactive déjà le bouton.
   // Un changement de version de tables est une différence (D62), même à contenu identique.
   if (latest !== null && sameContent(record.brouillon, latest.contenu) && latest.tables_id === tables.id) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${latest.numero}.`);
+  // Le titre identifie l'exercice pour les étudiants (D74) : refusé tant qu'un AUTRE exercice publié et non archivé le
+  // porte (titre de sa dernière version ; sans casse, accents ni espaces) — même si l'on contourne l'écran.
+  const titles = (await base.listPublishedExercises(env.DB)).map((row) => ({ id: row.id, titre: row.contenu.titre, archive_le: row.archive_le }));
+  const doublons = sameTitleExercises(record.brouillon.titre, titles, record.id);
+  if (doublons.length > 0) throw new HttpError(400, sameTitleRefusal(doublons), { doublons });
   const numero = (latest?.numero ?? 0) + 1;
   const published = await base.publishVersion(env.DB, { id: record.id, revision: record.revision, numero, contenu: record.brouillon, tablesId: tables.id, now: now.toISOString() },
     logEntry(teacher, now, 'editeur_publication', `${record.id} · version ${numero} · tables ${tables.id}`));

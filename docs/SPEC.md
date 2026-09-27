@@ -487,7 +487,7 @@ porte toute la sauvegarde).
 
 | Appel | Requête | Réponse |
 |---|---|---|
-| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, cours, titre_publie, cours_publie, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) ; `titre` et `cours` : ceux du brouillon, `titre_publie` et `cours_publie` : ceux de la dernière version (`null` sans version ; D71 : les cours déjà utilisés, le doublon de titre) |
+| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, cours, titre_publie, cours_publie, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) ; `titre` et `cours` : ceux du brouillon, `titre_publie` et `cours_publie` : ceux de la dernière version (`null` sans version ; D71 : les cours déjà utilisés ; D74 : le doublon de titre, jugé sur le titre publié) |
 | `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le, tables_id }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, tables_versions, derniere_tables, erreurs }` — `tables` : la version de tables du brouillon (D62), `derniere_tables` : la plus récente ; `erreurs` : celles du brouillon contre ses tables (`draftErrors`), chacune avec son `champ` ; 404 inconnu |
 | `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié, sur la version de tables la plus récente (une copie garde celle de sa source, D62) ; 400 identifiant ou titre, 409 identifiant pris |
 | `POST /api/prof/editeur/exercice/tables` | `{ id, revision, tables_id }` | `{ change: true, tables_id, revision, erreurs }` — le brouillon passe à cette version des tables (D62), `erreurs` = celles du brouillon contre elle ; 404 version inconnue, 409 révision périmée |
@@ -496,7 +496,7 @@ porte toute la sauvegarde).
 | `POST /api/prof/editeur/exercice/deplacer` | `{ id, rang, direction: "monter" \| "descendre" }` | `{ deplace: true, id, rang }` — l'ordre de la liste et de l'accueil (D51) ; `rang` est celui que l'écran a vu : 409 s'il a changé (`rang_actuel` joint) ; 400 déjà en tête ou en queue |
 | `POST /api/prof/editeur/exercice/archiver` | `{ id, archive }` | `{ archive, id }` |
 | `POST /api/prof/editeur/exercice/supprimer` | `{ id }` | `{ supprime: true, id }` — 409 s'il a des séances (archiver alors) |
-| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; 400 s'il a des erreurs (`erreurs` jointes) ou s'il est identique à la dernière version, tables comprises (D51, D62), 409 révision périmée |
+| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; 400 s'il a des erreurs (`erreurs` jointes), s'il est identique à la dernière version, tables comprises (D51, D62), ou si un **autre exercice publié et non archivé porte son titre** (D74 : titre de sa dernière version, sans casse, accents ni espaces ; `doublons: [ { id, titre } ]` joints, le message les nomme et dit de changer l'un des titres), 409 révision périmée |
 | `POST /api/prof/editeur/apercu` | `{ id, brouillon }` ou `{ id, version }` | `{ questions: [ { identifiant, outil_id, outil, operation, dimension, barre, dents, materiau_outil, materiau, reponses } ], champs_evalues }` — dix questions, rien d'enregistré (D49) ; 400 brouillon en erreur |
 | `GET /api/prof/editeur/banque` | cookie admin | `{ outils: [ { id, outil, revision, rang, archive_le, modifie_le, exercices } ], tables }` — `exercices` : ceux dont le brouillon a une copie de cet outil |
 | `GET /api/prof/editeur/tables` | cookie admin | `{ brouillon: { contenu, revision, modifie_le, base_id }, modifie, erreurs, versions: [ { id, creee_le, utilisations: { versions_exercice, brouillons } } ], derniere, suggestion }` — le brouillon des tables complété, s'il diffère de la version dont il est parti, ses erreurs (`validateTables` avec les fiches des images : une image de classe inconnue ou archivée en est une, D64), les versions de la plus récente à la plus ancienne, la révision suggérée (D61) |
@@ -596,7 +596,7 @@ Pour chaque champ :
 
 | Code | Sens |
 |---|---|
-| 400 | requête invalide : JSON illisible, exercice inconnu ou jamais publié, exercice archivé pour une nouvelle séance, identification mal formée (le message dit quoi) ; éditeur : identifiant ou titre, brouillon en erreur à la publication, mot d'import absent |
+| 400 | requête invalide : JSON illisible, exercice inconnu ou jamais publié, exercice archivé pour une nouvelle séance, identification mal formée (le message dit quoi) ; Gestion du contenu : identifiant ou titre, brouillon en erreur à la publication, titre déjà porté par un autre exercice publié et non archivé (D74), mot d'import absent |
 | 401 | NIP incorrect (reprise, correction d'identité) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau ; espace professeur : clé incorrecte, ou cookie absent, forgé ou expiré |
 | 403 | espace professeur : action réservée à la clé d'administration, refusée au rôle consultation (D44) |
 | 404 | adresse inconnue sous `/api/` ; reprise : aucune séance pour ce matricule dans cet exercice ; espace professeur : séance inconnue |
@@ -958,7 +958,7 @@ second ; `engineExercise` rend le second au moteur.
 | Clé | Obligatoire | Règle |
 |---|---|---|
 | `id` | oui | minuscules, chiffres et tirets ; **identique au nom du fichier** (sans `.json`) |
-| `titre` | oui | texte affiché à l'étudiant et au rapport ; il identifie l'exercice pour les étudiants (D71 : un doublon est signalé à la publication) |
+| `titre` | oui | texte affiché à l'étudiant et au rapport ; il identifie l'exercice pour les étudiants : deux exercices publiés et non archivés ne portent pas le même titre (D74 : la publication est refusée ; le brouillon reste libre) |
 | `cours` | non | le cours (« M10 ») : texte de 1 à 30 caractères, avec au moins une lettre ou un chiffre (D71). L'accueil regroupe les exercices par cours, par la clé `courseKey` (sans casse, accents, espaces ni ponctuation : « m10 » et « M-10 » sont « M10 ») ; absent = « Autres exercices » |
 | `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
 | `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
@@ -1070,8 +1070,13 @@ immuables. Brouillon et version ont la même forme :
 - **Publier** = copier le brouillon tel quel comme version suivante, avec **la
   version de tables du brouillon** (D62). Un brouillon identique à la dernière
   version, tables comprises, ne se publie pas (D51) ; un changement de tables est
-  une différence (« Tables de référence : « A2026_r0 » → « A2026_r1 » »). Le
-  brouillon reste, modifiable. Le serveur sert la dernière version ; une séance
+  une différence (« Tables de référence : « A2026_r0 » → « A2026_r1 » »). **Un
+  titre déjà porté par un autre exercice publié et non archivé ne se publie pas
+  non plus** (D74 : `titleKey`, `sameTitleExercises` de `exercice.js`, la même
+  règle à l'écran et sur le serveur — casse, accents et espaces ignorés ; un
+  exercice archivé ou jamais publié ne compte pas ; republier le même exercice ne
+  se bloque pas lui-même ; un doublon déjà publié reste en place et bloque la
+  prochaine publication de l'un comme de l'autre). Le brouillon reste, modifiable. Le serveur sert la dernière version ; une séance
   garde la sienne, tables comprises (§7).
 - **Rang** (D51) : chaque exercice a un rang, celui de la liste de l'éditeur et de
   l'accueil ; un exercice créé prend le dernier ; Monter / Descendre réécrivent

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { loadData } from '../site/js/data.js';
-import { GRADED_FIELD_KEYS, allowedToolMaterials, fieldsToGrade, loadExercise, validateExercise } from '../site/js/exercice.js';
+import { GRADED_FIELD_KEYS, allowedToolMaterials, fieldsToGrade, loadExercise, sameTitleExercises, sameTitleRefusal, titleKey, validateExercise } from '../site/js/exercice.js';
 import { ANSWER_FIELDS } from '../site/js/correction.js';
 
 // Vrai catalogue et vrais exercices, lus sur disque (sous Node, fetch ne lit pas les fichiers locaux).
@@ -159,4 +159,34 @@ test('loadExercise : refuse un identifiant qui n’a pas la forme d’un nom d�
 test('loadExercise : un fichier introuvable fait échouer le chargement', async () => {
   const lecteur = async (url) => { throw new Error(`Impossible de charger ${url} (HTTP 404)`); };
   await assert.rejects(loadExercise('absent', data, 'exercices/', lecteur), /Impossible de charger exercices\/absent\.json/);
+});
+
+// --- Le titre identifie l'exercice pour les étudiants (D71, D74) ------------------------------------------------------
+
+test('titleKey (D74) : sans casse, sans accents, espaces réduits à un seul et retirés aux bouts', () => {
+  assert.equal(titleKey('  M10 — Tournage :   VITESSE de coupé '), 'm10 — tournage : vitesse de coupe');
+  assert.equal(titleKey('M10 — Tournage : vitesse de coupe'), titleKey('m10 — tournage : vitesse de coupe'));
+  assert.notEqual(titleKey('M10 — Tournage'), titleKey('M10 - Tournage')); // la ponctuation compte (comparaison de D71, inchangée)
+  assert.equal(titleKey(null), '');
+});
+
+test('sameTitleExercises (D74) : les AUTRES exercices publiés et non archivés au même titre ; ni lui-même, ni un archivé, ni un jamais publié', () => {
+  const published = [
+    { id: 'm10', titre: 'M10 — Tournage : vitesse de coupe', archive_le: null },
+    { id: 'copie', titre: '  m10 — tournage :   VITESSE de coupe ', archive_le: null },
+    { id: 'archive', titre: 'M10 — Tournage : vitesse de coupe', archive_le: '2026-09-27T10:00:00Z' }, // archivé : les étudiants ne le voient plus
+    { id: 'brouillon', titre: null, archive_le: null }, // jamais publié
+    { id: 'autre', titre: 'M10 — Tournage : Vc et vitesse de rotation', archive_le: null },
+  ];
+  assert.deepEqual(sameTitleExercises('M10 — Tournage : vitesse de coupe', published, 'm10'), [{ id: 'copie', titre: '  m10 — tournage :   VITESSE de coupe ' }]);
+  assert.deepEqual(sameTitleExercises('M10 — Tournage : vitesse de coupé', published, 'nouveau').map((t) => t.id), ['m10', 'copie']); // accents ignorés
+  assert.deepEqual(sameTitleExercises('Un titre neuf', published, 'm10'), []);
+  assert.deepEqual(sameTitleExercises('', published, 'm10'), []);
+  // Republier le même exercice ne se bloque jamais lui-même.
+  assert.deepEqual(sameTitleExercises('M10 — Tournage : Vc et vitesse de rotation', published, 'autre'), []);
+});
+
+test('sameTitleRefusal (D74) : nomme l’exercice en conflit (titre et identifiant) et dit quoi faire', () => {
+  assert.equal(sameTitleRefusal([{ id: 'copie', titre: 'M10' }]), "Publication refusée : un autre exercice publié porte déjà ce titre : « M10 » (copie). Les étudiants reconnaissent un exercice à son titre : change le titre de l'un des deux, puis publie.");
+  assert.equal(sameTitleRefusal([{ id: 'a', titre: 'T' }, { id: 'b', titre: 't' }]), "Publication refusée : d'autres exercices publiés portent déjà ce titre : « T » (a), « t » (b). Les étudiants reconnaissent un exercice à son titre : change le titre de celui-ci (ou ceux des autres), puis publie.");
 });

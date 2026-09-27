@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
-  characteristicFrom, courseSpelling, filterImages, fittedSize, knownCourses, moveItem, sameTitleExercises, sameTitleWarning, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  characteristicFrom, courseSpelling, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
@@ -98,20 +98,17 @@ test('cours (D71) : les cours des autres exercices proposés, une écriture par 
   assert.deepEqual(diffLines(versionDiff({ ...avant, cours: 'M10' }, avant)), ['Cours : « M10 » → « — »']);
 });
 
-test('sameTitleExercises et sameTitleWarning (D71) : un autre exercice publié, non archivé, au même titre — sans casse, accents ni espaces — est nommé', () => {
+test('publishedTitles (D74) : la liste de la Gestion du contenu, réduite au titre publié et à l’archivage, pour sameTitleExercises', () => {
   const rows = [
-    { id: 'm10', titre_publie: 'M10 — Tournage : vitesse de coupe', archive_le: null },
-    { id: 'copie', titre_publie: '  m10 — tournage :   VITESSE de coupe ', archive_le: null },
-    { id: 'archive', titre_publie: 'M10 — Tournage : vitesse de coupe', archive_le: '2026-09-27T10:00:00Z' }, // archivé : les étudiants ne le voient plus
-    { id: 'brouillon', titre_publie: null, archive_le: null }, // jamais publié
-    { id: 'autre', titre_publie: 'M10 — Tournage : Vc et vitesse de rotation', archive_le: null },
+    { id: 'm10', titre: 'Brouillon renommé', titre_publie: 'M10 — Tournage : vitesse de coupe', archive_le: null, cours: 'M10' },
+    { id: 'brouillon', titre: 'Jamais publié', titre_publie: null, archive_le: null },
+    { id: 'archive', titre: 'X', titre_publie: 'X', archive_le: '2026-09-27T10:00:00Z' },
   ];
-  assert.deepEqual(sameTitleExercises('M10 — Tournage : vitesse de coupe', rows, 'm10'), [{ id: 'copie', titre: '  m10 — tournage :   VITESSE de coupe ' }]);
-  assert.deepEqual(sameTitleExercises('M10 — Tournage : vitesse de coupé', rows, 'nouveau').map((t) => t.id), ['m10', 'copie']); // accents ignorés
-  assert.deepEqual(sameTitleExercises('Un titre neuf', rows, 'm10'), []);
-  assert.deepEqual(sameTitleExercises('', rows, 'm10'), []);
-  assert.equal(sameTitleWarning([{ id: 'copie', titre: 'M10' }]), "Un autre exercice publié porte déjà ce titre : « M10 » (copie). Les étudiants reconnaissent un exercice à son titre : change l'un des deux.");
-  assert.match(sameTitleWarning([{ id: 'a', titre: 'T' }, { id: 'b', titre: 'T' }]), /^D'autres exercices publiés portent déjà ce titre : « T » \(a\), « T » \(b\)\./);
+  assert.deepEqual(publishedTitles(rows), [
+    { id: 'm10', titre: 'M10 — Tournage : vitesse de coupe', archive_le: null }, // le titre publié, pas celui du brouillon
+    { id: 'brouillon', titre: null, archive_le: null },
+    { id: 'archive', titre: 'X', archive_le: '2026-09-27T10:00:00Z' },
+  ]);
 });
 
 test('publishState : désactivé tant qu’il reste des erreurs ; le libellé dit combien, ou « aucune différence »', () => {

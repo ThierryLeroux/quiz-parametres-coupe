@@ -15,11 +15,11 @@ import {
   editorTables, editorTablesPreview, editorTablesPublish, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
-import { copyOfTool, draftErrors } from '../exercice.js';
+import { copyOfTool, draftErrors, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, sameTitleExercises, sameTitleWarning, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -661,13 +661,14 @@ async function showExercise(id, notice = '') {
   const dialogSlot = el('div');
   publishButton.addEventListener('click', async () => {
     if (!(await save())) return;
-    // Le titre identifie l'exercice pour les étudiants (D71) : un autre exercice publié du même titre est signalé.
+    // Le titre identifie l'exercice pour les étudiants : un autre exercice publié et non archivé du même titre bloque
+    // la publication (D74) — le serveur refuse de toute façon ; ici, le refus s'affiche et le bouton reste inactif.
     const listing = await guarded(() => editorListExercises());
     if (listing === null) return;
-    const twins = sameTitleExercises(readDraft().titre, listing.exercices, id);
+    const twins = sameTitleExercises(readDraft().titre, publishedTitles(listing.exercices), id);
     const diff = versionDiff(page.derniere_version?.contenu ?? null, readDraft(), { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id });
     const numero = (page.derniere_version?.numero ?? 0) + 1;
-    const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
+    const confirm = el('button', { class: 'button button--gold', type: 'button', disabled: twins.length > 0, onclick: async () => {
       confirm.disabled = true;
       try {
         const result = await guarded(() => editorPublish(id, revision));
@@ -682,9 +683,9 @@ async function showExercise(id, notice = '') {
     dialogSlot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
       el('div', { class: 'eyebrow' }, 'Confirmation'),
       el('h2', {}, `Publier la version ${numero} de « ${readDraft().titre} » ?`),
+      ...(twins.length > 0 ? [el('p', { class: 'small avis-doublon', role: 'alert' }, sameTitleRefusal(twins))] : []),
       el('p', { class: 'small' }, page.derniere_version === null ? "Première publication : l'exercice devient accessible aux étudiants par son lien." : `Différences avec la version ${page.derniere_version.numero} :`),
       el('ul', { class: 'editeur-diff' }, diffLines(diff).map((line) => el('li', {}, line))),
-      ...(twins.length > 0 ? [el('p', { class: 'small avis-doublon', role: 'alert' }, sameTitleWarning(twins))] : []),
       ...(deducibleWarnings(readDraft()).length > 0 ? [
         el('p', { class: 'small' }, "Avertissement, sans effet sur la publication : une grandeur à trouver se déduit des grandeurs fournies."),
         el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft()).map((line) => el('li', {}, line))),
