@@ -448,7 +448,7 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 |---|---|---|
 | `GET /api/version` | — | `{ version }` (celle de `package.json`) |
 | `GET /api/exercice?exercice=<id>[&version=<n>]` | — | `{ exercice, tables, version, archive }` — la dernière version publiée de l'exercice (ou la version `n`, celle d'une séance) : l'exercice au format du moteur avec ses copies d'outils (chacune avec `reussites_requises`), les deux tables de référence, le numéro, et si l'exercice est archivé ; 400 inconnu ou jamais publié, 404 version inconnue (D47) |
-| `GET /api/exercices` | — | `{ exercices: [ { id, titre } ] }` — la liste de l'accueil (D18) : publiés, non archivés, sans `"liste": false` |
+| `GET /api/exercices` | — | `{ exercices: [ { id, titre, cours, nombre_outils, champs_evalues } ] }` — la liste de l'accueil (D18, D71) : publiés, non archivés, sans `"liste": false`, dans l'ordre des rangs ; `cours` (`null` sans cours), le nombre d'outils et les grandeurs évaluées tels que la dernière version les publie |
 | `GET /api/tables?version=<id>` | — | `{ tables: { id, creee_le, materiaux, operations } }` — une version publiée des tables, complétée (D63 : la page `/tables?version=`) ; 404 inconnue |
 | `GET /images/<id>` | — | l'image (pas du JSON) : photo d'outil ou pictogramme (D56), avec son type exact, `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=31536000, immutable`, `ETag` (304 si `If-None-Match` correspond) et, pour un SVG, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` (D57) ; une image archivée est servie ; 404 sinon |
 | `POST /api/consultation` | `{ exercice, matricule }` | `{ trouvee: false }`, ou `{ trouvee: true, prenom, initiale }` — **rien d'autre ne sort** |
@@ -481,7 +481,7 @@ porte toute la sauvegarde).
 
 | Appel | Requête | Réponse |
 |---|---|---|
-| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) |
+| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, cours, titre_publie, cours_publie, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) ; `titre` et `cours` : ceux du brouillon, `titre_publie` et `cours_publie` : ceux de la dernière version (`null` sans version ; D71 : les cours déjà utilisés, le doublon de titre) |
 | `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le, tables_id }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, tables_versions, derniere_tables, erreurs }` — `tables` : la version de tables du brouillon (D62), `derniere_tables` : la plus récente ; `erreurs` : celles du brouillon contre ses tables (`draftErrors`), chacune avec son `champ` ; 404 inconnu |
 | `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié, sur la version de tables la plus récente (une copie garde celle de sa source, D62) ; 400 identifiant ou titre, 409 identifiant pris |
 | `POST /api/prof/editeur/exercice/tables` | `{ id, revision, tables_id }` | `{ change: true, tables_id, revision, erreurs }` — le brouillon passe à cette version des tables (D62), `erreurs` = celles du brouillon contre elle ; 404 version inconnue, 409 révision périmée |
@@ -951,7 +951,8 @@ second ; `engineExercise` rend le second au moteur.
 | Clé | Obligatoire | Règle |
 |---|---|---|
 | `id` | oui | minuscules, chiffres et tirets ; **identique au nom du fichier** (sans `.json`) |
-| `titre` | oui | texte affiché à l'étudiant et au rapport |
+| `titre` | oui | texte affiché à l'étudiant et au rapport ; il identifie l'exercice pour les étudiants (D71 : un doublon est signalé à la publication) |
+| `cours` | non | le cours (« M10 ») : texte de 1 à 30 caractères, avec au moins une lettre ou un chiffre (D71). L'accueil regroupe les exercices par cours, par la clé `courseKey` (sans casse, accents, espaces ni ponctuation : « m10 » et « M-10 » sont « M10 ») ; absent = « Autres exercices » |
 | `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
 | `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
 | `champs_masques` | non | grandeurs **masquées** (D52) : « — » à l'écran, sans valeur, jamais envoyée au navigateur ; liste non vide, sans doublon, disjointe de `champs_evalues`. Absente = aucune |
@@ -1020,6 +1021,7 @@ immuables. Brouillon et version ont la même forme :
 ```json
 {
   "titre": "M10 — Tournage : vitesse de coupe",
+  "cours": "M10",
   "champs_evalues": ["vc"],
   "materiaux_outil": ["Acier rapide", "Insert de carbure de tungstène"],
   "groupes": ["P - Acier non allié"],
@@ -1034,8 +1036,9 @@ immuables. Brouillon et version ont la même forme :
 }
 ```
 
-- `champs_masques`, `materiaux_outil`, `groupes` et `liste` sont facultatifs, avec le
-  même sens que dans le fichier d'exercice ; `titre`, `champs_evalues` et `outils` sont
+- `cours`, `champs_masques`, `materiaux_outil`, `groupes` et `liste` sont facultatifs, avec le
+  même sens que dans le fichier d'exercice — le cours est **publié avec la version**, comme le titre
+  (D71 : les versions semées n'en ont pas) ; `titre`, `champs_evalues` et `outils` sont
   obligatoires ; la **version** n'est pas dans le contenu : c'est le numéro attribué
   à la publication.
 - Chaque entrée d'`outils` est une **copie complète** d'un outil (toutes les clés

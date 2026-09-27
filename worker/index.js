@@ -220,10 +220,20 @@ async function exercice(request, env) {
   return json(exerciseView(await loadVersion(env.DB, version.id), latest.archived));
 }
 
-// GET /api/exercices — la liste de l'accueil (D18) : publiés, non archivés, sans « liste »: false.
+// GET /api/exercices — la liste de l'accueil (D18) : publiés, non archivés, sans « liste »: false, dans l'ordre des
+// rangs (D51). Chacun avec son cours (D71 : l'accueil les regroupe), son nombre d'outils et ses grandeurs évaluées,
+// tels que sa dernière version les publie.
 async function exercices(request, env) {
   const rows = await base.listPublishedExercises(env.DB);
-  return json({ exercices: rows.filter((row) => row.archive_le === null && row.contenu.liste !== false).map((row) => ({ id: row.id, titre: row.contenu.titre })) });
+  return json({
+    exercices: rows.filter((row) => row.archive_le === null && row.contenu.liste !== false).map((row) => ({
+      id: row.id,
+      titre: row.contenu.titre,
+      cours: row.contenu.cours ?? null,
+      nombre_outils: row.contenu.outils.length,
+      champs_evalues: row.contenu.champs_evalues,
+    })),
+  });
 }
 
 // --- Identification en deux temps (D23) ------------------------------------------------------------------
@@ -652,6 +662,11 @@ async function editeurExercices(request, env, { now }) {
       id: row.id,
       rang: row.rang,
       titre: row.brouillon.titre,
+      // Le cours du brouillon et ce que la dernière version publie (D71) : les cours déjà utilisés, et les titres que
+      // voient les étudiants (un doublon est signalé à la publication).
+      cours: row.brouillon.cours ?? null,
+      titre_publie: row.contenu_publie?.titre ?? null,
+      cours_publie: row.contenu_publie?.cours ?? null,
       modifie: row.contenu_publie === null || !sameContent(row.brouillon, row.contenu_publie),
       derniere_version: row.derniere_version,
       publie_le: row.publie_le,

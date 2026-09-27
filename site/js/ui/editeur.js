@@ -19,7 +19,7 @@ import { copyOfTool, draftErrors } from '../exercice.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, characteristicFrom, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -161,6 +161,7 @@ async function showList(notice = '') {
     return el('tr', {}, [
       el('td', { class: 'num' }, String(row.rang)),
       el('td', {}, el('button', { class: 'button-link', type: 'button', onclick: open }, row.titre)),
+      el('td', {}, row.cours ?? '—'),
       el('td', { class: 'mono' }, row.id),
       el('td', { class: row.archive_le !== null ? 'state--running' : (row.modifie ? '' : 'state--done') }, exerciseState(row)),
       el('td', { class: 'date' }, versionLabel(row)),
@@ -188,7 +189,7 @@ async function showList(notice = '') {
     el('p', { class: 'muted small' }, "Les étudiants voient la dernière version publiée de chaque exercice ; une séance commencée garde sa version jusqu'à la fin. Le brouillon ne change rien tant qu'il n'est pas publié. L'ordre de cette liste (↑ ↓) est celui de l'accueil des étudiants."),
     status,
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table' }, [
-      el('thead', {}, el('tr', {}, ['Rang', 'Titre', 'Identifiant', 'État', 'Dernière version', 'Séances', "À l'accueil", 'Actions'].map((label) => el('th', { class: label === 'Rang' ? 'num' : null }, label)))),
+      el('thead', {}, el('tr', {}, ['Rang', 'Titre', 'Cours', 'Identifiant', 'État', 'Dernière version', 'Séances', "À l'accueil", 'Actions'].map((label) => el('th', { class: label === 'Rang' ? 'num' : null }, label)))),
       el('tbody', {}, rows),
     ])),
     el('p', { class: 'muted smaller prof-count' }, `${rows.length} exercice${rows.length > 1 ? 's' : ''}.`),
@@ -460,9 +461,16 @@ async function showExercise(id, notice = '') {
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const generalErrors = el('ul', { class: 'editeur-erreurs' });
   const draft = page.exercice.brouillon;
+  // Les autres exercices : leurs cours (proposés dans le champ Cours, D71) et leurs outils (ajout depuis un autre exercice).
+  const others = ((await guarded(() => editorListExercises())) ?? { exercices: [] }).exercices.filter((row) => row.id !== id);
 
   // Réglages généraux.
   const titre = el('input', { id: 'titre', type: 'text', autocomplete: 'off', value: draft.titre ?? '' });
+  // Le cours (D71) : les cours déjà utilisés sont proposés ; écrit autrement qu'ailleurs (« m10 » pour « M10 »),
+  // un conseil sous le champ offre l'écriture existante. L'accueil regroupe par cours.
+  const courses = knownCourses(others);
+  const cours = el('input', { id: 'cours', type: 'text', autocomplete: 'off', list: 'cours-connus', value: draft.cours ?? '' });
+  const courseAdvice = el('div', { class: 'cours-conseil', 'aria-live': 'polite' });
   const fieldsChoice = fieldStateChoice(draft);
   // Grandeurs déductibles : un avertissement sous les états, sans effet sur Publier ; rafraîchi par validate().
   const warningsList = el('ul', { class: 'avertissements', id: 'grandeurs-deductibles' });
@@ -472,18 +480,23 @@ async function showExercise(id, notice = '') {
   const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: (group) => groupSwatch(group, tables.materiaux), buttons: true });
   const listed = el('input', { id: 'liste', type: 'checkbox', checked: draft.liste !== false });
   const settings = {
-    titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation.", 'field--half'),
+    titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation ; il identifie l'exercice pour les étudiants.", 'field--half'),
+    cours: field('cours', 'Cours', cours, "Ex. M10 : l'accueil regroupe les exercices par cours ; vide, sous « Autres exercices ». Publié avec la version."),
     champs_evalues: field('champs_evalues', 'Grandeurs : évaluée (à saisir), fournie (valeur montrée) ou masquée (« — », sans valeur)', el('div', {}, [fieldsChoice.element, warningsList]), 'Au moins une grandeur évaluée. Une grandeur masquée compte comme fournie pour la cohérence de Vf.', 'field--wide'),
     materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice", materialsChoice.element, 'Tout coché = aucune restriction ; se croise avec les matières de chaque outil.', 'field--wide'),
     groupes: field('groupes', 'Groupes de matériaux usinés permis pour tout l\'exercice', groupsChoice.element, 'Tout coché = aucune restriction ; se croise avec les groupes de chaque outil.', 'field--wide'),
     liste: field('liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'liste' }, el('li', {}, el('label', { for: 'liste' }, [listed, 'oui (sinon, joignable seulement par son lien)']))), ''),
   };
 
+  settings.cours.element.insertBefore(el('datalist', { id: 'cours-connus' }, courses.map((course) => el('option', { value: course }))), settings.cours.noteEl);
+  settings.cours.element.insertBefore(courseAdvice, settings.cours.noteEl);
+
   const toolsSlot = el('div');
   let forms = [];
 
   function readDraft() {
-    const out = { titre: titre.value.trim(), ...fieldsChoice.read(), outils: forms.map((f) => f.read()) };
+    const course = cours.value.trim();
+    const out = { titre: titre.value.trim(), ...(course === '' ? {} : { cours: course }), ...fieldsChoice.read(), outils: forms.map((f) => f.read()) };
     const materials = materialsChoice.read();
     if (materials.length !== toolMaterials.length) out.materiaux_outil = materials;
     const groups = groupsChoice.read();
@@ -520,6 +533,11 @@ async function showExercise(id, notice = '') {
     });
     generalErrors.replaceChildren(...(map.get('') ?? []).map((message) => el('li', {}, message)));
     warningsList.replaceChildren(...deducibleWarnings(current).map((line) => el('li', {}, line)));
+    const spelling = courseSpelling(cours.value, courses);
+    courseAdvice.replaceChildren(...(spelling === null ? [] : [
+      `Même cours que « ${spelling} », écrit autrement dans un autre exercice. `,
+      el('button', { class: 'button-link', type: 'button', onclick: () => { cours.value = spelling; cours.dispatchEvent(new Event('input', { bubbles: true })); } }, `Écrire « ${spelling} »`),
+    ]));
     const ps = publishState(errors, versionDiff(page.derniere_version?.contenu ?? null, current, { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id }));
     publishButton.disabled = !ps.enabled;
     publishButton.textContent = ps.label;
@@ -597,7 +615,6 @@ async function showExercise(id, notice = '') {
   } }, 'Ajouter depuis la banque');
 
   // Ajouter depuis un autre exercice : le brouillon de l'autre, chargé à la demande.
-  const others = ((await guarded(() => editorListExercises())) ?? { exercices: [] }).exercices.filter((row) => row.id !== id);
   const otherSelect = el('select', { id: 'ajout-exercice' }, [el('option', { value: '' }, '(choisir un exercice)'), ...others.map((row) => el('option', { value: row.id }, row.titre))]);
   const otherToolSelect = el('select', { id: 'ajout-exercice-outil' }, [el('option', { value: '' }, '—')]);
   let otherCopies = [];

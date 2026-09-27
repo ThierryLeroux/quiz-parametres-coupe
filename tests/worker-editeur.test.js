@@ -98,6 +98,25 @@ test('chaque action de l’éditeur est inscrite au journal des actions, avec l�
 
 // --- Liste des exercices (B2) ------------------------------------------------------------------------------------
 
+test('cours (D71) : enregistré avec le brouillon, validé, publié avec la version ; la liste de l’éditeur dit celui du brouillon et celui de la dernière version', async () => {
+  const serveur = await editeurDeTest();
+  const page = await ouvrir(serveur, M10);
+  const trop = await enregistrer(serveur, M10, page.exercice.revision, { ...page.exercice.brouillon, cours: 'x'.repeat(31) });
+  assert.deepEqual(trop.corps.erreurs.map((e) => e.champ), ['cours']); // enregistré même en erreur, comme toujours
+  assert.equal((await serveur.editeur('POST', 'exercice/publier', { id: M10, revision: trop.corps.revision })).status, 400);
+  const bon = await enregistrer(serveur, M10, trop.corps.revision, { ...page.exercice.brouillon, cours: 'M10' });
+  assert.deepEqual(bon.corps.erreurs, []);
+  const ligne = async () => (await serveur.editeur('GET', 'exercices')).corps.exercices.find((e) => e.id === M10);
+  assert.deepEqual([(await ligne()).cours, (await ligne()).cours_publie, (await ligne()).modifie], ['M10', null, true]); // une différence à publier
+  assert.equal((await serveur.appel('GET', '/api/exercices')).corps.exercices[0].cours, null); // pas avant la publication
+  assert.equal((await serveur.editeur('POST', 'exercice/publier', { id: M10, revision: bon.corps.revision })).status, 200);
+  assert.deepEqual([(await ligne()).cours_publie, (await ligne()).modifie], ['M10', false]);
+  assert.equal((await serveur.appel('GET', '/api/exercices')).corps.exercices[0].cours, 'M10');
+  // L'export le porte avec le brouillon et la version (contenu JSON) : rien à ajouter à la sauvegarde.
+  const exporte = (await serveur.editeur('GET', 'export')).corps.exercices.find((e) => e.id === M10);
+  assert.deepEqual([exporte.brouillon.cours, exporte.versions.at(-1).contenu.cours], ['M10', 'M10']);
+});
+
 test('liste des exercices : état du brouillon, dernière version, séances par version ; dupliquer, renommer, archiver, supprimer', async () => {
   const serveur = await editeurDeTest();
   await commencer(serveur);
@@ -124,6 +143,9 @@ test('liste des exercices : état du brouillon, dernière version, séances par 
   assert.deepEqual((await serveur.editeur('POST', 'exercice/renommer', { id: M10, titre: '  M10 — renommé ' })).corps, { renomme: true, titre: 'M10 — renommé' });
   const renomme = (await serveur.editeur('GET', 'exercices')).corps.exercices.find((e) => e.id === M10);
   assert.deepEqual([renomme.titre, renomme.modifie], ['M10 — renommé', true]);
+  // D71 : la liste dit aussi le titre publié (le doublon se juge sur lui) et les cours, du brouillon et publié.
+  assert.deepEqual([renomme.titre_publie, renomme.cours, renomme.cours_publie], [m10.titre, null, null]);
+  assert.deepEqual([copie.titre_publie, copie.cours, copie.cours_publie], [null, null, null]);
   assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.titre, m10.titre);
   assert.equal((await serveur.editeur('POST', 'exercice/renommer', { id: M10, titre: ' ' })).status, 400);
 

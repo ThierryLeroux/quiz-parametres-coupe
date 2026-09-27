@@ -639,7 +639,25 @@ test('GET /api/exercice et /api/exercices (D47) : la dernière version publiée 
   assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.titre, 'M10 (v2)');
   assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}&version=1`)).corps.exercice.titre, m10.titre);
   serveur.publierExercice({ ...ESSAI, liste: false });
-  assert.deepEqual((await serveur.appel('GET', '/api/exercices')).corps.exercices, index.exercices.filter((e) => e.id !== 'test-complet').map((e) => ({ ...e, titre: e.id === M10 ? 'M10 (v2)' : e.titre })));
+  const liste = (await serveur.appel('GET', '/api/exercices')).corps.exercices;
+  assert.deepEqual(liste.map((e) => ({ id: e.id, titre: e.titre })), index.exercices.filter((e) => e.id !== 'test-complet').map((e) => ({ ...e, titre: e.id === M10 ? 'M10 (v2)' : e.titre })));
+  // D71 : chacun avec son cours (aucun pour les M10 semés), son nombre d'outils et ses grandeurs évaluées.
+  assert.deepEqual(liste.map((e) => [e.cours, e.nombre_outils, e.champs_evalues]), [[null, 9, ['vc']], [null, 11, ['vc', 'n']]]);
+});
+
+test('GET /api/exercices (D71) : le cours publié avec la version — tel qu’écrit : l’accueil regroupe par sa clé ; celui du brouillon ne compte pas avant la publication', async () => {
+  const serveur = serveurDeTest();
+  serveur.publierExercice({ ...m10, cours: 'M10' });
+  serveur.publierExercice({ ...ESSAI, cours: 'm-10' });
+  const cours = async () => (await serveur.appel('GET', '/api/exercices')).corps.exercices.map((e) => [e.id, e.cours]);
+  assert.deepEqual(await cours(), [[M10, 'M10'], ['m10-tournage-vc-rpm', null], ['essai-percage', 'm-10']]);
+  // Le brouillon change de cours : l'accueil ne le voit qu'à la publication suivante.
+  const brouillon = JSON.parse(serveur.db.sqlite.prepare('SELECT brouillon FROM exercices WHERE id = ?').get(M10).brouillon);
+  serveur.db.sqlite.prepare('UPDATE exercices SET brouillon = ? WHERE id = ?').run(JSON.stringify({ ...brouillon, cours: 'M20' }), M10);
+  assert.deepEqual((await cours())[0], [M10, 'M10']);
+  // La page d'un exercice (description) reçoit le cours avec l'exercice.
+  assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.cours, 'M10');
+  assert.equal((await serveur.appel('GET', '/api/exercice?exercice=m10-tournage-vc-rpm')).corps.exercice.cours, undefined);
 });
 
 // --- Identification en deux temps et correction d'identité (D23) ------------------------------------------------

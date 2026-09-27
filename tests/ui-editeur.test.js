@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
-  characteristicFrom, filterImages, fittedSize, moveItem, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  characteristicFrom, courseSpelling, filterImages, fittedSize, knownCourses, moveItem, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
@@ -74,6 +74,28 @@ test('versionDiff et diffLines : première publication ; réglages, outils ajout
   const reordonne = brouillon();
   [reordonne.outils[0], reordonne.outils[1]] = [reordonne.outils[1], reordonne.outils[0]];
   assert.deepEqual(diffLines(versionDiff(avant, reordonne)), ["L'ordre des outils a changé."]);
+});
+
+test('cours (D71) : les cours des autres exercices proposés, une écriture par cours ; un cours écrit autrement reçoit l’écriture existante en conseil ; la différence à la publication', () => {
+  const rows = [
+    { id: 'a', cours: 'M10', cours_publie: 'M10' },
+    { id: 'b', cours: 'm-10', cours_publie: null }, // même cours que « M10 », écrit autrement : une seule entrée
+    { id: 'c', cours: null, cours_publie: 'M20' }, // le brouillon n'en a plus, la version publiée si
+    { id: 'd', cours: null, cours_publie: null },
+    { id: 'page', cours: 'M30', cours_publie: null }, // l'exercice de la page lui-même
+  ];
+  assert.deepEqual(knownCourses(rows, 'page'), ['M10', 'M20']);
+  assert.deepEqual(knownCourses([]), []);
+  const connus = knownCourses(rows, 'page');
+  assert.equal(courseSpelling('m10', connus), 'M10');
+  assert.equal(courseSpelling(' M-10 ', connus), 'M10');
+  assert.equal(courseSpelling('M10', connus), null); // déjà la même écriture
+  assert.equal(courseSpelling('M40', connus), null); // un cours nouveau
+  assert.equal(courseSpelling('', connus), null);
+  // La confirmation de publication le dit, comme un réglage.
+  const avant = { titre: 'T', champs_evalues: ['vc'], outils: [] };
+  assert.deepEqual(diffLines(versionDiff(avant, { ...avant, cours: 'M10' })), ['Cours : « — » → « M10 »']);
+  assert.deepEqual(diffLines(versionDiff({ ...avant, cours: 'M10' }, avant)), ['Cours : « M10 » → « — »']);
 });
 
 test('publishState : désactivé tant qu’il reste des erreurs ; le libellé dit combien, ou « aucune différence »', () => {

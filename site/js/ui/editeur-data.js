@@ -6,7 +6,7 @@
 
 import { TEMPLATE_TOKENS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
-import { COPY_KEYS, GRADED_FIELD_KEYS } from '../exercice.js';
+import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey } from '../exercice.js';
 import { formatDateStamp } from './text.js';
 
 // Les grandeurs, dans l'ordre de l'écran, avec leur libellé court.
@@ -114,6 +114,33 @@ export function sessionsLabel(row) {
 // Le lien à donner aux étudiants sur Léa.
 export const studentLink = (origin, id) => `${origin}/?exercice=${encodeURIComponent(id)}`;
 
+// --- Le cours d'un exercice (D71) -------------------------------------------------------------------------------
+
+// Les cours que les AUTRES exercices utilisent (brouillon ou dernière version publiée), un par cours — la première
+// écriture rencontrée dans l'ordre des rangs —, pour la liste que le champ Cours propose.
+//   rows : la liste de l'éditeur (GET /api/prof/editeur/exercices) ; exceptId : l'exercice de la page
+export function knownCourses(rows, exceptId = null) {
+  const seen = new Map();
+  for (const row of rows) {
+    if (row.id === exceptId) continue;
+    for (const course of [row.cours, row.cours_publie]) {
+      if (typeof course !== 'string' || courseKey(course) === '') continue;
+      if (!seen.has(courseKey(course))) seen.set(courseKey(course), course.trim());
+    }
+  }
+  return [...seen.values()];
+}
+
+// Le cours tapé est-il un cours déjà utilisé, écrit autrement (« m10 », « M-10 » quand un autre exercice a
+// « M10 ») ? Retourne l'écriture existante, à proposer sous le champ, ou null (même écriture, cours nouveau, vide).
+// L'accueil regroupe de toute façon par la clé : ce n'est qu'un conseil, pour garder une seule écriture.
+export function courseSpelling(typed, known) {
+  const text = String(typed ?? '').trim();
+  if (courseKey(text) === '') return null;
+  const match = known.find((course) => courseKey(course) === courseKey(text));
+  return match === undefined || match === text ? null : match;
+}
+
 // Les textes de confirmation.
 export const archiveConfirmation = (row) => `Archiver « ${row.titre} » ? Il disparaît de la liste de l'accueil et aucune nouvelle séance ne peut être commencée ; les séances en cours continuent, et les attestations restent vérifiables. Il pourra être rétabli.`;
 export const deleteConfirmation = (row) => `Supprimer « ${row.titre} » (${row.id}) ? Aucune séance ne s'y rattache : le brouillon et ses versions disparaissent, sans retour.`;
@@ -135,6 +162,7 @@ const text = (value) => {
 function settingsDiff(before, after) {
   const compare = [
     ['titre', 'Titre', (d) => d.titre],
+    ['cours', 'Cours', (d) => d.cours ?? '—'],
     ['champs_evalues', 'Grandeurs', (d) => fieldStatesText(d)],
     ['materiaux_outil', "Matières d'outil permises", (d) => listText(d.materiaux_outil)],
     ['groupes', 'Groupes de matériaux permis', (d) => listText(d.groupes)],

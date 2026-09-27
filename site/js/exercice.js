@@ -16,11 +16,29 @@ export const GRADED_FIELD_KEYS = {
 };
 
 const EXERCISE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/; // minuscules, chiffres et tirets : c'est aussi le nom du fichier
-const EXERCISE_KEYS = ['id', 'titre', 'version', 'champs_evalues', 'champs_masques', 'outils', 'liste', 'materiaux_outil', 'groupes'];
+const EXERCISE_KEYS = ['id', 'titre', 'cours', 'version', 'champs_evalues', 'champs_masques', 'outils', 'liste', 'materiaux_outil', 'groupes'];
 const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes'];
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
+
+// --- Le cours d'un exercice (D71) --------------------------------------------------------------------------
+// Facultatif (« M10 ») : l'accueil regroupe les exercices par cours. Publié avec la version, comme le titre.
+export const COURSE_MAX = 30;
+
+// La clé d'un cours, pour reconnaître un même cours écrit autrement : sans casse, sans accents, sans espaces ni
+// ponctuation — « M10 », « m10 », « M-10 », « M 10 » → « M10 ». L'accueil regroupe par cette clé.
+export const courseKey = (text) => String(text ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+// Les erreurs d'un cours : absent, rien à dire ; sinon un texte de 1 à COURSE_MAX caractères, avec au moins une
+// lettre ou un chiffre (sa clé ne doit pas être vide : « -- » ne regrouperait rien).
+export function courseErrors(course) {
+  if (course === undefined) return [];
+  if (!isText(course)) return ['Le cours doit être un texte non vide (ou être absent : sans cours).'];
+  if (course.trim().length > COURSE_MAX) return [`Le cours a ${course.trim().length} caractères (au plus ${COURSE_MAX}).`];
+  if (courseKey(course) === '') return ['Le cours doit contenir au moins une lettre ou un chiffre.'];
+  return [];
+}
 
 // Une clé inconnue est une erreur : « dimension » pour « dimensions » lèverait sinon la
 // restriction en silence. Les clés qui commencent par « _ » sont des commentaires.
@@ -75,6 +93,7 @@ export function validateExercise(exercise, data) {
   // « index » est réservé : index.json est la liste des exercices, pas un exercice.
   if (!isText(exercise.id) || !EXERCISE_ID.test(exercise.id) || exercise.id === 'index') errors.push(`${where} : « id » doit être fait de minuscules, de chiffres et de tirets (ex. « m10-tournage-vc »)`);
   if (!isText(exercise.titre)) errors.push(`${where} : « titre » est vide`);
+  for (const message of courseErrors(exercise.cours)) errors.push(`${where} : ${message}`);
   if (!isText(exercise.version)) errors.push(`${where} : « version » doit être un texte non vide (ex. « r0 »)`);
   // « liste »: false retire l'exercice de la liste de l'accueil (D30) ; il reste joignable par « ?exercice=<id> ».
   if (exercise.liste !== undefined && typeof exercise.liste !== 'boolean') errors.push(`${where} : « liste » doit être true ou false (ou absente : l'exercice est listé)`);
@@ -129,13 +148,13 @@ export function validateExercise(exercise, data) {
 // Depuis le jalon 7, un exercice ne référence plus les outils du catalogue : il porte ses propres
 // COPIES, indépendantes de la banque d'outils. Modifier la banque ne change aucun exercice.
 // Le brouillon d'un exercice et chacune de ses versions publiées ont cette forme :
-//   { titre, champs_evalues, materiaux_outil?, groupes?, liste?, outils: [copie, …] }
+//   { titre, cours?, champs_evalues, materiaux_outil?, groupes?, liste?, outils: [copie, …] }
 // où une copie est un outil au format d'outils.json (TOOL_KEYS), plus `reussites_requises` et,
 // à titre d'information, `origine` (l'id de l'outil de la banque dont elle vient).
 // Ses dimensions, ses matières et ses groupes SONT ce que l'exercice permet : plus de restrictions
 // par outil (elles s'appliquent en retirant de la copie), seules restent celles de tout l'exercice.
 
-export const DRAFT_KEYS = ['titre', 'champs_evalues', 'champs_masques', 'materiaux_outil', 'groupes', 'liste', 'outils'];
+export const DRAFT_KEYS = ['titre', 'cours', 'champs_evalues', 'champs_masques', 'materiaux_outil', 'groupes', 'liste', 'outils'];
 export const COPY_KEYS = [...TOOL_KEYS, 'reussites_requises', 'origine'];
 
 // La copie d'un outil du catalogue pour un exercice, avec les restrictions d'une entrée
@@ -160,6 +179,7 @@ export function copyOfTool(tool, entry = {}) {
 // ainsi que la semence de la base (migration 0005) et les tests convertissent les exercices JSON.
 export function draftFromExercise(exercise, tools) {
   const draft = { titre: exercise.titre, champs_evalues: [...exercise.champs_evalues] };
+  if (exercise.cours !== undefined) draft.cours = exercise.cours;
   if (exercise.champs_masques) draft.champs_masques = [...exercise.champs_masques];
   if (exercise.materiaux_outil) draft.materiaux_outil = [...exercise.materiaux_outil];
   if (exercise.groupes) draft.groupes = [...exercise.groupes];
@@ -179,6 +199,7 @@ export function draftFromExercise(exercise, tools) {
 export function engineExercise(id, version, draft) {
   const tools = draft.outils.map(({ reussites_requises: _r, origine: _o, ...tool }) => tool);
   const exercise = { id, titre: draft.titre, version: String(version), champs_evalues: draft.champs_evalues, outils: draft.outils.map((copy) => ({ id: copy.id, reussites_requises: copy.reussites_requises })) };
+  if (draft.cours !== undefined) exercise.cours = draft.cours;
   if (draft.champs_masques) exercise.champs_masques = draft.champs_masques;
   if (draft.materiaux_outil) exercise.materiaux_outil = draft.materiaux_outil;
   if (draft.groupes) exercise.groupes = draft.groupes;
@@ -202,6 +223,7 @@ export function draftErrors(draft, tables) {
   const toolMaterials = toolMaterialNames(tables?.materiaux); // les matières que cette version des tables offre (D61)
 
   if (!isText(draft.titre)) error('titre', 'Le titre est vide.');
+  for (const message of courseErrors(draft.cours)) error('cours', message);
   if (draft.liste !== undefined && typeof draft.liste !== 'boolean') error('liste', '« liste » doit être true ou false');
   const fields = Array.isArray(draft.champs_evalues) ? draft.champs_evalues : [];
   if (fields.length === 0) error('champs_evalues', 'Au moins une grandeur doit être évaluée.');

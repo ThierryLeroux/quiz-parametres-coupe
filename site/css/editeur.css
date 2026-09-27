@@ -99,6 +99,10 @@
 .choices-actions .button-link { min-height: 32px; font-size: var(--text-xs); }
 
 /* Grandeurs déductibles : avertissement doré, non bloquant, sous les états et dans la confirmation. */
+/* Le cours écrit autrement qu'ailleurs (« m10 » pour « M10 », D71) : un conseil doré sous le champ, avec l'écriture existante. */
+.cours-conseil { margin-top: var(--space-1); color: var(--color-gold); font-size: var(--text-sm); }
+.cours-conseil:empty { display: none; }
+
 .avertissements { margin: var(--space-2) 0 0; padding-left: var(--space-5); color: var(--color-gold); font-size: var(--text-sm); }
 .avertissements:empty { display: none; }
 .avertissements li { margin: var(--space-1) 0; }

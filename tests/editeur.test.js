@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TOOL_KEYS, toolErrors } from '../site/js/data.js';
-import { COPY_KEYS, DRAFT_KEYS, copyOfTool, draftErrors, draftFromExercise, engineExercise } from '../site/js/exercice.js';
+import { COPY_KEYS, COURSE_MAX, DRAFT_KEYS, copyOfTool, courseErrors, courseKey, draftErrors, draftFromExercise, engineExercise, validateExercise } from '../site/js/exercice.js';
 import { EXPORT_FORMAT, IMPORT_WORD, REPLACE_WORD, cleanDraft, cleanTool, freeId, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent } from '../worker/editeur.js';
 import { aleaAGraine, data, lireFichier } from './aide.js';
 
@@ -184,4 +184,37 @@ test('importPlan : format exigé ; tables, banque, exercices et versions compar�
   assert.match(importPlan(invalide, existant, outils).erreurs[0], /version 2 : outils\.0\.fact_vc/);
   assert.match(importPlan({ ...recu, banque: [] }, existant, outils).erreurs[0], /banque d'outils de l'export est vide/);
   assert.match(importPlan({ ...recu, banque: [recu.banque[0], recu.banque[0]] }, existant, outils).erreurs[0], /en double/);
+});
+
+// --- Le cours d'un exercice (D71) --------------------------------------------------------------------------------
+
+test('courseKey (D71) : un même cours écrit autrement a la même clé — sans casse, accents, espaces ni ponctuation', () => {
+  assert.deepEqual(['M10', 'm10', 'M-10', ' M 10 ', 'm.10'].map(courseKey), ['M10', 'M10', 'M10', 'M10', 'M10']);
+  assert.equal(courseKey('Électricité 2'), 'ELECTRICITE2');
+  assert.notEqual(courseKey('M10'), courseKey('M20'));
+  assert.equal(courseKey('--'), '');
+  assert.equal(courseKey(undefined), '');
+});
+
+test('cours d’un exercice (D71) : facultatif, 1 à 30 caractères avec une lettre ou un chiffre ; gardé du fichier au brouillon et au moteur', () => {
+  assert.deepEqual(courseErrors(undefined), []);
+  assert.deepEqual(courseErrors('M10'), []);
+  assert.deepEqual(courseErrors('x'.repeat(COURSE_MAX)), []);
+  assert.match(courseErrors('x'.repeat(COURSE_MAX + 1))[0], /31 caractères \(au plus 30\)/);
+  assert.match(courseErrors('   ')[0], /texte non vide/);
+  assert.match(courseErrors(10)[0], /texte non vide/);
+  assert.match(courseErrors('--')[0], /au moins une lettre ou un chiffre/);
+  // Le brouillon : la clé « cours » est connue (DRAFT_KEYS), une erreur nomme le champ « cours ».
+  assert.ok(DRAFT_KEYS.includes('cours'));
+  const brouillon = draftFromExercise({ ...m10, cours: 'M10' }, data.outils);
+  assert.equal(brouillon.cours, 'M10');
+  assert.equal(draftFromExercise(m10, data.outils).cours, undefined); // les M10 semés n'en ont pas
+  assert.deepEqual(draftErrors(brouillon, tables), []);
+  assert.deepEqual(draftErrors({ ...brouillon, cours: '' }, tables).map((e) => e.champ), ['cours']);
+  assert.deepEqual(cleanDraft({ ...brouillon, autre: 1 }).cours, 'M10');
+  // Le moteur le reçoit (la page de description le montre) ; le fichier d'exercice l'accepte, validé de même.
+  assert.equal(engineExercise('m10', 1, brouillon).exercise.cours, 'M10');
+  assert.equal(engineExercise('m10', 1, draftFromExercise(m10, data.outils)).exercise.cours, undefined);
+  assert.deepEqual(validateExercise({ ...m10, cours: 'M10' }, data), []);
+  assert.match(validateExercise({ ...m10, cours: '' }, data).join(' '), /cours/);
 });

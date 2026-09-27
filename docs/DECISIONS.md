@@ -1882,9 +1882,13 @@ un exercice avant de le donner.
 5. **Le cours d'un exercice** : clé `cours` du contenu (brouillon et versions), texte facultatif de 1 à 30
    caractères, **publié avec la version** comme le titre et « proposé à l'accueil » (les deux M10 semés n'en ont pas :
    Thierry publie une version avec « M10 »). Dans l'éditeur, un champ **Cours** propose les cours déjà utilisés
-   (brouillons et dernières versions) ; à la sortie du champ, un cours qui ne diffère d'un cours existant que par la
-   casse, les accents, les espaces ou la ponctuation prend l'écriture existante (« m10 », « M-10 » → « M10 ») ;
-   l'accueil regroupe par cette même clé (`courseKey`). Différence à la publication : « Cours : « — » → « M10 » ».
+   par les autres exercices (brouillons et dernières versions, une écriture par cours) ; un cours qui ne diffère
+   d'un cours existant que par la casse, les accents, les espaces ou la ponctuation (« m10 », « M-10 » quand un
+   autre a « M10 ») fait paraître sous le champ un conseil doré avec un bouton **Écrire « M10 »** — un conseil et
+   non un remplacement d'office, pour qu'on puisse encore changer l'écriture d'un cours ; **l'accueil regroupe de
+   toute façon par cette clé** (`courseKey`), sous l'écriture du premier exercice dans l'ordre des rangs : jamais
+   trois groupes. Colonne **Cours** dans la liste des exercices de l'éditeur. Différence à la publication :
+   « Cours : « — » → « M10 » ».
 6. **Page de description d'un exercice** (`?exercice=<id>`, le lien diffusé sur Léa, qui continue de fonctionner) :
    elle remplace l'accueil d'un exercice et en garde tout (titre, version, résumé, Commencer / Reprendre, avis
    d'archivage), plus : un bouton **« ← Tous les exercices »** — une simple navigation vers l'accueil, qui ne crée, ne
