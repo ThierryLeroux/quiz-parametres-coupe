@@ -1787,11 +1787,9 @@ de fraisage et de perçage à valider. Réponses de Thierry, point par point.
    - **2 dents et plus, fz masquée, vide ou illisible** : valeur théorique, tolérance de fz reportée (D69,
      inchangé).
 
-   ❓ La consigne demandait aussi un test « barre à aléser, fz « 0.0060 », f +1 % → refusée ». La barre à aléser
-   n'a qu'une dent et son avance est **proportionnelle** : la règle ci-dessus la juge à ±25 %, au plus
-   ±0,001 po, soit [0.005 ; 0.007] pour 0.006 — f +1 % (0.00606) y est **acceptée**. La règle est appliquée telle
-   qu'écrite ; le test suit la règle, et la question est remontée à Thierry (rapport, « Réponses aux points
-   douteux »).
+   Barre à aléser (une dent, avance proportionnelle), fz « 0.0060 », f +1 % : le test demandé la voulait refusée ;
+   il contredisait la règle, et **la règle est gardée** (Thierry, 2026-09-27) : à une dent, f = fz, même
+   tolérance que fz — ±25 %, au plus ±0,001 po —, et f +1 % est acceptée.
 2. **Demi-unité de f dans la cohérence : la plus large des deux (D13), pas la somme.** Avec référence = fz ×
    dents, l'intervalle est [min(plus petit produit × (1 − 0,1 %), référence − demi-unité de f) ; max(plus grand
    produit × (1 + 0,1 %), référence + demi-unité de f)], les produits étant pris sur la plage (fz ± demi-unité
@@ -1801,9 +1799,10 @@ de fraisage et de perçage à valider. Réponses de Thierry, point par point.
 4. **Aides de fz et de N, dimension métrique** (foret métrique, MCLNR, tarauds et filets métriques) : rappeler
    que le Ø se met en pouces (mm / 25.4), **seulement quand la dimension tirée est métrique**. Une dimension est
    métrique si sa valeur est un filet « Ø x pas » en mm, ou si son libellé est en mm — la règle qui distinguait
-   déjà les outils de même nom (UI §3.3). Lecture retenue (❓, dans le rapport) : le rappel du Ø va à l'aide de
-   N, et à celle de fz quand fz dépend du Ø (avance proportionnelle) ; pour un filet, fz est le pas, et l'aide
-   dit « pas en pouces : mm / 25.4 » en métrique, « 1 / filets au pouce » en impérial.
+   déjà les outils de même nom (UI §3.3). Lecture confirmée par Thierry (2026-09-27) : le rappel du Ø va à
+   l'aide de N, et à celle de fz quand fz dépend du Ø (avance proportionnelle) — **pas** à l'aide de fz d'un filet
+   ni d'une avance fixe ; pour un filet, fz est le pas, et l'aide dit « pas en pouces : mm / 25.4 » en métrique,
+   « 1 / filets au pouce » en impérial.
 5. **Ligne de calcul d'un filetage** : elle montre la conversion, à partir du **pas de la question** et non de
    la saisie — « fz = pas = 4.5 mm / 25.4 = 0.17717 » en métrique, « fz = pas = 1 / 20 = 0.05000 » en impérial.
    À une dent, la ligne de f reprend de même la valeur théorique de fz, sur laquelle f est jugée.
@@ -1827,3 +1826,11 @@ large des deux), `gradeAnswers(…, masked)`, `toleranceLabel(…, { teeth })` ;
 les grandeurs masquées, `correctionView` et la ligne de calcul d'un filet ; `data.js` : `isMetricDimension`,
 `pitchFormula` ; `rules.js` : `helpLine(…, metric)`, `questionIsMetric` ; un script `npm run` pour `test-complet` ;
 SPEC §6 ; UI §3.3, §3.4 ; DEMARRAGE §7 ; tests. Précise D69 (f à une dent, fz fournie, demi-unité de f).
+
+**Complément (2026-09-27) — d'où vient la valeur attendue.** Quand la valeur attendue d'un champ **jugé juste**
+vient de la cohérence avec les saisies de l'étudiant — f d'après son fz × dents, Vf d'après ses N et f —, la note
+sous le champ le dit au lieu d'« attendu » : « Juste (0.000284 = ton fz × 2) », « Juste (3048.000 = ton N × ta
+f) » ; si un seul des deux facteurs de Vf est le sien, « N × ta f » ou « ton N × f ». Un champ faux garde « Faux —
+attendu … ». Le serveur joint à chaque champ corrigé `coherence` (`null`, ou les grandeurs saisies dont la valeur
+attendue est faite : `{ saisies: ['fz'], dents: 2 }`, `{ saisies: ['n', 'f'] }`) ; le texte est une règle
+d'affichage pure (`coherenceSource`, `fieldResultNote`, `text.js`). SPEC §7 ; UI §3.4.

@@ -160,16 +160,11 @@ test('D70 : barre à aléser (1 dent, avance proportionnelle) — f jugée à ±
   assert.deepEqual([BARRE.teeth, BARRE.feedType, BARRE.feedPerToothCapped, formatParameters(BARRE).feedPerRev], [1, 'proportional', true, '0.0060']);
   const f = (saisie) => uneDent(BARRE, '0.0060', saisie).fields.feedPerRev;
   assert.deepEqual(f('0.0070'), { ok: true, value: 0.007, min: 0.005, max: 0.007 }); // ±25 % = ±0.0015, borné à ±0.001
-  assert.equal(f('0.00606').ok, true); // f +1 % : dans la tolérance de fz de la famille (voir le ❓ ci-dessous)
+  assert.equal(f('0.00606').ok, true); // f +1 % : à une dent, f = fz, même tolérance que fz (D70 : la règle est gardée)
   assert.equal(f('0.0071').ok, false);
   // fz saisie fausse et f qui la recopie : f jugée sur 0.006, refusée
   assert.equal(uneDent(BARRE, '0.0080', '0.0080').fields.feedPerRev.ok, false);
 });
-
-// ❓ D70 : la consigne demandait « barre à aléser, fz « 0.0060 », f +1 % → refusée ». La barre n'a qu'une dent et son avance est
-// proportionnelle : la règle de D70 (à une dent, la tolérance de fz de la famille, ±25 % au plus ±0.001 po) l'accepte. Question
-// remontée à Thierry (rapport avances.md) ; à trancher avant de changer la règle ou ce test.
-test.todo('❓ D70 : barre à aléser, fz « 0.0060 », f +1 % → refusée (contredit la règle à une dent en avance proportionnelle)');
 
 test('D70 : une dent, fz fournie (avance fixe et filetage) → f à ±0,1 % de la valeur théorique (et la ½ unité de f, D13)', () => {
   // Filetage : 0.125 × 0.999 et × 1.001 (plus large que ±0.000005)
