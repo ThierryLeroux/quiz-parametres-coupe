@@ -2,6 +2,7 @@
 // des données ou de l'étudiant passe par des nœuds de texte, jamais par du HTML.
 
 import { colorVariables } from '../tables.js';
+import { decimalPoint, decimalPointInValues } from './text.js';
 
 // Crée un élément.
 //   attrs    : attributs HTML ; « onclick », « onsubmit »… branchent un écouteur ;
@@ -26,6 +27,30 @@ export function applyTableColors(materiaux) {
   for (const [name, value] of colorVariables({ classesIso: materiaux?.classes_iso, toolMaterials: materiaux?.materiaux_outil })) {
     document.documentElement.style.setProperty(name, value);
   }
+}
+
+// La virgule décimale (D10, D71) : acceptée à la saisie, remplacée par un point À LA SORTIE du champ — jamais
+// pendant la frappe, pour que le curseur ne saute pas (téléphone réglé en français, dont le clavier numérique
+// n'a qu'une virgule). Les champs décimaux sont des champs texte (`inputmode="decimal"`), jamais
+// type="number", qui effacerait « 0,15 » dans un navigateur réglé en anglais.
+// Retourne true si le champ a changé ; il annonce alors un événement « input », comme une frappe, pour que
+// la page relise sa valeur (validation de l'éditeur). Un champ en lecture seule n'est pas touché.
+//   un champ `inputmode="decimal"` : toute sa valeur ; une zone `data-decimal="valeurs"` (« libellé ; valeur »
+//   par ligne, les dimensions de l'éditeur) : la valeur de chaque ligne seulement
+export function pointDecimalComma(field) {
+  if (!field || field.readOnly || typeof field.value !== 'string') return false;
+  let next = null;
+  if (field.getAttribute('inputmode') === 'decimal') next = decimalPoint(field.value);
+  else if (field.dataset?.decimal === 'valeurs') next = decimalPointInValues(field.value);
+  if (next === null || next === field.value) return false;
+  field.value = next;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
+
+// Une seule écoute par page, posée sur <main> au démarrage : chaque champ décimal qu'on quitte.
+export function convertDecimalCommas(root) {
+  root.addEventListener('focusout', (event) => pointDecimalComma(event.target));
 }
 
 // Remplace le contenu de <main> par un écran, met à jour la barre du haut et le titre de l'onglet,

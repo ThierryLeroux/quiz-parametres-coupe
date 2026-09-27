@@ -8,13 +8,14 @@ import { clearSession, loadSession, saveSession } from '../session.js';
 import { renderAttestation, renderAttestationError } from './attestation-screen.js';
 import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
-import { applyTableColors } from './dom.js';
+import { applyTableColors, convertDecimalCommas } from './dom.js';
 import { renderQuestion } from './question-screen.js';
 import { createReference } from './reference-screen.js';
 import { toolLabels } from './rules.js';
 import { identificationErrorMessage, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
+convertDecimalCommas(main); // une virgule tapée devient un point à la sortie du champ (D71)
 
 let exercise; // exercice demandé par l'adresse — la dernière version publiée, puis celle de la séance (D47)
 let data; // catalogue (assembleData) : feuilles de référence, aide contextuelle

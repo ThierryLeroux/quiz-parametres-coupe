@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, coherenceSource, correctionBanner, fieldInSentence, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
+  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, coherenceSource, correctionBanner, decimalPoint, decimalPointInValues, fieldInSentence, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
   localDate, serverErrorMessage, sheetSignature, studentLine,
 } from '../site/js/ui/text.js';
 import { loadExercise } from '../site/js/exercice.js';
@@ -146,6 +146,23 @@ test('correctionBanner : bonne réponse, compteur qui retombe, compteur qui rest
   assert.equal(correctionBanner({ reussie: false, outil: { nom: 'MVLNR', avant: 2, apres: 0 } }, 3), 'Question ratée — le compteur de MVLNR retombe à zéro (2 → 0).');
   assert.equal(correctionBanner({ reussie: false, outil: { nom: 'MVLNR', avant: 0, apres: 0 } }, 3), 'Question ratée — le compteur de MVLNR reste à zéro.');
   assert.equal(correctionBanner({ reussie: false, outil: { nom: 'SDTMR', avant: 0, apres: 0 } }, 1, 'SDTMR (métrique)'), 'Question ratée — le compteur de SDTMR (métrique) reste à zéro.');
+});
+
+test('decimalPoint (D71) : la virgule tapée devient un point ; rien d’autre ne change', () => {
+  assert.equal(decimalPoint('0,15'), '0.15');
+  assert.equal(decimalPoint(' 1,600 '), ' 1.600 '); // « 1,600 » vaut 1.6 (UI §7) ; les espaces restent, le serveur les ignore
+  assert.equal(decimalPoint('0.15'), '0.15');
+  assert.equal(decimalPoint('1,2,3'), '1.2.3'); // illisible avant, illisible après : le serveur le dira
+  assert.equal(decimalPoint('abc'), 'abc');
+  assert.equal(decimalPoint(''), '');
+  assert.equal(decimalPoint(undefined), '');
+});
+
+test('decimalPointInValues (D71) : dans les dimensions de l’éditeur, la valeur après le dernier « ; » seulement', () => {
+  assert.equal(decimalPointInValues('Ø 1,5 mm ; 0,059\nM10 x 1.5 ; 10x1,5\n1/4- 20 UNC ; 0.25-20'), 'Ø 1,5 mm ; 0.059\nM10 x 1.5 ; 10x1.5\n1/4- 20 UNC ; 0.25-20');
+  assert.equal(decimalPointInValues('sans valeur, ni point-virgule'), 'sans valeur, ni point-virgule'); // le libellé reste tel quel
+  assert.equal(decimalPointInValues('a ; b ; 0,5\r\nc ; 1,25'), 'a ; b ; 0.5\r\nc ; 1.25');
+  assert.equal(decimalPointInValues(''), '');
 });
 
 test('studentLine', () => {

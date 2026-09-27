@@ -5,7 +5,7 @@
 // Tout ce qui est affiché vient du serveur (SPEC §7) ; ce qu'on montre et quand est décidé par
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
-import { el, showScreen } from './dom.js';
+import { el, pointDecimalComma, showScreen } from './dom.js';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
 import { classFeatures, classImages, heatImageMaxWidth, operationPicto, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
@@ -203,7 +203,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     el('button', { class: 'button-outline', type: 'button', onclick: fill }, 'Remplir'),
   ]);
   if (expected !== null) fill();
-  const reminder = el('p', { class: 'muted smaller form-reminder' }, `Point décimal, sans séparateur de milliers : 2496 · 0.005  ·  ${toolStreak(seance.progression, question.outil.id)}`);
+  const reminder = el('p', { class: 'muted smaller form-reminder' }, `Point décimal (une virgule devient un point), sans séparateur de milliers : 2496 · 0.005  ·  ${toolStreak(seance.progression, question.outil.id)}`);
   // Rappel et message du serveur à gauche, « Vérifier » à droite, sur la même ligne (maquette 03).
   const actionsRow = el('div', { class: 'form-actions' }, [el('div', { class: 'form-notes' }, [reminder, status]), checkButton]);
   const progressSlot = el('div', { class: 'question-side' }, progressPanel(seance.progression, labels, { currentId: question.outil.id }));
@@ -240,6 +240,8 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     if (checkButton.disabled) return; // un seul clic : le serveur ne corrige une question qu'une fois
     checkButton.disabled = true;
     status.textContent = '';
+    // Entrée ne quitte pas la case : la virgule devient un point ici aussi, à l'écran, avant l'envoi (D71).
+    Object.values(inputs).forEach(pointDecimalComma);
     const answers = Object.fromEntries(question.champs.filter((champ) => champ.evalue).map(({ champ }) => [champ, inputs[champ].value]));
     const result = await actions.onCheck(answers);
     if (result === null) return;

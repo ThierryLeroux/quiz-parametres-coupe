@@ -17,7 +17,7 @@ import {
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors } from '../exercice.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
-import { applyTableColors, el, showScreen } from './dom.js';
+import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
   archiveConfirmation, canDeleteImage, characteristicFrom, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
@@ -26,6 +26,7 @@ import { classFeatures, classImages, imageUrl } from './sheets-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
+convertDecimalCommas(main); // une virgule tapée devient un point à la sortie d'un champ décimal (D71)
 const TITLE = 'Éditeur des exercices';
 
 // Un identifiant libre parmi ceux pris : « mvlnr », « mvlnr_2 »…
@@ -290,9 +291,9 @@ function toolForm(tool, ctx) {
     commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
     image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées ; « Téléverser » réduit la photo dans le navigateur avant l'envoi (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence).", 'field--wide'),
     format_identifiant: field('format_identifiant', 'Gabarit de nomenclature', template, "Le nom affiché dans la question : du texte et des jetons entre crochets, remplacés au tirage. Les boutons insèrent au curseur les jetons permis pour cet outil.", 'field--wide'),
-    dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
+    dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', 'data-decimal': 'valeurs', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
       'Valeur : Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte : « 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 ».', 'field--half'),
-    dimensions_barre: field('dimensions_barre', 'Barres (outil à deux diamètres) : libellé ; Ø en pouces', el('textarea', { id: `${p}-barres`, spellcheck: 'false' }, dimensionsText(tool.dimensions_barre)),
+    dimensions_barre: field('dimensions_barre', 'Barres (outil à deux diamètres) : libellé ; Ø en pouces', el('textarea', { id: `${p}-barres`, spellcheck: 'false', 'data-decimal': 'valeurs' }, dimensionsText(tool.dimensions_barre)),
       'Vide = un seul diamètre. Sinon, avance proportionnelle au Ø de la barre ; N avec le Ø usiné.'),
     rapport_barre_max: field('rapport_barre_max', 'Rapport Ø barre / Ø usiné maximal', numberInput(`${p}-rapport`, tool.rapport_barre_max), 'Ex. 0.75 : une barre entre si Ø barre ≤ 0.75 × Ø usiné.'),
     nb_dents_min: field('nb_dents_min', 'Dents, minimum', numberInput(`${p}-dents-min`, tool.nb_dents_min), 'Le nombre de dents est tiré entre les deux.'),

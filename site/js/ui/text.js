@@ -97,6 +97,23 @@ export function newSessionNotice(matricule) {
   return `Nouvelle séance pour le matricule ${matricule}. Vérifie-le : il figurera sur ton rapport et te servira à reprendre l'exercice sur un autre appareil.`;
 }
 
+// --- Virgule décimale (D10, D71) ----------------------------------------------------------------------------
+// Le point est le séparateur affiché ; une virgule tapée est acceptée et devient un point, visiblement, à la
+// sortie du champ ou à la validation — jamais pendant la frappe (dom.js). Rien d'autre ne change : le serveur
+// juge ce qui est écrit, et lit la virgule de toute façon.
+
+// Tout le champ : « 0,15 » → « 0.15 ».
+export const decimalPoint = (text) => String(text ?? '').replaceAll(',', '.');
+
+// Une zone « libellé ; valeur » par ligne (les dimensions de l'éditeur) : la valeur seulement, après le dernier
+// « ; » — « Ø 1,5 mm ; 0,059 » → « Ø 1,5 mm ; 0.059 », « M10 x 1.5 ; 10x1,5 » → « M10 x 1.5 ; 10x1.5 ».
+export function decimalPointInValues(text) {
+  return String(text ?? '').split('\n').map((line) => {
+    const at = line.lastIndexOf(';');
+    return at < 0 ? line : `${line.slice(0, at + 1)}${decimalPoint(line.slice(at + 1))}`;
+  }).join('\n');
+}
+
 // --- Écran Question (UI §3.3, §3.4) ---------------------------------------------------------------------
 // Les fonctions ci-dessous reçoivent ce que renvoie le serveur (SPEC §7). Les règles d'affichage
 // plus riches (outil, matériau, aide, progression) sont dans rules.js.
@@ -154,7 +171,7 @@ export function fieldResultNote(champ) {
   if (champ.masque) return 'non demandée';
   if (!champ.evalue) return "fourni par l'exercice";
   if (!champ.ok) return `Faux — attendu ${champ.attendu}`;
-  const typed = champ.saisie.replace(/\s/g, '').replace(',', '.');
+  const typed = decimalPoint(champ.saisie.replace(/\s/g, ''));
   if (typed === champ.attendu) return 'Juste';
   const source = coherenceSource(champ.champ, champ.coherence);
   return source === null ? `Juste (${champ.attendu} attendu)` : `Juste (${champ.attendu} = ${source})`;
