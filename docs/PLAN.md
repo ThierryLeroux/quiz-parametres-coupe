@@ -174,7 +174,8 @@ Rapport de session : `docs/rapports/avances.md`.
 - [x] Ligne de calcul d'un filetage : la conversion du pas de la question (« fz = pas = 4.5 mm / 25.4 = 0.17717 », « fz = pas = 1 / 20 = 0.05000 »)
 - [x] `npm run publier:test-complet` : test-complet sur la base locale, refuse `--remote` ; DEMARRAGE §7
 - [x] Chrome, mode test, 1280 et 390 px (huit outils visés, test-complet publié par le script pendant que wrangler dev tourne) ; captures dans `captures/avances-d70/`
-- [ ] ❓ **Thierry** : « barre à aléser, f +1 % → refusée » contredit la règle à une dent en avance proportionnelle (±25 %, au plus ±0,001 po) — trancher (test `todo` dans `tests/correction.test.js`)
+- [x] Barre à aléser, f +1 % : le test demandé contredisait la règle à une dent ; la règle est gardée (D70), le test `todo` retiré ; lecture des aides des filets confirmée
+- [x] **D'où vient la valeur attendue** (D70, complément) : « Juste (0.000284 = ton fz × 2) », « Juste (3048.000 = ton N × ta f) » quand elle vient de la cohérence avec les saisies ; `coherence` dans chaque champ corrigé, `coherenceSource` (`text.js`)
 - [ ] **Thierry** : publier l'exercice de tournage (perçage au tour compris) dans l'éditeur ; micro-forets écartés par ses dimensions (à partir de Ø 1/16 po : #52 et plus gros, 1.6 mm et plus)
 - [ ] **Thierry, en production, par l'éditeur** : ajouter deux fraises à surfacer de 3 po, à 5 et à 7 dents (fz = 0,004 × 3 = 0,012 → 0,010) ; puis publier l'exercice de fraisage
 

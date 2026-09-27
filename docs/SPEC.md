@@ -565,12 +565,19 @@ qu'avec la correction, une fois la réponse donnée. Toute nouvelle donnée ajou
 à `seance.question` se juge à cette règle.
 
 `correction` : `{ reussie, outil: { id, nom, avant, apres }, champs: [ { champ,
-evalue, ok, saisie, attendu, tolerance, ecart_pct, calcul } ] }`, montrée après
+evalue, ok, saisie, attendu, tolerance, ecart_pct, calcul, coherence } ] }`, montrée après
 la correction (`UI.md` §3.4) ; `avant` et `apres` sont le compteur de l'outil.
 Pour chaque champ :
 
 - `attendu` : la valeur théorique mise en forme — sauf pour **Vf**, où c'est
   *N × f* **avec les N et f saisis** (D15) : c'est sur elle que Vf est jugée ;
+  et pour **f** jugée par cohérence, *fz × dents* avec le fz saisi, ou affiché
+  s'il est fourni (§6, D69, D70) ;
+- `coherence` (D70, complément) : `null`, ou les grandeurs **saisies** dont
+  `attendu` est fait, pour que l'écran le dise (« = ton fz × 2 ») — f :
+  `{ saisies: ['fz'], dents: 2 }` ; Vf : `{ saisies: ['n', 'f'] }`, ou un seul des
+  deux (l'autre fourni, masqué, vide ou illisible). Un fz fourni n'est pas une
+  saisie : `coherence` est alors `null` ;
 - pour un champ évalué : `tolerance`, en clair et écrite à partir des constantes
   mêmes de la correction (« exacte », « ±5 % », « de −90 % à +0.1 % »,
   « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ») ; `ecart_pct`, l'écart de
