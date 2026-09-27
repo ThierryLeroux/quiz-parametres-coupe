@@ -7,7 +7,7 @@
 // il n'existe qu'en un exemplaire.
 
 import { computeParameters } from '../site/js/calcul.js';
-import { ANSWER_FIELDS, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
+import { ANSWER_FIELDS, coherentFeedPerTooth, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
 import { fieldsToGrade, maskedFields } from '../site/js/exercice.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools, isComplete, recordResult } from '../site/js/progression.js';
@@ -91,7 +91,7 @@ export function cleanAnswers(answers) {
 //   counters : les nouveaux compteurs (réussites consécutives, D12)
 export function gradeQuestion(question, answers, counters, exercise, data) {
   const expected = computeParameters(question, data);
-  const correction = gradeAnswers(expected, answers, fieldsToGrade(exercise));
+  const correction = gradeAnswers(expected, answers, fieldsToGrade(exercise), maskedFields(exercise));
   const progress = recordResult(progressOf(counters, exercise), question.tool.id, correction.success);
   return {
     success: correction.success,
@@ -197,8 +197,8 @@ function calculationLine(field, question, expected, shown, tool, operation) {
 // La correction, prête à afficher (UI §3.4). Pour chaque champ : juste ou faux, la saisie, la valeur
 // attendue, et — pour un champ évalué — la tolérance en clair, l'écart en % et le calcul en une ligne.
 // Pour Vf, la valeur attendue est N × f AVEC les N et f saisis (cohérence interne, D15), pas la
-// valeur théorique : c'est sur elle que Vf a été jugée. De même pour f, fz saisi × dents quand fz a été
-// saisi et lu (D69) ; sinon la valeur théorique.
+// valeur théorique : c'est sur elle que Vf a été jugée. De même pour f, à partir de deux dents, fz × dents — fz
+// saisi et lu, ou fz affiché quand il est fourni (D69, D70) ; sinon la valeur théorique.
 //   before : compteur de l'outil avant cette correction (« le compteur retombe à zéro (2 → 0) »)
 //   masked : les champs masqués de l'exercice (D52, maskedFields) — sans valeur attendue, et « — » dans les calculs
 export function correctionView(question, answers, result, before, counters, data, masked = []) {
@@ -209,14 +209,17 @@ export function correctionView(question, answers, result, before, counters, data
   // Comme gradeAnswers : seule la saisie d'un champ évalué compte ; un champ non saisi prend sa valeur théorique.
   const evaluated = (field) => result.fields[field].min !== null;
   const typed = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, evaluated(field) ? parseAnswer(answers[field]) : null]));
-  const coherentFeed = evaluated('feedPerRev') && typed.feedPerTooth !== null;
+  // Le fz avec lequel f a été jugée par cohérence, comme dans gradeAnswers ; null : sur la valeur théorique.
+  const coherentFz = evaluated('feedPerRev') ? coherentFeedPerTooth(expected, answers, ANSWER_FIELDS.filter(evaluated), masked) : null;
   const reference = {
     ...expected,
-    feedPerRev: coherentFeed ? typed.feedPerTooth * question.teeth : expected.feedPerRev,
+    feedPerRev: coherentFz !== null ? coherentFz * question.teeth : expected.feedPerRev,
     feedRate: evaluated('feedRate') ? (typed.rpm ?? expected.rpm) * (typed.feedPerRev ?? expected.feedPerRev) : expected.feedRate,
   };
   const displayed = formatParameters(reference);
   const shown = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, masked.includes(field) ? '—' : (typed[field] === null ? displayed[field] : answers[field].replace(',', '.'))]));
+  // La ligne de f reprend le fz sur lequel f a été jugée : à une dent, ou fz vide, la valeur théorique (D70).
+  if (coherentFz === null && !masked.includes('feedPerTooth')) shown.feedPerTooth = displayed.feedPerTooth;
 
   return {
     reussie: result.success,
@@ -231,7 +234,7 @@ export function correctionView(question, answers, result, before, counters, data
         ok: result.fields[field].ok,
         saisie: answers[field],
         attendu: displayed[field],
-        tolerance: graded ? toleranceLabel(expected.feedType, field, { coherence: field === 'feedPerRev' && coherentFeed }) : null,
+        tolerance: graded ? toleranceLabel(expected.feedType, field, { coherence: field === 'feedPerRev' && coherentFz !== null, teeth: question.teeth }) : null,
         ecart_pct: gap === null ? null : Number((gap * 100).toFixed(1)),
         calcul: graded ? calculationLine(field, question, expected, shown, tool, operation) : null,
       };

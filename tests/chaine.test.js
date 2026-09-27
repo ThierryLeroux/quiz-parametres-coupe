@@ -40,9 +40,10 @@ test('toutes les combinaisons : la réponse théorique arrondie comme à l’aff
   assert.deepEqual(echecs.slice(0, 10), [], `${echecs.length} échecs (10 premiers)`);
 });
 
-// D69 : f est jugée sur le fz saisi × dents. L'étudiant qui multiplie le fz qu'il a écrit (arrondi comme à
-// l'affichage) par le nombre de dents, puis arrondit le produit ou non, réussit — quel que soit l'outil.
-test('toutes les combinaisons : f = fz affiché × dents, arrondie ou non, réussit la correction (D69)', () => {
+// D69, D70 : à partir de deux dents, f est jugée sur le fz saisi × dents ; à une dent, sur la valeur théorique.
+// L'étudiant qui multiplie le fz qu'il a écrit (arrondi comme à l'affichage) par le nombre de dents, puis arrondit
+// le produit ou non, réussit — quel que soit l'outil.
+test('toutes les combinaisons : f = fz affiché × dents, arrondie ou non, réussit la correction (D69, D70)', () => {
   const echecs = [];
   for (const question of toutesLesQuestions()) {
     const attendu = computeParameters(question, data);
@@ -56,16 +57,20 @@ test('toutes les combinaisons : f = fz affiché × dents, arrondie ou non, réus
   assert.deepEqual(echecs.slice(0, 10), [], `${echecs.length} échecs (10 premiers)`);
 });
 
-// D69 : fz fournie ou masquée → f jugée sur la valeur théorique, avec la tolérance de fz reportée. La f affichée,
-// et celle qu'on obtient du fz affiché × dents, réussissent.
-test('toutes les combinaisons : fz non saisie, la f affichée et le fz affiché × dents réussissent (D69, tolérance reportée)', () => {
+// D69, D70 : fz fournie → f jugée sur le fz affiché × dents (à partir de deux dents) ; fz masquée → sur la valeur
+// théorique, avec la tolérance de fz reportée. Dans les deux cas, la f affichée, et celle qu'on obtient du fz
+// affiché × dents, arrondie ou non, réussissent.
+test('toutes les combinaisons : fz fournie ou masquée, la f affichée et le fz affiché × dents réussissent (D69, D70)', () => {
   const echecs = [];
   for (const question of toutesLesQuestions()) {
     const attendu = computeParameters(question, data);
     const affiche = formatParameters(attendu);
-    for (const f of [affiche.feedPerRev, enDecimal(Number(affiche.feedPerTooth) * question.teeth)]) {
-      const r = gradeAnswers(attendu, { feedPerRev: f }, ['feedPerRev']).fields.feedPerRev;
-      if (!r.ok) echecs.push(`${question.displayId} | « ${f} » ∉ [${r.min} ; ${r.max}]`);
+    const produit = Number(affiche.feedPerTooth) * question.teeth;
+    for (const f of [affiche.feedPerRev, enDecimal(produit), formatParameters({ ...attendu, feedPerRev: produit }).feedPerRev]) {
+      for (const [etat, masques] of [['fournie', []], ['masquée', ['feedPerTooth']]]) {
+        const r = gradeAnswers(attendu, { feedPerRev: f }, ['feedPerRev'], masques).fields.feedPerRev;
+        if (!r.ok) echecs.push(`${question.displayId} | fz ${etat} | « ${f} » ∉ [${r.min} ; ${r.max}]`);
+      }
     }
   }
   assert.deepEqual(echecs.slice(0, 10), [], `${echecs.length} échecs (10 premiers)`);

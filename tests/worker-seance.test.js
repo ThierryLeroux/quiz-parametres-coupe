@@ -7,7 +7,7 @@ import {
 } from '../worker/seance.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
-import { loadExercise, validateExercise } from '../site/js/exercice.js';
+import { loadExercise, maskedFields, validateExercise } from '../site/js/exercice.js';
 import { aleaAGraine, data, lireFichier, questionPour } from './aide.js';
 
 const m10 = await loadExercise('m10-tournage-vc', data, 'exercices/', lireFichier);
@@ -316,6 +316,32 @@ test('correctionView (D69) : f attendue = fz saisi × dents, « ±0.1 % de fz ×
   champs = vue(masquee, ['feedPerTooth'], { vc: '100', rpm: '800', feedPerRev: '0.0076', feedRate: '6.08' });
   assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance, champs.feedPerRev.ecart_pct], [false, '0.0060', '±25 %, au plus ±0.001 po par dent', 26.7]);
   assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = — × 2');
+});
+
+test('correctionView (D70) : fz fournie → f attendue = fz affiché × dents ; une dent → f sur la valeur théorique', () => {
+  const vue = (question, exercice, saisies) => {
+    const reponses = cleanAnswers(saisies);
+    const { result, counters } = gradeQuestion(question, reponses, emptyCounters(), exercice, data);
+    return Object.fromEntries(correctionView(question, reponses, result, 0, counters, data, maskedFields(exercice)).champs.map((champ) => [champ.champ, champ]));
+  };
+
+  // Alésoir 0.6250", 8 dents, fz fournie (« 0.00125 ») : f calculée avec 7 dents, refusée ; attendue 0.00125 × 8.
+  const alesoir = questionPour({ outil: 'alesoir_2', dimension: '0.6250"', dents: 8, materiauOutil: 'Acier rapide', groupeMateriau: 1 });
+  const fournie = { ...CINQ_CHAMPS, champs_evalues: ['vc', 'n', 'f', 'vf'], outils: [{ id: 'alesoir_2', reussites_requises: 1 }] };
+  assert.deepEqual(validateExercise(fournie, data), []);
+  const n = bonnesReponses(alesoir).rpm;
+  let champs = vue(alesoir, fournie, { vc: '100', rpm: n, feedPerRev: '0.00875', feedRate: String(Number(n) * 0.00875) });
+  assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance, champs.feedPerRev.ecart_pct], [false, '0.0100', '±0.1 % de fz × dents', -12.5]);
+  assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.00125 × 8');
+
+  // Barre à aléser Ø 1 1/4 po, 1 dent : fz saisie fausse et f qui la recopie → f jugée sur 0.0060, refusée ;
+  // tolérance de fz de la famille, sans « par dent » ; le calcul reprend la valeur théorique de fz.
+  const barre = questionPour({ outil: 'barre_a_aleser', dimension: '2.000"', barre: '1 1/4 po', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
+  const tout = { ...CINQ_CHAMPS, outils: [{ id: 'barre_a_aleser', reussites_requises: 1 }] };
+  const nBarre = bonnesReponses(barre).rpm;
+  champs = vue(barre, tout, { vc: '400', feedPerTooth: '0.0080', rpm: nBarre, feedPerRev: '0.0080', feedRate: String(Number(nBarre) * 0.008) });
+  assert.deepEqual([champs.feedPerTooth.ok, champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance], [false, false, '0.0060', '±25 %, au plus ±0.001 po']);
+  assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.0060 × 1');
 });
 
 test('correctionView : facteur de vitesse, plafond du RPM, pas d’un filet, réponse vide', () => {

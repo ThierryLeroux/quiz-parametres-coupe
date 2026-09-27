@@ -1,7 +1,7 @@
 // Tests de site/js/correction.js : tolérances de la SPEC §6 (décisions D13 et D15), une case du tableau à la fois.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANSWER_FIELDS, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
+import { ANSWER_FIELDS, coherentFeedPerTooth, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
 import { data, questionPour } from './aide.js';
@@ -31,9 +31,10 @@ const BONNES = new Map([
 // Corrige un cas où seul `champ` diffère des bonnes réponses ; retourne le résultat de ce champ.
 function corrigerChamp(attendu, champ, saisie) {
   const reponses = { ...BONNES.get(attendu), [champ]: saisie };
-  // f est jugée sur fz_saisi × dents (D69), Vf sur N_saisi × f_saisi (D15) : on les garde cohérentes avec les saisies.
+  // À partir de deux dents, f est jugée sur fz_saisi × dents (D69, D70), et Vf toujours sur N_saisi × f_saisi (D15) :
+  // on les garde cohérentes avec les saisies. À une dent, f est jugée sur la valeur théorique : on n'y touche pas.
   const fz = parseAnswer(reponses.feedPerTooth);
-  if (champ === 'feedPerTooth' && fz !== null) reponses.feedPerRev = String(fz * attendu.teeth);
+  if (champ === 'feedPerTooth' && fz !== null && attendu.teeth >= 2) reponses.feedPerRev = String(fz * attendu.teeth);
   const n = parseAnswer(reponses.rpm);
   const f = parseAnswer(reponses.feedPerRev);
   if (champ !== 'feedRate' && n !== null && f !== null) reponses.feedRate = String(n * f);
@@ -44,17 +45,19 @@ function corrigerChamp(attendu, champ, saisie) {
   return resultat.fields[champ];
 }
 
-// Une ligne par case du tableau de la SPEC §6, sauf f et Vf (plus bas) :
+// Une ligne par case du tableau de la SPEC §6, sauf Vf et f à deux dents et plus (plus bas) :
 // [famille, valeurs théoriques, champ, tolérance, min, max, saisie juste sous min, saisie juste au-dessus de max]
 // D13 : l'intervalle n'est jamais plus étroit qu'une demi-unité du dernier chiffre affiché.
 const CASES = [
   ['filetage', FILETAGE, 'vc', 'exact, affiché « 100 » → ±0,5', 99.5, 100.5, '99.49', '100.51'],
   ['filetage', FILETAGE, 'feedPerTooth', '±0,1 %', 0.124875, 0.125125, '0.1248749', '0.1251251'], // 0,125 × 0,999 et × 1,001 (> ±0,000005)
   ['filetage', FILETAGE, 'rpm', 'de −90 % à +0,1 %, affiché « 400 » → +0,5', 40, 400.5, '39.99', '400.51'], // 400 × 0,1 ; +0,1 % = 400,4 < 400,5
+  ['filetage', FILETAGE, 'feedPerRev', 'une dent (D70) : ±0,1 % de la valeur théorique', 0.124875, 0.125125, '0.1248749', '0.1251251'],
 
   ['avance fixe', FIXE, 'vc', 'exact, affiché « 400 » → ±0,5', 399.5, 400.5, '399.49', '400.51'],
   ['avance fixe', FIXE, 'feedPerTooth', 'exact, affiché « 0.0050 » → ±0,00005', 0.00495, 0.00505, '0.004949', '0.005051'],
   ['avance fixe', FIXE, 'rpm', '±5 % et ±1 rév/min', 759, 841, '758.9', '841.1'], // 800 × 0,95 − 1 et × 1,05 + 1 (D13, complément)
+  ['avance fixe', FIXE, 'feedPerRev', 'une dent (D70) : ±0,1 %, affiché « 0.0050 » → ±0,00005', 0.00495, 0.00505, '0.004949', '0.005051'], // MVLNR : comme avant D69
 
   ['avance proportionnelle', PROPORTIONNELLE, 'vc', 'exact, affiché « 100 » → ±0,5', 99.5, 100.5, '99.49', '100.51'],
   ['avance proportionnelle', PROPORTIONNELLE, 'feedPerTooth', '±25 %, borné à ±0,001 po', 0.001125, 0.001875, '0.0011249', '0.0018751'], // 0,0015 × 0,75 et × 1,25
@@ -72,18 +75,26 @@ for (const [famille, attendu, champ, tolerance, min, max, sousMin, surMax] of CA
   });
 }
 
-// f (D69) : fz saisie et lisible → cohérence, ±0,1 % de fz_saisi × dents, fz étant pris à la précision de son
-// affichage (D13), comme N et f pour Vf :
-//   min = (fz − ½ unité) × dents, moins 0,1 % ou la ½ unité de f      max = (fz + ½ unité) × dents, plus 0,1 % ou la ½ unité de f
-// [famille, valeurs théoriques, min, max, dernière saisie refusée, première acceptée, dernière acceptée, première refusée]
+// Les cas des tests de f, tirés par le moteur (acier rapide, acier 1020 : Vc 100).
+const avec = (outil, dimension, dents, extra = {}) => computeParameters(questionPour({ outil, dimension, dents, materiauOutil: 'Acier rapide', groupeMateriau: 1, ...extra }), data);
+// Foret à pointer Ø 1/2 po, 2 lèvres : avance fixe, fz = 0.001 (« 0.0010 »), f = 0.002 (« 0.0020 »).
+const POINTEUR = avec('foret_a_pointer', 'Ø 1/2 po', 2);
+// Foret #40 (Ø 0.098 po), 2 lèvres : fz = 0.000588 (« 0.000588 », ½ unité 0.0000005), f = 0.001176 (« 0.00118 », ½ unité 0.000005).
+const FORET_40 = avec('foret_a_numero', '#40', 2);
+for (const attendu of [POINTEUR, FORET_40]) BONNES.set(attendu, formatParameters(attendu));
+
+// f à deux dents et plus (D69, D70) : fz saisie et lisible → cohérence avec fz_saisi × dents. Avec référence = fz × dents
+// et les produits pris sur la plage (fz ± ½ unité de fz) × dents, l'intervalle est la plus large des deux (D13) :
+//   min = min(plus petit produit × (1 − 0,1 %), référence − ½ unité de f)   max = max(plus grand produit × (1 + 0,1 %), référence + ½ unité de f)
+// [cas, valeurs théoriques, min, max, dernière saisie refusée, première acceptée, dernière acceptée, première refusée]
 const CASES_F = [
-  ['filetage', FILETAGE, 0.124995 * 0.999, 0.125005 * 1.001, '0.12487', '0.124871', '0.12513', '0.125131'], // fz « 0.125 », 1 dent : ±0,1 % l'emporte
-  ['avance fixe', FIXE, 0.00495 - 0.00005, 0.00505 + 0.00005, '0.004899', '0.0049', '0.0051', '0.005101'], // fz « 0.005 », 1 dent : la ½ unité de f l'emporte
-  ['avance proportionnelle', PROPORTIONNELLE, 0.0029 - 0.00005, 0.0031 + 0.00005, '0.002849', '0.00285', '0.00315', '0.003151'], // fz « 0.0015 », 2 dents
+  ['avance proportionnelle, foret Ø 1/4 po, fz « 0.0015 »', PROPORTIONNELLE, 0.0029 * 0.999, 0.0031 * 1.001, '0.002897', '0.0028971', '0.0031031', '0.0031032'],
+  ['avance fixe, foret à pointer, fz « 0.0010 »', POINTEUR, 0.0019 * 0.999, 0.0021 * 1.001, '0.001898', '0.0018981', '0.0021021', '0.0021022'], // avant D70 : [0.00185 ; 0.00215]
+  ['foret #40, fz « 0.000588 » : la ½ unité de f l’emporte', FORET_40, 0.001176 - 0.000005, 0.001176 + 0.000005, '0.00117', '0.001171', '0.001181', '0.001182'],
 ];
 
-for (const [famille, attendu, min, max, sousMin, dansMin, dansMax, surMax] of CASES_F) {
-  test(`D69 — ${famille}, feedPerRev : ±0,1 % de fz_saisi × dents`, () => {
+for (const [cas, attendu, min, max, sousMin, dansMin, dansMax, surMax] of CASES_F) {
+  test(`D70 — ${cas}, 2 dents : f à ±0,1 % de fz_saisi × dents`, () => {
     const bornes = corrigerChamp(attendu, 'feedPerRev', dansMin);
     assert.ok(Math.abs(bornes.min - min) < 1e-12 && Math.abs(bornes.max - max) < 1e-12, `[${bornes.min} ; ${bornes.max}] ≠ [${min} ; ${max}]`);
     assert.equal(corrigerChamp(attendu, 'feedPerRev', sousMin).ok, false);
@@ -93,12 +104,20 @@ for (const [famille, attendu, min, max, sousMin, dansMin, dansMax, surMax] of CA
   });
 }
 
+test('D70 : foret #40, fz « 0.000588 » et f « 0.00118 » (f affichée avec moins de décimales que fz × dents) → acceptée', () => {
+  assert.deepEqual([BONNES.get(FORET_40).feedPerTooth, BONNES.get(FORET_40).feedPerRev], ['0.000588', '0.00118']);
+  assert.equal(gradeAnswers(FORET_40, BONNES.get(FORET_40)).success, true);
+});
+
 // Foret fractionnaire Ø 1/2 po, 2 lèvres, acier rapide, acier 1020 : N = 100 × 4 / 0.5 = 800 ; fz = 0.006 × 0.5 = 0.003
 // (affiché « 0.0030 ») ; f = 0.006 ; Vf = 4.8. fz est tolérée à ±25 %, au plus ±0.001 po : [0.00225 ; 0.00375].
-const FORET_DEMI = computeParameters(questionPour({ outil: 'foret_fractionnaire', dimension: 'Ø 1/2 po', dents: 2, materiauOutil: 'Acier rapide', groupeMateriau: 1 }), data);
-const FORET_UN = computeParameters(questionPour({ outil: 'foret_fractionnaire', dimension: 'Ø 1 po', dents: 2, materiauOutil: 'Acier rapide', groupeMateriau: 1 }), data);
+const FORET_DEMI = avec('foret_fractionnaire', 'Ø 1/2 po', 2);
+const FORET_UN = avec('foret_fractionnaire', 'Ø 1 po', 2);
 const saisiesForet = (fz, f) => ({ vc: '100', feedPerTooth: fz, rpm: '800', feedPerRev: f, feedRate: String(800 * Number(f)) });
 const SANS_FZ = ['vc', 'rpm', 'feedPerRev', 'feedRate']; // fz fournie ou masquée : elle n'est pas corrigée
+const FZ_MASQUEE = ['feedPerTooth'];
+// f seule changée, N et Vf gardés cohérents ; fz fournie (masques = []) ou masquée.
+const fSansFz = (attendu, saisie, masques = []) => gradeAnswers(attendu, { vc: String(attendu.vc), rpm: String(attendu.rpm), feedPerRev: saisie, feedRate: String(attendu.rpm * Number(saisie)) }, SANS_FZ, masques).fields.feedPerRev;
 
 test('D69 : foret Ø 1/2 po, fz « 0.0037 » et f « 0.0074 » → les deux justes (f cohérente avec le fz saisi)', () => {
   assert.deepEqual([FORET_DEMI.rpm, FORET_DEMI.feedPerTooth, FORET_DEMI.teeth, FORET_DEMI.feedPerRev, FORET_DEMI.feedType], [800, 0.003, 2, 0.006, 'proportional']);
@@ -120,27 +139,86 @@ test('D69 : fz fausse mais f cohérente avec elle → fz refusée, f acceptée ;
   assert.equal(theorique.fields.feedPerRev.ok, false); // la f théorique n'est pas 0.005 × 2
 });
 
-test('D69 : fz fournie ou masquée → f jugée sur la valeur théorique, tolérance de fz reportée (±25 %, au plus ±0.001 po par dent)', () => {
-  const f = (attendu, saisie) => gradeAnswers(attendu, { vc: '100', rpm: String(attendu.rpm), feedPerRev: saisie, feedRate: String(attendu.rpm * Number(saisie)) }, SANS_FZ).fields.feedPerRev;
-  // Ø 1/2 po : f = 0.006 ; ±25 % = ±0.0015, plus étroit que ±0.001 × 2 dents → [0.0045 ; 0.0075]
-  assert.deepEqual(f(FORET_DEMI, '0.0045'), { ok: true, value: 0.0045, min: 0.0045, max: 0.0075 });
-  assert.deepEqual(f(FORET_DEMI, '0.0075'), { ok: true, value: 0.0075, min: 0.0045, max: 0.0075 });
-  assert.equal(f(FORET_DEMI, '0.0044').ok, false);
-  assert.equal(f(FORET_DEMI, '0.0076').ok, false);
-  // Ø 1 po : f = 0.012 ; ±25 % = ±0.003, plus large que ±0.001 × 2 dents → [0.010 ; 0.014] (et non ±0.001 : [0.011 ; 0.013])
-  assert.deepEqual(f(FORET_UN, '0.0105'), { ok: true, value: 0.0105, min: 0.01, max: 0.014 });
-  assert.equal(f(FORET_UN, '0.0099').ok, false);
-  assert.equal(f(FORET_UN, '0.0141').ok, false);
+// --- D70 : à une dent, f = fz — f jugée sur la valeur théorique avec la tolérance de fz, que fz soit saisie ou non ------
+// SDTMR M42 x 4.5 : pas = 4.5 / 25.4 = 0.1771654… po (« 0.17717 »), 1 dent.
+const SDTMR_M42 = avec('sdtmr_2', 'M42 x 4.5', 1, { materiauOutil: 'Insert de carbure de tungstène' });
+// Barre à aléser Ø 1 1/4 po, Ø alésé 2.000" : fz = 0.006 × 1.25 = 0.0075 → plafonnée à 0.006 (« 0.0060 »), 1 dent.
+const BARRE = avec('barre_a_aleser', '2.000"', 1, { barre: '1 1/4 po', materiauOutil: 'Insert de carbure de tungstène' });
+const uneDent = (attendu, fz, f) => gradeAnswers(attendu, { ...formatParameters(attendu), feedPerTooth: fz, feedPerRev: f, feedRate: String(attendu.rpm * Number(f)) });
+
+test('D70 : SDTMR M42 x 4.5, le pas en mm non converti — fz « 4.5 » et f « 4.5 » → les deux fausses', () => {
+  assert.deepEqual([SDTMR_M42.teeth, SDTMR_M42.feedType, formatParameters(SDTMR_M42).feedPerTooth], [1, 'thread', '0.17717']);
+  const resultat = uneDent(SDTMR_M42, '4.5', '4.5');
+  assert.equal(resultat.fields.feedPerTooth.ok, false);
+  assert.equal(resultat.fields.feedPerRev.ok, false); // à une dent, plus de cohérence avec le fz saisi (D69 l'acceptait)
+  assert.deepEqual([resultat.fields.feedPerRev.min, resultat.fields.feedPerRev.max], [0.176988188976, 0.177342519685]); // ±0,1 % du pas
+  // fz fausse, f juste : f acceptée (jugée sur la valeur théorique)
+  assert.equal(uneDent(SDTMR_M42, '4.5', '0.17717').fields.feedPerRev.ok, true);
 });
 
-test('D69 : fz non corrigée → une fz envoyée quand même par le navigateur ne compte pas', () => {
-  // Cohérente avec 0.0038 × 2, f = 0.0076 serait acceptée ; fz n'étant pas à saisir, c'est la tolérance reportée qui s'applique.
+test('D70 : barre à aléser (1 dent, avance proportionnelle) — f jugée à ±25 %, au plus ±0.001 po, de la valeur théorique', () => {
+  assert.deepEqual([BARRE.teeth, BARRE.feedType, BARRE.feedPerToothCapped, formatParameters(BARRE).feedPerRev], [1, 'proportional', true, '0.0060']);
+  const f = (saisie) => uneDent(BARRE, '0.0060', saisie).fields.feedPerRev;
+  assert.deepEqual(f('0.0070'), { ok: true, value: 0.007, min: 0.005, max: 0.007 }); // ±25 % = ±0.0015, borné à ±0.001
+  assert.equal(f('0.00606').ok, true); // f +1 % : dans la tolérance de fz de la famille (voir le ❓ ci-dessous)
+  assert.equal(f('0.0071').ok, false);
+  // fz saisie fausse et f qui la recopie : f jugée sur 0.006, refusée
+  assert.equal(uneDent(BARRE, '0.0080', '0.0080').fields.feedPerRev.ok, false);
+});
+
+// ❓ D70 : la consigne demandait « barre à aléser, fz « 0.0060 », f +1 % → refusée ». La barre n'a qu'une dent et son avance est
+// proportionnelle : la règle de D70 (à une dent, la tolérance de fz de la famille, ±25 % au plus ±0.001 po) l'accepte. Question
+// remontée à Thierry (rapport avances.md) ; à trancher avant de changer la règle ou ce test.
+test.todo('❓ D70 : barre à aléser, fz « 0.0060 », f +1 % → refusée (contredit la règle à une dent en avance proportionnelle)');
+
+test('D70 : une dent, fz fournie (avance fixe et filetage) → f à ±0,1 % de la valeur théorique (et la ½ unité de f, D13)', () => {
+  // Filetage : 0.125 × 0.999 et × 1.001 (plus large que ±0.000005)
+  assert.deepEqual(fSansFz(FILETAGE, '0.124875'), { ok: true, value: 0.124875, min: 0.124875, max: 0.125125 });
+  assert.equal(fSansFz(FILETAGE, '0.1248749').ok, false);
+  assert.equal(fSansFz(FILETAGE, '0.1251251').ok, false);
+  // Avance fixe : ±0.1 % = ±0.000005, plus étroit que la ½ unité de « 0.0050 » → [0.00495 ; 0.00505]
+  assert.deepEqual(fSansFz(FIXE, '0.00505'), { ok: true, value: 0.00505, min: 0.00495, max: 0.00505 });
+  assert.equal(fSansFz(FIXE, '0.004949').ok, false);
+  assert.equal(fSansFz(FIXE, '0.005051').ok, false);
+});
+
+// --- D70 : deux dents et plus, fz fournie → cohérence avec fz AFFICHÉ × dents : le nombre de dents est vérifié ---------------
+// Alésoir 0.6250", 8 dents : fz = 0.002 × 0.625 = 0.00125 (« 0.00125 », ½ unité 0.000005), f = 0.01 (« 0.0100 », ½ unité 0.00005).
+const ALESOIR_8 = avec('alesoir_2', '0.6250"', 8);
+
+test('D70 : alésoir à 8 dents, fz fournie, f calculée avec 7 dents → refusée ; avec 8, acceptée', () => {
+  assert.deepEqual([ALESOIR_8.teeth, formatParameters(ALESOIR_8).feedPerTooth, formatParameters(ALESOIR_8).feedPerRev], [8, '0.00125', '0.0100']);
+  const avec8 = fSansFz(ALESOIR_8, '0.0100');
+  assert.equal(avec8.ok, true);
+  // plus petit produit 0.001245 × 8 = 0.00996, × 0.999 = 0.00995004 ; 0.01 − 0.00005 = 0.00995 (le plus large)
+  // plus grand produit 0.001255 × 8 = 0.01004, × 1.001 = 0.01005004 (le plus large) ; 0.01 + 0.00005 = 0.01005
+  assert.deepEqual([avec8.min, avec8.max], [0.00995, 0.01005004]);
+  assert.equal(fSansFz(ALESOIR_8, '0.00875').ok, false); // 0.00125 × 7
+  assert.equal(fSansFz(ALESOIR_8, '0.01125').ok, false); // 0.00125 × 9
+  // La tolérance reportée de D69 (±25 %, au plus ±0.001 × 8) l'aurait acceptée — c'est pourquoi fz fournie passe à la cohérence.
+  assert.ok(0.00875 >= 0.01 * 0.75);
+});
+
+test('D70 : fz fournie → une fz envoyée quand même par le navigateur ne compte pas ; c’est la valeur affichée qui sert', () => {
+  // Cohérente avec 0.0038 × 2, f = 0.0076 serait acceptée ; fz n'étant pas à saisir, la référence est « 0.0030 » × 2.
   const resultat = gradeAnswers(FORET_DEMI, saisiesForet('0.0038', '0.0076'), SANS_FZ);
   assert.equal(resultat.fields.feedPerRev.ok, false);
-  assert.deepEqual([resultat.fields.feedPerRev.min, resultat.fields.feedPerRev.max], [0.0045, 0.0075]);
+  assert.deepEqual([resultat.fields.feedPerRev.min, resultat.fields.feedPerRev.max], [0.0058941, 0.0061061]); // 0.0059 × 0.999, 0.0061 × 1.001
 });
 
-test('D69 : fz à saisir mais vide ou illisible → f jugée comme si fz était fournie (tolérance reportée)', () => {
+test('D69 : fz masquée (deux dents et plus) → f jugée sur la valeur théorique, tolérance de fz reportée (±25 %, au plus ±0.001 po par dent)', () => {
+  // Ø 1/2 po : f = 0.006 ; ±25 % = ±0.0015, plus étroit que ±0.001 × 2 dents → [0.0045 ; 0.0075]
+  assert.deepEqual(fSansFz(FORET_DEMI, '0.0045', FZ_MASQUEE), { ok: true, value: 0.0045, min: 0.0045, max: 0.0075 });
+  assert.deepEqual(fSansFz(FORET_DEMI, '0.0075', FZ_MASQUEE), { ok: true, value: 0.0075, min: 0.0045, max: 0.0075 });
+  assert.equal(fSansFz(FORET_DEMI, '0.0044', FZ_MASQUEE).ok, false);
+  assert.equal(fSansFz(FORET_DEMI, '0.0076', FZ_MASQUEE).ok, false);
+  // Ø 1 po : f = 0.012 ; ±25 % = ±0.003, plus large que ±0.001 × 2 dents → [0.010 ; 0.014] (et non ±0.001 : [0.011 ; 0.013])
+  assert.deepEqual(fSansFz(FORET_UN, '0.0105', FZ_MASQUEE), { ok: true, value: 0.0105, min: 0.01, max: 0.014 });
+  assert.equal(fSansFz(FORET_UN, '0.0099', FZ_MASQUEE).ok, false);
+  assert.equal(fSansFz(FORET_UN, '0.0141', FZ_MASQUEE).ok, false);
+});
+
+test('D69 : fz à saisir mais vide ou illisible → f jugée comme si fz était masquée (tolérance reportée)', () => {
   for (const fz of ['', 'abc']) {
     const resultat = gradeAnswers(FORET_DEMI, saisiesForet(fz, '0.0074'));
     assert.equal(resultat.fields.feedPerTooth.ok, false, fz);
@@ -149,16 +227,13 @@ test('D69 : fz à saisir mais vide ou illisible → f jugée comme si fz était 
   }
 });
 
-test('D69 : avance fixe et filetage, fz non saisie → f à ±0,1 % de la valeur théorique (et la ½ unité de f, D13)', () => {
-  const f = (attendu, saisie) => gradeAnswers(attendu, { vc: String(attendu.vc), rpm: String(attendu.rpm), feedPerRev: saisie, feedRate: String(attendu.rpm * Number(saisie)) }, SANS_FZ).fields.feedPerRev;
-  // Filetage : 0.125 × 0.999 et × 1.001 (plus large que ±0.000005)
-  assert.deepEqual(f(FILETAGE, '0.124875'), { ok: true, value: 0.124875, min: 0.124875, max: 0.125125 });
-  assert.equal(f(FILETAGE, '0.1248749').ok, false);
-  assert.equal(f(FILETAGE, '0.1251251').ok, false);
-  // Avance fixe : ±0.1 % = ±0.000005, plus étroit que la ½ unité de « 0.0050 » → [0.00495 ; 0.00505]
-  assert.deepEqual(f(FIXE, '0.00505'), { ok: true, value: 0.00505, min: 0.00495, max: 0.00505 });
-  assert.equal(f(FIXE, '0.004949').ok, false);
-  assert.equal(f(FIXE, '0.005051').ok, false);
+test('coherentFeedPerTooth : sur quoi f est jugée (D69, D70)', () => {
+  assert.equal(coherentFeedPerTooth(FORET_DEMI, { feedPerTooth: '0,0037' }), 0.0037); // à saisir, lisible
+  assert.equal(coherentFeedPerTooth(FORET_DEMI, { feedPerTooth: '' }), null); // vide
+  assert.equal(coherentFeedPerTooth(FORET_DEMI, { feedPerTooth: '0.0038' }, SANS_FZ), 0.003); // fournie : « 0.0030 »
+  assert.equal(coherentFeedPerTooth(FORET_DEMI, {}, SANS_FZ, FZ_MASQUEE), null); // masquée
+  assert.equal(coherentFeedPerTooth(BARRE, { feedPerTooth: '0.0060' }), null); // une dent
+  assert.equal(coherentFeedPerTooth(FIXE, {}, SANS_FZ), null); // une dent
 });
 
 // Vf (D15) : ±0,5 % de N_saisi × f_saisi — ±0,01 % en filetage (D53) —, N et f étant pris à la précision
@@ -380,6 +455,10 @@ test('toleranceLabel : la tolérance de chaque champ, en clair, telle que le tab
   assert.deepEqual(ligne('proportional'), ['exacte', '±25 %, au plus ±0.001 po', '±5 % et ±1 rév/min', '±25 %, au plus ±0.001 po par dent', '±0.5 % de N × f']);
   // f : fz saisie et lisible, la cohérence (D69), pour toutes les familles
   for (const type of ['thread', 'fixed', 'proportional']) assert.equal(toleranceLabel(type, 'feedPerRev', { coherence: true }), '±0.1 % de fz × dents');
+  // f à une dent (D70) : la tolérance de fz de la famille, sans « par dent »
+  assert.equal(toleranceLabel('proportional', 'feedPerRev', { teeth: 1 }), '±25 %, au plus ±0.001 po');
+  assert.equal(toleranceLabel('proportional', 'feedPerRev', { teeth: 3 }), '±25 %, au plus ±0.001 po par dent');
+  assert.equal(toleranceLabel('fixed', 'feedPerRev', { teeth: 1 }), '±0.1 %');
   assert.throws(() => toleranceLabel('inconnue', 'vc'), /Tolérance inconnue/);
   assert.throws(() => toleranceLabel('inconnue', 'feedPerRev', { coherence: true }), /Tolérance inconnue/);
 });
