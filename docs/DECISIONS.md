@@ -1766,3 +1766,64 @@ tolérance par dent (`perTooth`), `toleranceLabel(…, { coherence })`, saisie d
 `correctionView` (`seance.js`) ; `toolErrors` (`data.js`) et le formulaire d'outil (`editeur.js`) ; SPEC §3, §5,
 §6 ; UI §3.4, §3.9 ; tests : correction, chaîne sur tout le catalogue (f = fz affiché × dents, arrondie ou non ;
 fz non saisie), `correctionView`. Remplace la tolérance « ±20 % » de f en avance proportionnelle.
+
+## D70 — Réponses au rapport « avances » : cohérence de f à partir de deux dents, fz fournie vérifiée, aides et ligne de calcul des filets, `test-complet` en local (2026-09-26, décidée)
+
+**Contexte.** Le rapport `docs/rapports/avances.md` (D69) remontait sept points douteux et un tableau des avances
+de fraisage et de perçage à valider. Réponses de Thierry, point par point.
+
+**Décision.**
+
+1. **La cohérence de f ne vaut qu'à partir de deux dents.** À une dent, f = fz : la même valeur, rien à
+   vérifier de plus. Règle complète de f :
+   - **1 dent** : f jugée sur la **valeur théorique**, avec la tolérance de fz de sa famille — proportionnelle
+     ±25 %, au plus ±0,001 po ; fixe et filetage ±0,1 % —, que fz soit saisie ou non. MVLNR revient à
+     [0.00495 ; 0.00505] ; SDTMR M42 x 4.5 avec fz « 4.5 » et f « 4.5 » (le pas non converti) : f fausse aussi ;
+   - **2 dents et plus, fz évaluée et lisible** : cohérence avec **fz saisi × dents** (D69) ;
+   - **2 dents et plus, fz fournie** : cohérence avec **fz affiché × dents** (±0,1 %, sur la plage de la
+     demi-unité de fz affichée) — l'étudiant a fz sous les yeux ; cela vérifie le **nombre de dents**, qu'une
+     tolérance reportée de ±25 % laissait passer à une dent près dès quatre dents (alésoir à 8 dents, f
+     calculée avec 7 : refusée) ;
+   - **2 dents et plus, fz masquée, vide ou illisible** : valeur théorique, tolérance de fz reportée (D69,
+     inchangé).
+
+   ❓ La consigne demandait aussi un test « barre à aléser, fz « 0.0060 », f +1 % → refusée ». La barre à aléser
+   n'a qu'une dent et son avance est **proportionnelle** : la règle ci-dessus la juge à ±25 %, au plus
+   ±0,001 po, soit [0.005 ; 0.007] pour 0.006 — f +1 % (0.00606) y est **acceptée**. La règle est appliquée telle
+   qu'écrite ; le test suit la règle, et la question est remontée à Thierry (rapport, « Réponses aux points
+   douteux »).
+2. **Demi-unité de f dans la cohérence : la plus large des deux (D13), pas la somme.** Avec référence = fz ×
+   dents, l'intervalle est [min(plus petit produit × (1 − 0,1 %), référence − demi-unité de f) ; max(plus grand
+   produit × (1 + 0,1 %), référence + demi-unité de f)], les produits étant pris sur la plage (fz ± demi-unité
+   de fz) × dents. Le foret #40 (fz « 0.000588 », f « 0.00118 ») reste accepté ; le foret à pointer (fz
+   « 0.0010 », 2 dents) passe de [0.00185 ; 0.00215] à un intervalle plus étroit.
+3. **Aide de fz en avance fixe** : « Avance fixe : la valeur de la table, telle quelle, quel que soit le Ø. »
+4. **Aides de fz et de N, dimension métrique** (foret métrique, MCLNR, tarauds et filets métriques) : rappeler
+   que le Ø se met en pouces (mm / 25.4), **seulement quand la dimension tirée est métrique**. Une dimension est
+   métrique si sa valeur est un filet « Ø x pas » en mm, ou si son libellé est en mm — la règle qui distinguait
+   déjà les outils de même nom (UI §3.3). Lecture retenue (❓, dans le rapport) : le rappel du Ø va à l'aide de
+   N, et à celle de fz quand fz dépend du Ø (avance proportionnelle) ; pour un filet, fz est le pas, et l'aide
+   dit « pas en pouces : mm / 25.4 » en métrique, « 1 / filets au pouce » en impérial.
+5. **Ligne de calcul d'un filetage** : elle montre la conversion, à partir du **pas de la question** et non de
+   la saisie — « fz = pas = 4.5 mm / 25.4 = 0.17717 » en métrique, « fz = pas = 1 / 20 = 0.05000 » en impérial.
+   À une dent, la ligne de f reprend de même la valeur théorique de fz, sur laquelle f est jugée.
+6. **`test-complet` en local** : un script, lancé par `npm run`, le publie sur la **base locale** (celle de
+   `npm run dev`) depuis `site/exercices/test-complet.json` et la banque de cette base ; il refuse `--remote`.
+   `DEMARRAGE.md` §7 le dit.
+7. Docs : SPEC §6, UI §3.3 et §3.4, PLAN, rapport complété (« Réponses aux points douteux », avec les bornes
+   obtenues).
+8. **Réponses au tableau des avances** :
+   - **Foret Udrill à 1 dent** : confirmé — une plaquette compte pour une dent.
+   - **Les plus grosses avances** (alésoir 1.5" à 8 dents, f = 0.024 ; fraise à surfacer 1 1/2 po à 5 inserts,
+     f = 0.030) : jugées réalistes.
+   - **Micro-forets** : écartés par les **dimensions des exercices**, à partir de Ø 1/16 po (foret à numéro #52 et
+     plus gros, foret métrique 1.6 mm et plus), **pas retirés de la banque**.
+   - **Un cas plafonné en fraisage** : Thierry ajoute **en production, par l'éditeur**, deux fraises à surfacer de
+     3 po, à 5 et à 7 dents, comme à l'atelier : fz = 0,004 × 3 = 0,012 → plafonnée à 0,010 ; f = 0,050 et 0,070.
+   - **Aucune modification de `site/data/` ni de la semence.**
+
+**Conséquences.** `correction.js` : `coherentFeedPerTooth` (sur quoi f est jugée), `feedPerRevInterval` (la plus
+large des deux), `gradeAnswers(…, masked)`, `toleranceLabel(…, { teeth })` ; `seance.js` : `gradeQuestion` passe
+les grandeurs masquées, `correctionView` et la ligne de calcul d'un filet ; `data.js` : `isMetricDimension`,
+`pitchFormula` ; `rules.js` : `helpLine(…, metric)`, `questionIsMetric` ; un script `npm run` pour `test-complet` ;
+SPEC §6 ; UI §3.3, §3.4 ; DEMARRAGE §7 ; tests. Précise D69 (f à une dent, fz fournie, demi-unité de f).
