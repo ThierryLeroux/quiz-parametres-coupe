@@ -1834,3 +1834,81 @@ f) » ; si un seul des deux facteurs de Vf est le sien, « N × ta f » ou « to
 attendu … ». Le serveur joint à chaque champ corrigé `coherence` (`null`, ou les grandeurs saisies dont la valeur
 attendue est faite : `{ saisies: ['fz'], dents: 2 }`, `{ saisies: ['n', 'f'] }`) ; le texte est une règle
 d'affichage pure (`coherenceSource`, `fieldResultNote`, `text.js`). SPEC §7 ; UI §3.4.
+
+## D71 — Grandeurs en toutes lettres et « tr/min », virgule convertie à la sortie du champ, accueil unique par cours, page de description d'un exercice (2026-09-27, décidée)
+
+**Contexte.** Lot issu d'un remue-méninges de Thierry (rapport `docs/rapports/accueil-et-libelles.md`). Les
+rétroactions nomment les grandeurs par leur symbole (« Ta N de 3200 est à +6.7 % de 3000 ») ; l'unité de vitesse
+de rotation s'écrit « rév/min » et la grandeur « RPM » ; une virgule tapée reste une virgule à l'écran ; il y a une
+page d'accueil par exercice (`?exercice=<id>`), sans retour possible (UI §3.1 : « aucun moyen d'en changer »), et
+une liste sans regroupement quand l'adresse n'en nomme aucun (D18) ; rien ne montre à un professeur ce que demande
+un exercice avant de le donner.
+
+**Décision.**
+
+1. **Grandeurs en toutes lettres dans les rétroactions.** Les noms sont ceux des libellés de saisie : vitesse de
+   coupe, avance par dent, **vitesse de rotation**, avance totale par révolution, vitesse d'avance. L'explication
+   d'un champ faux met l'unité après la saisie et après la valeur attendue : « Ta vitesse de rotation de 3200 tr/min
+   est à +6.7 % de 3000 tr/min (tolérance : ±5 % et ±1 tr/min). », « Ton avance par dent de 0.004 po/dent est à … » ;
+   une réponse vide : « Vitesse de rotation : réponse vide ou illisible (attendu 3000 tr/min). » La note d'un champ
+   juste dont la valeur attendue vient de la cohérence (complément de D70) devient « Juste (0.000284 = ton avance par
+   dent × 2) », « Juste (3048.000 = ta vitesse de rotation × ton avance totale par révolution) » (« la vitesse de
+   rotation × ton avance… », « ta vitesse de rotation × l'avance… » quand un seul des deux facteurs est le sien).
+   **Les formules gardent leurs symboles**, comme la feuille des formules : la ligne de calcul (« Vf = N × f = 2500 ×
+   0.0050 »), la tolérance écrite en formule (« ±0.5 % de N × f », « ±0.1 % de fz × dents ») et les aides (« N = Vc ×
+   4 / Ø »).
+2. **« tr/min » partout, plus aucun « RPM » ni « rév/min » affiché** : libellés de saisie (« Vitesse de rotation (N,
+   tr/min) »), rétroactions et tolérances (« ±5 % et ±1 tr/min »), panneau de l'outil (« Vitesse de rotation max de
+   la machine : 3000 tr/min », « Ø usiné … — pour la vitesse de rotation »), aides, feuille des formules, attestation
+   et `/verifier` (en-tête de colonne « N (tr/min) » — l'enregistrement signé ne porte aucune unité : les
+   attestations déjà émises s'affichent aussi ainsi, signatures intactes), éditeur (« Vitesse de rotation (N) »,
+   « Vitesse de rotation max de la machine »), documentation. Les **identifiants ne changent pas** (`rpm`,
+   `limite_rpm`, l'exercice `m10-tournage-vc-rpm`). Le titre publié « M10 — Tournage : Vc et RPM » est une **donnée
+   de production** : Thierry le renomme dans l'éditeur ; la semence du dépôt reste telle quelle. Le point reste le
+   séparateur décimal affiché (D10).
+3. **Virgule décimale** (précise D10) : une virgule tapée est acceptée et **remplacée par un point, visiblement, à la
+   sortie du champ ou à la validation** (Vérifier, Entrée), **jamais pendant la frappe** (le curseur ne saute pas).
+   Aucun champ décimal n'est `type="number"` (celui-ci efface « 0,15 » dans un navigateur réglé en anglais) : tous
+   sont `type="text"` avec `inputmode="decimal"`, ce qui est déjà le cas. Portée : les cinq champs du quiz ; dans
+   l'éditeur, tous les champs décimaux (formulaire d'outil, Vc et avances des tables) et, dans la zone des
+   dimensions, la valeur après « ; » seulement (le libellé reste tel quel). L'espace professeur n'a aucun champ
+   décimal. Le serveur continue de lire la virgule (D10) : la conversion n'est qu'un affichage.
+4. **Accueil unique** (`/`, sans `?exercice=`), point de départ commun des étudiants et des professeurs : les
+   exercices **publiés, non archivés et proposés à l'accueil** (D18, `liste`), **regroupés par cours** dans l'ordre
+   des rangs (D51) — un exercice sans cours sous « Autres exercices », en dernier ; chacun mène à sa page de
+   description. **Une seule porte professeur** : le lien « Espace professeur » (`/prof`), où la clé saisie décide de
+   ce qu'on voit (D44 : administration, avec l'éditeur ; consultation, en lecture seule). Un `?exercice=` inconnu
+   garde l'avis de D18 au-dessus de la liste.
+5. **Le cours d'un exercice** : clé `cours` du contenu (brouillon et versions), texte facultatif de 1 à 30
+   caractères, **publié avec la version** comme le titre et « proposé à l'accueil » (les deux M10 semés n'en ont pas :
+   Thierry publie une version avec « M10 »). Dans l'éditeur, un champ **Cours** propose les cours déjà utilisés
+   (brouillons et dernières versions) ; à la sortie du champ, un cours qui ne diffère d'un cours existant que par la
+   casse, les accents, les espaces ou la ponctuation prend l'écriture existante (« m10 », « M-10 » → « M10 ») ;
+   l'accueil regroupe par cette même clé (`courseKey`). Différence à la publication : « Cours : « — » → « M10 » ».
+6. **Page de description d'un exercice** (`?exercice=<id>`, le lien diffusé sur Léa, qui continue de fonctionner) :
+   elle remplace l'accueil d'un exercice et en garde tout (titre, version, résumé, Commencer / Reprendre, avis
+   d'archivage), plus : un bouton **« ← Tous les exercices »** — une simple navigation vers l'accueil, qui ne crée, ne
+   modifie ni n'efface aucune séance, ni sur le serveur ni dans le navigateur (remplace « aucun moyen d'en changer
+   depuis la page », UI §3.1) —, un bouton **« Copier le lien »** (presse-papiers ; sinon le lien affiché, à
+   sélectionner), sans connexion ; **les questions posées** (grandeurs à trouver, fournies, non demandées — les mêmes
+   pour chaque outil, D52), **les outils questionnés** (photo, nom, plage de dimensions, opération, matières d'outil,
+   réussites de suite exigées) et **les matériaux usinés possibles**, par classe ISO. Tout est composé dans le
+   navigateur à partir de la dernière version publiée (`GET /api/exercice`) : rien de nouveau ne sort du serveur,
+   rien de ce qui est à trouver. Double usage : l'étudiant vérifie qu'il est dans le bon exercice, le professeur
+   choisit celui à donner.
+7. **Le jeton gardé nomme son exercice** (`{ matricule, prenom, jeton, exercice }`, SPEC §7) : « Reprendre,
+   <prénom> » n'est offert que sur la page de cet exercice ; ailleurs, « Commencer ou reprendre », et le jeton gardé
+   n'est ni utilisé ni effacé (avant, l'essayer sur un autre exercice le faisait refuser, puis oublier). Un jeton
+   gardé avant cette version, sans exercice, se comporte comme avant.
+8. **Le nom d'un exercice identifie l'exercice pour les étudiants** : à la publication, le panneau de confirmation
+   **signale** — en rouge, sans bloquer — un autre exercice publié et non archivé qui porte le même titre (sans tenir
+   compte de la casse, des accents ni des espaces), en le nommant.
+
+**Conséquences.** `text.js` (`FIELD_PARTS`, `FIELD_LABELS`, `FIELD_NAMES`, `coherenceSource`, `decimalPoint`),
+`rules.js` (`gapExplanation`, `helpLine`, `diameterLines`), `correction.js` (`toleranceLabel`), `question-screen.js`,
+`reference-screen.js`, `editeur-data.js` (`FIELD_CHOICES`, avertissements, cours, doublon de titre),
+`editeur.js`, `dom.js` (virgule convertie à la sortie du champ), `exercice.js` (`cours`, `courseKey`),
+`worker/index.js` (`GET /api/exercices` : `cours`, nombre d'outils et grandeurs évaluées ; liste de l'éditeur :
+`cours`, titre publié), `session.js`, `home-screen.js` et un module pur de la page de description ; SPEC §5 à §8,
+§10 ; UI §1 à §3 ; tests. Remplace, dans UI §3.1, « aucun moyen d'en changer depuis la page » ; précise D10 et D18 ;
+remplace les textes du complément de D70.
