@@ -1,4 +1,6 @@
-// L'éditeur des exercices et de la banque d'outils (jalons 7a et 7b, décisions D47 à D49, D56 à D59 ; UI §3.9).
+// La Gestion du contenu — exercices, banque d'outils, tables de référence, images, sauvegarde (jalons 7a et 7b,
+// décisions D47 à D49, D56 à D59, D74 ; UI §3.9). « Éditeur des exercices » jusqu'à D74 : l'adresse /prof/editeur,
+// les routes /api/prof/editeur/* et les noms de fichiers gardent « editeur ».
 // Rôle admin seulement : la même clé que l'espace professeur ; le serveur refuse la clé de
 // consultation sur chaque route. Ce qu'on montre est décidé par editeur-data.js (pur, testé) et la
 // validation est celle du quiz (draftErrors, site/js/exercice.js) ; ici, on construit le DOM.
@@ -83,7 +85,7 @@ function showLogin(notice = '') {
   showScreen(main, screen, { title: TITLE, aside: 'TGM-TMI' }, '#cle');
 }
 
-// Un appel à l'éditeur : un 401 ramène à la connexion, un 403 dit que la clé ne permet pas d'éditer.
+// Un appel à la Gestion du contenu : un 401 ramène à la connexion, un 403 dit que la clé ne permet pas d'éditer.
 async function guarded(action) {
   try {
     return await action();

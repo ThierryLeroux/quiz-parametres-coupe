@@ -27,7 +27,7 @@ export const toolPhotoUrl = (tool) => imageUrl(tool.image ?? tool.id);
 export const operationPicto = (name, operation = null) => imageUrl(operation?.pictogramme ?? operationSlug(name));
 
 // L'image d'une classe ISO (D64 ; D66 : la chaleur seulement), telle que l'écran Question la montre sous le
-// matériau brut, et l'aperçu de l'éditeur : [{ key, label, id, url }] — vide pour une classe sans image (O),
+// matériau brut, et l'aperçu de la Gestion du contenu : [{ key, label, id, url }] — vide pour une classe sans image (O),
 // inconnue, ou dont l'image est retirée : l'espace reste vide, sans erreur. `classesIso` : les classes de la
 // version en usage (data.classesIso, ou celles du brouillon des tables à l'écran).
 

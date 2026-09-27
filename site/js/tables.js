@@ -2,7 +2,7 @@
 // au-delà des matériaux et des opérations — les classes ISO avec leurs couleurs, les matières
 // d'outil avec les leurs, le pictogramme d'une opération —, les valeurs par défaut (celles de
 // tokens.css, pour une version d'avant le 7b comme « A2026_r0 »), les variables CSS que le quiz et
-// l'éditeur posent à partir de la version en usage, la révision suivante et les différences entre
+// la Gestion du contenu posent à partir de la version en usage, la révision suivante et les différences entre
 // deux versions, valeur par valeur. Fonctions PURES, partagées par le serveur et le navigateur.
 
 // Les classes ISO 513 du classeur, avec les couleurs des feuilles (UI §1 ; tokens.css avant le 7b) :
@@ -144,7 +144,7 @@ export function toolMaterialKeyMap(materiaux) {
 }
 
 // --- Variables CSS (UI §1) : les couleurs de sens, lues dans la version en usage --------------------------------
-// Le quiz, les feuilles et l'éditeur posent ces variables sur la page à partir des tables de la
+// Le quiz, les feuilles et la Gestion du contenu posent ces variables sur la page à partir des tables de la
 // version en usage ; tokens.css n'en garde que les valeurs par défaut. Le rouge K éclairci pour le
 // fond nuit (--iso-k-night, D30) est composé de la couleur vive : 64 % de la couleur, 36 % de blanc
 // (#ff0000 → #ff5c5c, la valeur d'origine).

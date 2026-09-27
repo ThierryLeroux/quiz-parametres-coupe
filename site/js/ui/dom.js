@@ -34,9 +34,9 @@ export function applyTableColors(materiaux) {
 // n'a qu'une virgule). Les champs décimaux sont des champs texte (`inputmode="decimal"`), jamais
 // type="number", qui effacerait « 0,15 » dans un navigateur réglé en anglais.
 // Retourne true si le champ a changé ; il annonce alors un événement « input », comme une frappe, pour que
-// la page relise sa valeur (validation de l'éditeur). Un champ en lecture seule n'est pas touché.
+// la page relise sa valeur (validation de la Gestion du contenu). Un champ en lecture seule n'est pas touché.
 //   un champ `inputmode="decimal"` : toute sa valeur ; une zone `data-decimal="valeurs"` (« libellé ; valeur »
-//   par ligne, les dimensions de l'éditeur) : la valeur de chaque ligne seulement
+//   par ligne, les dimensions de la Gestion du contenu) : la valeur de chaque ligne seulement
 export function pointDecimalComma(field) {
   if (!field || field.readOnly || typeof field.value !== 'string') return false;
   let next = null;

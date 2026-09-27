@@ -158,7 +158,7 @@ test('decimalPoint (D71) : la virgule tapée devient un point ; rien d’autre n
   assert.equal(decimalPoint(undefined), '');
 });
 
-test('decimalPointInValues (D71) : dans les dimensions de l’éditeur, la valeur après le dernier « ; » seulement', () => {
+test('decimalPointInValues (D71) : dans les dimensions de la Gestion du contenu, la valeur après le dernier « ; » seulement', () => {
   assert.equal(decimalPointInValues('Ø 1,5 mm ; 0,059\nM10 x 1.5 ; 10x1,5\n1/4- 20 UNC ; 0.25-20'), 'Ø 1,5 mm ; 0.059\nM10 x 1.5 ; 10x1.5\n1/4- 20 UNC ; 0.25-20');
   assert.equal(decimalPointInValues('sans valeur, ni point-virgule'), 'sans valeur, ni point-virgule'); // le libellé reste tel quel
   assert.equal(decimalPointInValues('a ; b ; 0,5\r\nc ; 1,25'), 'a ; b ; 0.5\r\nc ; 1.25');

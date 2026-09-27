@@ -176,8 +176,8 @@ Rapport de session : `docs/rapports/avances.md`.
 - [x] Chrome, mode test, 1280 et 390 px (huit outils visés, test-complet publié par le script pendant que wrangler dev tourne) ; captures dans `captures/avances-d70/`
 - [x] Barre à aléser, f +1 % : le test demandé contredisait la règle à une dent ; la règle est gardée (D70), le test `todo` retiré ; lecture des aides des filets confirmée
 - [x] **D'où vient la valeur attendue** (D70, complément) : « Juste (0.000284 = ton fz × 2) », « Juste (3048.000 = ton N × ta f) » quand elle vient de la cohérence avec les saisies ; `coherence` dans chaque champ corrigé, `coherenceSource` (`text.js`)
-- [ ] **Thierry** : publier l'exercice de tournage (perçage au tour compris) dans l'éditeur ; micro-forets écartés par ses dimensions (à partir de Ø 1/16 po : #52 et plus gros, 1.6 mm et plus)
-- [ ] **Thierry, en production, par l'éditeur** : ajouter deux fraises à surfacer de 3 po, à 5 et à 7 dents (fz = 0,004 × 3 = 0,012 → 0,010) ; puis publier l'exercice de fraisage
+- [ ] **Thierry** : publier l'exercice de tournage (perçage au tour compris) dans la Gestion du contenu ; micro-forets écartés par ses dimensions (à partir de Ø 1/16 po : #52 et plus gros, 1.6 mm et plus)
+- [ ] **Thierry, en production, par la Gestion du contenu** : ajouter deux fraises à surfacer de 3 po, à 5 et à 7 dents (fz = 0,004 × 3 = 0,012 → 0,010) ; puis publier l'exercice de fraisage
 
 ## Chantier « accueil et libellés » — six retouches du remue-méninges de Thierry (décisions D71 à D73)
 Rapport de session : `docs/rapports/accueil-et-libelles.md`.
@@ -189,7 +189,15 @@ Rapport de session : `docs/rapports/accueil-et-libelles.md`.
 - [x] **Doublon de titre** signalé à la publication, sans bloquer
 - [x] ~~Worker renommé `quiz` (D72)~~ — le renommage est introuvable dans le tableau de bord : **le Worker garde son nom**, seul le sous-domaine change (D73) ; aucune adresse dans le code, sel HKDF inchangé ; procédure courte dans `DEMARRAGE.md` §4
 - [ ] **Thierry, dans l'ordre** (`DEMARRAGE.md` §4) : fusionner la branche, vérifier, changer le sous-domaine en `tgm-tmi` dans le tableau de bord Cloudflare, vérifier sur `quiz-parametres-coupe.tgm-tmi.workers.dev`, remplacer les liens de Léa
-- [ ] **Thierry, dans l'éditeur** : mettre le cours « M10 » aux deux M10 et les publier ; renommer « M10 — Tournage : Vc et RPM » (le titre est une donnée de production)
+- [ ] **Thierry, dans la Gestion du contenu** : mettre le cours « M10 » aux deux M10 et les publier ; renommer « M10 — Tournage : Vc et RPM » (le titre est une donnée de production)
+
+## Chantier « gestion du contenu » — trois retouches de la page `/prof/editeur` (décision D74)
+Rapport de session : `docs/rapports/gestion-du-contenu.md`. Les tâches cochées des chantiers précédents gardent le nom « éditeur », celui de l'époque.
+
+- [x] **E1 — « Gestion du contenu »** au lieu d'« Éditeur des exercices » : titre de l'onglet, en-tête, lien de l'espace professeur, panneau « Enseignants » de l'accueil, messages ; documents vivants et commentaires ; l'adresse `/prof/editeur`, les routes `/api/prof/editeur/*`, les fichiers et les identifiants ne changent pas ; un test garde les textes visibles de tout « éditeur »
+- [x] **E2 — « Modifier »** au lieu d'« Ouvrir » dans les listes Exercices et Banque d'outils (les seules qui ont ce bouton)
+- [x] **E3 — un titre en double bloque la publication** (remplace le simple signalement de D71) : au serveur (400, `doublons`) et à l'écran (refus en rouge, bouton inactif) ; brouillons libres ; republier le même exercice passe ; un archivé ne compte pas ; les doublons déjà publiés restent en place
+- [ ] **Thierry** : repérer les doublons de titre déjà en production (marche à suivre dans le rapport) et, s'il y en a, changer un titre ou archiver l'un des deux avant la prochaine publication ; trancher les points douteux du rapport
 
 ## Finition
 - [ ] Graphique de progression par opération

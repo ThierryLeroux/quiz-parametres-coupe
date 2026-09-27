@@ -109,7 +109,7 @@ export function validateData({ materiaux, operations, outils }) {
 
 // Les deux tables de référence seules (matériaux, opérations), sans outils : ce contre quoi un
 // brouillon de tables se valide (D61). Retourne la liste de toutes les erreurs.
-//   images : facultatif, les fiches des images de la base ([{ id, archivee_le }]) — l'éditeur les donne
+//   images : facultatif, les fiches des images de la base ([{ id, archivee_le }]) — la Gestion du contenu les donne
 //            pour qu'une image de classe (D64) inconnue ou archivée soit une erreur nommée ; sans elles
 //            (le catalogue d'une séance, une version publiée), seul le format des identifiants est vérifié
 export function validateTables({ materiaux, operations }, { images = null } = {}) {
@@ -249,16 +249,16 @@ function validateTools(tools, ops, groups, toolMaterials, errors) {
   checkUnique(tools.filter(isObject).map((tool) => tool.id), 'outils.json : id', errors);
 }
 
-// Les clés d'un outil, au format d'outils.json — celles que l'éditeur (jalon 7) montre et enregistre.
+// Les clés d'un outil, au format d'outils.json — celles que la Gestion du contenu (jalon 7) montre et enregistre.
 // « colonne_excel » est la provenance (classeur) ; « limite_avance » est obsolète (D69, SPEC §3) : gardée dans
-// les données, ni lue par le moteur ni montrée par l'éditeur.
+// les données, ni lue par le moteur ni montrée par la Gestion du contenu.
 export const TOOL_KEYS = [
   'id', 'colonne_excel', 'nom', 'format_identifiant', 'commentaire', 'operation', 'fact_vc', 'fact_av', 'limite_rpm', 'limite_avance',
   'nb_dents_min', 'nb_dents_max', 'materiaux_outil', 'groupes_materiaux_usinables', 'image', 'dimensions', 'dimensions_barre', 'rapport_barre_max',
 ];
 
 // Les erreurs d'UN outil, chacune avec le champ en cause : [{ champ, message }]. C'est la règle que
-// validateData applique à chaque outil du catalogue, et que l'éditeur applique en continu à un
+// validateData applique à chaque outil du catalogue, et que la Gestion du contenu applique en continu à un
 // outil de la banque ou à une copie dans un exercice, pour écrire l'erreur à côté du champ (jalon 7).
 //   tool      : l'outil, au format d'outils.json (un objet)
 //   opsByName     : Map nom d'opération → opération (celles des tables de référence)
@@ -276,7 +276,7 @@ export function toolErrors(tool, opsByName, groups, toolMaterialsOfTables = Obje
   for (const key of ['fact_vc', 'fact_av', 'limite_rpm']) {
     if (!isPositive(tool[key])) error(key, `« ${key} » doit être un nombre > 0`);
   }
-  // « limite_avance » est obsolète (D69) : ce n'est pas un plafond, le moteur l'ignore et l'éditeur ne la montre
+  // « limite_avance » est obsolète (D69) : ce n'est pas un plafond, le moteur l'ignore et la Gestion du contenu ne la montre
   // plus. Acceptée telle que le classeur l'a laissée (null pour les tarauds), ou absente (outil créé depuis).
   if (tool.limite_avance !== undefined && tool.limite_avance !== null && !isPositive(tool.limite_avance)) error('limite_avance', '« limite_avance » doit être un nombre > 0 ou null');
   // Le catalogue ne sait rien des exercices (décision D11).
@@ -416,7 +416,7 @@ export function assembleData({ materiaux, operations }, outils) {
 }
 
 // Les deux tables seules, complétées et indexées, sans outils (D61) : les feuilles de référence d'une
-// version de tables, l'éditeur des tables. Valide les tables ; lève si elles sont invalides.
+// version de tables, l'onglet Tables de référence de la Gestion du contenu. Valide les tables ; lève si elles sont invalides.
 export function assembleTables(tables) {
   const errors = validateTables(tables);
   if (errors.length > 0) throw new Error(`Tables invalides :\n- ${errors.join('\n- ')}`);

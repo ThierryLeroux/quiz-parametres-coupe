@@ -1,12 +1,12 @@
 // Serveur du quiz : un Worker Cloudflare (décisions D19 à D23, D31 à D36, D47 à D49 ; API décrite dans SPEC §7).
 //   /api/…               → le serveur de correction, en JSON
 //   /api/prof/…          → l'espace professeur, derrière un cookie de séance signé
-//   /api/prof/editeur/…  → l'éditeur des exercices et de la banque d'outils, rôle admin seulement
+//   /api/prof/editeur/…  → la Gestion du contenu (exercices, banque, tables, images, sauvegarde), rôle admin seulement
 //   le reste             → les fichiers de site/, servis tels quels (liaison ASSETS de wrangler.jsonc)
 //
 // Ce fichier ne fait que recevoir les requêtes et enchaîner les étapes. Les règles du quiz sont
 // dans seance.js, celles de l'attestation dans attestation.js, celles de l'accès (limites de débit,
-// verrous, cookie professeur) dans acces.js, celles de l'éditeur dans editeur.js, le SQL dans
+// verrous, cookie professeur) dans acces.js, celles de la Gestion du contenu dans editeur.js, le SQL dans
 // base.js, la cryptographie dans crypto.js, le chargement des exercices depuis la base dans catalogue.js.
 
 import pkg from '../package.json' with { type: 'json' };
@@ -52,7 +52,7 @@ class HttpError extends Error {
 
 const SESSION_EXPIRED = 'Ta séance a expiré : identifie-toi de nouveau.';
 
-// Le corps JSON d'une requête. Les requêtes du quiz sont courtes ; celles de l'éditeur portent des
+// Le corps JSON d'une requête. Les requêtes du quiz sont courtes ; celles de la Gestion du contenu portent des
 // exercices entiers (des dizaines de Ko), et un import, toute la sauvegarde.
 const BODY_MAX = 10000;
 const EDITOR_BODY_MAX = 4_000_000;
@@ -622,7 +622,7 @@ async function profIdentites(request, env, { now }) {
   return json({ corrections: await base.listIdentityCorrections(env.DB) });
 }
 
-// --- L'éditeur : /api/prof/editeur/… (D47 à D49), rôle admin seulement ------------------------------------------
+// --- La Gestion du contenu : /api/prof/editeur/… (D47 à D49, D74), rôle admin seulement ---------------------------
 // Chaque route exige le cookie professeur avec le rôle admin (requireAdmin : 401 sans cookie, 403 en
 // consultation), et chaque action est inscrite au journal des actions. L'aperçu, lui, n'enregistre rien.
 
@@ -630,7 +630,7 @@ const CONFLICT = "Ce brouillon a été enregistré ailleurs depuis ton ouverture
 
 const logEntry = (teacher, now, action, details) => ({ horodatage: now.toISOString(), enseignant: teacher, action, details });
 
-// La fiche d'un exercice de l'éditeur, ou 404.
+// La fiche d'un exercice de la Gestion du contenu, ou 404.
 async function editorExercise(env, id) {
   const record = isExerciseId(id) ? await base.findExercise(env.DB, id) : null;
   if (record === null) throw new HttpError(404, "Cet exercice n'existe pas.");
@@ -765,7 +765,7 @@ async function editeurRenommer(request, env, { now }) {
 }
 
 // POST /api/prof/editeur/exercice/deplacer — { id, rang, direction: "monter" | "descendre" } (D51) : l'ordre de la
-// liste de l'éditeur et de l'accueil. Contrôle optimiste sur le rang que l'écran a vu ; les rangs sont réécrits 1 à n.
+// liste de la Gestion du contenu et de l'accueil. Contrôle optimiste sur le rang que l'écran a vu ; les rangs sont réécrits 1 à n.
 async function editeurDeplacer(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
@@ -1044,7 +1044,7 @@ async function editeurImageTeleverser(request, env, { now }) {
   return json({ image: imageView(await base.findImageMeta(env.DB, image.id)), existante: false, retires: upload.retires });
 }
 
-// La fiche d'une image de l'éditeur, ou 404.
+// La fiche d'une image de la Gestion du contenu, ou 404.
 async function editorImage(env, id) {
   const row = isImageId(id) ? await base.findImageMeta(env.DB, id) : null;
   if (row === null) throw new HttpError(404, "Cette image n'existe pas.");
@@ -1227,7 +1227,7 @@ const ROUTES = {
   'POST /api/prof/editeur/import': editeurImport,
 };
 
-// Les routes de l'éditeur, toutes réservées au rôle admin (tests : refus du rôle consultation sur chacune).
+// Les routes de la Gestion du contenu, toutes réservées au rôle admin (tests : refus du rôle consultation sur chacune).
 // Une fonction, pas une constante : le Workers runtime n'accepte comme exports du module d'entrée
 // que des fonctions et le gestionnaire (un test le vérifie).
 export function editorRoutes() {

@@ -187,7 +187,7 @@ test('validateData : fact_av ≠ 1 est permis sur une avance proportionnelle au 
 
 test('validateData : limite_avance, obsolète (D69), est acceptée absente, nulle ou > 0', () => {
   const donnees = donneesValides();
-  delete donnees.outils.outils[0].limite_avance; // un outil créé dans l'éditeur ne l'a plus
+  delete donnees.outils.outils[0].limite_avance; // un outil créé dans la Gestion du contenu ne l'a plus
   assert.deepEqual(validateData(donnees), []);
   assert.equal(donnees.outils.outils[1].limite_avance, null);
   assert.equal(donneesValides().outils.outils[0].limite_avance, 0.01);

@@ -1,4 +1,4 @@
-// Tests de site/js/ui/editeur-data.js (l'éditeur, jalon 7a) : état d'un exercice, différences entre
+// Tests de site/js/ui/editeur-data.js (la Gestion du contenu, jalon 7a) : état d'un exercice, différences entre
 // versions, dimensions en texte, exemple du gabarit, erreurs par champ, aperçu, sauvegarde — sans DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

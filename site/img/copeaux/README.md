@@ -3,7 +3,7 @@
 Une image par classe ISO 513 (P, M, K, N, S, H), fournie par Thierry : l'**image de chaleur** (où la chaleur
 se concentre dans la coupe de cette classe de matériau ; elle montre aussi la forme du copeau). Elle est
 montrée sous la description du matériau brut de l'écran Question, avec les caractéristiques de la classe à
-sa droite, et dans l'aperçu de l'éditeur. Les images de forme de copeaux, d'abord fournies, ont été
+sa droite, et dans l'aperçu de la Gestion du contenu. Les images de forme de copeaux, d'abord fournies, ont été
 retirées avant la mise en production (décision D66).
 
 - `originaux/` — les fichiers tels que reçus (« Chaleur groupe P.png », RVBA 8 bits, fond blanc composé
@@ -17,7 +17,7 @@ retirées avant la mise en production (décision D66).
 `images`** (usage `classe`, identifiant = le nom du fichier sans `.png`), servis par `/images/<id>` ;
 chaque classe ISO des tables de référence nomme la sienne (`image_chaleur`, valeur par défaut d'une version
 d'avant). Comme pour les photos et les pictogrammes (D56), **changer ou ajouter un fichier ici ne change rien
-en production** : c'est l'onglet Images de l'éditeur qui téléverse (usage « image de classe ISO »), et
+en production** : c'est l'onglet Images de la Gestion du contenu qui téléverse (usage « image de classe ISO »), et
 l'onglet Tables de référence qui choisit l'image d'une classe. Un test vérifie que la semence est identique à
 ces fichiers.
 

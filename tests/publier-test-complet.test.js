@@ -1,5 +1,5 @@
 // Tests de tests/publier-test-complet.mjs (D70) : test-complet publié sur une base locale comme « Publier » dans
-// l'éditeur, rien de republié s'il est identique, --remote refusé. La base est la fausse D1 des tests (les vraies
+// la Gestion du contenu, rien de republié s'il est identique, --remote refusé. La base est la fausse D1 des tests (les vraies
 // migrations) ; le script, lui, ouvre la D1 locale de wrangler.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

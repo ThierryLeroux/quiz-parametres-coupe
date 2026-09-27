@@ -10,7 +10,7 @@
 // attestation, vérification par l'adresse du QR et par le code, connexion professeur, remise à
 // zéro, attestation annulée — puis l'exercice « Vc et RPM » (D40) jusqu'à son attestation à deux
 // pages de questions (D41), la connexion en consultation (D44), la suppression d'une séance (D45) et
-// l'effacement des données des étudiants (D46), puis l'éditeur du jalon 7a (D47 à D49 : exercice lu dans
+// l'effacement des données des étudiants (D46), puis la Gestion du contenu du jalon 7a (D47 à D49 : exercice lu dans
 // D1, version 2 publiée, séance épinglée, export et import) — en une minute au lieu de trois.
 //
 // Ce fichier ne finit pas par .test.js : « npm test » ne le lance pas.
@@ -379,7 +379,7 @@ try {
     assert.equal((await appel('POST', '/api/creation', { corps: CAMILLE })).status, 200); // l'exercice se sert comme avant
   });
 
-  // --- Jalon 7a : l'exercice vient de D1, l'éditeur publie une version 2, la séance en cours reste épinglée (D47 à D49) ----
+  // --- Jalon 7a : l'exercice vient de D1, la Gestion du contenu publie une version 2, la séance en cours reste épinglée (D47 à D49) ----
 
   await etape('l’exercice est lu dans D1 (D47) : GET /api/exercice rend la version 1 avec ses copies d’outils et ses tables ; /api/exercices liste les deux M10', async () => {
     const { status, corps } = await appel('GET', `/api/exercice?exercice=${M10}`);
@@ -389,7 +389,7 @@ try {
   });
 
   let revision;
-  await etape('éditeur : la liste, le brouillon du M10 (révision 1, aucune erreur), le brouillon enregistré avec un nouveau titre, la clé de consultation refusée (403)', async () => {
+  await etape('Gestion du contenu : la liste, le brouillon du M10 (révision 1, aucune erreur), le brouillon enregistré avec un nouveau titre, la clé de consultation refusée (403)', async () => {
     const liste = await appel('GET', '/api/prof/editeur/exercices', { cookie });
     assert.equal(liste.status, 200, JSON.stringify(liste.corps));
     assert.deepEqual(liste.corps.exercices.map((e) => [e.id, e.modifie, e.derniere_version]), [[M10, false, 1], [VC_RPM, false, 1]]);
@@ -408,7 +408,7 @@ try {
     assert.equal((await appel('POST', '/api/prof/editeur/exercice/publier', { corps: { id: M10, revision }, cookie: cookieConsultation })).status, 403);
   });
 
-  await etape('éditeur : aperçu de dix questions, puis publication de la version 2 ; Camille (séance créée sur la version 1) y reste épinglée, une nouvelle séance prend la 2', async () => {
+  await etape('Gestion du contenu : aperçu de dix questions, puis publication de la version 2 ; Camille (séance créée sur la version 1) y reste épinglée, une nouvelle séance prend la 2', async () => {
     const apercu = await appel('POST', '/api/prof/editeur/apercu', { corps: { id: M10 }, cookie });
     assert.equal(apercu.status, 200, JSON.stringify(apercu.corps));
     assert.equal(apercu.corps.questions.length, 10);
@@ -424,7 +424,7 @@ try {
     assert.deepEqual(liste.versions.map((v) => [v.numero, v.seances]), [[2, 1], [1, 1]]);
   });
 
-  await etape('éditeur : export complet, import du même export validé puis appliqué (mot IMPORTER) ; l’export réimporté est identique, les séances intactes', async () => {
+  await etape('Gestion du contenu : export complet, import du même export validé puis appliqué (mot IMPORTER) ; l’export réimporté est identique, les séances intactes', async () => {
     const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
     assert.equal(exporte.status, 200);
     assert.deepEqual([exporte.corps.format, exporte.corps.banque.length, exporte.corps.exercices.find((e) => e.id === M10).versions.length], ['quiz-parametres-coupe/editeur/1', 29, 2]);

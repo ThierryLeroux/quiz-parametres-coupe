@@ -117,7 +117,7 @@ export function newSessionNotice(matricule) {
 // Tout le champ : « 0,15 » → « 0.15 ».
 export const decimalPoint = (text) => String(text ?? '').replaceAll(',', '.');
 
-// Une zone « libellé ; valeur » par ligne (les dimensions de l'éditeur) : la valeur seulement, après le dernier
+// Une zone « libellé ; valeur » par ligne (les dimensions de la Gestion du contenu) : la valeur seulement, après le dernier
 // « ; » — « Ø 1,5 mm ; 0,059 » → « Ø 1,5 mm ; 0.059 », « M10 x 1.5 ; 10x1,5 » → « M10 x 1.5 ; 10x1.5 ».
 export function decimalPointInValues(text) {
   return String(text ?? '').split('\n').map((line) => {

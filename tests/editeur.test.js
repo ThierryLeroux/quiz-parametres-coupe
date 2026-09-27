@@ -1,4 +1,4 @@
-// Tests des règles pures de l'éditeur (jalon 7a, D47 à D49) : copies d'outils et brouillon
+// Tests des règles pures de la Gestion du contenu (jalon 7a, D47 à D49) : copies d'outils et brouillon
 // (site/js/exercice.js), erreurs par champ (site/js/data.js), identifiants, aperçu, plan d'import (worker/editeur.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

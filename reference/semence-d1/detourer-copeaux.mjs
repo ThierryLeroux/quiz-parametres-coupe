@@ -7,7 +7,7 @@
 // Lancé depuis la racine du dépôt :   node reference/semence-d1/detourer-copeaux.mjs
 // Les originaux restent la source ; relancer le script refait les douze fichiers à l'identique.
 // Les fichiers détourés sont la semence de la migration 0009 : les changer ici ne change rien en
-// production (D56) — c'est l'onglet Images de l'éditeur qui téléverse.
+// production (D56) — c'est l'onglet Images de la Gestion du contenu qui téléverse.
 //
 // Méthode.
 // 1. Remplissage depuis les bords (4-connexité) sur les pixels « proches du blanc » : les trois

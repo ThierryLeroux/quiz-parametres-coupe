@@ -1,7 +1,7 @@
 // Exercices configurables (décision D11, SPEC §10) : validation et chargement de
 // site/exercices/<id>.json. Un exercice choisit dans le catalogue (data.js) les outils
 // évalués, leurs réussites requises, les champs évalués et d'éventuelles restrictions.
-// La même validation sert aux tests, au quiz et à l'éditeur.
+// La même validation sert aux tests, au quiz et à la Gestion du contenu.
 
 import { TOOL_KEYS, fetchJson, toolErrors, toolMaterialNames } from './data.js';
 
@@ -235,7 +235,7 @@ export function engineExercise(id, version, draft) {
 }
 
 // Les erreurs d'un brouillon, chacune avec le champ en cause : [{ champ, message }] — « titre »,
-// « outils.2.fact_vc »… L'éditeur les écrit à côté du champ, le serveur refuse de publier tant
+// « outils.2.fact_vc »… La Gestion du contenu les écrit à côté du champ, le serveur refuse de publier tant
 // qu'il en reste. La règle d'un outil est celle du catalogue (toolErrors : le même validateData que le quiz).
 //   tables : { materiaux, operations } — le contenu des deux tables de référence, tels quels
 // Ne lève jamais d'exception ; liste vide = brouillon publiable.

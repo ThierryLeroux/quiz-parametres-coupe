@@ -1,4 +1,4 @@
-// Ce que montre l'éditeur (jalon 7a, décisions D47 à D49 ; UI §3.9) : état d'un exercice dans la
+// Ce que montre la Gestion du contenu (jalon 7a, décisions D47 à D49, D74 ; UI §3.9) : état d'un exercice dans la
 // liste, différences entre le brouillon et la dernière version (confirmation de publication), texte
 // des dimensions dans le formulaire d'outil, exemple composé du gabarit de nomenclature, erreurs par
 // champ, lignes de l'aperçu, résumé d'un import. Fonctions PURES, sans DOM, testées sous Node ;
@@ -127,7 +127,7 @@ export const publishedTitles = (rows) => rows.map((row) => ({ id: row.id, titre:
 
 // Les cours que les AUTRES exercices utilisent (brouillon ou dernière version publiée), un par cours — la première
 // écriture rencontrée dans l'ordre des rangs —, pour la liste que le champ Cours propose.
-//   rows : la liste de l'éditeur (GET /api/prof/editeur/exercices) ; exceptId : l'exercice de la page
+//   rows : la liste de la Gestion du contenu (GET /api/prof/editeur/exercices) ; exceptId : l'exercice de la page
 export function knownCourses(rows, exceptId = null) {
   const seen = new Map();
   for (const row of rows) {

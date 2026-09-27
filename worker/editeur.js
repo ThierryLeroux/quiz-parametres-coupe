@@ -1,7 +1,7 @@
-// Règles de l'éditeur (jalon 7, décisions D47 à D49) : identifiants, aperçu d'un exercice, plan
+// Règles de la Gestion du contenu (jalon 7, décisions D47 à D49 ; le nom du fichier date d'avant D74) : identifiants, aperçu d'un exercice, plan
 // d'un import, textes du journal des actions. Fonctions PURES : ni base, ni réseau, ni horloge.
 // Le SQL est dans base.js ; la validation d'un brouillon dans site/js/exercice.js (draftErrors),
-// partagée avec l'éditeur du navigateur.
+// partagée avec la Gestion du contenu dans le navigateur.
 
 import { computeParameters } from '../site/js/calcul.js';
 import { TOOL_KEYS } from '../site/js/data.js';
