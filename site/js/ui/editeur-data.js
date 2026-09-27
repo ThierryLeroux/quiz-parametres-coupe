@@ -315,6 +315,30 @@ function completeTablesLike(tables) {
   };
 }
 
+// --- La présentation des tables en direct (D75, D76) -------------------------------------------------------------------
+
+// Le bouton « Appliquer… » du panneau de la présentation, et son état : désactivé tant qu'il reste une erreur, ou
+// quand rien ne change ; sinon il dit combien de changements partiront, tout de suite, chez les étudiants.
+//   errors : presentationErrors ; lines : presentationDiff (en vigueur → panneau)
+export function presentationApplyState(errors, lines) {
+  if (errors.length > 0) return { enabled: false, label: `Appliquer (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` };
+  if (lines.length === 0) return { enabled: false, label: 'Aucun changement à appliquer' };
+  return { enabled: true, label: `Appliquer… (${lines.length} changement${lines.length > 1 ? 's' : ''})` };
+}
+
+const REPLACED_BY = { application: 'une application', retablissement: 'un rétablissement', import: 'un import' };
+
+// Une ligne de l'historique de la présentation : ce contenu, quand et par qui il avait été appliqué, quand et par quoi
+// il a été remplacé — « Présentation appliquée le 2026-09-27 13:05 par admin, remplacée le 2026-09-27 14:10 par admin
+// (une application) » ; la présentation de départ (jamais appliquée) : « Présentation de départ (celle des tables
+// publiées), remplacée le … ».
+//   h : { posee_le, posee_par, remplacee_le, remplacee_par, action } (GET /api/prof/editeur/presentation, historique)
+export function presentationHistoryLabel(h) {
+  const who = (par) => (par ? ` par ${par}` : '');
+  const origin = h.posee_le === null ? 'Présentation de départ (celle des tables publiées)' : `Présentation appliquée le ${formatDateStamp(h.posee_le)}${who(h.posee_par)}`;
+  return `${origin}, remplacée le ${formatDateStamp(h.remplacee_le)}${who(h.remplacee_par)} (${REPLACED_BY[h.action] ?? h.action})`;
+}
+
 // Le nom d'une version de tables sur la page d'un exercice, et l'avis quand une plus récente existe.
 export const tablesNotice = (current, latest) => (current === latest ? null : `Une version plus récente des tables de référence existe : ${latest}. Cet exercice est sur ${current}.`);
 

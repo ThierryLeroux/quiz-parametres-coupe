@@ -218,6 +218,13 @@ export const editorTablesPublish = (revision, id, request) => editor('POST', 'ta
 export const editorTablesPreview = (contenu, exercice, request) => editor('POST', 'tables/apercu', { contenu, exercice }, request);
 export const editorExerciseTables = (id, revision, tablesId, request) => editor('POST', 'exercice/tables', { id, revision, tables_id: tablesId }, request);
 
+// La présentation des tables en direct (D76) : la lire ({ presentation, revision, appliquee, erreurs, matieres_outil,
+// historique }), l'appliquer ({ applique, revision, lignes } ; 400 erreurs — liste blanche comprise — ou rien à changer ;
+// 409 appliquée ailleurs), rétablir un contenu de l'historique ({ retablie, revision, lignes, avertissements } ; 404, 409).
+export const editorPresentation = (request) => editor('GET', 'presentation', undefined, request);
+export const editorPresentationApply = (revision, presentation, request) => editor('POST', 'presentation/appliquer', { revision, presentation }, request);
+export const editorPresentationRestore = (revision, historique, request) => editor('POST', 'presentation/retablir', { revision, historique }, request);
+
 // Images (D56) : la liste avec les utilisations ({ images }), le téléversement ({ image, existante, retires }),
 // archiver, renommer, supprimer (409 si utilisée), et l'envoi d'une image d'un export avant l'import (D59).
 export const editorImages = (usage, request) => editor('GET', `images${usage ? `?usage=${encodeURIComponent(usage)}` : ''}`, undefined, request);

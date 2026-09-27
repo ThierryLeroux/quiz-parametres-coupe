@@ -7,21 +7,23 @@
 //
 // Écrans : connexion → liste des exercices → page d'un exercice (réglages, outils, versions,
 // aperçu, publication, version des tables) ; banque d'outils → fiche d'un outil ; tables de
-// référence (brouillon, publication d'une version avec sa révision, aperçu, feuilles imprimables) ;
+// référence (la présentation en direct — aperçu, application, historique, D76 — ; le brouillon des valeurs,
+// publication d'une version avec sa révision, aperçu, feuilles imprimables) ;
 // images (galerie, téléversement, archivage) ; sauvegarde (export, import — les images voyagent à
 // part, une par requête).
 
 import {
   editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankSave, editorCreateExercise, editorDeleteExercise, editorExport,
   editorExerciseTables, editorGetExercise, editorImageArchive, editorImageDelete, editorImageImport, editorImageRename, editorImageUpload, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft,
-  editorTables, editorTablesPreview, editorTablesPublish, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
+  editorPresentation, editorPresentationApply, editorPresentationRestore, editorTables, editorTablesPreview, editorTablesPublish, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
+import { applyPresentation, presentationDiff, presentationErrors, presentationKeys } from '../presentation.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -1067,9 +1069,24 @@ function characteristicsEditor(lines, idPrefix, code, onChange) {
   return { element, read: readAll };
 }
 
+// Un tableau sans colonne d'actions (le panneau de la présentation : ses lignes sont celles des tables, fixes).
+const plainTable = (headers, rows, className = '') => el('div', { class: 'table-wrap' }, el('table', { class: `prof-table tables-edit ${className}`.trim() }, [
+  el('thead', {}, el('tr', {}, headers.map((h) => el('th', {}, h)))),
+  el('tbody', {}, rows.map((row) => row.tr)),
+]));
+
+// L'onglet Tables de référence (D61 à D63, D76) : deux parties, qui ne s'enregistrent pas de la même façon.
+//   - « Présentation — effet immédiat » : ce qui ne fait qu'afficher (noms et couleurs des classes, images de chaleur,
+//     légendes, caractéristiques, couleurs des matières d'outil, pictogrammes) ; pas de brouillon : « Appliquer… »
+//     change la page de tous les étudiants dès qu'elle se recharge ; l'historique garde chaque contenu remplacé.
+//   - « Valeurs — brouillon à publier » : le reste, un brouillon unique et des versions immuables (D61). Pour une clé que
+//     la présentation connaît, les champs de présentation n'y sont plus (ils y restent, cachés, sans effet) ; une classe
+//     ou une opération nouvelle y reçoit sa présentation de départ (D76, point 9).
 async function showTables(notice = '') {
   const page = await guarded(() => editorTables());
   if (page === null) return;
+  let shown = await guarded(() => editorPresentation());
+  if (shown === null) return;
   const pictos = await loadImages('operation');
   if (pictos === null) return;
   const classImagesList = await loadImages('classe');
@@ -1077,14 +1094,220 @@ async function showTables(notice = '') {
   const exercises = (await guarded(() => editorListExercises()))?.exercices ?? [];
   let { revision } = page.brouillon;
   const draft = page.brouillon.contenu;
+  let pending = page.presentation_en_attente;
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const errorsList = el('ul', { class: 'editeur-erreurs' });
   const dialogSlot = el('div');
-  const touch = () => { state.dirty = true; };
+  // Deux choses peuvent ne pas être enregistrées : le brouillon, et le panneau de la présentation (pas encore appliqué).
+  let draftDirty = false;
+  let presentationDirty = false;
+  const syncDirty = () => { state.dirty = draftDirty || presentationDirty; };
+  const touch = () => { draftDirty = true; syncDirty(); };
+  // Les clés que la présentation en vigueur connaît (D76, point 9) : leurs champs de présentation quittent le brouillon.
+  const known = presentationKeys(shown.presentation);
+  const liveClass = (code) => shown.presentation.classes_iso.find((c) => c.code === code);
 
-  // --- Classes ISO : code, nom, trois couleurs, l'image de chaleur (galerie compacte), sa légende (D68), les caractéristiques.
+  // --- La présentation en direct (D75, D76) : un panneau à part, redessiné après chaque application ----------------------
+  const presentationSlot = el('div');
+  const published = exercises.filter((e) => e.derniere_version !== null);
+  const presentationImages = () => [...(state.images.classe ?? []), ...(state.images.operation ?? [])];
+
+  // Relit la présentation (et les retouches en attente du brouillon) et redessine le panneau ; le brouillon n'est pas touché.
+  async function reloadPresentation(message) {
+    const next = await guarded(() => editorPresentation());
+    if (next === null) return;
+    shown = next;
+    pending = (await guarded(() => editorTables()))?.presentation_en_attente ?? pending;
+    presentationDirty = false;
+    syncDirty();
+    renderPresentation(shown.presentation, message);
+    validate();
+  }
+
+  // Un refus du serveur, en clair : 409 (appliquée ailleurs) avec « Recharger le panneau », 400 avec ses erreurs.
+  const failure = (error) => {
+    if (error.status === 409) return [el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => reloadPresentation('') }, 'Recharger le panneau')];
+    if (error.status === 400 && Array.isArray(error.details?.erreurs)) return [el('strong', {}, error.message), el('ul', { class: 'editeur-erreurs' }, error.details.erreurs.map((m) => el('li', {}, m)))];
+    return [error.status === 400 || error.status === 404 ? error.message : serverErrorMessage(error)];
+  };
+
+  //   start : le contenu à montrer — la présentation en vigueur, ou celle qui reprend les retouches en attente
+  function renderPresentation(start, message = '') {
+    const panelStatus = el('div', { class: 'server-message', role: 'status' }, message);
+    const panelErrors = el('ul', { class: 'editeur-erreurs' });
+    const dialog = el('div');
+    const toolNames = new Map(shown.matieres_outil.map((m) => [m.cle, m.nom]));
+    const onEdit = () => { presentationDirty = true; syncDirty(); check(); };
+
+    const classRows = start.classes_iso.map((c, i) => {
+      const nom = textInput(`pr-cl-${i}-nom`, c.nom);
+      const couleur = colorInput(`pr-cl-${i}-couleur`, c.couleur);
+      const texte = colorInput(`pr-cl-${i}-texte`, c.couleur_texte);
+      const ligne = colorInput(`pr-cl-${i}-ligne`, c.couleur_ligne);
+      const swatch = el('span', { class: 'choice-swatch', 'aria-hidden': 'true' }, c.code);
+      const paint = () => { swatch.style.background = couleur.value; swatch.style.color = texte.value; };
+      for (const input of [couleur, texte]) input.addEventListener('input', paint);
+      paint();
+      const chaleur = imagePicker({ usage: 'classe', images: state.images.classe, value: c.image_chaleur ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: onEdit, idPrefix: `pr-cl-${i}-chaleur`, compact: true });
+      // La légende de l'image (D68) : 40 caractères au plus ; vide, pas de légende.
+      const legende = textInput(`pr-cl-${i}-legende`, c.legende_image ?? '', { class: 'input-legende' });
+      const features = characteristicsEditor(c.caracteristiques ?? [], `pr-cl-${i}-car`, c.code, onEdit);
+      return {
+        tr: el('tr', {}, [cell(swatch, 'num'), cell(el('span', { class: 'mono' }, c.code)), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(legende), cell(features.element, 'caracteristiques-cell')]),
+        read: () => ({ code: c.code, nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), legende_image: legende.value.trim(), caracteristiques: features.read() }),
+      };
+    });
+    const toolRows = start.materiaux_outil.map((m, i) => {
+      const couleur = colorInput(`pr-mo-${i}-couleur`, m.couleur);
+      return { tr: el('tr', {}, [cell(el('span', { class: 'mono smaller' }, m.cle)), cell(toolNames.get(m.cle) ?? '—'), cell(couleur)]), read: () => ({ cle: m.cle, couleur: couleur.value }) };
+    });
+    const opRows = start.operations.map((op, i) => {
+      const picker = imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: onEdit, idPrefix: `pr-op-${i}-picto`, compact: true });
+      return { tr: el('tr', {}, [cell(op.operation), cell(picker.element, 'picto-cell')]), read: () => ({ operation: op.operation, pictogramme: picker.read() }) };
+    });
+    const read = () => ({ classes_iso: classRows.map((r) => r.read()), materiaux_outil: toolRows.map((r) => r.read()), operations: opRows.map((r) => r.read()) });
+
+    // Erreurs, changements, bouton ; les couleurs de la page suivent le panneau à la frappe (même non appliqué).
+    const applyButton = el('button', { class: 'button button--direct', type: 'button' }, 'Appliquer…');
+    function check() {
+      const current = read();
+      const errors = presentationErrors(current, { images: presentationImages() });
+      const lines = presentationDiff(shown.presentation, current, toolNames);
+      panelErrors.replaceChildren(...errors.map((m) => el('li', {}, m)));
+      const button = presentationApplyState(errors, lines);
+      applyButton.disabled = !button.enabled;
+      applyButton.textContent = button.label;
+      applyTableColors({ classes_iso: current.classes_iso, materiaux_outil: current.materiaux_outil });
+      return { current, errors, lines };
+    }
+
+    // « Appliquer… » : la liste des changements, puis l'application, effet immédiat.
+    applyButton.addEventListener('click', () => {
+      const { current, errors, lines } = check();
+      if (errors.length > 0 || lines.length === 0) return;
+      const confirm = el('button', { class: 'button button--direct', type: 'button', onclick: async () => {
+        confirm.disabled = true;
+        try {
+          const result = await guarded(() => editorPresentationApply(shown.revision, current));
+          if (result === null) return;
+          await reloadPresentation(`Présentation appliquée à ${formatDateStamp(new Date().toISOString()).slice(11)} : ${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}, effet immédiat — chaque page d'étudiant la montre dès qu'elle se recharge. Le contenu remplacé est dans l'historique.`);
+        } catch (error) {
+          confirm.disabled = false;
+          panelStatus.replaceChildren(...failure(error));
+        }
+      } }, 'Appliquer maintenant');
+      dialog.replaceChildren(el('section', { class: 'panel panel--direct' }, [
+        el('div', { class: 'eyebrow' }, 'Confirmation — effet immédiat'),
+        el('h3', {}, `Appliquer ${lines.length} changement${lines.length > 1 ? 's' : ''} de présentation, tout de suite ?`),
+        el('ul', { class: 'editeur-diff' }, lines.map((line) => el('li', {}, line))),
+        el('p', { class: 'small' }, "Tous les étudiants le voient dès que leur page se recharge, séances en cours comprises, quelle que soit leur version des tables. Les valeurs (Vc, avances), la correction et les attestations ne changent pas. Le contenu remplacé va à l'historique : « Rétablir » le remet en un clic."),
+        el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialog.replaceChildren() }, 'Annuler')]),
+      ]));
+      dialog.scrollIntoView({ block: 'nearest' });
+    });
+
+    // L'aperçu (D75, point 5) : dix questions de la dernière version publiée d'un exercice, avec la présentation du panneau.
+    const previewSelect = el('select', { id: 'pr-apercu-exercice' }, published.map((e) => el('option', { value: e.id }, e.titre_publie ?? e.titre)));
+    async function preview() {
+      const row = published.find((e) => e.id === previewSelect.value);
+      if (!row) return;
+      try {
+        const result = await guarded(() => editorPreview({ id: row.id, version: row.derniere_version }));
+        if (result === null) return;
+        dialog.replaceChildren(el('section', { class: 'panel' }, [
+          el('div', { class: 'eyebrow' }, "Aperçu — rien n'est appliqué"),
+          el('h3', {}, `Dix questions de « ${row.titre_publie ?? row.titre} » (version ${row.derniere_version}) avec cette présentation`),
+          el('p', { class: 'muted small' }, "La dernière version publiée de l'exercice, montrée avec la présentation telle qu'elle est dans ce panneau, même non appliquée : l'image de chaleur de chaque classe, sa légende et ses caractéristiques. Les couleurs de la page suivent déjà le panneau."),
+          previewTable(result, read().classes_iso),
+          el('div', { class: 'form-actions' }, [el('button', { class: 'button-outline', type: 'button', onclick: preview }, 'Dix autres'), el('button', { class: 'button-link', type: 'button', onclick: () => dialog.replaceChildren() }, 'Fermer')]),
+        ]));
+        dialog.scrollIntoView({ block: 'nearest' });
+      } catch (error) {
+        panelStatus.replaceChildren(...failure(error));
+      }
+    }
+
+    // « Rétablir » : un contenu de l'historique remis en vigueur, en un geste ; celui qu'il remplace va à l'historique.
+    async function restore(entry) {
+      if (presentationDirty && !window.confirm('Les modifications du panneau ne sont pas appliquées : elles seront perdues. Rétablir quand même ?')) return;
+      try {
+        const result = await guarded(() => editorPresentationRestore(shown.revision, entry.id));
+        if (result === null) return;
+        const warnings = result.avertissements.length === 0 ? '' : ` Attention : ${result.avertissements.join(' ')}`;
+        await reloadPresentation(`Présentation rétablie à ${formatDateStamp(new Date().toISOString()).slice(11)} (${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}) : effet immédiat. Celle qu'elle remplace est dans l'historique.${warnings}`);
+      } catch (error) {
+        panelStatus.replaceChildren(...failure(error));
+      }
+    }
+    const history = el('details', { class: 'presentation-historique' }, [
+      el('summary', {}, `Historique (${shown.historique.length})`),
+      shown.historique.length === 0
+        ? el('p', { class: 'muted small' }, "Vide : chaque application y mettra le contenu qu'elle remplace.")
+        : el('ul', { class: 'versions-liste historique-liste' }, shown.historique.map((h) => el('li', {}, [
+          el('div', {}, [
+            el('div', { class: 'small' }, presentationHistoryLabel(h)),
+            h.lignes.length === 0
+              ? el('div', { class: 'muted smaller' }, 'Identique à la présentation en vigueur.')
+              : el('details', {}, [el('summary', { class: 'muted smaller' }, `Rétablir changerait ${h.lignes.length} valeur${h.lignes.length > 1 ? 's' : ''}`), el('ul', { class: 'editeur-diff' }, h.lignes.map((line) => el('li', {}, line)))]),
+          ]),
+          el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir'),
+        ]))),
+    ]);
+
+    // Les retouches de présentation en attente dans le brouillon (D76, point 10), s'il y en a.
+    const pendingBox = pending.lignes.length === 0 ? '' : el('div', { class: 'avis-tables avis-presentation' }, [
+      el('div', {}, [
+        el('strong', {}, `Retouches de présentation en attente dans le brouillon des tables (${pending.lignes.length})`),
+        el('p', { class: 'small' }, "Faites dans le brouillon avant que la présentation passe en direct, elles n'ont jamais été publiées et ne le seront plus : pour les garder, reprends-les dans ce panneau, vérifie l'aperçu, puis applique. La prochaine publication des tables les abandonne."),
+        el('ul', { class: 'editeur-diff' }, pending.lignes.map((line) => el('li', {}, line))),
+      ]),
+      el('button', { class: 'button-small', type: 'button', onclick: () => { renderPresentation(pending.contenu, 'Retouches reprises dans le panneau, pas encore appliquées : vérifie-les, puis « Appliquer… ».'); presentationDirty = true; syncDirty(); } }, 'Les reprendre dans le panneau'),
+    ]);
+
+    const onInput = (event) => { event.stopPropagation(); onEdit(); }; // pas jusqu'au brouillon, plus bas
+    presentationSlot.replaceChildren(el('section', { class: 'panel panel--direct presentation', oninput: onInput, onchange: onInput }, [
+      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Présentation — effet immédiat'), el('span', { class: 'badge-direct' }, 'En direct')]),
+      el('h2', {}, 'Présentation des tables'),
+      el('p', { class: 'small' }, [
+        el('strong', {}, "« Appliquer… » change la page de tous les étudiants dès qu'elle se recharge, séances en cours comprises, quelle que soit leur version des tables."),
+        " Ce panneau n'a ni brouillon ni publication : ce qu'il montre est en vigueur. Il ne porte que ce qui s'affiche — noms et couleurs des classes ISO, images de chaleur, légendes (40 caractères au plus ; vide, aucune), caractéristiques (au plus 6 lignes), couleurs des matières d'outil, pictogrammes. Les valeurs, la correction et les attestations n'en dépendent pas.",
+      ]),
+      el('p', { class: 'muted small' }, `${shown.appliquee ? `Appliquée le ${formatDateStamp(shown.modifiee_le)} par ${shown.enseignant}` : `Jamais appliquée : c'est celle de la dernière version des tables (${shown.derniere_tables})`} · révision ${shown.revision}.`),
+      el('div', { class: 'editeur-bar' }, [
+        el('div', {}),
+        el('div', { class: 'editeur-bar-actions' }, [
+          el('label', { for: 'pr-apercu-exercice', class: 'muted small' }, 'Aperçu avec :'), previewSelect,
+          el('button', { class: 'button-outline', type: 'button', onclick: preview, disabled: published.length === 0 }, 'Dix questions'),
+          applyButton,
+        ]),
+      ]),
+      panelStatus,
+      panelErrors,
+      pendingBox,
+      dialog,
+      el('h3', { class: 'presentation-titre' }, 'Classes ISO'),
+      plainTable(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Légende', 'Caractéristiques'], classRows, 'tables-edit--classes'),
+      el('h3', { class: 'presentation-titre' }, "Matières d'outil"),
+      plainTable(['Clé', 'Nom (dans le brouillon)', 'Couleur'], toolRows),
+      el('h3', { class: 'presentation-titre' }, 'Opérations'),
+      plainTable(['Opération', 'Pictogramme'], opRows, 'tables-edit--operations'),
+      history,
+    ]));
+    check();
+  }
+
+  // --- Classes ISO du brouillon : code et ordre ; une classe NOUVELLE y reçoit sa présentation de départ (D76, point 9).
   const classes = editableRows(draft.materiaux.classes_iso, (c, i) => {
     const code = textInput(`cl-${i}-code`, c.code, { maxlength: '1', class: 'input-court mono' });
+    if (known.classes_iso.has(c.code)) {
+      // Une classe que la présentation connaît : ses champs de présentation restent cachés, sans effet, et sont gardés tels quels.
+      const live = liveClass(c.code);
+      const swatch = el('span', { class: 'choice-swatch', 'aria-hidden': 'true', style: `background: ${live.couleur}; color: ${live.couleur_texte}` }, c.code);
+      return {
+        tr: el('tr', {}, [cell(swatch, 'num'), cell(code), el('td', { colspan: '7', class: 'muted small' }, `${live.nom} — nom, couleurs, image, légende et caractéristiques : en direct, dans le panneau « Présentation » ci-dessus.`)]),
+        read: () => ({ ...c, code: code.value.trim().toUpperCase() }),
+      };
+    }
     const nom = textInput(`cl-${i}-nom`, c.nom);
     const couleur = colorInput(`cl-${i}-couleur`, c.couleur);
     const texte = colorInput(`cl-${i}-texte`, c.couleur_texte);
@@ -1095,21 +1318,18 @@ async function showTables(notice = '') {
     paint();
     const pickerFor = (key) => imagePicker({ usage: 'classe', images: state.images.classe, value: c[key] ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: () => { touch(); validate(); }, idPrefix: `cl-${i}-${key.replace('image_', '')}`, compact: true });
     const chaleur = pickerFor('image_chaleur');
-    // La légende de l'image (D68) : 40 caractères au plus (la validation le dit) ; vide, pas de légende.
     const legende = textInput(`cl-${i}-legende`, c.legende_image ?? DEFAULT_LEGENDE_IMAGE, { class: 'input-legende' });
-    // Les caractéristiques (D65) : ligne par ligne — libellé, texte, solution facultative —, ajouter, retirer, monter, descendre.
     const features = characteristicsEditor(c.caracteristiques ?? [], `cl-${i}-car`, c.code, () => { touch(); validate(); });
     return {
-      tr: el('tr', {}, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(legende), cell(features.element, 'caracteristiques-cell')]),
+      tr: el('tr', { class: 'ligne-nouvelle' }, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(legende), cell(features.element, 'caracteristiques-cell')]),
       read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), legende_image: legende.value.trim(), caracteristiques: features.read() }),
     };
   }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, legende_image: DEFAULT_LEGENDE_IMAGE, caracteristiques: [] }), () => { touch(); validate(); });
 
-  // --- Matières d'outil : clé fixe, nom, couleur.
+  // --- Matières d'outil : clé fixe, nom (que les outils nomment) ; la couleur est de la présentation (gardée telle quelle).
   const toolMaterialRows = draft.materiaux.materiaux_outil.map((m, i) => {
     const nom = textInput(`mo-${i}-nom`, m.nom);
-    const couleur = colorInput(`mo-${i}-couleur`, m.couleur);
-    return { tr: el('tr', {}, [cell(el('span', { class: 'mono smaller' }, m.cle)), cell(nom), cell(couleur)]), read: () => ({ cle: m.cle, nom: nom.value.trim(), couleur: couleur.value }) };
+    return { tr: el('tr', {}, [cell(el('span', { class: 'mono smaller' }, m.cle)), cell(nom)]), read: () => ({ cle: m.cle, nom: nom.value.trim(), couleur: m.couleur }) };
   });
 
   // --- Matériaux usinés : une ligne par groupe.
@@ -1135,7 +1355,8 @@ async function showTables(notice = '') {
     };
   }, (previous) => ({ iso: previous?.iso ?? 'P', groupe: (Number(previous?.groupe) || 0) + 1, materiau: previous?.materiau ?? '', composition: null, etat: null, durete: null, exemple: null, vc_pi_min: Object.fromEntries(toolMaterialRows.map((row) => [row.read().cle, null])) }), () => { touch(); validate(); });
 
-  // --- Opérations : nom, machine, direction, famille d'avance, avances, pictogramme (galerie).
+  // --- Opérations : nom, machine, direction, famille d'avance, avances ; le pictogramme d'une opération que la présentation
+  // connaît est en direct (gardé tel quel ici) ; une opération NOUVELLE reçoit le sien dans sa ligne (D76, point 9).
   const operations = editableRows(draft.operations.operations, (op, i) => {
     const nom = textInput(`op-${i}-nom`, op.operation);
     const machine = textInput(`op-${i}-machine`, op.machine);
@@ -1146,13 +1367,14 @@ async function showTables(notice = '') {
     const refreshFeeds = () => { const thread = famille.value === 'filetage'; avance.disabled = thread; avanceMax.disabled = thread; };
     famille.addEventListener('change', refreshFeeds);
     refreshFeeds();
-    const picker = imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: () => { touch(); validate(); }, idPrefix: `op-${i}-picto`, compact: true });
+    const live = known.operations.has(op.operation);
+    const picker = live ? null : imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: () => { touch(); validate(); }, idPrefix: `op-${i}-picto`, compact: true });
     return {
-      tr: el('tr', {}, [cell(nom), cell(machine), cell(direction), cell(famille), cell(avance, 'num'), cell(avanceMax, 'num'), cell(picker.element, 'picto-cell')]),
+      tr: el('tr', { class: live ? null : 'ligne-nouvelle' }, [cell(nom), cell(machine), cell(direction), cell(famille), cell(avance, 'num'), cell(avanceMax, 'num'), cell(live ? el('span', { class: 'muted small' }, 'en direct, dans le panneau « Présentation »') : picker.element, 'picto-cell')]),
       read: () => {
         const flags = feedFamilyFlags(famille.value);
         const out = { operation: nom.value.trim(), machine: machine.value.trim(), direction_avance: direction.value.trim(), avance_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avance), avance_max_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avanceMax), ...flags };
-        const picto = picker.read();
+        const picto = live ? op.pictogramme ?? null : picker.read();
         if (picto !== null) out.pictogramme = picto;
         for (const key of Object.keys(op)) if (!(key in out) && key !== 'pictogramme') out[key] = op[key];
         return out;
@@ -1169,16 +1391,17 @@ async function showTables(notice = '') {
       operations: keep(draft.operations, { revision: draft.operations.revision, operations: operations.read() }),
     };
   }
+  // Ce que la publication prendrait : le brouillon avec la présentation en vigueur par-dessus (D76).
+  const publishedTables = () => applyPresentation(readTables(), shown.presentation);
 
   const saveButton = el('button', { class: 'button', type: 'button' }, 'Enregistrer le brouillon');
   const publishButton = el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
   function validate() {
     const current = readTables();
-    const errors = validateTables(current, { images: state.images.classe }); // une image de classe inconnue ou archivée est une erreur
+    const errors = validateTables(publishedTables(), { images: state.images.classe }); // une image de classe inconnue ou archivée est une erreur
     errorsList.replaceChildren(...errors.map((message) => el('li', {}, message)));
     publishButton.disabled = errors.length > 0;
     publishButton.textContent = errors.length > 0 ? `Publier (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` : 'Publier…';
-    applyTableColors(current.materiaux); // les couleurs de l'écran suivent le brouillon
     return { current, errors };
   }
 
@@ -1189,7 +1412,8 @@ async function showTables(notice = '') {
       const result = await guarded(() => editorTablesSave(revision, current));
       if (result === null) return false;
       revision = result.revision;
-      state.dirty = false;
+      draftDirty = false;
+      syncDirty();
       status.textContent = `Brouillon des tables enregistré à ${formatDateStamp(new Date().toISOString()).slice(11)} (révision ${revision})${errors.length > 0 ? ` — ${errors.length} erreur(s) restent à corriger avant de publier` : ''}.`;
       return true;
     } catch (error) {
@@ -1202,7 +1426,7 @@ async function showTables(notice = '') {
   }
   saveButton.addEventListener('click', save);
 
-  // Publier : enregistrer, montrer les différences avec la version dont le brouillon est parti, saisir la révision, confirmer.
+  // Publier : enregistrer, montrer les différences de valeurs avec la version dont le brouillon est parti, saisir la révision, confirmer.
   publishButton.addEventListener('click', async () => {
     if (!(await save())) return;
     try {
@@ -1210,12 +1434,13 @@ async function showTables(notice = '') {
       const lines = previous ? tablesDiff(previous, readTables()) : ['Première version des tables.'];
       const idInput = el('input', { id: 'tables-revision', type: 'text', autocomplete: 'off', spellcheck: 'false', value: page.suggestion, class: 'mono' });
       const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
+        if (presentationDirty && !window.confirm("Les modifications du panneau « Présentation » ne sont pas appliquées : elles seront perdues au rechargement de l'onglet. Publier quand même ?")) return;
         confirm.disabled = true;
         try {
           const result = await guarded(() => editorTablesPublish(revision, idInput.value.trim()));
           if (result === null) return;
           state.dirty = false;
-          showTables(`Version ${result.id} des tables publiée le ${formatDateStamp(result.publiee_le)} : les exercices y passent un à un, depuis leur page ; les séances en cours gardent leurs tables.`);
+          showTables(`Version ${result.id} des tables publiée le ${formatDateStamp(result.publiee_le)}, avec la présentation en vigueur : les exercices y passent un à un, depuis leur page ; les séances en cours gardent leurs valeurs.`);
         } catch (error) {
           confirm.disabled = false;
           status.textContent = serverErrorMessage(error);
@@ -1224,17 +1449,17 @@ async function showTables(notice = '') {
       dialogSlot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
         el('div', { class: 'eyebrow' }, 'Confirmation'),
         el('h2', {}, previous ? `Publier une nouvelle version des tables, depuis ${previous.id} ?` : 'Publier la première version des tables ?'),
-        el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence avec la version précédente : rien à publier.' : `Différences avec ${previous?.id ?? '—'} (${lines.length}) :`),
+        el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence de valeurs avec la version précédente : rien à publier.' : `Différences de valeurs avec ${previous?.id ?? '—'} (${lines.length}) :`),
         el('ul', { class: 'editeur-diff' }, lines.map((line) => el('li', {}, line))),
         el('div', { class: 'field field--half' }, [el('label', { for: 'tables-revision' }, 'Révision de cette version'), idInput, el('div', { class: 'field-note' }, `Suggérée : ${page.suggestion}. Unique ; inscrite au pied des feuilles et sur les attestations. Lettres, chiffres, « _ », « . », « - ».`)]),
-        el('p', { class: 'muted smaller' }, 'Une version publiée ne se modifie plus. Aucun exercice ne change de tables tout seul : chaque exercice y passe depuis sa page, et ses séances en cours gardent les leurs.'),
+        el('p', { class: 'muted smaller' }, "Une version publiée ne se modifie plus ; elle prend la présentation en vigueur (panneau « Présentation »), qui reste modifiable en direct. Aucun exercice ne change de tables tout seul : chaque exercice y passe depuis sa page, et ses séances en cours gardent les valeurs des leurs."),
         el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
       ]));
       dialogSlot.scrollIntoView({ block: 'nearest' });
     } catch (error) { status.textContent = serverErrorMessage(error); }
   });
 
-  // Aperçu : dix questions d'un exercice avec les tables telles qu'à l'écran (D63).
+  // Aperçu : dix questions d'un exercice avec les tables telles qu'à l'écran (D63), et la présentation en vigueur.
   const previewSelect = el('select', { id: 'apercu-exercice' }, exercises.map((e) => el('option', { value: e.id }, e.titre)));
   async function preview() {
     const exercice = previewSelect.value;
@@ -1245,8 +1470,8 @@ async function showTables(notice = '') {
       dialogSlot.replaceChildren(el('section', { class: 'panel' }, [
         el('div', { class: 'eyebrow' }, 'Aperçu'),
         el('h2', {}, `Dix questions de « ${exercises.find((e) => e.id === exercice)?.titre ?? exercice} » avec ces tables`),
-        el('p', { class: 'muted small' }, "Le brouillon de l'exercice, tiré avec le brouillon des tables tel qu'il est à l'écran. Rien n'est enregistré."),
-        previewTable(result, readTables().materiaux.classes_iso),
+        el('p', { class: 'muted small' }, "Le brouillon de l'exercice, tiré avec le brouillon des tables tel qu'il est à l'écran, et la présentation en vigueur. Rien n'est enregistré."),
+        previewTable(result, publishedTables().materiaux.classes_iso),
         el('div', { class: 'form-actions' }, [el('button', { class: 'button-outline', type: 'button', onclick: preview }, 'Dix autres'), el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Fermer')]),
       ]));
       dialogSlot.scrollIntoView({ block: 'nearest' });
@@ -1261,13 +1486,24 @@ async function showTables(notice = '') {
   ])));
 
   const table = (headers, body, className = '') => el('div', { class: 'table-wrap' }, el('table', { class: `prof-table tables-edit ${className}`.trim() }, [el('thead', {}, el('tr', {}, [...headers, 'Actions'].map((h) => el('th', {}, h)))), body]));
+  renderPresentation(shown.presentation);
   const screen = el('div', { class: 'screen screen--wide prof editeur', oninput: () => { touch(); validate(); }, onchange: () => { touch(); validate(); } }, [
     el('section', { class: 'panel' }, [
       panelHead('tables de référence', 'tables'),
       el('h1', { tabindex: '-1' }, 'Tables de référence'),
-      el('p', { class: 'muted small' }, "Un seul brouillon, modifiable ; des versions publiées immuables, chacune avec sa révision. Une version publiée ne change aucun exercice tout seul : chaque exercice choisit sa version de tables depuis sa page, et une séance commencée garde celles de sa version d'exercice."),
+      el('p', { class: 'muted small' }, [
+        'Deux parties, qui ne s\'enregistrent pas de la même façon. ',
+        el('strong', {}, 'Présentation — effet immédiat'), " : ce qui ne fait qu'afficher ; « Appliquer… » change tout de suite la page de tous les étudiants, quelle que soit leur version des tables, et l'historique permet de revenir en arrière. ",
+        el('strong', {}, 'Valeurs — brouillon à publier'), " : tout le reste (matériaux, Vc, opérations, avances…) ; un seul brouillon, des versions publiées immuables, chacune avec sa révision ; une version ne change aucun exercice toute seule, et une séance commencée garde les valeurs de sa version.",
+      ]),
+    ]),
+    presentationSlot,
+    el('section', { class: 'panel' }, [
+      el('div', { class: 'eyebrow' }, 'Valeurs — brouillon à publier'),
+      el('h2', {}, 'Brouillon des tables'),
+      el('p', { class: 'muted small' }, "Un seul brouillon, modifiable ; des versions publiées immuables, chacune avec sa révision. Une version publiée ne change aucun exercice tout seul : chaque exercice choisit sa version de tables depuis sa page, et une séance commencée garde les valeurs de sa version d'exercice. Ce que le panneau « Présentation » porte n'est plus ici, sauf pour une classe ou une opération nouvelle : elle y reçoit sa présentation de départ, puis se modifie en direct une fois publiée."),
       el('div', { class: 'editeur-bar' }, [
-        el('div', { class: 'muted small' }, [`Brouillon parti de la version ${page.brouillon.base_id ?? '—'} · modifié le ${formatDateStamp(page.brouillon.modifie_le)}`, page.modifie ? ' · différent de cette version' : ' · identique à cette version']),
+        el('div', { class: 'muted small' }, [`Brouillon parti de la version ${page.brouillon.base_id ?? '—'} · modifié le ${formatDateStamp(page.brouillon.modifie_le)}`, page.modifie ? ' · valeurs différentes de cette version' : ' · mêmes valeurs que cette version']),
         el('div', { class: 'editeur-bar-actions' }, [
           el('label', { for: 'apercu-exercice', class: 'muted small' }, 'Aperçu avec :'), previewSelect,
           el('button', { class: 'button-outline', type: 'button', onclick: preview }, 'Dix questions'),
@@ -1280,25 +1516,25 @@ async function showTables(notice = '') {
       dialogSlot,
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, 'Classes ISO'),
-      el('p', { class: 'muted small' }, "La lettre de classe, son nom, ses couleurs (celle de la lettre et du panneau du matériau brut, celle du texte posé dessus, la teinte de ligne dans la feuille des vitesses de coupe), et son image de chaleur (la chaleur dans la coupe), montrée sous le matériau brut de l'écran Question. La légende s'écrit sous l'image (40 caractères au plus ; vide, pas de légende). Une image archivée doit être remplacée avant de publier. Les caractéristiques, montrées à droite de l'image : au plus 6 lignes, chacune avec un libellé (20 caractères au plus), un texte (90) et, facultative, une solution (90), montrée sur une ligne à part, « → Solution : … »."),
+      el('div', { class: 'eyebrow' }, 'Brouillon · Classes ISO'),
+      el('p', { class: 'muted small' }, "La lettre de chaque classe, et leur ordre. Le nom, les couleurs, l'image de chaleur, la légende et les caractéristiques d'une classe sont en direct, dans le panneau « Présentation ». Une classe ajoutée ici reçoit sa présentation de départ sur sa ligne (légende de 40 caractères au plus ; au plus 6 caractéristiques, libellé de 20 caractères, texte et solution de 90) ; une fois publiée, elle se modifie en direct."),
       table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Légende', 'Caractéristiques'], classes.body, 'tables-edit--classes'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe')),
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, "Matières d'outil"),
-      el('p', { class: 'muted small' }, "Les trois colonnes de la table des vitesses de coupe. Renommer une matière oblige à renommer la matière dans chaque outil qui la nomme : les exercices le signaleront."),
-      el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table tables-edit' }, [el('thead', {}, el('tr', {}, ['Clé', 'Nom', 'Couleur'].map((h) => el('th', {}, h)))), el('tbody', {}, toolMaterialRows.map((r) => r.tr))])),
+      el('div', { class: 'eyebrow' }, "Brouillon · Matières d'outil"),
+      el('p', { class: 'muted small' }, "Les trois colonnes de la table des vitesses de coupe ; leur couleur est en direct, dans le panneau « Présentation ». Renommer une matière oblige à renommer la matière dans chaque outil qui la nomme : les exercices le signaleront."),
+      el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table tables-edit' }, [el('thead', {}, el('tr', {}, ['Clé', 'Nom'].map((h) => el('th', {}, h)))), el('tbody', {}, toolMaterialRows.map((r) => r.tr))])),
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, 'Matériaux usinés'),
+      el('div', { class: 'eyebrow' }, 'Brouillon · Matériaux usinés'),
       el('p', { class: 'muted small' }, "Une ligne par groupe, dans l'ordre de la feuille. Le groupe ISO d'un outil est « classe - matériau » (« P - Acier non allié ») : retirer le dernier matériau d'un groupe retire le groupe, et les exercices qui l'utilisent le signaleront. « Famille » : un trait fin au-dessus de la ligne (changement de matériau usiné)."),
       table(['Classe', 'Groupe', 'Matériau usiné', 'Composition', 'État', 'Dureté', 'Exemple', ...toolMaterialRows.map((r) => `Vc ${r.read().nom}`), 'Famille'], materials.body, 'tables-edit--materiaux'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => materials.add() }, 'Ajouter un matériau')),
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, 'Opérations'),
-      el('p', { class: 'muted small' }, "Une ligne par opération, dans l'ordre de la feuille des avances : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces ; sans objet en filetage), le pictogramme."),
+      el('div', { class: 'eyebrow' }, 'Brouillon · Opérations'),
+      el('p', { class: 'muted small' }, "Une ligne par opération, dans l'ordre de la feuille des avances : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces ; sans objet en filetage). Le pictogramme est en direct, dans le panneau « Présentation » ; une opération ajoutée ici reçoit le sien sur sa ligne."),
       table(['Opération', 'Machine-outil', "Direction d'avance", 'Famille', 'Avance', 'Avance max', 'Pictogramme'], operations.body, 'tables-edit--operations'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => operations.add() }, 'Ajouter une opération')),
     ]),

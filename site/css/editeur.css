@@ -210,6 +210,21 @@
 .avis-tables { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-gold); color: var(--color-gold); font-size: var(--text-sm); }
 .tables-version { font-family: var(--font-number); color: var(--color-text); }
 
+/* La présentation des tables en direct (D76) : un panneau à part, contour et bouton verts, la pastille « En direct »,
+   pour qu'on ne le confonde pas avec le brouillon (bleu, publication dorée). */
+.panel--direct { --panel-color: var(--color-correct); }
+.button--direct { --button-color: var(--color-correct); }
+.badge-direct { padding: 2px 10px; border: 1px solid var(--color-correct); background: var(--color-correct-bg); color: var(--color-correct); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.presentation-titre { margin: var(--space-5) 0 var(--space-2); color: var(--color-correct); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.avis-presentation { align-items: flex-start; justify-content: space-between; }
+.avis-presentation p { margin: var(--space-1) 0 0; color: var(--color-text); }
+.avis-presentation .editeur-diff { color: var(--color-text); }
+.presentation-historique { margin-top: var(--space-5); }
+.presentation-historique > summary { color: var(--color-correct); font-weight: 600; cursor: pointer; }
+.historique-liste li { justify-content: space-between; padding: var(--space-2) 0; }
+/* Une classe ou une opération nouvelle du brouillon reçoit sa présentation de départ sur sa ligne (D76, point 9). */
+.tables-edit tr.ligne-nouvelle td:first-child { box-shadow: inset 3px 0 0 var(--color-gold); }
+
 /* L'onglet Images : la vignette, le nom et l'identifiant, l'état. */
 .images-table td { vertical-align: middle; }
 .image-archivee td { opacity: 0.7; }

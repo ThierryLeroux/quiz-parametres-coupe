@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
-  characteristicFrom, courseSpelling, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  characteristicFrom, courseSpelling, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
@@ -406,4 +406,17 @@ test('caractéristiques d’une classe (D65), édition ligne par ligne : déplac
   assert.deepEqual(characteristicFrom(' Effort ', ' moyen ', '  '), { libelle: 'Effort', texte: 'moyen' });
   assert.deepEqual(characteristicFrom('Problème typique', 'écrouissage', ' ne pas frotter '), { libelle: 'Problème typique', texte: 'écrouissage', solution: 'ne pas frotter' });
   assert.deepEqual(characteristicFrom(undefined, null, undefined), { libelle: '', texte: '' });
+});
+
+test('présentation en direct (D76) : le bouton « Appliquer… » dit les erreurs, l’absence de changement ou le nombre de changements ; une ligne de l’historique dit d’où vient le contenu et ce qui l’a remplacé', () => {
+  assert.deepEqual(presentationApplyState(['a', 'b'], ['x']), { enabled: false, label: 'Appliquer (2 erreurs à corriger)' });
+  assert.deepEqual(presentationApplyState([], []), { enabled: false, label: 'Aucun changement à appliquer' });
+  assert.deepEqual(presentationApplyState([], ['x']), { enabled: true, label: 'Appliquer… (1 changement)' });
+  assert.deepEqual(presentationApplyState([], ['x', 'y', 'z']), { enabled: true, label: 'Appliquer… (3 changements)' });
+  const heure = (h, m) => new Date(2026, 8, 27, h, m).toISOString(); // à l'heure du poste, comme l'écran
+  assert.equal(presentationHistoryLabel({ posee_le: null, posee_par: null, remplacee_le: heure(14, 10), remplacee_par: 'admin', action: 'application' }),
+    'Présentation de départ (celle des tables publiées), remplacée le 2026-09-27 14:10 par admin (une application)');
+  assert.equal(presentationHistoryLabel({ posee_le: heure(13, 5), posee_par: 'admin', remplacee_le: heure(14, 10), remplacee_par: 'admin', action: 'retablissement' }),
+    'Présentation appliquée le 2026-09-27 13:05 par admin, remplacée le 2026-09-27 14:10 par admin (un rétablissement)');
+  assert.equal(presentationHistoryLabel({ posee_le: heure(13, 5), posee_par: null, remplacee_le: heure(14, 10), remplacee_par: null, action: 'import' }), 'Présentation appliquée le 2026-09-27 13:05, remplacée le 2026-09-27 14:10 (un import)');
 });
