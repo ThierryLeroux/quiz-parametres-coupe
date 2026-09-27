@@ -179,3 +179,109 @@ attendue et tolérance de f), §3.9 (groupe Limites) ; PLAN (section « Chantier
    Il faudrait soit l'expliquer (l'importer ou le créer dans l'éditeur), soit un petit script. Non fait.
 7. **Le tableau de la section 5 vient de la semence**, pas de la production (je ne lis pas la base de
    production). Si la banque a été retouchée en ligne, l'aperçu de l'éditeur donne les vraies valeurs.
+
+## Réponses aux points douteux (décision D70)
+
+Suite de la session, sur la même branche : tes réponses sont consignées dans **D70**, un commit par point (la
+décision, la correction de f, les aides, la ligne de calcul des filets, le script de `test-complet`, les docs,
+cette section). `npm test` : 587 tests (+ 19 depuis la première partie), dont un `todo` (le ❓ ci-dessous),
+`fail 0` avant chaque commit. Chrome en mode test à 1280 et 390 px : huit outils visés vus aux deux largeurs,
+`test-complet` publié par le nouveau script pendant que `wrangler dev` tournait, captures dans
+`captures/avances-d70/` (hors dépôt), aucune exception, aucune erreur console, aucune requête externe, aucun
+défilement horizontal à 390 px.
+
+### Points 1 et 5 du rapport — f, selon le nombre de dents et l'état de fz
+
+La règle est appliquée telle que tu l'as écrite : **à une dent**, f est jugée sur la valeur théorique avec la
+tolérance de fz de sa famille, que fz soit saisie ou non ; **à partir de deux dents**, cohérence avec fz saisi ×
+dents, avec **fz affiché × dents quand fz est fournie**, et la tolérance reportée quand fz est masquée, vide ou
+illisible. `coherentFeedPerTooth` (`correction.js`) dit sur quoi f est jugée ; `gradeAnswers` et `correctionView`
+s'en servent tous les deux : la valeur attendue, le libellé et la ligne de calcul ne peuvent pas contredire la
+correction. Pour distinguer fz fournie de fz masquée, `gradeAnswers` reçoit maintenant les grandeurs masquées.
+
+Les tests demandés passent : SDTMR M42 x 4.5 avec fz « 4.5 » et f « 4.5 » → f fausse (et fz) ; MVLNR revient à
+[0.00495 ; 0.00505] ; alésoir à 8 dents, fz fournie, f calculée avec 7 dents → refusée ; `tests/chaine.test.js`
+vert sur tout le catalogue, f = fz affiché × dents (arrondie ou non) avec fz saisie, fournie et masquée. Sur tout
+le catalogue, **avec fz fournie, plus aucune f calculée avec une dent de trop ou de moins n'est acceptée**.
+
+❓ **Un test demandé contredit la règle** : « barre à aléser, fz « 0.0060 », f +1 % → refusée ». La barre à aléser
+n'a qu'une dent et son avance est **proportionnelle** : la règle à une dent la juge à ±25 %, au plus ±0.001 po,
+soit [0.005 ; 0.007] pour 0.006 — f +1 % (0.00606) y est **acceptée**. Dans Chrome, f +30 % est refusée
+(« tolérance : ±25 %, au plus ±0.001 po »). J'ai appliqué la règle, écrit le test selon elle, et laissé un test
+`todo` qui nomme la contradiction. Si tu veux f à ±0,1 % à une dent pour toutes les familles (comme le fixe et le
+filetage), c'est une ligne à changer : dis-le-moi.
+
+### Point 2 — la demi-unité de f, la plus large des deux
+
+L'intervalle est maintenant [min(plus petit produit × 0,999, fz × dents − ½ unité de f) ; max(plus grand
+produit × 1,001, fz × dents + ½ unité de f)]. Bornes obtenues par le moteur, sur la semence, avant et après D70 :
+
+| Cas | fz affiché | f affichée | D69 | D70 |
+|---|---|---|---|---|
+| MVLNR 2.000" (fixe, 1 dent), fz saisie | « 0.0050 » | « 0.0050 » | [0.0049 ; 0.0051] | **[0.00495 ; 0.00505]** (valeur théorique ±0,1 %, ½ unité) |
+| Barre à aléser Ø 1 1/4 po, Ø alésé 2.000" (1 dent), fz saisie | « 0.0060 » | « 0.0060 » | [0.0059 ; 0.0061] | **[0.005 ; 0.007]** (±25 %, au plus ±0.001 po : voir le ❓) |
+| SDTMR M42 x 4.5 (1 dent), fz saisie | « 0.17717 » | « 0.17717 » | cohérence avec la fz saisie (« 4.5 » acceptait f « 4.5 ») | **[0.1769882 ; 0.1773425]** |
+| Foret Ø 1/2 po, 2 dents, fz saisie | « 0.0030 » | « 0.0060 » | [0.00585 ; 0.00615] | **[0.0058941 ; 0.0061061]** |
+| Foret à pointer Ø 1/2 po, 2 dents, fz saisie | « 0.0010 » | « 0.0020 » | [0.00185 ; 0.00215] (±7,5 %) | **[0.0018981 ; 0.0021021]** (±5,1 %) |
+| Foret #40, 2 dents, fz saisie | « 0.000588 » | « 0.00118 » | [0.00117 ; 0.001182] | **[0.001171 ; 0.001181]** : « 0.00118 » accepté |
+| Fraise à surfacer 1 po, 5 dents, fz saisie | « 0.0040 » | « 0.0200 » | [0.0197 ; 0.0203] | **[0.01973025 ; 0.02027025]** |
+| Alésoir 0.6250", 8 dents, fz fournie | « 0.00125 » | « 0.0100 » | [0.0075 ; 0.0125] (tolérance reportée) | **[0.00995 ; 0.01005004]** : 7 dents (0.00875) refusées |
+| Alésoir 1.5000", 8 dents, fz fournie | « 0.0030 » | « 0.0240 » | [0.018 ; 0.030] | **[0.0235764 ; 0.0244244]** |
+| Fraise en bout 1/2 po, 5 dents, fz masquée | « 0.0030 » | « 0.0150 » | [0.01125 ; 0.01875] | [0.01125 ; 0.01875] (inchangé) |
+
+Pour le foret à pointer, l'intervalle reste à ±5 % : c'est la demi-unité de fz (« 0.0010 », ±0.00005, soit 5 %)
+multipliée par les dents, que la cohérence doit garder pour un étudiant qui a écrit fz arrondi.
+
+### Points 3 et 4 — les aides
+
+- **Avance fixe** : « Avance par dent → table des avances, à l'opération de l'outil. Avance fixe : la valeur de
+  la table, telle quelle, quel que soit le Ø. » (vu sur MVLNR et MCLNR).
+- **Dimension métrique**, seulement alors : l'aide de N et celle de fz proportionnelle se terminent par « Le Ø se
+  met en pouces : mm / 25.4. » (vu sur Foret Ø 0.6 mm et Ø 19.0 mm, MCLNR 20 mm et 11 mm, et pour N sur SDTMR
+  M16 x 2). Une dimension est métrique si sa valeur est un filet « Ø x pas » en mm, ou si son libellé est en mm :
+  la règle qui distinguait déjà « SDTMR (impérial) » et « SDTMR (métrique) » dans la progression, maintenant une
+  seule fonction (`isMetricDimension`, `data.js`).
+- ❓ **Lecture retenue pour les filets** : pour un filet, fz est le pas, pas le Ø. L'aide de fz dit « Filetage :
+  fz = pas, en pouces : mm / 25.4. » en métrique, et « Filetage : fz = pas = 1 / filets au pouce. » en impérial
+  (l'ancienne phrase disait les deux à la fois). Le rappel du Ø n'est pas ajouté à l'aide de fz en avance fixe
+  (MCLNR) : elle y dit justement « quel que soit le Ø ». À corriger si tu voulais le rappel partout.
+
+### Point 5 du rapport — la ligne de calcul d'un filet
+
+« fz = pas = 2 mm / 25.4 = 0.07874 » (SDTMR M16 x 2 saisi « 2 »), « fz = pas = 1 / 8 = 0.12500 » (taraud 1 - 8
+UNC saisi « 8 »), « fz = pas = 1 / 40 = 0.02500 » (taraud #5-40 UNC) : le pas vient de la dimension de la
+question (`pitchFormula`, `data.js`), jamais de la saisie. À une dent, la ligne de f reprend de même la valeur
+théorique de fz, sur laquelle f est jugée : « f = fz × dents = 0.07874 × 1 ».
+
+### Point 6 du rapport — `test-complet` en local
+
+`npm run publier:test-complet` (`tests/publier-test-complet.mjs`) le publie sur la base locale, celle de
+`npm run dev`, comme « Publier » dans l'éditeur et **avec le même code** (`worker/base.js`, `draftErrors`,
+`sameContent`) : copies de la banque locale, tables les plus récentes, validation, version suivante, une ligne au
+journal (« script local »). Relancé sans changement : « Rien à publier ». **`--remote` est refusé** avant
+d'ouvrir quoi que ce soit (testé). La base est ouverte par wrangler (`getPlatformProxy`) ; vérifié sur une D1
+jetable : **`wrangler dev` en marche sur la même base voit l'exercice aussitôt** (400 avant, 200 après). Le
+brouillon local de test-complet est remplacé par le fichier. `DEMARRAGE.md` §7 et `CLAUDE.md` le disent. Je ne
+l'ai pas lancé sur ta base de `npm run dev` : c'est à toi de le faire, une fois.
+
+### Point 8 — tes réponses au tableau
+
+Consignées dans D70 : Udrill à 1 dent confirmé ; grosses avances jugées réalistes ; micro-forets écartés par les
+dimensions des exercices (à partir de Ø 1/16 po : #52 et plus gros, 1.6 mm et plus), pas retirés de la banque ;
+deux fraises à surfacer de 3 po, à 5 et à 7 dents, à ajouter **en production par l'éditeur** (fz = 0.004 × 3 =
+0.012 → plafonnée à 0.010 ; f = 0.050 et 0.070). Rien n'a été touché dans `site/data/` ni dans la semence. Les
+deux actions restent à toi (PLAN).
+
+### Nouveaux points douteux
+
+1. **Le test de la barre à aléser** (❓ ci-dessus) : f +1 % est acceptée par la règle à une dent en avance
+   proportionnelle.
+2. **fz masquée et nombre de dents** : la règle « fz masquée → tolérance reportée » est inchangée ; sur tout le
+   catalogue, une f calculée avec une dent de trop ou de moins y passe encore pour les alésoirs (6 et 8 dents),
+   la fraise en bout hélicoïdale à 4 et 5 lèvres et la fraise à surfacer à 4 et 5 inserts (certains Ø). C'est
+   le prix de ±25 % quand l'étudiant ne voit pas fz ; avec fz fournie ou saisie, ce n'est plus le cas.
+3. **« Juste (… attendu) » sur une f exacte** : avec fz saisie, la valeur attendue de f est fz saisi × dents.
+   Pour le Foret Ø 0.6 mm, la f du mode test (« 0.000283 », la théorique) s'affiche « Juste (0.000284
+   attendu) », parce que 0.000142 × 2 = 0.000284. C'est cohérent avec Vf (« Juste (3048.000 attendu) »), mais
+   l'étudiant qui a la valeur exacte lit une « attendue » un peu différente.
+4. **La lecture des aides des filets** (❓ ci-dessus, points 3 et 4).
