@@ -31,7 +31,7 @@ la lisibilité priment sur l'élégance technique.**
 - `site/prof/editeur.html` — **l'éditeur** (D47 à D49, D56 à D59, SPEC §10, UI §3.9), rôle admin : exercices (brouillon, versions publiées immuables, aperçu, publication avec le résumé des différences), banque d'outils, images (galerie, téléversement réduit dans le navigateur, archivage), sauvegarde (export, import — les images à part). Écrans `site/js/ui/editeur.js` et `images-picker.js`, règles pures `editeur-data.js` ; côté serveur `worker/editeur.js` (pur, testé), `worker/images.js` (règles des images), `worker/svg.js` (SVG assaini par liste blanche, D57) et les routes `/api/prof/editeur/*` d'`index.js`. La validation (`draftErrors`, `toolErrors`) est la même des deux côtés.
 - `worker/` — le **serveur de correction** (décisions D19 à D22, D26, D31 à D39, D44 à D49, D56 à D59 ; API dans SPEC §7) : `index.js` reçoit les requêtes (et **n'exporte que des fonctions** : le Workers runtime refuse tout autre export ; il sert aussi `/images/<id>` depuis D1, avant les fichiers de `site/`), `seance.js` porte les règles d'une séance (pur, testé), `attestation.js` celles de l'attestation (code, enregistrement figé, adresse du QR), `acces.js` celles de l'accès (limites de débit, verrous, cookie professeur et ses deux rôles, mot d'effacement), `editeur.js` celles de l'éditeur (aperçu, import), `images.js` celles des images (types lus dans les octets, empreinte, en-têtes, utilisations), `svg.js` l'assainissement d'un SVG, `base.js` tout le SQL, `crypto.js` le NIP, le jeton, les signatures, `catalogue.js` assemble une **version publiée** d'exercice depuis D1 (tables + copies d'outils) — une séance est épinglée à la sienne (D47). Il importe le moteur de `site/js/` : un seul exemplaire. `site/js/api.js` est son pendant côté navigateur.
 - `site/verifier.html` et `site/prof.html` — la page publique de vérification d'une attestation et l'espace professeur (SPEC §8) ; leurs écrans sont `site/js/ui/verifier.js` et `prof.js`, leurs règles `attestation-data.js` et `prof-data.js` (pures, testées).
-- `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js`) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
+- `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js`, `home-data.js` — l'accueil unique par cours et la page de description d'un exercice, D71) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
 - `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté. `deploy.yml` les applique en production avant chaque déploiement.
 - `reference/pictogrammes-du-classeur/` — le convertisseur DrawingML → SVG des pictogrammes d'opérations (D29). Les SVG de `site/img/pictos/operations/` ne se retouchent pas à la main : on relance la conversion.
 - `docs/rapports/<jalon>-<sujet>.md` (ou `<sujet>.md` pour une session hors jalon) — les rapports de fin de session, tels qu'écrits à Thierry (règle 8 ci-dessous) : ce qui a été fait, vérifié, et les points douteux à trancher.
@@ -41,7 +41,8 @@ la lisibilité priment sur l'élégance technique.**
 
 - HTML/CSS/JS natif (modules ES), **aucun framework, aucune étape de build**.
   `site/` est publié tel quel.
-- **Un seul Worker Cloudflare** (`worker/`, `wrangler.jsonc`) sert `site/` comme
+- **Un seul Worker Cloudflare**, nommé `quiz` (`worker/`, `wrangler.jsonc` ; adresse `https://quiz.tgm-tmi.workers.dev`,
+  D72 — la base D1 et le dépôt gardent le nom `quiz-parametres-coupe`, et le sel HKDF aussi, qui ne change jamais) sert `site/` comme
   ressources statiques et expose l'API du **serveur de correction** sous `/api/`
   (D19 : l'état de séance, la correction et la signature de la réussite vivent
   sur le serveur ; le navigateur affiche). Base **D1** (liaison `DB`), secrets
@@ -75,7 +76,8 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 - Interface, commentaires, documentation, messages de commit : **français**.
 - Identifiants de code : anglais, `camelCase` ; fichiers JS en `kebab-case`.
 - Clés JSON de données : français, `snake_case`, sans accents.
-- Unités impériales partout dans le moteur (po, pi/min, rév/min, po/min) ;
+- Unités impériales partout dans le moteur (po, pi/min, tr/min, po/min) ; la vitesse de rotation s'écrit
+  « tr/min », jamais « RPM » ni « rév/min », et les rétroactions nomment les grandeurs en toutes lettres (D71) ;
   les conversions se font à la lecture des données, jamais dans les calculs.
 - Formule pédagogique du cours : `N = Vc × 4 / D` (pas 3,82). Ne pas « corriger ».
 
@@ -84,7 +86,7 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 1. **Lire la tâche dans `docs/PLAN.md`** et la section correspondante de `SPEC.md` avant de coder.
 2. **Moteur d'abord, interface ensuite.** Toute fonction de calcul ou de correction a un test avant d'être branchée à l'interface. Côté serveur : une règle va dans `worker/seance.js` (pur), et chaque route a ses cas dans `tests/worker-api.test.js`.
 3. **Aléa et horloge injectables** : les fonctions de tirage reçoivent une source aléatoire, le serveur reçoit l'heure (`handle(request, env, { now, random })`), pour être testables.
-4. **Petits commits** en français, un sujet par commit (`Ajoute le calcul de N avec plafond RPM`).
+4. **Petits commits** en français, un sujet par commit (`Ajoute le calcul de N avec plafond de la vitesse de rotation`).
    Un commit n'est créé que si `npm test` affiche `fail 0`. Un commit local non
    poussé qui s'avère rouge est **amendé**, jamais suivi d'un commit de réparation.
    **À la fin d'une session, pousser la branche de travail** (`git push -u origin <branche>`),

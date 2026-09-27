@@ -46,9 +46,9 @@ tables. Le format ci-dessous reste celui des tables en base.
 |---|---|---|
 | `materiaux.json` | `revision` de la table ; 47 matériaux, classes ISO 513 P/M/K/N/S/H/O, groupe VDI 3323, dureté, exemple AISI/SAE, **Vc (pi/min)** pour 3 matériaux d'outil, `debut_famille` | `Vitesses de coupe` / `tblVitesse` |
 | `operations.json` | `revision` de la table ; 19 opérations : machine, direction d'avance, avance/rév., avance max, drapeaux *filetage* et *proportionnelle au Ø* | `Avances d'usinage` / `tblAvance` |
-| `outils.json` | 29 outils : gabarit de nom (`format_identifiant`, §4.6), opération, facteurs Vc/avance, limite RPM (et `limite_avance`, obsolète : D69), plage de nb de dents, matériaux d'outil possibles, groupes ISO usinables, liste des dimensions (libellé + valeur) ; pour un outil à deux diamètres, `dimensions_barre` et `rapport_barre_max` | `Liste d'outils` (masquée) |
+| `outils.json` | 29 outils : gabarit de nom (`format_identifiant`, §4.6), opération, facteurs Vc/avance, vitesse de rotation max de la machine `limite_rpm` (et `limite_avance`, obsolète : D69), plage de nb de dents, matériaux d'outil possibles, groupes ISO usinables, liste des dimensions (libellé + valeur) ; pour un outil à deux diamètres, `dimensions_barre` et `rapport_barre_max` | `Liste d'outils` (masquée) |
 
-Unités : **impériales** (pouces, pi/min, rév/min, po/min). Les dimensions
+Unités : **impériales** (pouces, pi/min, tr/min, po/min). Les dimensions
 métriques sont déjà converties en pouces dans `outils.json` ; le libellé affiché
 reste métrique (ex. « 10 mm »).
 
@@ -164,7 +164,7 @@ Convention pédagogique du cours : `N = Vc × 4 / D` (approximation de 12/π ≈
 
 ```
 Vc        = materiaux[matériau].vc_pi_min[matériau d'outil]              (pi/min)
-N_brut    = Vc × 4 / D × fact_vc                                         (rév/min)
+N_brut    = Vc × 4 / D × fact_vc                                         (tr/min)
 N         = min(N_brut, limite_rpm)
 
 avance par dent (fz) :
@@ -194,7 +194,7 @@ La feuille des formules montre aussi, **à titre indicatif**, la formule exacte
 avec 12/π est plus bas de 4,5 % : il tient dans la tolérance de N (§6) pour
 toutes les combinaisons du catalogue, arrondi à l'entier ou non
 (`tests/chaine.test.js`) : c'est pour lui que la tolérance de N est élargie de
-±1 rév/min (§6, D13 complément).
+±1 tr/min (§6, D13 complément).
 
 **Arrondis (décisions D9, D14).** Aucun arrondi sur les valeurs théoriques,
 comme dans le VBA (arrondis commentés) : les tolérances du §6 absorbent les
@@ -215,7 +215,9 @@ zéros de fin au-delà du minimum de décimales ne sont pas écrits : 0,0015 →
 
 Séparateur décimal : le **point** à l'affichage (« 0.0015 »), comme sur la
 commande CNC et dans les libellés ; la saisie accepte le point et la virgule
-(décision D10).
+(décision D10), et une virgule tapée devient un point, **visiblement, à la sortie
+du champ ou à la validation**, jamais pendant la frappe (D71 ; UI §7). L'unité de
+vitesse de rotation affichée est **tr/min** (D71).
 
 ## 6. Correction — tolérances (reprises du VBA `modCorrection`)
 
@@ -223,7 +225,7 @@ commande CNC et dans les libellés ; la saisie accepte le point et la virgule
 |---|---|---|---|
 | Vc | exact | exact | exact |
 | Avance par dent | ±0,1 % | exact | ±25 %, borné à ±0,001 po |
-| N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 %, élargie de ±1 rév/min | ±5 %, élargie de ±1 rév/min |
+| N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 %, élargie de ±1 tr/min | ±5 %, élargie de ±1 tr/min |
 | Avance par révolution | 1 dent : ±0,1 % ; 2 dents et plus : **±0,1 % de *fz × dents*** (fz saisi ou affiché : cohérence, D69, D70), ou ±0,1 % si fz est masquée, vide ou illisible | 1 dent : ±0,1 % ; 2 dents et plus : ±0,1 % de *fz × dents*, ou ±0,1 % si fz est masquée, vide ou illisible | 1 dent : ±25 %, borné à ±0,001 po ; 2 dents et plus : ±0,1 % de *fz × dents*, ou **±25 %, borné à ±0,001 po par dent** si fz est masquée, vide ou illisible |
 | Vitesse d'avance | **±0,01 %** de *N_saisi × f_saisi* (cohérence interne, D15, D53) | ±0,5 % de *N_saisi × f_saisi* | ±0,5 % de *N_saisi × f_saisi* |
 
@@ -232,16 +234,16 @@ Précisions :
 - Sauf pour Vf, et pour f jugée par cohérence, l'intervalle est centré sur la
   **valeur théorique** (§5, non arrondie) ; ses bornes sont incluses.
 - **Tolérance effective (décision D13)** : la plus large entre celle du tableau
-  et **une demi-unité du dernier chiffre affiché** (§5) — ±0,5 rév/min pour N,
+  et **une demi-unité du dernier chiffre affiché** (§5) — ±0,5 tr/min pour N,
   ±0,00005 po pour une avance affichée à 4 décimales, ±0,0005 po/min pour Vf.
   « Exact » signifie donc exact à la précision affichée, et la valeur théorique
-  telle qu'affichée est toujours acceptée. Ex. : N théorique = 84,67 rév/min en
-  filetage → 84 et 85 sont acceptés ; lame à tronçonner à 4,375 rév/min → 4 est
+  telle qu'affichée est toujours acceptée. Ex. : N théorique = 84,67 tr/min en
+  filetage → 84 et 85 sont acceptés ; lame à tronçonner à 4,375 tr/min → 4 est
   accepté.
-- **N, hors filetage (D13, complément)** : ±5 % **puis** ±1 rév/min de chaque
+- **N, hors filetage (D13, complément)** : ±5 % **puis** ±1 tr/min de chaque
   côté (1600 → [1519 ; 1681] ; 4,375 → [3,156 ; 5,594]), pour qu'un N calculé
   avec la formule exacte 12/π (§5) et arrondi à l'entier passe toujours. La ligne
-  de correction l'écrit : « ±5 % et ±1 rév/min ».
+  de correction l'écrit : « ±5 % et ±1 tr/min ».
 - « ±25 %, borné à ±0,001 po » : l'intervalle du tableau est **le plus étroit**
   de ±25 % et de ±0,001 po. Ex. fz = 0,0015 → [0,001125 ; 0,001875] (±25 %) ;
   fz = 0,006 → [0,005 ; 0,007] (±0,001 po). La demi-unité de D13 s'y ajoute
@@ -297,7 +299,8 @@ Précisions :
     exact (59,055) ou avec le pas arrondi (59,06) est acceptée ; décalée de 0,1 %
     (59,119), refusée.
 - Saisie : le point et la virgule sont acceptés comme séparateur décimal
-  (D10) ; un champ vide ou illisible est une mauvaise réponse.
+  (D10 ; le navigateur remplace la virgule par un point à la sortie du champ, D71,
+  mais le serveur lit les deux) ; un champ vide ou illisible est une mauvaise réponse.
 
 Une question est **réussie** quand les 5 champs sont corrects. Les champs
 pré-remplis par la configuration de l'exercice (ex. M10 : tout sauf Vc) comptent
@@ -386,10 +389,13 @@ données des étudiants en fin de session** (espace professeur, §8, D46) — le
 cinq tables de l'éditeur (dont `images`) ne sont jamais touchées ; supprimer une séance
 efface son journal, mais ses attestations restent, annulées (D45).
 
-**Le navigateur ne conserve que** `{ matricule, prenom, jeton }`
+**Le navigateur ne conserve que** `{ matricule, prenom, jeton, exercice }`
 (`site/js/session.js`), dans `localStorage` sous une seule clé
-(`quiz-parametres-coupe:seance`) : de quoi offrir « Reprendre, <prénom> » à
-l'accueil sans redemander le NIP. Le stockage n'est jamais fiable (navigation
+(`quiz-parametres-coupe:seance`, qui ne suit pas le nom du Worker, D72) : de quoi
+offrir « Reprendre, <prénom> » sur la page de l'exercice sans redemander le NIP.
+Le jeton nomme son exercice (D71) : sur la page d'un autre exercice, il n'est ni
+offert, ni essayé, ni effacé ; un jeton gardé avant, sans exercice, est offert
+partout, comme avant. Le stockage n'est jamais fiable (navigation
 privée, quota, contenu abîmé) : chaque lecture et chaque écriture est protégée ;
 stockage vide, illisible ou en panne → l'étudiant s'identifie, sans erreur.
 
@@ -574,7 +580,8 @@ Pour chaque champ :
   et pour **f** jugée par cohérence, *fz × dents* avec le fz saisi, ou affiché
   s'il est fourni (§6, D69, D70) ;
 - `coherence` (D70, complément) : `null`, ou les grandeurs **saisies** dont
-  `attendu` est fait, pour que l'écran le dise (« = ton fz × 2 ») — f :
+  `attendu` est fait, pour que l'écran le dise (« = ton avance par dent × 2 »,
+  D71 : en toutes lettres) — f :
   `{ saisies: ['fz'], dents: 2 }` ; Vf : `{ saisies: ['n', 'f'] }`, ou un seul des
   deux (l'autre fourni, masqué, vide ou illisible). Un fz fourni n'est pas une
   saisie : `coherence` est alors `null` ;
@@ -582,8 +589,8 @@ Pour chaque champ :
   mêmes de la correction (« exacte », « ±5 % », « de −90 % à +0.1 % »,
   « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ») ; `ecart_pct`, l'écart de
   la saisie en % (`null` si elle est vide ou illisible) ; `calcul`, le calcul en
-  une ligne (« Vf = N × f = 2500 × 0.0050 », facteur de vitesse et plafond du
-  RPM compris ; pour un outil à deux diamètres, il nomme celui qui sert :
+  une ligne (« Vf = N × f = 2500 × 0.0050 », facteur de vitesse et plafond de la
+  vitesse de rotation compris ; pour un outil à deux diamètres, il nomme celui qui sert :
   « N = Vc × 4 / Ø usiné = … », « fz = avance × Ø barre = 0.006 × 0.75 » ; `null` pour Vc et pour une avance fixe, qui se lisent dans une
   table). Pour un champ fourni, ces trois valeurs sont `null`.
 
@@ -912,7 +919,7 @@ ferme D6.
   résultats ne vont qu'au serveur de correction du projet, et sont **effacés par l'enseignant
   en fin de session** (§8, D46). Rien n'est envoyé à un tiers, et la page ne charge
   rien d'un domaine externe (polices auto-hébergées, `UI.md` §1). Le navigateur
-  ne garde que `{ matricule, prenom, jeton }` (§7). Pied de page : « Tes
+  ne garde que `{ matricule, prenom, jeton, exercice }` (§7). Pied de page : « Tes
   réponses sont corrigées par un serveur ; tes données sont effacées à la fin de
   la session. »
 
@@ -992,14 +999,15 @@ Précisions :
   l'éditeur.
 - **Liste des exercices offerts** : le serveur la compose (`GET /api/exercices`, D47)
   — les exercices publiés, non archivés, sans `"liste": false`, **dans l'ordre des
-  rangs** de l'éditeur (D51) —, et
+  rangs** de l'éditeur (D51), chacun avec son cours (D71) —, et
   `site/exercices/index.json` ne sert plus qu'aux tests et à la semence.
-  `?exercice=<id>` dans l'adresse choisit un exercice **publié**. Il n'y a **pas
-  d'exercice par défaut** (décision D18) : `?exercice=` absent → l'accueil affiche
-  la liste ; id inconnu, jamais publié → l'accueil affiche « L'exercice « <id> »
-  n'existe pas — vérifie le lien sur Léa », puis la même liste ; archivé →
-  l'accueil le dit, une séance en cours se reprend encore. « index » est un
-  identifiant réservé.
+  `?exercice=<id>` dans l'adresse ouvre la **page de description** d'un exercice
+  **publié** (D71, UI §3.1). Il n'y a **pas d'exercice par défaut** (décision D18) :
+  `?exercice=` absent → l'**accueil unique**, les exercices regroupés par cours (sans
+  cours : « Autres exercices »), et la porte professeur ; id inconnu, jamais publié →
+  le même accueil, précédé de « L'exercice « <id> » n'existe pas — vérifie le lien sur
+  Léa » ; archivé → sa page le dit, une séance en cours se reprend encore. « index »
+  est un identifiant réservé.
 - **`m10-tournage-vc-rpm`** (décisions D40, D43) : « M10 — Tournage : Vc et RPM »,
   `champs_evalues` `["vc", "n"]`, acier rapide ou insert de carbure seulement,
   onze outils de pointage, perçage, alésage à la barre et filetage, deux
@@ -1095,5 +1103,5 @@ immuables. Brouillon et version ont la même forme :
 4. ~~Sécurité du payload QR (§8 / D6).~~ Tranché : attestation signée par le serveur de correction (D19).
 5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ? (D7)
 6. ~~Serveur de correction : cinq points du §7.~~ Tranchés : D21.
-7. ~~Un N calculé avec 12/π puis arrondi à l'entier (§5).~~ Tranché : tolérance de N élargie de ±1 rév/min (D13, complément).
+7. ~~Un N calculé avec 12/π puis arrondi à l'entier (§5).~~ Tranché : tolérance de N élargie de ±1 tr/min (D13, complément).
 8. ~~Barres de la barre à aléser et rapport 0,75 (§3, D25).~~ Confirmés (D30).
