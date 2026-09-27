@@ -1,7 +1,7 @@
 // Tests de site/js/session.js : le navigateur ne garde que { matricule, prenom, jeton } (SPEC §7, D19).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SESSION_KEY, clearSession, loadSession, saveSession } from '../site/js/session.js';
+import { SESSION_KEY, clearSession, loadSession, saveSession, sessionFor } from '../site/js/session.js';
 
 const SEANCE = { matricule: '2412345', prenom: 'Camille', jeton: 'b3f1c2d4e5' };
 
@@ -114,4 +114,24 @@ test('clearSession : oublie l’étudiant ; loadSession retourne ensuite null', 
   assert.equal(clearSession(stockage), true);
   assert.equal(loadSession(stockage), null);
   assert.equal(clearSession(stockage), true); // effacer deux fois ne pose pas de problème
+});
+
+// --- Le jeton nomme son exercice (D71) ---------------------------------------------------------------------------
+
+test('le jeton gardé nomme son exercice (D71) : gardé, relu ; jamais rien d’autre', () => {
+  const stockage = fauxStockage();
+  assert.equal(saveSession({ ...SEANCE, exercice: 'm10-tournage-vc', nip: '4821' }, stockage), true);
+  assert.deepEqual(JSON.parse(stockage.getItem(SESSION_KEY)), { ...SEANCE, exercice: 'm10-tournage-vc' });
+  assert.deepEqual(loadSession(stockage), { ...SEANCE, exercice: 'm10-tournage-vc' });
+  // Un exercice vide ou qui n'est pas un texte n'est pas gardé : le jeton se comporte comme avant.
+  assert.equal(saveSession({ ...SEANCE, exercice: '' }, stockage), true);
+  assert.deepEqual(loadSession(stockage), SEANCE);
+});
+
+test('sessionFor (D71) : « Reprendre » sur la page de l’exercice du jeton seulement ; un jeton d’avant, sans exercice, comme avant', () => {
+  const garde = { ...SEANCE, exercice: 'm10-tournage-vc' };
+  assert.deepEqual(sessionFor(garde, 'm10-tournage-vc'), garde);
+  assert.equal(sessionFor(garde, 'm10-tournage-vc-rpm'), null); // un autre exercice : ni offert ni effacé
+  assert.deepEqual(sessionFor(SEANCE, 'm10-tournage-vc-rpm'), SEANCE); // jeton gardé avant D71
+  assert.equal(sessionFor(null, 'm10-tournage-vc'), null);
 });

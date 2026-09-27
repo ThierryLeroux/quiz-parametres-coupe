@@ -7,6 +7,7 @@
 import { TEMPLATE_TOKENS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
 import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey } from '../exercice.js';
+import { exerciseLink } from './home-data.js';
 import { formatDateStamp } from './text.js';
 
 // Les grandeurs, dans l'ordre de l'écran, avec leur libellé court.
@@ -111,8 +112,8 @@ export function sessionsLabel(row) {
   return `${row.seances} séance${row.seances > 1 ? 's' : ''}${parts.length > 0 ? ` (${parts.join(', ')})` : ''}`;
 }
 
-// Le lien à donner aux étudiants sur Léa.
-export const studentLink = (origin, id) => `${origin}/?exercice=${encodeURIComponent(id)}`;
+// Le lien à donner aux étudiants sur Léa : celui de la page de l'exercice (le même que « Copier le lien » de cette page).
+export const studentLink = exerciseLink;
 
 // --- Le cours d'un exercice (D71) -------------------------------------------------------------------------------
 

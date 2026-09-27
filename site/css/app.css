@@ -152,6 +152,99 @@ body {
   font-weight: 600;
 }
 
+/* --- Accueil unique : les exercices par cours, la porte professeur (UI §3.1, D71) -------------------- */
+
+.exercise-list li { display: flex; flex-direction: column; }
+.exercise-list li .muted { margin-top: -6px; }
+
+.home-course {
+  margin: var(--space-5) 0 0;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  color: var(--color-accent-light);
+  font-size: var(--text-lg);
+  letter-spacing: 0.04em;
+}
+
+.home-group .exercise-list { margin-top: var(--space-3); }
+
+/* --- Page de description d'un exercice (UI §3.1, D71) ----------------------------------------------------- */
+
+/* « ← Tous les exercices » à gauche, « Copier le lien » à droite. */
+.description-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: calc(-1 * var(--space-3));
+}
+
+/* Le lien, quand le presse-papiers est refusé : affiché, sélectionné, à copier à la main. */
+.copy-link-note:empty { display: none; }
+.copy-link-note { display: flex; flex-direction: column; gap: var(--space-1); }
+.copy-link-field {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-accent-light);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.description-title {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--text-md);
+}
+.description-title:first-of-type { margin-top: var(--space-2); }
+
+.description-questions { margin: 0; padding-left: var(--space-5); line-height: 1.6; }
+
+/* Un outil par rang : photo sur blanc, nom et plage, opération, matières ; les réussites de suite à droite. */
+.description-tools { margin: 0; padding: 0; list-style: none; }
+.description-tool {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-top: 1px solid color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+}
+.description-photo {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  padding: 4px;
+  background: #fff;
+}
+.description-photo:empty { background: none; } /* la photo manque : pas de carré blanc */
+.description-photo-image { max-width: 100%; max-height: 100%; object-fit: contain; }
+.description-tool-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.description-operation { display: flex; align-items: center; gap: var(--space-2); }
+.description-picto { width: 24px; height: 24px; padding: 1px; object-fit: contain; background: #fff; }
+.description-streak { color: var(--color-accent-light); font-weight: 600; text-align: right; }
+
+/* Téléphone : les réussites de suite passent sous le nom, la photo reste à gauche. */
+@media (max-width: 479px) {
+  .description-tool { grid-template-columns: 56px minmax(0, 1fr); }
+  .description-photo { width: 56px; height: 56px; }
+  .description-streak { grid-column: 2; text-align: left; }
+}
+
+/* Les matériaux usinés possibles, par classe ISO : la lettre de classe sur sa couleur (celle des tables, D61). */
+.description-materials { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+.description-materials li { display: flex; align-items: baseline; gap: var(--space-3); line-height: 1.5; }
+.iso-chip {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  font-weight: 600;
+}
+
 /* --- Identification (UI §3.2) ------------------------------------------------------------------------ */
 
 .form-grid {

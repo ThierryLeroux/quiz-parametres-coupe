@@ -27,12 +27,24 @@ const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juill.', 'ao�
 // « 1 outil », « 9 outils », « 0 réussite » : en français, 0 et 1 sont au singulier.
 const count = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
+// « champ évalué : vitesse de coupe », « champs évalués : vitesse de coupe, vitesse de rotation ».
+function evaluatedFields(champs) {
+  const fields = champs.map((field) => FIELD_NAMES[field]);
+  return `${fields.length > 1 ? 'champs évalués' : 'champ évalué'} : ${fields.join(', ')}`;
+}
+
 // Ligne sous le titre de l'exercice : « version r0 · 9 outils · champ évalué : vitesse de coupe »
 export function exerciseMeta(exercise) {
-  const fields = exercise.champs_evalues.map((field) => FIELD_NAMES[field]);
-  const heading = fields.length > 1 ? 'champs évalués' : 'champ évalué';
-  return `version ${exercise.version} · ${count(exercise.outils.length, 'outil')} · ${heading} : ${fields.join(', ')}`;
+  return `version ${exercise.version} · ${count(exercise.outils.length, 'outil')} · ${evaluatedFields(exercise.champs_evalues)}`;
 }
+
+// Ligne sous un exercice de l'accueil (D71), d'après GET /api/exercices : « 9 outils · champ évalué : vitesse de coupe ».
+export function listedExerciseMeta(entry) {
+  return `${count(entry.nombre_outils, 'outil')} · ${evaluatedFields(entry.champs_evalues)}`;
+}
+
+// Les grandeurs d'un champ d'exercice (vc, fz, n, f, vf), en toutes lettres (D71).
+export const fieldName = (field) => FIELD_NAMES[field];
 
 // Résumé de l'exercice en trois phrases (UI §3.1) : réussites de suite, échec, rapport.
 // N est lu dans reussites_requises ; s'il varie selon l'outil, on écrit « plusieurs fois de suite ».

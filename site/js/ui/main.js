@@ -4,9 +4,9 @@
 
 import { loadApp, loadExerciseVersion } from '../app.js';
 import { createSession, getAttestation, lookupSession, nextQuestion, resumeSession, signOut, submitAnswers, updateIdentity } from '../api.js';
-import { clearSession, loadSession, saveSession } from '../session.js';
+import { clearSession, loadSession, saveSession, sessionFor } from '../session.js';
 import { renderAttestation, renderAttestationError } from './attestation-screen.js';
-import { renderExerciseList, renderHome, renderLoadError } from './home-screen.js';
+import { renderHome, renderHomeList, renderLoadError } from './home-screen.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
 import { applyTableColors, convertDecimalCommas } from './dom.js';
 import { renderQuestion } from './question-screen.js';
@@ -40,9 +40,10 @@ async function ensureVersion(seance) {
   useExercise(await loadExerciseVersion(exercise.id, seance.exercice.version));
 }
 
+// La page de l'exercice (D71) : « Reprendre » seulement avec le jeton de CET exercice ; celui d'un autre reste gardé, sans être essayé.
 function showHome() {
-  const local = loadSession();
-  renderHome(main, { exercise, local, archived }, {
+  const local = sessionFor(loadSession(), exercise.id);
+  renderHome(main, { exercise, data, local, archived }, {
     onResume: () => openQuestion(local.jeton),
     onStart: () => showMatricule(),
     onForget: () => {
@@ -55,9 +56,9 @@ function showHome() {
 
 // --- Identification en deux temps (D23) : rien ne se décide en silence -----------------------------------
 
-// Garde { matricule, prenom, jeton } — le prénom est celui que connaît le serveur. Si le navigateur
-// refuse, on continue : il faudra seulement s'identifier de nouveau.
-const remember = (jeton, seance) => saveSession({ matricule: seance.etudiant.matricule, prenom: seance.etudiant.prenom, jeton });
+// Garde { matricule, prenom, jeton, exercice } — le prénom est celui que connaît le serveur ; l'exercice, celui
+// du jeton (D71). Si le navigateur refuse, on continue : il faudra seulement s'identifier de nouveau.
+const remember = (jeton, seance) => saveSession({ matricule: seance.etudiant.matricule, prenom: seance.etudiant.prenom, jeton, exercice: exercise.id });
 
 // Ouvre la séance que le serveur vient de créer ou de rendre. Retourne le message à afficher, ou null.
 async function enter(opening) {
@@ -174,9 +175,9 @@ async function openQuestion(jeton) {
 async function start() {
   try {
     const app = await loadApp(location.search);
-    // D18 : « ?exercice= » absent ou inconnu → la liste des exercices, jamais un exercice par défaut.
+    // D18, D71 : « ?exercice= » absent ou inconnu → l'accueil, les exercices par cours ; jamais un exercice par défaut.
     if (app.exercise === null) {
-      renderExerciseList(main, app.listed, app.unknownId);
+      renderHomeList(main, app.listed, app.unknownId);
       return;
     }
     useExercise(app);
