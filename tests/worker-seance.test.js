@@ -264,7 +264,7 @@ test('correctionView : juste ou faux, saisie et valeur attendue de chaque champ,
   assert.equal(vue.reussie, false);
   assert.deepEqual(vue.outil, { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', avant: 1, apres: 0 });
   const vc = Number(bonnesReponses(question).vc);
-  assert.deepEqual(vue.champs[0], { champ: 'vc', evalue: true, ok: false, saisie: '1', attendu: String(vc), tolerance: 'exacte', ecart_pct: Number((((1 - vc) / vc) * 100).toFixed(1)), calcul: null });
+  assert.deepEqual(vue.champs[0], { champ: 'vc', evalue: true, ok: false, saisie: '1', attendu: String(vc), tolerance: 'exacte', ecart_pct: Number((((1 - vc) / vc) * 100).toFixed(1)), calcul: null, coherence: null });
   assert.deepEqual(vue.champs.slice(1).map((champ) => champ.ok), [true, true, true, true]);
 
   const m10Question = drawQuestion(emptyCounters(), m10, data, aleaAGraine(1));
@@ -304,6 +304,8 @@ test('correctionView (D69) : f attendue = fz saisi × dents, « ±0.1 % de fz ×
   // fz 0.0037 (tolérée) et f 0.0074 = 0.0037 × 2 : f juste, jugée sur le fz saisi.
   let champs = vue(cinq, [], { vc: '100', feedPerTooth: '0.0037', rpm: '800', feedPerRev: '0.0074', feedRate: '5.92' });
   assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance, champs.feedPerRev.ecart_pct], [true, '0.0074', '±0.1 % de fz × dents', 0]);
+  // D'où vient la valeur attendue (D70, complément) : f de ton fz × 2, Vf de tes N et f ; les autres champs, la valeur théorique.
+  assert.deepEqual([champs.feedPerRev.coherence, champs.feedRate.coherence, champs.vc.coherence, champs.feedPerTooth.coherence], [{ saisies: ['fz'], dents: 2 }, { saisies: ['n', 'f'] }, null, null]);
 
   // fz fausse (0.005) et f théorique (0.006) : f fausse, attendue 0.005 × 2 = 0.0100 ; le calcul reprend le fz saisi.
   champs = vue(cinq, [], { vc: '100', feedPerTooth: '0.005', rpm: '800', feedPerRev: '0.006', feedRate: '4.8' });
@@ -315,6 +317,7 @@ test('correctionView (D69) : f attendue = fz saisi × dents, « ±0.1 % de fz ×
   assert.deepEqual(validateExercise(masquee, data), []);
   champs = vue(masquee, ['feedPerTooth'], { vc: '100', rpm: '800', feedPerRev: '0.0076', feedRate: '6.08' });
   assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance, champs.feedPerRev.ecart_pct], [false, '0.0060', '±25 %, au plus ±0.001 po par dent', 26.7]);
+  assert.deepEqual([champs.feedPerRev.coherence, champs.feedPerTooth.coherence], [null, null]); // fz masquée : la valeur théorique
   assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = — × 2');
 });
 
@@ -332,6 +335,8 @@ test('correctionView (D70) : fz fournie → f attendue = fz affiché × dents ; 
   const n = bonnesReponses(alesoir).rpm;
   let champs = vue(alesoir, fournie, { vc: '100', rpm: n, feedPerRev: '0.00875', feedRate: String(Number(n) * 0.00875) });
   assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance, champs.feedPerRev.ecart_pct], [false, '0.0100', '±0.1 % de fz × dents', -12.5]);
+  // fz fournie : la valeur attendue vient du fz affiché, pas d'une saisie ; Vf, elle, vient des N et f saisis.
+  assert.deepEqual([champs.feedPerRev.coherence, champs.feedRate.coherence], [null, { saisies: ['n', 'f'] }]);
   assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.00125 × 8');
 
   // Barre à aléser Ø 1 1/4 po, 1 dent : fz saisie fausse et f qui la recopie → f jugée sur 0.0060, refusée ;
@@ -341,6 +346,7 @@ test('correctionView (D70) : fz fournie → f attendue = fz affiché × dents ; 
   const nBarre = bonnesReponses(barre).rpm;
   champs = vue(barre, tout, { vc: '400', feedPerTooth: '0.0080', rpm: nBarre, feedPerRev: '0.0080', feedRate: String(Number(nBarre) * 0.008) });
   assert.deepEqual([champs.feedPerTooth.ok, champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance], [false, false, '0.0060', '±25 %, au plus ±0.001 po']);
+  assert.equal(champs.feedPerRev.coherence, null); // une dent : la valeur théorique
   assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.0060 × 1');
 });
 

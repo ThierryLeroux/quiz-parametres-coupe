@@ -120,14 +120,28 @@ export const FIELD_PARTS = {
   feedRate: { name: "Vitesse d'avance", symbol: 'Vf', unit: 'po/min', picto: 'vf' },
 };
 
+// D'où vient la valeur attendue d'un champ jugé par cohérence avec les saisies de l'étudiant (D70, complément),
+// d'après `coherence` du serveur : « ton fz × 2 » pour f ; « ton N × ta f » pour Vf, ou « N × ta f », « ton N × f »
+// quand un seul des deux facteurs est le sien. null pour les autres champs, ou sans cohérence.
+export function coherenceSource(field, coherence) {
+  if (!coherence) return null;
+  const mine = (key, own, other) => (coherence.saisies.includes(key) ? own : other);
+  if (field === 'feedPerRev') return `${mine('fz', 'ton fz', 'fz')} × ${coherence.dents}`;
+  if (field === 'feedRate') return `${mine('n', 'ton N', 'N')} × ${mine('f', 'ta f', 'f')}`;
+  return null;
+}
+
 // Note sous un champ corrigé (UI §3.4) : « Juste », « Juste (2496 attendu) » si la saisie diffère de
-// la valeur attendue mais est tolérée, « Faux — attendu 12.500 » ; un champ fourni garde sa mention.
+// la valeur attendue mais est tolérée — « Juste (0.000284 = ton fz × 2) » quand cette valeur est faite de ses
+// saisies —, « Faux — attendu 12.500 » ; un champ fourni garde sa mention.
 export function fieldResultNote(champ) {
   if (champ.masque) return 'non demandée';
   if (!champ.evalue) return "fourni par l'exercice";
   if (!champ.ok) return `Faux — attendu ${champ.attendu}`;
   const typed = champ.saisie.replace(/\s/g, '').replace(',', '.');
-  return typed === champ.attendu ? 'Juste' : `Juste (${champ.attendu} attendu)`;
+  if (typed === champ.attendu) return 'Juste';
+  const source = coherenceSource(champ.champ, champ.coherence);
+  return source === null ? `Juste (${champ.attendu} attendu)` : `Juste (${champ.attendu} = ${source})`;
 }
 
 // Bandeau après « Vérifier » (UI §3.4).

@@ -226,12 +226,20 @@ export function correctionView(question, answers, result, before, counters, data
   const shown = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, masked.includes(field) ? '—' : (typed[field] === null ? displayed[field] : answers[field].replace(',', '.'))]));
   // La ligne de f reprend le fz sur lequel f a été jugée : à une dent, ou fz vide, la valeur théorique (D70).
   if (coherentFz === null && !masked.includes('feedPerTooth')) shown.feedPerTooth = displayed.feedPerTooth;
+  // Les saisies dont la valeur attendue est faite, quand elle vient de la cohérence (D70, complément) : l'écran
+  // dit « = ton fz × 2 », « = ton N × ta f » au lieu d'« attendu ». Un fz fourni n'est pas une saisie.
+  const coherence = {
+    feedPerRev: coherentFz !== null && typed.feedPerTooth !== null ? { saisies: ['fz'], dents: question.teeth } : null,
+    feedRate: evaluated('feedRate') && (typed.rpm !== null || typed.feedPerRev !== null)
+      ? { saisies: [...(typed.rpm !== null ? ['n'] : []), ...(typed.feedPerRev !== null ? ['f'] : [])] }
+      : null,
+  };
 
   return {
     reussie: result.success,
     outil: { id: question.tool.id, nom: question.tool.name, avant: before, apres: counters.reussites[question.tool.id] ?? 0 },
     champs: ANSWER_FIELDS.map((field) => {
-      if (masked.includes(field)) return { champ: field, evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null };
+      if (masked.includes(field)) return { champ: field, evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null };
       const graded = evaluated(field);
       const gap = graded && typed[field] !== null && reference[field] !== 0 ? (typed[field] - reference[field]) / reference[field] : null;
       return {
@@ -243,6 +251,7 @@ export function correctionView(question, answers, result, before, counters, data
         tolerance: graded ? toleranceLabel(expected.feedType, field, { coherence: field === 'feedPerRev' && coherentFz !== null, teeth: question.teeth }) : null,
         ecart_pct: gap === null ? null : Number((gap * 100).toFixed(1)),
         calcul: graded ? calculationLine(field, question, expected, shown, tool, operation) : null,
+        coherence: coherence[field] ?? null,
       };
     }),
   };

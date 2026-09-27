@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
+  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, coherenceSource, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
   localDate, serverErrorMessage, sheetSignature, studentLine,
 } from '../site/js/ui/text.js';
 import { loadExercise } from '../site/js/exercice.js';
@@ -99,6 +99,34 @@ test('fieldResultNote : Juste, Juste (… attendu), Faux — attendu …, fourni
   assert.equal(fieldResultNote({ evalue: true, ok: false, saisie: '', attendu: '12.500' }), 'Faux — attendu 12.500');
   assert.equal(fieldResultNote({ evalue: false, ok: true, saisie: '', attendu: '12.500' }), "fourni par l'exercice");
   assert.equal(fieldResultNote({ evalue: false, masque: true, ok: true, saisie: '', attendu: null }), 'non demandée'); // D52
+});
+
+test('fieldResultNote (D70) : une valeur attendue faite des saisies le dit — « = ton fz × 2 », « = ton N × ta f »', () => {
+  const f = { champ: 'feedPerRev', evalue: true, ok: true, saisie: '0.000283', attendu: '0.000284', coherence: { saisies: ['fz'], dents: 2 } };
+  assert.equal(fieldResultNote(f), 'Juste (0.000284 = ton fz × 2)');
+  const vf = { champ: 'feedRate', evalue: true, ok: true, saisie: '3048', attendu: '3048.000', coherence: { saisies: ['n', 'f'] } };
+  assert.equal(fieldResultNote(vf), 'Juste (3048.000 = ton N × ta f)');
+  // Un seul des deux facteurs de Vf est le sien (l'autre fourni, masqué, vide ou illisible).
+  assert.equal(fieldResultNote({ ...vf, coherence: { saisies: ['f'] } }), 'Juste (3048.000 = N × ta f)');
+  assert.equal(fieldResultNote({ ...vf, coherence: { saisies: ['n'] } }), 'Juste (3048.000 = ton N × f)');
+  // La saisie égale à la valeur attendue : « Juste », rien de plus.
+  assert.equal(fieldResultNote({ ...f, saisie: '0,000284' }), 'Juste');
+  // Un champ faux garde « Faux — attendu … », même quand la valeur attendue vient de la cohérence.
+  assert.equal(fieldResultNote({ ...f, ok: false, saisie: '0.0003' }), 'Faux — attendu 0.000284');
+  assert.equal(fieldResultNote({ ...vf, ok: false, saisie: '3100' }), 'Faux — attendu 3048.000');
+  // Valeur théorique (pas de cohérence, ou une réponse d'avant) : « attendu », comme avant.
+  assert.equal(fieldResultNote({ ...f, coherence: null }), 'Juste (0.000284 attendu)');
+  const { coherence: _sans, ...ancien } = f;
+  assert.equal(fieldResultNote(ancien), 'Juste (0.000284 attendu)');
+});
+
+test('coherenceSource (D70) : les saisies dont la valeur attendue est faite, en clair', () => {
+  assert.equal(coherenceSource('feedPerRev', { saisies: ['fz'], dents: 8 }), 'ton fz × 8');
+  assert.equal(coherenceSource('feedRate', { saisies: ['n', 'f'] }), 'ton N × ta f');
+  assert.equal(coherenceSource('feedRate', { saisies: ['f'] }), 'N × ta f');
+  assert.equal(coherenceSource('feedRate', { saisies: ['n'] }), 'ton N × f');
+  assert.equal(coherenceSource('feedRate', null), null);
+  assert.equal(coherenceSource('vc', { saisies: ['n'] }), null); // pas de cohérence pour les autres champs
 });
 
 test('correctionBanner : bonne réponse, compteur qui retombe, compteur qui reste à zéro', () => {

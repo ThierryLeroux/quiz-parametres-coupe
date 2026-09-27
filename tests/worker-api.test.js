@@ -187,7 +187,7 @@ test('grandeurs masquées (D52) : « — » sans valeur dans la question, la cor
   const juste = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: 'essai-masque', saisies: { vc: attendues.vc, feedRate: attendues.feedRate } } });
   assert.equal(juste.status, 200, JSON.stringify(juste.corps));
   assert.equal(juste.corps.correction.reussie, true);
-  assert.deepEqual(juste.corps.correction.champs[2], { champ: 'rpm', evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null });
+  assert.deepEqual(juste.corps.correction.champs[2], { champ: 'rpm', evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null });
   assert.deepEqual(fuite(juste.corps), []);
   // Une Vf fausse : le calcul en une ligne cache N et f (« — »), et rien ne fuit.
   serveur.avancer(11 * SECONDE);
@@ -461,7 +461,7 @@ test('correction juste : compteur de l’outil, total, journal, question suivant
   assert.equal(status, 200);
   assert.equal(corps.correction.reussie, true);
   assert.deepEqual(corps.correction.outil, { id: outil, nom: seance.question.outil.nom, avant: 0, apres: 1 });
-  assert.deepEqual(corps.correction.champs[0], { champ: 'vc', evalue: true, ok: true, saisie: bonnes.vc, attendu: bonnes.vc, tolerance: 'exacte', ecart_pct: 0, calcul: null });
+  assert.deepEqual(corps.correction.champs[0], { champ: 'vc', evalue: true, ok: true, saisie: bonnes.vc, attendu: bonnes.vc, tolerance: 'exacte', ecart_pct: 0, calcul: null, coherence: null });
   assert.equal(corps.seance.progression.outils.find((o) => o.id === outil).reussites, 1);
   assert.equal(corps.seance.progression.total_reussies, 1);
   assert.notEqual(corps.seance.question, null); // la suivante est déjà tirée et mémorisée
