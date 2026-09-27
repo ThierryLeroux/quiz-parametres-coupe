@@ -1,6 +1,7 @@
 // Aucun numéro de décision (« D25 », « D40 »…) dans un texte visible : écrans du quiz, attestation,
-// /verifier, espace professeur, éditeur, et les messages que le serveur renvoie au navigateur. Les
-// numéros restent dans les commentaires du code et dans les documents (D52).
+// /verifier, espace professeur, Gestion du contenu, et les messages que le serveur renvoie au navigateur. Les
+// numéros restent dans les commentaires du code et dans les documents (D52). Plus aucun « éditeur » affiché
+// non plus, ni bouton « Ouvrir » dans la Gestion du contenu (D74).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -33,6 +34,23 @@ test('aucun numéro de décision « Dnn » dans une chaîne affichable du site o
   }
   assert.deepEqual(trouves, []);
   assert.ok(FICHIERS.length > 20);
+});
+
+// La page /prof/editeur s'appelle « Gestion du contenu » (D74) : plus aucun « éditeur » affiché — titre, en-tête, lien
+// de l'espace professeur, accueil, messages. L'adresse, les routes, les fichiers et les identifiants gardent « editeur ».
+const EDITEUR = /[Éé]diteur/;
+
+test('aucun « éditeur » dans une chaîne affichable (D74) : la page s’appelle « Gestion du contenu »', () => {
+  const trouves = [];
+  for (const fichier of FICHIERS) {
+    const source = sansCommentaires(readFileSync(new URL(fichier, ROOT), 'utf8'));
+    const textes = fichier.endsWith('.html') ? [source.replace(/<script[\s\S]*?<\/script>/g, '')] : source.match(CHAINES) ?? [];
+    for (const texte of textes) if (EDITEUR.test(texte)) trouves.push(`${fichier} : ${texte.trim().slice(0, 80)}`);
+  }
+  assert.deepEqual(trouves, []);
+  const page = readFileSync(new URL('site/prof/editeur.html', ROOT), 'utf8');
+  assert.match(page, /<title>Gestion du contenu — /);
+  assert.match(page, /id="header-title">Gestion du contenu</);
 });
 
 // Le test voit bien un numéro : « (D12) » dans une chaîne est attrapé, en commentaire non.

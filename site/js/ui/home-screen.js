@@ -144,7 +144,7 @@ export function renderHomeList(main, listed, unknownId) {
       el('div', { class: 'eyebrow' }, 'Enseignants'),
       el('p', { class: 'small' }, [
         el('a', { href: '/prof' }, 'Espace professeur'),
-        " — la clé d'administration ouvre les réussites, les actions et l'éditeur des exercices ; la clé de consultation, les réussites en lecture seule.",
+        " — la clé d'administration ouvre les réussites, les actions et la Gestion du contenu ; la clé de consultation, les réussites en lecture seule.",
       ]),
     ]),
   ]);

@@ -27,7 +27,7 @@ import { formatDateStamp, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
 convertDecimalCommas(main); // une virgule tapée devient un point à la sortie d'un champ décimal (D71)
-const TITLE = 'Éditeur des exercices';
+const TITLE = 'Gestion du contenu'; // le nom de la page (D74) ; son adresse reste /prof/editeur
 
 // Un identifiant libre parmi ceux pris : « mvlnr », « mvlnr_2 »…
 function freeId(wanted, taken) {
@@ -61,7 +61,7 @@ function showLogin(notice = '') {
       const { role } = await teacherLogin(input.value);
       if (role !== 'admin') {
         await teacherLogout().catch(() => {});
-        throw new Error("L'éditeur est réservé à la clé d'administration : la clé de consultation ne fait que lire l'espace professeur.");
+        throw new Error("La Gestion du contenu est réservée à la clé d'administration : la clé de consultation ne fait que lire l'espace professeur.");
       }
       state.connected = true;
       await showList();
@@ -74,7 +74,7 @@ function showLogin(notice = '') {
   const screen = el('div', { class: 'screen screen--narrow' }, el('section', { class: 'panel' }, [
     el('div', { class: 'eyebrow' }, TITLE),
     el('h1', { tabindex: '-1' }, 'Connexion'),
-    el('p', { class: 'muted small' }, "Entre la clé d'administration du serveur de correction. L'éditeur n'est pas ouvert à la clé de consultation. La séance dure 12 h."),
+    el('p', { class: 'muted small' }, "Entre la clé d'administration du serveur de correction. La Gestion du contenu n'est pas ouverte à la clé de consultation. La séance dure 12 h."),
     el('form', { novalidate: true, onsubmit: submit }, [
       el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration. Cinq essais, puis un délai croissant.")])),
       el('div', { class: 'form-actions' }, [status, button]),

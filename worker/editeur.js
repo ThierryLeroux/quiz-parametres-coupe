@@ -110,7 +110,7 @@ export const importWord = (resume) => (resume?.banque?.retires?.length > 0 ? REP
 export function importPlan(received, existing, { tablesErrors, draftTablesErrors = tablesErrors, draftErrorsOf, latestTablesId = null }) {
   const erreurs = [];
   const plan = { tables_ajoutees: [], brouillon_tables: null, banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [] };
-  if (!isObject(received) || received.format !== EXPORT_FORMAT) return { erreurs: [`Ce fichier n'est pas un export de l'éditeur (format attendu : ${EXPORT_FORMAT}).`], plan, resume: null };
+  if (!isObject(received) || received.format !== EXPORT_FORMAT) return { erreurs: [`Ce fichier n'est pas un export de la Gestion du contenu (format attendu : ${EXPORT_FORMAT}).`], plan, resume: null };
 
   // Les images (D59) : leurs fiches seulement — le contenu voyage à part, une image par requête
   // (images/importer), avant l'import. Une image de l'export absente de la base est « manquante »
