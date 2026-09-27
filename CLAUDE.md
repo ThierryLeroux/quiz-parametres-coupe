@@ -65,7 +65,7 @@ worker/            le Worker : API /api/… du serveur de correction et de l'éd
 migrations/        schéma de la base D1, un fichier SQL numéroté par changement ; 0005 sème la banque et les exercices, 0007 les images, 0009 les images de classe
 reference/         outillage ponctuel : convertisseur des pictogrammes (D29), générateurs des semences 0005, 0007 et 0009, détourage des images de classe (D64)
 wrangler.jsonc     configuration du Worker (nom, ressources statiques, base D1)
-tests/             tests du moteur et du serveur (node --test) ; api-locale.mjs = npm run test:api
+tests/             tests du moteur et du serveur (node --test) ; api-locale.mjs = npm run test:api ; publier-test-complet.mjs = npm run publier:test-complet
 docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN ; rapports/ = un rapport de fin de session par jalon
 legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
 ```
@@ -100,6 +100,7 @@ legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture se
 npm test                 # tests unitaires, dont l'API du serveur sur une base SQLite en mémoire
 npm run test:api         # l'API par HTTP sur wrangler dev et une vraie D1 locale jetable (~1 min : cadence réelle, puis CADENCE_S:1 pour le cycle complet)
 npm run dev              # migrations locales, puis wrangler dev : le site et l'API (http://localhost:8787)
+npm run publier:test-complet  # publie test-complet sur la base LOCALE (pas semé, D47 ; D70) — refuse --remote
                          # avec MODE_TEST=1 dans .dev.vars : mode test (D26), réponses jointes par le serveur — local seulement
 npm run deploy           # migrations de production puis wrangler deploy — normalement fait par GitHub Actions, pas à la main
 ```

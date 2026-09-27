@@ -147,10 +147,22 @@ seule fois, dans PowerShell, à la racine du dépôt (après `npm install`) :
    nom `.dev.vars` et y mettre trois valeurs au hasard. Ce fichier est ignoré par
    git ; ses valeurs n'ont aucun rapport avec celles de production.
 7. **Mode test** (décision D26), pour essayer le parcours sans calculer : ajouter
-   la ligne `MODE_TEST=1` à `.dev.vars`, relancer `npm run dev`, puis ouvrir
-   <http://localhost:8787/?exercice=test-complet> (tous les outils, les cinq
-   grandeurs). Un bandeau « Mode test » apparaît : les cases arrivent remplies et
-   restent modifiables, « Remplir » les remet, et la cadence de 10 s est levée.
+   la ligne `MODE_TEST=1` à `.dev.vars` et relancer `npm run dev`. L'exercice
+   `test-complet` (tous les outils, les cinq grandeurs) **n'est pas dans une base
+   locale neuve** (il n'est pas semé, D47) : le publier une fois, dans un second
+   terminal, `npm run dev` arrêté ou en marche, par
+
+   ```
+   npm run publier:test-complet
+   ```
+
+   (D70 : il prend `site/exercices/test-complet.json` et la banque d'outils de la
+   base locale, et le publie comme le ferait l'éditeur ; relancé, il ne republie
+   que si la banque ou le fichier ont changé ; **il refuse `--remote`** et ne
+   touche jamais la production). Puis ouvrir
+   <http://localhost:8787/?exercice=test-complet>. Un bandeau « Mode test »
+   apparaît : les cases arrivent remplies et restent modifiables, « Remplir » les
+   remet, et la cadence de 10 s est levée.
    Pour en sortir : retirer la ligne. Cette variable ne va **jamais** dans
    `wrangler.jsonc` ni sur le Worker de production — et même là, le serveur la
    refuserait : il n'accepte le mode que pour une requête adressée à `localhost`.
