@@ -168,9 +168,15 @@ Rapport de session : `docs/rapports/avances.md`.
 - [x] **`limite_avance`** retirée du formulaire d'outil de l'éditeur ; clé acceptée dans les données (absente, `null` ou > 0), gardée telle quelle à l'enregistrement ; SPEC §3 la dit obsolète
 - [x] Chrome, mode test (`test-complet`), 1280 et 390 px : foret, barre à aléser, SDTMR métrique, fraise à nombre de dents tiré, outil à avance fixe ; aide de fz relevée pour les trois familles ; aucune erreur console hors le 401 attendu de l'éditeur avant connexion, aucune requête externe ; captures dans `captures/avances/`
 - [x] Tableau de validation des avances de fraisage et de perçage dans le rapport
-- [ ] **Thierry** : publier l'exercice de tournage (perçage au tour compris) dans l'éditeur
-- [ ] **Thierry** : valider les avances de fraisage et de perçage (tableau du rapport), puis publier l'exercice de fraisage
-- [ ] Points douteux du rapport (aide de fz en avance fixe, ligne de calcul d'un filet métrique, largeur de la cohérence à une dent, nombre de dents faux avec la tolérance reportée)
+- [x] Points douteux du rapport tranchés par Thierry (D70) ; avances de fraisage et de perçage validées (D70, point 8)
+- [x] **f selon D70** : à une dent, valeur théorique avec la tolérance de fz de la famille ; à partir de deux dents, cohérence avec fz saisi × dents, ou **fz affiché × dents quand fz est fournie** (le nombre de dents est vérifié) ; fz masquée, vide ou illisible : tolérance reportée ; demi-unité de f la plus large des deux, pas la somme ; tests (MVLNR, SDTMR M42 x 4.5, alésoir à 8 dents, foret #40, foret à pointer), chaîne sur tout le catalogue
+- [x] Aides : avance fixe (« la valeur de la table, telle quelle, quel que soit le Ø ») ; dimension métrique seulement, « Le Ø se met en pouces : mm / 25.4 » pour N et fz proportionnelle, « fz = pas, en pouces : mm / 25.4 » pour un filet métrique
+- [x] Ligne de calcul d'un filetage : la conversion du pas de la question (« fz = pas = 4.5 mm / 25.4 = 0.17717 », « fz = pas = 1 / 20 = 0.05000 »)
+- [x] `npm run publier:test-complet` : test-complet sur la base locale, refuse `--remote` ; DEMARRAGE §7
+- [x] Chrome, mode test, 1280 et 390 px (huit outils visés, test-complet publié par le script pendant que wrangler dev tourne) ; captures dans `captures/avances-d70/`
+- [ ] ❓ **Thierry** : « barre à aléser, f +1 % → refusée » contredit la règle à une dent en avance proportionnelle (±25 %, au plus ±0,001 po) — trancher (test `todo` dans `tests/correction.test.js`)
+- [ ] **Thierry** : publier l'exercice de tournage (perçage au tour compris) dans l'éditeur ; micro-forets écartés par ses dimensions (à partir de Ø 1/16 po : #52 et plus gros, 1.6 mm et plus)
+- [ ] **Thierry, en production, par l'éditeur** : ajouter deux fraises à surfacer de 3 po, à 5 et à 7 dents (fz = 0,004 × 3 = 0,012 → 0,010) ; puis publier l'exercice de fraisage
 
 ## Finition
 - [ ] Graphique de progression par opération

@@ -119,8 +119,9 @@ Téléphone : tout s'empile dans l'ordre outil → matériau → questionnaire �
 
 **Aide contextuelle, au clic seulement** (point 17) : quand une case reçoit le focus, une ligne d'aide apparaît sous le formulaire, **méthode jamais valeur** et sans nommer la ligne ni la colonne :
 - Vc : « table des vitesses de coupe : le matériau brut donne la ligne, le matériau de l'outil donne la colonne » + bouton **Ouvrir la table** ;
-- fz : « table des avances, à l'opération de l'outil » + bouton **Ouvrir la table** (sur la feuille des avances) + selon la famille : « proportionnelle au Ø : avance × Ø outil, sans dépasser l'avance max » ou « filetage : fz = pas = 1 / filets au pouce (ou mm / 25.4) » ;
+- fz : « table des avances, à l'opération de l'outil » + bouton **Ouvrir la table** (sur la feuille des avances) + selon la famille (D70) : « Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l'avance max », « Filetage : fz = pas = 1 / filets au pouce » (impérial) ou « Filetage : fz = pas, en pouces : mm / 25.4 » (métrique), « Avance fixe : la valeur de la table, telle quelle, quel que soit le Ø » ;
 - N : « N = Vc × 4 / Ø, plafonnée au RPM max de la machine » (+ facteur s'il y en a un) ; outil à deux diamètres : « … / Ø usiné (le trou, pas la barre) », et pour fz « avance × Ø de la barre (pas le Ø usiné) » ;
+- **dimension métrique** (D70 : un filet « Ø x pas » en mm ou un libellé en mm — foret métrique, MCLNR, filets et tarauds métriques), et **seulement alors** : l'aide de N, et celle de fz quand fz dépend du Ø (avance proportionnelle), se terminent par « Le Ø se met en pouces : mm / 25.4. » ;
 - f : « f = fz × nombre de dents » ; Vf : « Vf = N × f ».
 
 **Mode test (D26)** : seulement si le serveur local a joint les réponses attendues à la question (SPEC §7), un bandeau doré « Mode test » au-dessus des panneaux, avec le bouton **Remplir** ; les cases arrivent remplies et restent modifiables. Jamais en production ; aucun interrupteur dans la page.
@@ -133,7 +134,8 @@ Bouton **Vérifier** (un seul clic possible : le serveur ne corrige une question
 
 Même écran après **Vérifier** avec au moins un champ faux (choix de Thierry : voir les réponses attendues, puis question suivante) :
 - chaque champ passe en vert (« Juste », et « (2496 attendu) » si la valeur diffère mais est tolérée) ou rouge (« Faux — attendu 12.500 » et le calcul en une ligne : « Vf = N × f = 2500 × 0.0050 ») ;
-- pour Vf et pour f, la **valeur attendue** est celle de la cohérence (D15, D69) : N saisi × f saisi pour Vf ; **fz saisi × dents** pour f quand fz a été saisie et lue (« Faux — attendu 0.0100 », « f = fz × dents = 0.005 × 2 »), sinon la valeur théorique. La tolérance de f s'écrit alors « ±0.1 % de fz × dents » ; sans fz saisie, « ±25 %, au plus ±0.001 po par dent » (avance proportionnelle) ou « ±0.1 % » ;
+- pour Vf et pour f, la **valeur attendue** est celle de la cohérence (D15, D69, D70) : N saisi × f saisi pour Vf ; pour f, à partir de deux dents, **fz × dents** — fz saisi et lu (« Faux — attendu 0.0100 », « f = fz × dents = 0.005 × 2 »), ou fz affiché quand il est fourni —, sinon la valeur théorique (à une dent, ou fz masquée, vide ou illisible), et la ligne de calcul reprend alors la valeur théorique de fz (« f = fz × dents = 0.17717 × 1 »). La tolérance de f s'écrit « ±0.1 % de fz × dents » pour la cohérence ; sinon celle de fz : « ±25 %, au plus ±0.001 po » à une dent, « ±25 %, au plus ±0.001 po par dent » au-delà (avance proportionnelle), ou « ±0.1 % » ;
+- la ligne de calcul d'un **filetage** montre la conversion du pas de la question, jamais la saisie (D70) : « fz = pas = 4.5 mm / 25.4 = 0.17717 », « fz = pas = 1 / 20 = 0.05000 » ;
 - bandeau rouge : « Question ratée — le compteur de MVLNR retombe à zéro (2 → 0). » + l'explication de l'écart et de la tolérance ;
 - dans la progression, l'outil passe en rouge « remis à zéro », ses points se vident ;
 - un seul bouton : **Question suivante**. Une question réussie affiche le même écran en vert, sans bandeau rouge, puis Question suivante.

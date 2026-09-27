@@ -224,12 +224,12 @@ commande CNC et dans les libellés ; la saisie accepte le point et la virgule
 | Vc | exact | exact | exact |
 | Avance par dent | ±0,1 % | exact | ±25 %, borné à ±0,001 po |
 | N | de −90 % à +0,1 % (la vitesse peut être réduite pour fileter) | ±5 %, élargie de ±1 rév/min | ±5 %, élargie de ±1 rév/min |
-| Avance par révolution | fz saisie : **±0,1 % de *fz_saisi × dents*** (cohérence, D69) ; sinon ±0,1 % | fz saisie : ±0,1 % de *fz_saisi × dents* ; sinon ±0,1 % | fz saisie : ±0,1 % de *fz_saisi × dents* ; sinon **±25 %, borné à ±0,001 po par dent** |
+| Avance par révolution | 1 dent : ±0,1 % ; 2 dents et plus : **±0,1 % de *fz × dents*** (fz saisi ou affiché : cohérence, D69, D70), ou ±0,1 % si fz est masquée, vide ou illisible | 1 dent : ±0,1 % ; 2 dents et plus : ±0,1 % de *fz × dents*, ou ±0,1 % si fz est masquée, vide ou illisible | 1 dent : ±25 %, borné à ±0,001 po ; 2 dents et plus : ±0,1 % de *fz × dents*, ou **±25 %, borné à ±0,001 po par dent** si fz est masquée, vide ou illisible |
 | Vitesse d'avance | **±0,01 %** de *N_saisi × f_saisi* (cohérence interne, D15, D53) | ±0,5 % de *N_saisi × f_saisi* | ±0,5 % de *N_saisi × f_saisi* |
 
 Précisions :
 
-- Sauf pour Vf, et pour f quand fz est saisie, l'intervalle est centré sur la
+- Sauf pour Vf, et pour f jugée par cohérence, l'intervalle est centré sur la
   **valeur théorique** (§5, non arrondie) ; ses bornes sont incluses.
 - **Tolérance effective (décision D13)** : la plus large entre celle du tableau
   et **une demi-unité du dernier chiffre affiché** (§5) — ±0,5 rév/min pour N,
@@ -248,21 +248,36 @@ Précisions :
   ensuite (elle ne change rien à ces deux exemples).
 - N en filetage : borne basse à −90 % (la vitesse peut être réduite pour
   fileter). Le VBA appliquait −90,1 % ; ce n'est pas repris.
-- **Avance par révolution (décision D69)**, toutes familles : f est jugée par la
-  **cohérence** avec l'avance par dent, comme Vf avec N × f.
-  - **fz évaluée et lisible** : f acceptée à ±0,1 % de *fz_saisi × dents*. fz
-    n'est connue qu'à la précision de son affichage (D13) : la référence est la
-    plage (fz ± demi-unité) × dents, élargie de ±0,1 % ou de la demi-unité de f.
-    Ex. foret Ø 1/2 po, 2 lèvres (fz théorique 0,003, affichée « 0.0030 ») : fz
+- **Avance par révolution (décisions D69, D70)**, toutes familles. À **une dent**,
+  f = fz, la même valeur : f est jugée sur la **valeur théorique** avec la
+  tolérance de fz de sa famille — ±25 %, borné à ±0,001 po, en proportionnelle ;
+  ±0,1 % en fixe et en filetage —, que fz soit saisie ou non (MVLNR :
+  [0,00495 ; 0,00505] ; SDTMR M42 x 4.5, fz « 4.5 » et f « 4.5 » : les deux
+  fausses). À partir de **deux dents**, f est jugée par la **cohérence** avec
+  l'avance par dent, comme Vf avec N × f :
+  - **fz évaluée et lisible** : f acceptée à ±0,1 % de *fz_saisi × dents*. Ex.
+    foret Ø 1/2 po, 2 lèvres (fz théorique 0,003, affichée « 0.0030 ») : fz
     « 0.0037 » (+23 %, tolérée) et f « 0.0074 » sont justes toutes les deux ;
     une f cohérente avec un fz faux est juste, l'erreur est comptée sur fz.
-  - **fz fournie, masquée, vide ou illisible** : f jugée sur la valeur
-    théorique, avec la **tolérance de fz reportée** : ±25 % borné à ±0,001 po
-    **par dent** (× nombre de dents) en avance proportionnelle — foret Ø 1/2 po :
-    [0,0045 ; 0,0075] ; Ø 1 po : [0,010 ; 0,014] —, ±0,1 % en avance fixe et en
-    filetage. La demi-unité de f (D13) s'y ajoute.
-  - La ligne de correction écrit « ±0.1 % de fz × dents » dans le premier cas,
-    « ±25 %, au plus ±0.001 po par dent » ou « ±0.1 % » dans le second (UI §3.4).
+  - **fz fournie** : f acceptée à ±0,1 % de *fz affiché × dents* — l'étudiant a
+    fz sous les yeux ; le **nombre de dents** est vérifié (alésoir à 8 dents, fz
+    « 0.00125 » : f « 0.0100 » acceptée, f calculée avec 7 dents refusée).
+  - **fz masquée, vide ou illisible** : f jugée sur la valeur théorique, avec la
+    **tolérance de fz reportée** : ±25 % borné à ±0,001 po **par dent** (×
+    nombre de dents) en avance proportionnelle — foret Ø 1/2 po : [0,0045 ;
+    0,0075] ; Ø 1 po : [0,010 ; 0,014] —, ±0,1 % en avance fixe et en filetage.
+    La demi-unité de f (D13) s'y ajoute.
+  - **Intervalle de la cohérence** : fz n'est connue qu'à la précision de son
+    affichage (D13). Avec référence = fz × dents, et les produits pris sur la
+    plage (fz ± demi-unité de fz) × dents : [min(plus petit produit × (1 −
+    0,1 %), référence − demi-unité de f) ; max(plus grand produit × (1 +
+    0,1 %), référence + demi-unité de f)] — la plus large des deux, pas leur
+    somme (D70). Foret à pointer, 2 dents, fz « 0.0010 » : [0,0018981 ;
+    0,0021021] ; foret #40, fz « 0.000588 », f « 0.00118 » : [0,001171 ;
+    0,001181], où la demi-unité de f l'emporte.
+  - La ligne de correction écrit « ±0.1 % de fz × dents » pour la cohérence,
+    sinon la tolérance de fz : « ±25 %, au plus ±0.001 po » à une dent,
+    « ±25 %, au plus ±0.001 po par dent » au-delà, ou « ±0.1 % » (UI §3.4).
 - **Vitesse d'avance (décisions D15, D53)**, toutes familles : vérifiée par la
   **cohérence interne** de la réponse — *N_saisi × f_saisi* —, pas la valeur
   théorique : ±0,5 % en avance fixe et proportionnelle, **±0,01 % en filetage**
@@ -270,8 +285,9 @@ Précisions :
   N et f sont corrigés à part, chacun dans sa cellule : une Vf cohérente avec un
   N faux est bonne, et l'erreur est comptée sur N.
   - Un champ N ou f non saisi (pré-rempli, masqué, vide ou illisible) est remplacé
-    par sa valeur théorique — de même fz pour f. Une valeur que le navigateur
-    enverrait pour une grandeur fournie ou masquée ne compte pas (D69).
+    par sa valeur théorique (pour fz dans le jugement de f, voir plus haut). Une
+    valeur que le navigateur enverrait pour une grandeur fournie ou masquée ne
+    compte pas (D69).
   - N et f ne sont connus qu'à la précision de leur affichage (D13) : le produit
     de référence est pris sur toute la plage (N ± demi-unité) × (f ± demi-unité),
     puis élargi de la tolérance de la famille ou de la demi-unité de Vf. Ex. lame
