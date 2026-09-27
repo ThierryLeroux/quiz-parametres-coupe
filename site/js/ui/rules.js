@@ -3,6 +3,7 @@
 // Elles reçoivent ce que renvoie le serveur (SPEC §7) et le catalogue (loadData).
 
 import { TOOL_MATERIAL_KEYS, isMetricDimension } from '../data.js';
+import { FIELD_PARTS, fieldInSentence } from './text.js';
 
 // --- Outils de même nom -------------------------------------------------------------------------------------
 // Le TITRE de la question est le gabarit de l'outil résolu par le serveur (question.identifiant,
@@ -85,7 +86,7 @@ export function factorLines(outil) {
 export function diameterLines(question) {
   if (!question.outil.barre) return [];
   const word = /Ø (\S+):/.exec(question.identifiant ?? '')?.[1];
-  return [`Ø usiné${word ? ` (${word})` : ''} : ${question.dimension} — pour le RPM`, `Ø de la barre : ${question.outil.barre} — pour l'avance`];
+  return [`Ø usiné${word ? ` (${word})` : ''} : ${question.dimension} — pour la vitesse de rotation`, `Ø de la barre : ${question.outil.barre} — pour l'avance`];
 }
 
 // --- Aide contextuelle (UI §3.3) : la méthode, jamais la valeur, ni la ligne ni la colonne -------------------------
@@ -134,7 +135,7 @@ export function helpLine(field, question, family, metric = false) {
   if (field === 'rpm') {
     const factor = question.outil.fact_vc === 1 ? '' : `, × ${question.outil.fact_vc} pour cet outil`;
     const which = question.outil.barre ? 'Ø usiné (le trou, pas la barre)' : 'Ø';
-    return plain(`RPM → N = Vc × 4 / ${which}, plafonnée au RPM max de la machine${factor}.${metric ? INCHES_REMINDER : ''}`);
+    return plain(`Vitesse de rotation → N = Vc × 4 / ${which}, plafonnée à la vitesse de rotation max de la machine${factor}.${metric ? INCHES_REMINDER : ''}`);
   }
   if (field === 'feedPerRev') return plain('Avance totale par révolution → f = fz × nombre de dents.');
   return plain("Vitesse d'avance → Vf = N × f.");
@@ -142,17 +143,17 @@ export function helpLine(field, question, family, metric = false) {
 
 // --- Question corrigée (UI §3.4) --------------------------------------------------------------------------------
 
-const SYMBOLS = { vc: 'Vc', feedPerTooth: 'fz', rpm: 'N', feedPerRev: 'f', feedRate: 'Vf' };
-
-// L'explication de l'écart et de la tolérance, pour chaque champ faux :
-// « Ta Vf de 13.2 est à +5.6 % de 12.500 (tolérance : ±0.5 % de N × f). »
+// L'explication de l'écart et de la tolérance, pour chaque champ faux, la grandeur en toutes lettres et l'unité après
+// chaque valeur (D71) : « Ta vitesse de rotation de 3200 tr/min est à +6.7 % de 3000 tr/min (tolérance : ±5 % et
+// ±1 tr/min). » La tolérance écrite en formule garde ses symboles (« ±0.5 % de N × f »).
 export function gapExplanation(correction) {
+  const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
   return correction.champs.filter((champ) => champ.evalue && !champ.ok).map((champ) => {
-    const symbol = SYMBOLS[champ.champ];
-    if (champ.ecart_pct === null) return `${symbol} : réponse vide ou illisible (attendu ${champ.attendu}).`;
+    const { name, unit } = FIELD_PARTS[champ.champ];
+    if (champ.ecart_pct === null) return `${name} : réponse vide ou illisible (attendu ${champ.attendu} ${unit}).`;
     const sign = champ.ecart_pct > 0 ? '+' : '−';
     const tolerance = champ.tolerance === 'exacte' ? 'la réponse doit être exacte' : `tolérance : ${champ.tolerance}`;
-    return `Ta ${symbol} de ${champ.saisie} est à ${sign}${Math.abs(champ.ecart_pct)} % de ${champ.attendu} (${tolerance}).`;
+    return `${capital(fieldInSentence(champ.champ))} de ${champ.saisie} ${unit} est à ${sign}${Math.abs(champ.ecart_pct)} % de ${champ.attendu} ${unit} (${tolerance}).`;
   }).join(' ');
 }
 

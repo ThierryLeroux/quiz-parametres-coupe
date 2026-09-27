@@ -1,5 +1,5 @@
 // Calcul des réponses attendues d'une question (SPEC §5).
-// Unités impériales partout : pouces, pi/min, rév/min, po/min.
+// Unités impériales partout : pouces, pi/min, tr/min, po/min.
 // AUCUN arrondi ici : les tolérances de correction (SPEC §6) absorbent les
 // arrondis de l'étudiant, et l'affichage arrondit de son côté (format.js).
 
@@ -9,7 +9,7 @@
 //
 // Retourne un objet simple, sérialisable en JSON :
 //   vc                 vitesse de coupe (pi/min), lue dans la table — sans fact_vc
-//   rpmRaw             N calculé, avant plafond (rév/min)
+//   rpmRaw             N calculé, avant plafond (tr/min)
 //   rpm                N retenu = min(rpmRaw, limite_rpm de l'outil)
 //   rpmCapped          true si le plafond limite_rpm a été appliqué
 //   feedPerTooth       avance par dent fz (po/dent)

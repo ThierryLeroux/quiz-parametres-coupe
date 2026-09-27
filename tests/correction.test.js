@@ -56,12 +56,12 @@ const CASES = [
 
   ['avance fixe', FIXE, 'vc', 'exact, affiché « 400 » → ±0,5', 399.5, 400.5, '399.49', '400.51'],
   ['avance fixe', FIXE, 'feedPerTooth', 'exact, affiché « 0.0050 » → ±0,00005', 0.00495, 0.00505, '0.004949', '0.005051'],
-  ['avance fixe', FIXE, 'rpm', '±5 % et ±1 rév/min', 759, 841, '758.9', '841.1'], // 800 × 0,95 − 1 et × 1,05 + 1 (D13, complément)
+  ['avance fixe', FIXE, 'rpm', '±5 % et ±1 tr/min', 759, 841, '758.9', '841.1'], // 800 × 0,95 − 1 et × 1,05 + 1 (D13, complément)
   ['avance fixe', FIXE, 'feedPerRev', 'une dent (D70) : ±0,1 %, affiché « 0.0050 » → ±0,00005', 0.00495, 0.00505, '0.004949', '0.005051'], // MVLNR : comme avant D69
 
   ['avance proportionnelle', PROPORTIONNELLE, 'vc', 'exact, affiché « 100 » → ±0,5', 99.5, 100.5, '99.49', '100.51'],
   ['avance proportionnelle', PROPORTIONNELLE, 'feedPerTooth', '±25 %, borné à ±0,001 po', 0.001125, 0.001875, '0.0011249', '0.0018751'], // 0,0015 × 0,75 et × 1,25
-  ['avance proportionnelle', PROPORTIONNELLE, 'rpm', '±5 % et ±1 rév/min', 1519, 1681, '1518.9', '1681.1'], // 1600 × 0,95 − 1 et × 1,05 + 1
+  ['avance proportionnelle', PROPORTIONNELLE, 'rpm', '±5 % et ±1 tr/min', 1519, 1681, '1518.9', '1681.1'], // 1600 × 0,95 − 1 et × 1,05 + 1
 ];
 
 for (const [famille, attendu, champ, tolerance, min, max, sousMin, surMax] of CASES) {
@@ -285,12 +285,12 @@ test('D13 : la demi-unité d’affichage élargit une tolérance plus étroite q
   // N de filetage : +0,1 % de 400 = 400,4 ; affiché à l'entier → 400,5 accepté. La borne basse (−90 %) ne bouge pas.
   assert.equal(corrigerChamp(FILETAGE, 'rpm', '400.5').ok, true);
   assert.equal(corrigerChamp(FILETAGE, 'rpm', '40').ok, true);
-  // N hors filetage : ±5 % de 1600 = ±80, plus ±1 rév/min, bien plus large que ±0,5 → inchangé.
+  // N hors filetage : ±5 % de 1600 = ±80, plus ±1 tr/min, bien plus large que ±0,5 → inchangé.
   assert.deepEqual(corrigerChamp(PROPORTIONNELLE, 'rpm', '1600'), { ok: true, value: 1600, min: 1519, max: 1681 });
 });
 
 test('D15 : Vf est jugée sur N_saisi × f_saisi, pas sur la valeur théorique (filetage, N réduit)', () => {
-  // L'étudiant réduit N à 200 rév/min (permis : −90 %) ; f = 0,125 → Vf cohérente = 25
+  // L'étudiant réduit N à 200 tr/min (permis : −90 %) ; f = 0,125 → Vf cohérente = 25
   // min = 199,5 × 0,124995 × 0,9999 = 24,934… ; max = 200,5 × 0,125005 × 1,0001 = 25,066… (filetage : ±0,01 %, D53)
   const reponses = { ...BONNES.get(FILETAGE), rpm: '200' };
   const vf = (saisie) => gradeAnswers(FILETAGE, { ...reponses, feedRate: saisie });
@@ -446,8 +446,8 @@ test('toleranceLabel : la tolérance de chaque champ, en clair, telle que le tab
   const ligne = (type) => ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate'].map((champ) => toleranceLabel(type, champ));
   // f : fz non saisie, la tolérance de fz reportée (D69)
   assert.deepEqual(ligne('thread'), ['exacte', '±0.1 %', 'de −90 % à +0.1 %', '±0.1 %', '±0.01 % de N × f']); // D53
-  assert.deepEqual(ligne('fixed'), ['exacte', 'exacte', '±5 % et ±1 rév/min', '±0.1 %', '±0.5 % de N × f']);
-  assert.deepEqual(ligne('proportional'), ['exacte', '±25 %, au plus ±0.001 po', '±5 % et ±1 rév/min', '±25 %, au plus ±0.001 po par dent', '±0.5 % de N × f']);
+  assert.deepEqual(ligne('fixed'), ['exacte', 'exacte', '±5 % et ±1 tr/min', '±0.1 %', '±0.5 % de N × f']);
+  assert.deepEqual(ligne('proportional'), ['exacte', '±25 %, au plus ±0.001 po', '±5 % et ±1 tr/min', '±25 %, au plus ±0.001 po par dent', '±0.5 % de N × f']);
   // f : fz saisie et lisible, la cohérence (D69), pour toutes les familles
   for (const type of ['thread', 'fixed', 'proportional']) assert.equal(toleranceLabel(type, 'feedPerRev', { coherence: true }), '±0.1 % de fz × dents');
   // f à une dent (D70) : la tolérance de fz de la famille, sans « par dent »

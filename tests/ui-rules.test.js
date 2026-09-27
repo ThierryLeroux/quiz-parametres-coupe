@@ -37,18 +37,18 @@ test('toolLabels : avec tout le catalogue dans un exercice, aucun nom affiché n
 const BARRE = { identifiant: 'Barre à aléser Ø 3/4 po - Ø alésé: 2.000"', dimension: '2.000"', outil: { id: 'barre_a_aleser', nom: 'Barre à aléser', barre: '3/4 po', fact_vc: 1, fact_av: 1 } };
 
 test('diameterLines : les deux diamètres de la barre à aléser, chacun avec son rôle ; rien pour les autres outils', () => {
-  assert.deepEqual(diameterLines(BARRE), ['Ø usiné (alésé) : 2.000" — pour le RPM', "Ø de la barre : 3/4 po — pour l'avance"]);
+  assert.deepEqual(diameterLines(BARRE), ['Ø usiné (alésé) : 2.000" — pour la vitesse de rotation', "Ø de la barre : 3/4 po — pour l'avance"]);
   // Barre à rainurer (D25, extension) : mêmes textes, le mot du gabarit change.
   const RAINURE = { ...BARRE, identifiant: 'Barre à rainurer Ø 1/2 po - Ø rainuré: 1.000"', dimension: '1.000"', outil: { ...BARRE.outil, id: 'barre_a_rainurer', nom: 'Barre à rainurer', barre: '1/2 po', fact_vc: 0.25 } };
-  assert.deepEqual(diameterLines(RAINURE), ['Ø usiné (rainuré) : 1.000" — pour le RPM', "Ø de la barre : 1/2 po — pour l'avance"]);
-  assert.deepEqual(diameterLines({ ...BARRE, identifiant: 'Outil Ø 1 po' }), ['Ø usiné : 2.000" — pour le RPM', "Ø de la barre : 3/4 po — pour l'avance"]);
+  assert.deepEqual(diameterLines(RAINURE), ['Ø usiné (rainuré) : 1.000" — pour la vitesse de rotation', "Ø de la barre : 1/2 po — pour l'avance"]);
+  assert.deepEqual(diameterLines({ ...BARRE, identifiant: 'Outil Ø 1 po' }), ['Ø usiné : 2.000" — pour la vitesse de rotation', "Ø de la barre : 3/4 po — pour l'avance"]);
   assert.deepEqual(diameterLines({ dimension: '2.000"', outil: { barre: null } }), []);
   assert.deepEqual(diameterLines({ dimension: '2.000"', outil: {} }), []); // séance servie par un serveur d'avant D25
 });
 
 test('helpLine, outil à deux diamètres : N avec le Ø usiné, avance avec le Ø de la barre', () => {
   const texte = (aide) => aide.parts.map((part) => part.text).join('');
-  assert.equal(texte(helpLine('rpm', BARRE, 'proportional')), 'RPM → N = Vc × 4 / Ø usiné (le trou, pas la barre), plafonnée au RPM max de la machine.');
+  assert.equal(texte(helpLine('rpm', BARRE, 'proportional')), 'Vitesse de rotation → N = Vc × 4 / Ø usiné (le trou, pas la barre), plafonnée à la vitesse de rotation max de la machine.');
   assert.match(texte(helpLine('feedPerTooth', BARRE, 'proportional')), /avance × Ø de la barre \(pas le Ø usiné\)/);
 });
 
@@ -145,8 +145,8 @@ test('helpLine : la méthode, jamais la valeur, sans nommer la ligne ni la colon
   assert.equal(texte(helpLine('feedPerTooth', QUESTION, 'fixed')), "Avance par dent → table des avances, à l'opération de l'outil. Avance fixe : la valeur de la table, telle quelle, quel que soit le Ø."); // D70
   assert.equal(helpLine('feedPerTooth', QUESTION, 'fixed').table, 'avances');
 
-  assert.equal(texte(helpLine('rpm', QUESTION, 'fixed')), 'RPM → N = Vc × 4 / Ø, plafonnée au RPM max de la machine, × 0.25 pour cet outil.');
-  assert.equal(texte(helpLine('rpm', { outil: { fact_vc: 1 } }, 'fixed')), 'RPM → N = Vc × 4 / Ø, plafonnée au RPM max de la machine.');
+  assert.equal(texte(helpLine('rpm', QUESTION, 'fixed')), 'Vitesse de rotation → N = Vc × 4 / Ø, plafonnée à la vitesse de rotation max de la machine, × 0.25 pour cet outil.');
+  assert.equal(texte(helpLine('rpm', { outil: { fact_vc: 1 } }, 'fixed')), 'Vitesse de rotation → N = Vc × 4 / Ø, plafonnée à la vitesse de rotation max de la machine.');
   assert.equal(texte(helpLine('feedPerRev', QUESTION, 'fixed')), 'Avance totale par révolution → f = fz × nombre de dents.');
   assert.equal(texte(helpLine('feedRate', QUESTION, 'fixed')), "Vitesse d'avance → Vf = N × f.");
   for (const champ of ['rpm', 'feedPerRev', 'feedRate']) assert.equal(helpLine(champ, QUESTION, 'fixed').table, null);
@@ -156,7 +156,7 @@ test('helpLine : la méthode, jamais la valeur, sans nommer la ligne ni la colon
 test('helpLine, dimension métrique (D70) : « Le Ø se met en pouces : mm / 25.4. » pour N, et pour fz quand le Ø sert', () => {
   const RAPPEL = ' Le Ø se met en pouces : mm / 25.4.';
   const foret = { outil: { id: 'foret_metrique', fact_vc: 1, fact_av: 1 }, dimension: 'Ø 6.0 mm' };
-  assert.equal(texte(helpLine('rpm', foret, 'proportional', true)), `RPM → N = Vc × 4 / Ø, plafonnée au RPM max de la machine.${RAPPEL}`);
+  assert.equal(texte(helpLine('rpm', foret, 'proportional', true)), `Vitesse de rotation → N = Vc × 4 / Ø, plafonnée à la vitesse de rotation max de la machine.${RAPPEL}`);
   assert.equal(texte(helpLine('feedPerTooth', foret, 'proportional', true)), `Avance par dent → table des avances, à l'opération de l'outil. Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.${RAPPEL}`);
   // Filetage métrique : fz est le pas, qui se met en pouces ; l'impérial n'en dit rien.
   assert.equal(texte(helpLine('feedPerTooth', foret, 'thread', true)), "Avance par dent → table des avances, à l'opération de l'outil. Filetage : fz = pas, en pouces : mm / 25.4.");
@@ -184,18 +184,34 @@ test('questionIsMetric : la dimension tirée, lue dans le catalogue (filet « Ø
 test('gapExplanation : l’écart et la tolérance de chaque champ faux (UI §3.4)', () => {
   const correction = { champs: [
     { champ: 'vc', evalue: true, ok: true, saisie: '390', attendu: '390', tolerance: 'exacte', ecart_pct: 0 },
-    { champ: 'rpm', evalue: true, ok: true, saisie: '2500', attendu: '2496', tolerance: '±5 % et ±1 rév/min', ecart_pct: 0.2 },
+    { champ: 'rpm', evalue: true, ok: true, saisie: '2500', attendu: '2496', tolerance: '±5 % et ±1 tr/min', ecart_pct: 0.2 },
     { champ: 'feedPerRev', evalue: false, ok: true, saisie: '', attendu: '0.0050', tolerance: null, ecart_pct: null },
     { champ: 'feedRate', evalue: true, ok: false, saisie: '13.2', attendu: '12.500', tolerance: '±0.5 % de N × f', ecart_pct: 5.6 },
   ] };
-  assert.equal(gapExplanation(correction), 'Ta Vf de 13.2 est à +5.6 % de 12.500 (tolérance : ±0.5 % de N × f).');
+  // D71 : la grandeur en toutes lettres, l'unité après chaque valeur ; la tolérance en formule garde ses symboles.
+  assert.equal(gapExplanation(correction), "Ta vitesse d'avance de 13.2 po/min est à +5.6 % de 12.500 po/min (tolérance : ±0.5 % de N × f).");
 
   const deux = { champs: [
     { champ: 'vc', evalue: true, ok: false, saisie: '1', attendu: '570', tolerance: 'exacte', ecart_pct: -99.8 },
-    { champ: 'rpm', evalue: true, ok: false, saisie: 'abc', attendu: '905', tolerance: '±5 % et ±1 rév/min', ecart_pct: null },
+    { champ: 'rpm', evalue: true, ok: false, saisie: 'abc', attendu: '905', tolerance: '±5 % et ±1 tr/min', ecart_pct: null },
   ] };
-  assert.equal(gapExplanation(deux), 'Ta Vc de 1 est à −99.8 % de 570 (la réponse doit être exacte). N : réponse vide ou illisible (attendu 905).');
+  assert.equal(gapExplanation(deux), 'Ta vitesse de coupe de 1 pi/min est à −99.8 % de 570 pi/min (la réponse doit être exacte). Vitesse de rotation : réponse vide ou illisible (attendu 905 tr/min).');
   assert.equal(gapExplanation({ champs: correction.champs.slice(0, 3) }), '');
+});
+
+test('gapExplanation (D71) : l’exemple de Thierry, et les avances nommées « ton avance … »', () => {
+  const barre = { champs: [{ champ: 'rpm', evalue: true, ok: false, saisie: '3200', attendu: '3000', tolerance: '±5 % et ±1 tr/min', ecart_pct: 6.7 }] };
+  assert.equal(gapExplanation(barre), 'Ta vitesse de rotation de 3200 tr/min est à +6.7 % de 3000 tr/min (tolérance : ±5 % et ±1 tr/min).');
+  const avances = { champs: [
+    { champ: 'feedPerTooth', evalue: true, ok: false, saisie: '0.004', attendu: '0.0030', tolerance: '±25 %, au plus ±0.001 po', ecart_pct: 33.3 },
+    { champ: 'feedPerRev', evalue: true, ok: false, saisie: '', attendu: '0.0060', tolerance: '±0.1 % de fz × dents', ecart_pct: null },
+  ] };
+  assert.equal(gapExplanation(avances), 'Ton avance par dent de 0.004 po/dent est à +33.3 % de 0.0030 po/dent (tolérance : ±25 %, au plus ±0.001 po). Avance totale par révolution : réponse vide ou illisible (attendu 0.0060 po/rév).');
+  // Aucune grandeur n'est plus nommée par son symbole seul en tête de phrase.
+  for (const champ of ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate']) {
+    const texte = gapExplanation({ champs: [{ champ, evalue: true, ok: false, saisie: '1', attendu: '2', tolerance: 'exacte', ecart_pct: -50 }] });
+    assert.doesNotMatch(texte, /^Ta (Vc|N|Vf|f|fz) |^Ton (fz|f) |RPM|rév\/min/, texte);
+  }
 });
 
 // --- Progression -------------------------------------------------------------------------------------------------------------

@@ -299,7 +299,7 @@ function toolForm(tool, ctx) {
     nb_dents_max: field('nb_dents_max', 'Dents, maximum', numberInput(`${p}-dents-max`, tool.nb_dents_max), ''),
     fact_vc: field('fact_vc', 'Facteur de vitesse (× Vc)', numberInput(`${p}-fact-vc`, tool.fact_vc), '1 = aucun ; 0.25 pour un alésoir.'),
     fact_av: field('fact_av', "Facteur d'avance (× avance)", numberInput(`${p}-fact-av`, tool.fact_av), '1 sauf sur une avance proportionnelle au Ø.'),
-    limite_rpm: field('limite_rpm', 'RPM max de la machine', numberInput(`${p}-limite-rpm`, tool.limite_rpm), 'rév/min'),
+    limite_rpm: field('limite_rpm', 'Vitesse de rotation max de la machine', numberInput(`${p}-limite-rpm`, tool.limite_rpm), 'tr/min'),
     materiaux_outil: field('materiaux_outil', "Matières d'outil possibles", materials.element, '', 'field--wide'),
     groupes_materiaux_usinables: field('groupes_materiaux_usinables', 'Groupes de matériaux usinables', groupChoices.element, '', 'field--wide'),
   };

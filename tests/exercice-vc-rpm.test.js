@@ -71,7 +71,7 @@ test('filetage dans cet exercice : N de −90 % à +0,1 % — un N réduit pour 
   assert.equal(attendu.feedType, 'thread');
   const affiche = formatParameters(attendu);
   assert.equal(affiche.vc, '400'); // 1020, insert de carbure
-  assert.equal(affiche.rpm, '3000'); // 400 × 4 / 0.5 = 3200, plafonné au RPM max de 3000
+  assert.equal(affiche.rpm, '3000'); // 400 × 4 / 0.5 = 3200, plafonné à la vitesse de rotation max de 3000
   const corriger = (rpm) => gradeQuestion(question, cleanAnswers({ vc: affiche.vc, rpm }), emptyCounters(), exercice, data);
   assert.equal(corriger('3000').success, true);
   assert.equal(corriger('1500').success, true); // moitié de la vitesse : permis en filetage
@@ -82,10 +82,10 @@ test('filetage dans cet exercice : N de −90 % à +0,1 % — un N réduit pour 
   const vue = correctionView(question, cleanAnswers({ vc: '400', rpm: '1500' }), corriger('1500').result, 0, { reussites: { sdtmr: 1 }, totalReussies: 1 }, data);
   assert.equal(vue.champs.find((c) => c.champ === 'rpm').tolerance, 'de −90 % à +0.1 %');
   assert.deepEqual(vue.champs.filter((c) => c.evalue).map((c) => c.champ), ['vc', 'rpm']);
-  // Le même exercice, sur un outil hors filetage : ±5 % et ±1 rév/min, comme partout.
+  // Le même exercice, sur un outil hors filetage : ±5 % et ±1 tr/min, comme partout.
   const foret = questionPour({ outil: 'foret_fractionnaire', dimension: 'Ø 1/4 po', dents: 2, materiauOutil: 'Acier rapide', groupeMateriau: 1 });
   const foretVue = correctionView(foret, cleanAnswers({ vc: '100', rpm: '1600' }), gradeQuestion(foret, cleanAnswers({ vc: '100', rpm: '1600' }), emptyCounters(), exercice, data).result, 0, { reussites: {}, totalReussies: 0 }, data);
-  assert.equal(foretVue.champs.find((c) => c.champ === 'rpm').tolerance, '±5 % et ±1 rév/min');
+  assert.equal(foretVue.champs.find((c) => c.champ === 'rpm').tolerance, '±5 % et ±1 tr/min');
 });
 
 test('barre à aléser dans cet exercice : N avec le Ø alésé (pas celui de la barre), la ligne de calcul le nomme, l’avance est fournie', () => {

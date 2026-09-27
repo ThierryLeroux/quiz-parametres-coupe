@@ -281,7 +281,7 @@ test('correctionView : tolérance en clair, écart en %, calcul en une ligne (UI
   const { result, counters } = gradeQuestion(question, reponses, emptyCounters(), CINQ_CHAMPS, data);
   const champs = Object.fromEntries(correctionView(question, reponses, result, 0, counters, data).champs.map((champ) => [champ.champ, champ]));
 
-  assert.deepEqual([champs.rpm.ok, champs.rpm.attendu, champs.rpm.tolerance, champs.rpm.ecart_pct], [true, '1600', '±5 % et ±1 rév/min', 3.1]);
+  assert.deepEqual([champs.rpm.ok, champs.rpm.attendu, champs.rpm.tolerance, champs.rpm.ecart_pct], [true, '1600', '±5 % et ±1 tr/min', 3.1]);
   assert.equal(champs.rpm.calcul, 'N = Vc × 4 / Ø = 100 × 4 / 0.25');
   assert.deepEqual([champs.feedPerTooth.tolerance, champs.feedPerTooth.calcul], ['±25 %, au plus ±0.001 po', 'fz = avance × Ø = 0.006 × 0.25']);
   assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.0015 × 2');

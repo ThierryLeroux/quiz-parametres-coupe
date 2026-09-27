@@ -87,7 +87,7 @@ test('hasQuestions : vrai avec une liste non vide ; faux pour un enregistrement 
 });
 
 test('questionColumns : les grandeurs évaluées présentes, dans l’ordre du calcul, avec leur unité', () => {
-  assert.deepEqual(questionColumns(AVEC_LISTE), [{ key: 'vc', label: 'Vc (pi/min)' }, { key: 'rpm', label: 'N (rév/min)' }]);
+  assert.deepEqual(questionColumns(AVEC_LISTE), [{ key: 'vc', label: 'Vc (pi/min)' }, { key: 'rpm', label: 'N (tr/min)' }]);
   assert.deepEqual(questionColumns({ ...RECORD, questions: [{ ...QUESTIONS[0], reponses: { feedRate: '4', vc: '40', feedPerTooth: '0.004' } }] }).map((c) => c.key), ['vc', 'feedPerTooth', 'feedRate']);
   assert.deepEqual(questionColumns(RECORD), []);
 });

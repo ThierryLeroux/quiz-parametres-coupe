@@ -51,7 +51,7 @@ function bonneVc(question) {
 }
 
 // Le bon N, calculé comme le fait l'étudiant : N = Vc × 4 / Ø (le Ø usiné, jamais la barre), facteur
-// de vitesse compris, plafonné au RPM max de la machine ; arrondi à l'entier (tolérance ±5 %, ±1 rév/min ; filetage : −90 % à +0,1 %).
+// de vitesse compris, plafonné à la vitesse de rotation max de la machine ; arrondi à l'entier (tolérance ±5 %, ±1 tr/min ; filetage : −90 % à +0,1 %).
 function bonN(question) {
   const outil = data.outils.find((o) => o.id === question.outil.id);
   const dimension = outil.dimensions.find((d) => d.libelle === question.dimension);

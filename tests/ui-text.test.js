@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, coherenceSource, correctionBanner, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
+  DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, coherenceSource, correctionBanner, fieldInSentence, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
   localDate, serverErrorMessage, sheetSignature, studentLine,
 } from '../site/js/ui/text.js';
 import { loadExercise } from '../site/js/exercice.js';
@@ -43,7 +43,7 @@ test('localDate : la date du poste, « AAAA-MM-JJ », jamais celle d’UTC', () 
 
 test('exerciseMeta : version, nombre d’outils, champs évalués', () => {
   assert.equal(exerciseMeta(m10), 'version r0 · 9 outils · champ évalué : vitesse de coupe');
-  assert.equal(exerciseMeta(CINQ_CHAMPS), "version r1 · 1 outil · champs évalués : vitesse de coupe, avance par dent, RPM, avance totale par révolution, vitesse d'avance");
+  assert.equal(exerciseMeta(CINQ_CHAMPS), "version r1 · 1 outil · champs évalués : vitesse de coupe, avance par dent, vitesse de rotation, avance totale par révolution, vitesse d'avance");
 });
 
 test('exerciseSummary : trois phrases ; N vient de reussites_requises', () => {
@@ -88,7 +88,8 @@ test('identificationErrorMessage : matricule invalide, NIP incorrect, trop d’e
 
 test('FIELD_LABELS : nom, symbole et unité des cinq champs (UI §3.3)', () => {
   assert.deepEqual(Object.keys(FIELD_LABELS), ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate']);
-  assert.equal(FIELD_LABELS.rpm, 'RPM (N, rév/min)');
+  assert.equal(FIELD_LABELS.rpm, 'Vitesse de rotation (N, tr/min)'); // D71 : plus de « RPM » ni de « rév/min »
+  for (const label of Object.values(FIELD_LABELS)) assert.doesNotMatch(label, /RPM|rév\/min/);
   for (const [champ, { name, symbol, unit }] of Object.entries(FIELD_PARTS)) assert.equal(`${name} (${symbol}, ${unit})`, FIELD_LABELS[champ]);
 });
 
@@ -101,14 +102,14 @@ test('fieldResultNote : Juste, Juste (… attendu), Faux — attendu …, fourni
   assert.equal(fieldResultNote({ evalue: false, masque: true, ok: true, saisie: '', attendu: null }), 'non demandée'); // D52
 });
 
-test('fieldResultNote (D70) : une valeur attendue faite des saisies le dit — « = ton fz × 2 », « = ton N × ta f »', () => {
+test('fieldResultNote (D70, D71) : une valeur attendue faite des saisies le dit, en toutes lettres — « = ton avance par dent × 2 »', () => {
   const f = { champ: 'feedPerRev', evalue: true, ok: true, saisie: '0.000283', attendu: '0.000284', coherence: { saisies: ['fz'], dents: 2 } };
-  assert.equal(fieldResultNote(f), 'Juste (0.000284 = ton fz × 2)');
+  assert.equal(fieldResultNote(f), 'Juste (0.000284 = ton avance par dent × 2)');
   const vf = { champ: 'feedRate', evalue: true, ok: true, saisie: '3048', attendu: '3048.000', coherence: { saisies: ['n', 'f'] } };
-  assert.equal(fieldResultNote(vf), 'Juste (3048.000 = ton N × ta f)');
+  assert.equal(fieldResultNote(vf), 'Juste (3048.000 = ta vitesse de rotation × ton avance totale par révolution)');
   // Un seul des deux facteurs de Vf est le sien (l'autre fourni, masqué, vide ou illisible).
-  assert.equal(fieldResultNote({ ...vf, coherence: { saisies: ['f'] } }), 'Juste (3048.000 = N × ta f)');
-  assert.equal(fieldResultNote({ ...vf, coherence: { saisies: ['n'] } }), 'Juste (3048.000 = ton N × f)');
+  assert.equal(fieldResultNote({ ...vf, coherence: { saisies: ['f'] } }), 'Juste (3048.000 = la vitesse de rotation × ton avance totale par révolution)');
+  assert.equal(fieldResultNote({ ...vf, coherence: { saisies: ['n'] } }), "Juste (3048.000 = ta vitesse de rotation × l'avance totale par révolution)");
   // La saisie égale à la valeur attendue : « Juste », rien de plus.
   assert.equal(fieldResultNote({ ...f, saisie: '0,000284' }), 'Juste');
   // Un champ faux garde « Faux — attendu … », même quand la valeur attendue vient de la cohérence.
@@ -120,13 +121,23 @@ test('fieldResultNote (D70) : une valeur attendue faite des saisies le dit — �
   assert.equal(fieldResultNote(ancien), 'Juste (0.000284 attendu)');
 });
 
-test('coherenceSource (D70) : les saisies dont la valeur attendue est faite, en clair', () => {
-  assert.equal(coherenceSource('feedPerRev', { saisies: ['fz'], dents: 8 }), 'ton fz × 8');
-  assert.equal(coherenceSource('feedRate', { saisies: ['n', 'f'] }), 'ton N × ta f');
-  assert.equal(coherenceSource('feedRate', { saisies: ['f'] }), 'N × ta f');
-  assert.equal(coherenceSource('feedRate', { saisies: ['n'] }), 'ton N × f');
+test('coherenceSource (D70, D71) : les saisies dont la valeur attendue est faite, en toutes lettres', () => {
+  assert.equal(coherenceSource('feedPerRev', { saisies: ['fz'], dents: 8 }), 'ton avance par dent × 8');
+  assert.equal(coherenceSource('feedPerRev', { saisies: [], dents: 8 }), "l'avance par dent × 8");
+  assert.equal(coherenceSource('feedRate', { saisies: ['n', 'f'] }), 'ta vitesse de rotation × ton avance totale par révolution');
+  assert.equal(coherenceSource('feedRate', { saisies: ['f'] }), 'la vitesse de rotation × ton avance totale par révolution');
+  assert.equal(coherenceSource('feedRate', { saisies: ['n'] }), "ta vitesse de rotation × l'avance totale par révolution");
   assert.equal(coherenceSource('feedRate', null), null);
   assert.equal(coherenceSource('vc', { saisies: ['n'] }), null); // pas de cohérence pour les autres champs
+});
+
+test('fieldInSentence (D71) : la grandeur en toutes lettres, avec son article — « ton » devant une voyelle', () => {
+  assert.deepEqual(['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate'].map((field) => fieldInSentence(field)), [
+    'ta vitesse de coupe', 'ton avance par dent', 'ta vitesse de rotation', 'ton avance totale par révolution', "ta vitesse d'avance",
+  ]);
+  assert.deepEqual(['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRate'].map((field) => fieldInSentence(field, 'the')), [
+    'la vitesse de coupe', "l'avance par dent", 'la vitesse de rotation', "l'avance totale par révolution", "la vitesse d'avance",
+  ]);
 });
 
 test('correctionBanner : bonne réponse, compteur qui retombe, compteur qui reste à zéro', () => {

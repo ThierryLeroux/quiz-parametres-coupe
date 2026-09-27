@@ -157,7 +157,7 @@ test('errorsByField : regroupe par champ ; un champ sans place à l’écran va 
 });
 
 test('previewColumns et previewRows : les cinq grandeurs avec leur état (D52) ; réponse attendue si évaluée, valeur si fournie, « — » si masquée', () => {
-  assert.deepEqual(previewColumns(['vc', 'n'], ['fz']), ['N°', 'Outil (nomenclature composée)', "Matière d'outil", 'Matériau usiné', 'Vitesse de coupe (Vc) · évaluée', 'Avance par dent (fz) · masquée', 'RPM (N) · évaluée', 'Avance par révolution (f) · fournie', "Vitesse d'avance (Vf) · fournie"]);
+  assert.deepEqual(previewColumns(['vc', 'n'], ['fz']), ['N°', 'Outil (nomenclature composée)', "Matière d'outil", 'Matériau usiné', 'Vitesse de coupe (Vc) · évaluée', 'Avance par dent (fz) · masquée', 'Vitesse de rotation (N) · évaluée', 'Avance par révolution (f) · fournie', "Vitesse d'avance (Vf) · fournie"]);
   const question = { identifiant: 'MVLNR - Ø charioté: 2.000"', materiau_outil: 'Insert de carbure de tungstène', materiau: { classe: 'P', groupe: 1, materiau: 'Acier non allié', etat: 'Recuit' }, reponses: { vc: '400', rpm: '800' }, fournies: { feedPerRev: '0.0050', feedRate: '4.000' } };
   assert.deepEqual(previewRows([question], ['vc', 'n'], ['fz']), [['1', 'MVLNR - Ø charioté: 2.000"', 'Insert de carbure de tungstène', 'P 1 — Acier non allié, Recuit', '400', '—', '800', '0.0050', '4.000']]);
 });
@@ -176,21 +176,21 @@ test('fieldStates, statesToDraft, fieldStatesText (D52) : trois états par grand
 
 test('deducibleWarnings : une grandeur évaluée ou masquée qui se déduit des grandeurs fournies est dite, avec sa relation', () => {
   // Le M10 « vitesse de coupe » : Vc évaluée, tout le reste fourni → Vc se lit dans N (sauf plafond).
-  assert.deepEqual(deducibleWarnings({ champs_evalues: ['vc'] }), ['Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur Vc), sauf si N est plafonné par la limite RPM.']);
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['vc'] }), ['Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur Vc), sauf si N est plafonné par la vitesse de rotation max de la machine.']);
   // Le M10 « vitesse de coupe et RPM » : Vc et N évaluées → N se déduit de f et Vf fournies ; Vc de rien (N n'est pas fourni).
   assert.deepEqual(deducibleWarnings({ champs_evalues: ['vc', 'n'] }), ['N se déduit de f et Vf fournies : N = Vf / f.']);
   // Une grandeur masquée compte comme à trouver ; une grandeur évaluée n'est jamais une source.
   assert.deepEqual(deducibleWarnings({ champs_evalues: ['vf'], champs_masques: ['n'] }), [
-    'N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur Vc, plafonné à la limite RPM.',
+    'N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur Vc, plafonné à la vitesse de rotation max de la machine.',
   ]);
   assert.deepEqual(deducibleWarnings({ champs_evalues: ['fz', 'f'] }), ['f se déduit de N et Vf fournis : f = Vf / N.']); // fz n'a pas de source (f est à trouver), mais f se lit dans N et Vf
   assert.deepEqual(deducibleWarnings({ champs_evalues: ['fz'] }), ['fz se déduit de f fournie : fz = f / dents.']);
   assert.deepEqual(deducibleWarnings({ champs_evalues: ['f'], champs_masques: ['n'] }), [
-    'N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur Vc, plafonné à la limite RPM.',
+    'N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur Vc, plafonné à la vitesse de rotation max de la machine.',
     'f se déduit de fz fournie : f = fz × dents.',
   ]);
   assert.deepEqual(deducibleWarnings({ champs_evalues: ['vc'], champs_masques: ['fz', 'f', 'vf'] }), [
-    'Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur Vc), sauf si N est plafonné par la limite RPM.',
+    'Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur Vc), sauf si N est plafonné par la vitesse de rotation max de la machine.',
   ]);
   // Deux des trois de Vf = N × f fournies donnent la troisième ; l'ordre est celui de l'écran.
   assert.deepEqual(deducibleWarnings({ champs_evalues: ['f'], champs_masques: ['fz'] }), ['f se déduit de N et Vf fournis : f = Vf / N.']); // fz masquée n'a pas f pour source : f est à trouver

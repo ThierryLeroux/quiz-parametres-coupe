@@ -10,7 +10,7 @@ export const ANSWER_FIELDS = ['vc', 'feedPerTooth', 'rpm', 'feedPerRev', 'feedRa
 //   below / above : écart permis sous / au-dessus de la référence (0 = réponse exacte)
 //   maxDeviation  : écart absolu maximal (po) — l'intervalle retenu est le plus étroit des deux
 //   perTooth      : maxDeviation est par dent, à multiplier par le nombre de dents (f, D69)
-//   margin        : élargissement absolu de chaque côté, ajouté après (rév/min) — D13, complément : un N
+//   margin        : élargissement absolu de chaque côté, ajouté après (tr/min) — D13, complément : un N
 //                   calculé avec 12/π puis arrondi à l'entier tient ainsi dans la tolérance
 // S'y ajoute toujours la demi-unité d'affichage (D13), voir acceptedInterval.
 const EXACT = { below: 0, above: 0 };
@@ -49,7 +49,7 @@ const TOLERANCES = {
 };
 
 // La tolérance d'un champ, en clair, pour l'expliquer à l'étudiant après la correction (UI §3.4) :
-// « exacte », « ±5 % et ±1 rév/min », « de −90 % à +0.1 % », « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ».
+// « exacte », « ±5 % et ±1 tr/min », « de −90 % à +0.1 % », « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ».
 // Écrite à partir des mêmes constantes que la correction : elle ne peut pas la contredire.
 // (La demi-unité d'affichage de D13 n'y est pas dite : elle ne sert qu'à accepter les arrondis.)
 //   coherence : f jugée sur fz × dents (D69, D70) — « ±0.1 % de fz × dents » ; sinon la tolérance de fz reportée
@@ -62,7 +62,7 @@ export function toleranceLabel(feedType, field, { coherence = false, teeth = nul
   if (tolerance.below === 0 && tolerance.above === 0) return 'exacte';
   let label = tolerance.below === tolerance.above ? `±${percent(tolerance.above)}` : `de −${percent(tolerance.below)} à +${percent(tolerance.above)}`;
   if (tolerance.maxDeviation !== undefined) label += `, au plus ±${tolerance.maxDeviation} po${tolerance.perTooth && teeth !== 1 ? ' par dent' : ''}`;
-  if (tolerance.margin !== undefined) label += ` et ±${tolerance.margin} rév/min`;
+  if (tolerance.margin !== undefined) label += ` et ±${tolerance.margin} tr/min`;
   return field === 'feedRate' ? `${label} de N × f` : label;
 }
 
@@ -81,7 +81,7 @@ const clean = (value) => Number(value.toPrecision(12));
 
 // Intervalle accepté [min, max], bornes incluses, autour de la valeur de référence.
 // D13 : la tolérance effective est la plus large entre celle du tableau et `halfUnit`, la
-// demi-unité du dernier chiffre affiché (±0,5 rév/min pour N, ±0,00005 po pour une avance à
+// demi-unité du dernier chiffre affiché (±0,5 tr/min pour N, ±0,00005 po pour une avance à
 // 4 décimales…). Ainsi la valeur théorique arrondie comme à l'écran est toujours acceptée,
 // et « exact » veut dire : exact à la précision affichée.
 function acceptedInterval(reference, tolerance, halfUnit) {
@@ -99,7 +99,7 @@ function acceptedInterval(reference, tolerance, halfUnit) {
 }
 
 // Intervalle accepté pour Vf (D15) : cohérence avec N et f, pas avec la valeur théorique.
-// N et f ne sont connus qu'à la précision de leur affichage (D13) : « 4 » rév/min peut être
+// N et f ne sont connus qu'à la précision de leur affichage (D13) : « 4 » tr/min peut être
 // 4,375 dans la calculatrice de l'étudiant. Vf doit donc tomber entre le plus petit et le
 // plus grand produit N × f possibles, élargis de la tolérance de la famille (±0,5 %, ou ±0,01 % en
 // filetage, D53) ou de la demi-unité de Vf.

@@ -71,7 +71,7 @@ function toolPanel(question, data) {
         el('p', { class: 'tool-operation small' }, [optionalImage(operationPicto(outil.operation), 'operation-picto'), `Opération : ${outil.operation}`]),
         ...diameterLines(question).map((line) => el('p', { class: 'small' }, el('strong', {}, line))),
         el('p', { class: 'small' }, `Nombre de dents : ${outil.dents}`),
-        el('p', { class: 'small' }, ['RPM max de la machine : ', el('strong', { class: 'accent' }, `${outil.limite_rpm} rév/min`)]),
+        el('p', { class: 'small' }, ['Vitesse de rotation max de la machine : ', el('strong', { class: 'accent' }, `${outil.limite_rpm} tr/min`)]),
         ...factorLines(outil).map((line) => el('p', { class: 'small' }, el('strong', { class: 'accent' }, line))),
         outil.commentaire ? el('p', { class: 'muted small' }, `Note : ${outil.commentaire}`) : '',
       ]),

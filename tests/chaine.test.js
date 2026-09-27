@@ -101,8 +101,8 @@ test('toutes les combinaisons : un N calculé avec 12/π, sans l’arrondir, ré
   }
 });
 
-// Arrondi À L'ENTIER, ce même N sortait de ±5 % pour 122 combinaisons sous 90 rév/min (l'arrondi
-// s'ajoutait aux 4,5 %). D13, complément : N est tolérée à ±5 % ET ±1 rév/min hors filetage.
+// Arrondi À L'ENTIER, ce même N sortait de ±5 % pour 122 combinaisons sous 90 tr/min (l'arrondi
+// s'ajoutait aux 4,5 %). D13, complément : N est tolérée à ±5 % ET ±1 tr/min hors filetage.
 test('toutes les combinaisons : un N calculé avec 12/π puis arrondi à l’entier réussit la correction (D13, complément)', () => {
   for (const question of toutesLesQuestions()) {
     const attendu = computeParameters(question, data);
@@ -115,7 +115,7 @@ test('toutes les combinaisons : un N calculé avec 12/π puis arrondi à l’ent
 
 // --- Cas nommés : ceux qui échouaient avant D13, D14 et D15 ---------------------------------
 
-test('lame à tronçonner Ø 4.000" dans l’acier 440C durci : N = 4,375 rév/min, et « 4 » est accepté', () => {
+test('lame à tronçonner Ø 4.000" dans l’acier 440C durci : N = 4,375 tr/min, et « 4 » est accepté', () => {
   const question = questionPour({ outil: 'lame_a_tronconner', dimension: '4.000"', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_440C_DURCI });
   const attendu = computeParameters(question, data);
   assert.equal(attendu.rpm, 4.375); // 35 × 4 / 4 × 0,125 (fact_vc voulu)
@@ -124,7 +124,7 @@ test('lame à tronçonner Ø 4.000" dans l’acier 440C durci : N = 4,375 rév/m
   const affiche = formatParameters(attendu);
   assert.deepEqual(affiche, { vc: '35', rpm: '4', feedPerTooth: '0.0040', feedPerRev: '0.0040', feedRate: '0.018' });
 
-  // ±5 % de 4,375 = [4,156 ; 4,594] exclurait 4 ; le ±1 rév/min du complément de D13 donne [3,156 ; 5,594]
+  // ±5 % de 4,375 = [4,156 ; 4,594] exclurait 4 ; le ±1 tr/min du complément de D13 donne [3,156 ; 5,594]
   // (plus large que la demi-unité d'affichage, [3,875 ; 4,875]).
   const resultat = gradeAnswers(attendu, affiche);
   assert.deepEqual(resultat.fields.rpm, { ok: true, value: 4, min: 3.15625, max: 5.59375 });
@@ -132,13 +132,13 @@ test('lame à tronçonner Ø 4.000" dans l’acier 440C durci : N = 4,375 rév/m
 
   // L'étudiant qui calcule Vf avec le N arrondi qu'il a saisi (4 × 0,004 = 0,016) a bon aussi…
   assert.equal(gradeAnswers(attendu, { ...affiche, feedRate: '0.016' }).success, true);
-  // … et N = 5 aussi, à ±1 rév/min près (D13, complément) ; mais pas N = 3 ni N = 6.
+  // … et N = 5 aussi, à ±1 tr/min près (D13, complément) ; mais pas N = 3 ni N = 6.
   assert.equal(gradeAnswers(attendu, { ...affiche, rpm: '5', feedRate: '0.02' }).fields.rpm.ok, true);
   assert.equal(gradeAnswers(attendu, { ...affiche, rpm: '3', feedRate: '0.012' }).fields.rpm.ok, false);
   assert.equal(gradeAnswers(attendu, { ...affiche, rpm: '6', feedRate: '0.024' }).fields.rpm.ok, false);
 });
 
-test('filetage M48 x 5 à la barre à fileter dans l’acier à outils durci : N = 84,67 rév/min, 84 et 85 sont acceptés', () => {
+test('filetage M48 x 5 à la barre à fileter dans l’acier à outils durci : N = 84,67 tr/min, 84 et 85 sont acceptés', () => {
   const question = questionPour({ outil: 'barre_a_fileter_2', dimension: 'M48 x 5', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: ACIER_OUTIL_DURCI });
   const attendu = computeParameters(question, data);
   assert.ok(Math.abs(attendu.rpm - 84.66666666666667) < 1e-9); // 40 × 4 × 25,4 / 48

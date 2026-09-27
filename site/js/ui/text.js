@@ -5,7 +5,7 @@
 const FIELD_NAMES = {
   vc: 'vitesse de coupe',
   fz: 'avance par dent',
-  n: 'RPM',
+  n: 'vitesse de rotation',
   f: 'avance totale par révolution',
   vf: "vitesse d'avance",
 };
@@ -105,7 +105,7 @@ export function newSessionNotice(matricule) {
 export const FIELD_LABELS = {
   vc: 'Vitesse de coupe (Vc, pi/min)',
   feedPerTooth: 'Avance par dent (fz, po/dent)',
-  rpm: 'RPM (N, rév/min)',
+  rpm: 'Vitesse de rotation (N, tr/min)',
   feedPerRev: 'Avance totale par révolution (f, po/rév)',
   feedRate: "Vitesse d'avance (Vf, po/min)",
 };
@@ -115,25 +115,41 @@ export const FIELD_LABELS = {
 export const FIELD_PARTS = {
   vc: { name: 'Vitesse de coupe', symbol: 'Vc', unit: 'pi/min', picto: 'vc' },
   feedPerTooth: { name: 'Avance par dent', symbol: 'fz', unit: 'po/dent', picto: 'fz' },
-  rpm: { name: 'RPM', symbol: 'N', unit: 'rév/min', picto: 'n' },
+  rpm: { name: 'Vitesse de rotation', symbol: 'N', unit: 'tr/min', picto: 'n' },
   feedPerRev: { name: 'Avance totale par révolution', symbol: 'f', unit: 'po/rév', picto: 'f' },
   feedRate: { name: "Vitesse d'avance", symbol: 'Vf', unit: 'po/min', picto: 'vf' },
 };
 
-// D'où vient la valeur attendue d'un champ jugé par cohérence avec les saisies de l'étudiant (D70, complément),
-// d'après `coherence` du serveur : « ton fz × 2 » pour f ; « ton N × ta f » pour Vf, ou « N × ta f », « ton N × f »
-// quand un seul des deux facteurs est le sien. null pour les autres champs, ou sans cohérence.
+// Une grandeur nommée dans une phrase de rétroaction (D71) : en toutes lettres, jamais par son symbole seul, avec
+// l'article qui va devant — « ta vitesse de rotation », « ton avance par dent » (« ton » devant une voyelle),
+// ou « la vitesse de rotation », « l'avance par dent ».
+//   whose : 'mine' (la saisie de l'étudiant) ou 'the'
+const ARTICLES = {
+  vc: { mine: 'ta ', the: 'la ' },
+  feedPerTooth: { mine: 'ton ', the: "l'" },
+  rpm: { mine: 'ta ', the: 'la ' },
+  feedPerRev: { mine: 'ton ', the: "l'" },
+  feedRate: { mine: 'ta ', the: 'la ' },
+};
+export function fieldInSentence(field, whose = 'mine') {
+  return `${ARTICLES[field][whose]}${FIELD_PARTS[field].name.toLowerCase()}`;
+}
+
+// D'où vient la valeur attendue d'un champ jugé par cohérence avec les saisies de l'étudiant (D70, complément ;
+// D71 : en toutes lettres), d'après `coherence` du serveur : « ton avance par dent × 2 » pour f ; « ta vitesse de
+// rotation × ton avance totale par révolution » pour Vf, ou « la vitesse de rotation × ton avance… », « ta vitesse de
+// rotation × l'avance… » quand un seul des deux facteurs est le sien. null pour les autres champs, ou sans cohérence.
 export function coherenceSource(field, coherence) {
   if (!coherence) return null;
-  const mine = (key, own, other) => (coherence.saisies.includes(key) ? own : other);
-  if (field === 'feedPerRev') return `${mine('fz', 'ton fz', 'fz')} × ${coherence.dents}`;
-  if (field === 'feedRate') return `${mine('n', 'ton N', 'N')} × ${mine('f', 'ta f', 'f')}`;
+  const named = (key, engineField) => fieldInSentence(engineField, coherence.saisies.includes(key) ? 'mine' : 'the');
+  if (field === 'feedPerRev') return `${named('fz', 'feedPerTooth')} × ${coherence.dents}`;
+  if (field === 'feedRate') return `${named('n', 'rpm')} × ${named('f', 'feedPerRev')}`;
   return null;
 }
 
 // Note sous un champ corrigé (UI §3.4) : « Juste », « Juste (2496 attendu) » si la saisie diffère de
-// la valeur attendue mais est tolérée — « Juste (0.000284 = ton fz × 2) » quand cette valeur est faite de ses
-// saisies —, « Faux — attendu 12.500 » ; un champ fourni garde sa mention.
+// la valeur attendue mais est tolérée — « Juste (0.000284 = ton avance par dent × 2) » quand cette valeur est faite
+// de ses saisies —, « Faux — attendu 12.500 » ; un champ fourni garde sa mention.
 export function fieldResultNote(champ) {
   if (champ.masque) return 'non demandée';
   if (!champ.evalue) return "fourni par l'exercice";
