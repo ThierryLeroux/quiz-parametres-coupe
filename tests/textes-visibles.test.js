@@ -53,6 +53,13 @@ test('aucun « éditeur » dans une chaîne affichable (D74) : la page s’appel
   assert.match(page, /id="header-title">Gestion du contenu</);
 });
 
+// Le bouton qui ouvre un élément d'une liste pour le modifier s'appelle « Modifier » (D74), jamais « Ouvrir ».
+test('Gestion du contenu (D74) : aucun bouton « Ouvrir », les listes disent « Modifier »', () => {
+  const chaines = sansCommentaires(readFileSync(new URL('site/js/ui/editeur.js', ROOT), 'utf8')).match(CHAINES);
+  assert.equal(chaines.filter((texte) => texte.slice(1, -1) === 'Ouvrir').length, 0);
+  assert.equal(chaines.filter((texte) => texte.slice(1, -1) === 'Modifier').length, 2); // Exercices et Banque d'outils
+});
+
 // Le test voit bien un numéro : « (D12) » dans une chaîne est attrapé, en commentaire non.
 test('le détecteur attrape un numéro dans une chaîne, pas dans un commentaire', () => {
   const code = "// voir D12\nconst a = 'Un échec remet le compteur à zéro (D12).';\nconst b = `x ${y} D40`;";

@@ -137,7 +137,7 @@ async function showList(notice = '') {
   const rows = response.exercices.map((row, i) => {
     const open = () => leave(showExercise, row.id);
     const actions = [
-      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: open }, 'Ouvrir'),
+      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: open }, 'Modifier'), // « Modifier », dans toutes les listes (D74)
       // L'ordre de la liste est aussi celui de l'accueil des étudiants (D51).
       el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter dans la liste', onclick: () => act(() => editorMoveExercise(row.id, row.rang, 'monter')) }, '↑'),
       el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === response.exercices.length - 1, title: 'Descendre dans la liste', onclick: () => act(() => editorMoveExercise(row.id, row.rang, 'descendre')) }, '↓'),
@@ -819,7 +819,7 @@ async function showBank(notice = '') {
     el('td', {}, row.exercices.length === 0 ? 'aucun' : `${row.exercices.length} (${row.exercices.join(', ')})`),
     el('td', { class: row.archive_le === null ? '' : 'state--running' }, row.archive_le === null ? 'disponible' : `archivé le ${formatDateStamp(row.archive_le)}`),
     el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
-      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => leave(showBankTool, row.id) }, 'Ouvrir'),
+      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => leave(showBankTool, row.id) }, 'Modifier'),
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => {
         const id = window.prompt(`Identifiant du nouvel outil (minuscules, chiffres, soulignés), copie de « ${row.outil.nom} » :`, `${row.id}_2`);
         if (id) act(() => editorBankCreate({ id: id.trim(), depuis: row.id }), `« ${row.outil.nom} » dupliqué sous « ${id.trim()} ».`);
