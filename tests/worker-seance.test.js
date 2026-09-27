@@ -344,6 +344,25 @@ test('correctionView (D70) : fz fournie → f attendue = fz affiché × dents ; 
   assert.equal(champs.feedPerRev.calcul, 'f = fz × dents = 0.0060 × 1');
 });
 
+test('correctionView (D70) : la ligne de calcul d’un filet montre la conversion du pas de la question, pas la saisie', () => {
+  const tout = { ...CINQ_CHAMPS, outils: [{ id: 'sdtmr_2', reussites_requises: 1 }, { id: 'taraud_imperial', reussites_requises: 1 }] };
+  const vue = (question, saisies) => {
+    const reponses = cleanAnswers(saisies);
+    const { result, counters } = gradeQuestion(question, reponses, emptyCounters(), tout, data);
+    return Object.fromEntries(correctionView(question, reponses, result, 0, counters, data).champs.map((champ) => [champ.champ, champ]));
+  };
+  // SDTMR M42 x 4.5, le pas saisi en mm sans conversion (« 4.5 ») : fz et f fausses ; la ligne de fz convertit le pas de la
+  // question, celle de f reprend la valeur théorique de fz (une dent : f est jugée sur elle).
+  const sdtmr = questionPour({ outil: 'sdtmr_2', dimension: 'M42 x 4.5', dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
+  const n = bonnesReponses(sdtmr).rpm;
+  const champs = vue(sdtmr, { vc: '400', feedPerTooth: '4.5', rpm: n, feedPerRev: '4.5', feedRate: String(Number(n) * 4.5) });
+  assert.deepEqual([champs.feedPerTooth.ok, champs.feedPerTooth.attendu, champs.feedPerTooth.calcul], [false, '0.17717', 'fz = pas = 4.5 mm / 25.4 = 0.17717']);
+  assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.tolerance, champs.feedPerRev.calcul], [false, '0.17717', '±0.1 %', 'f = fz × dents = 0.17717 × 1']);
+  // Taraud 1/4- 20 UNC, fz saisie fausse : « 1 / 20 », jamais la saisie.
+  const taraud = questionPour({ outil: 'taraud_imperial', dimension: '1/4- 20 UNC', dents: 1, materiauOutil: 'Acier rapide', groupeMateriau: 1 });
+  assert.equal(vue(taraud, { feedPerTooth: '20' }).feedPerTooth.calcul, 'fz = pas = 1 / 20 = 0.05000');
+});
+
 test('correctionView : facteur de vitesse, plafond du RPM, pas d’un filet, réponse vide', () => {
   // Lame à tronçonner : fact_vc = 0.125. Saisie vide : pas d'écart à calculer.
   const lame = questionPour({ outil: 'lame_a_tronconner', dimension: data.outils.find((o) => o.id === 'lame_a_tronconner').dimensions[0].libelle, dents: 1, materiauOutil: 'Insert de carbure de tungstène', groupeMateriau: 1 });
@@ -363,7 +382,7 @@ test('correctionView : facteur de vitesse, plafond du RPM, pas d’un filet, ré
   const taraud = questionPour({ outil: 'taraud_imperial', dimension: '1/4- 20 UNC', dents: 1, materiauOutil: 'Acier rapide', groupeMateriau: 1 });
   corrige = gradeQuestion(taraud, cleanAnswers({}), emptyCounters(), tousLesChamps, data);
   champs = Object.fromEntries(correctionView(taraud, cleanAnswers({}), corrige.result, 0, corrige.counters, data).champs.map((champ) => [champ.champ, champ]));
-  assert.deepEqual([champs.feedPerTooth.calcul, champs.feedPerTooth.tolerance, champs.rpm.tolerance], ['fz = pas du filet = 0.05000', '±0.1 %', 'de −90 % à +0.1 %']);
+  assert.deepEqual([champs.feedPerTooth.calcul, champs.feedPerTooth.tolerance, champs.rpm.tolerance], ['fz = pas = 1 / 20 = 0.05000', '±0.1 %', 'de −90 % à +0.1 %']);
 });
 
 test('sessionView : chaque outil porte son opération et sa plage de dimensions (attestation, D30) ; attendre_s suit la cadence', () => {

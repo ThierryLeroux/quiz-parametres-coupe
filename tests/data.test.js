@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { TOOL_MATERIAL_KEYS, isMetricDimension, loadData, parseThread, validateData } from '../site/js/data.js';
+import { TOOL_MATERIAL_KEYS, isMetricDimension, loadData, parseThread, pitchFormula, validateData } from '../site/js/data.js';
 
 const lire = async (nom) => JSON.parse(await readFile(new URL(`../site/data/${nom}`, import.meta.url), 'utf8'));
 
@@ -43,6 +43,15 @@ test('isMetricDimension : un filet « Ø x pas » en mm, ou un libellé en mm (D
   assert.equal(isMetricDimension({ libelle: '1/4- 20 UNC', valeur: '0.25-20' }), false);
   assert.equal(isMetricDimension({ libelle: 'Ø 1/4 po', valeur: 0.25 }), false);
   assert.equal(isMetricDimension({ libelle: '#40', valeur: 0.098 }), false);
+});
+
+test('pitchFormula : le pas d’un filet tel que sa dimension l’écrit (D70)', () => {
+  assert.equal(pitchFormula('42x4.5'), '4.5 mm / 25.4');
+  assert.equal(pitchFormula('10x1.50'), '1.5 mm / 25.4');
+  assert.equal(pitchFormula('0.25-20'), '1 / 20');
+  assert.equal(pitchFormula('.138-32'), '1 / 32');
+  assert.equal(pitchFormula(0.25), null);
+  assert.equal(pitchFormula('abc'), null);
 });
 
 test('parseThread : valeur illisible → null', () => {

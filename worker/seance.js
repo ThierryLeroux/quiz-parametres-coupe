@@ -8,6 +8,7 @@
 
 import { computeParameters } from '../site/js/calcul.js';
 import { ANSWER_FIELDS, coherentFeedPerTooth, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
+import { pitchFormula } from '../site/js/data.js';
 import { fieldsToGrade, maskedFields } from '../site/js/exercice.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools, isComplete, recordResult } from '../site/js/progression.js';
@@ -182,7 +183,12 @@ function calculationLine(field, question, expected, shown, tool, operation) {
     const capped = expected.rpmCapped ? ` → plafonné à ${tool.limite_rpm}` : '';
     return `N = Vc × 4 / Ø${twoDiameters ? ' usiné' : ''} = ${shown.vc} × 4 / ${diameter}${factor}${capped}`;
   }
-  if (field === 'feedPerTooth' && expected.feedType === 'thread') return `fz = pas du filet = ${shown.feedPerTooth}`;
+  // Filetage : la conversion du pas de la question, jamais la saisie (D70) — « fz = pas = 4.5 mm / 25.4 = 0.17717 ».
+  if (field === 'feedPerTooth' && expected.feedType === 'thread') {
+    const formula = pitchFormula(tool.dimensions.find((dimension) => dimension.libelle === question.dimension.label)?.valeur);
+    const pitch = formatParameters(expected).feedPerTooth;
+    return formula === null ? `fz = pas du filet = ${pitch}` : `fz = pas = ${formula} = ${pitch}`;
+  }
   if (field === 'feedPerTooth' && expected.feedType === 'proportional') {
     const factor = tool.fact_av === 1 ? '' : ` × ${tool.fact_av}`;
     const capped = expected.feedPerToothCapped ? ` → plafonné à ${operation.avance_max_po_rev}` : '';

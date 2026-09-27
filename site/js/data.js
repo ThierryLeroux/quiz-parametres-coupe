@@ -25,6 +25,16 @@ export function isMetricDimension({ libelle, valeur }) {
   return typeof valeur === 'string' ? METRIC_THREAD.test(valeur) : /\bmm\b/.test(libelle);
 }
 
+// Le pas d'un filet tel que sa dimension l'écrit, pour la ligne de calcul de fz (D70) : « 4.5 mm / 25.4 » en
+// métrique, « 1 / 20 » en impérial ; null si la valeur n'est pas un filet.
+export function pitchFormula(valeur) {
+  if (typeof valeur !== 'string') return null;
+  const imperial = IMPERIAL_THREAD.exec(valeur);
+  if (imperial) return `1 / ${Number(imperial[2])}`;
+  const metric = METRIC_THREAD.exec(valeur);
+  return metric ? `${Number(metric[2])} mm / ${MM_PER_INCH}` : null;
+}
+
 // Interprète la valeur d'une dimension de filetage (SPEC §4.3) :
 //   « 0.25-20 » → Ø 0,25 po, pas = 1/20 po
 //   « 10x1.5 »  → Ø 10/25,4 po, pas = 1,5/25,4 po
