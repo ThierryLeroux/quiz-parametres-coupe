@@ -2029,3 +2029,156 @@ indiscernables à l'accueil.
 `sameTitleRefusal`), `site/js/ui/editeur-data.js`, `worker/index.js` (publication) ; `site/css/editeur.css` ; tests
 (textes visibles, doublon à l'écran et au serveur) ; SPEC §7, §8, §10 ; UI §2, §3.8, §3.9 ; PLAN ; DEMARRAGE ;
 CLAUDE.md ; commentaires. Remplace D71, point 8.
+
+## D75 — Modifier le contenu sans créer de nouvelle version : la présentation en direct, la publication en cascade des tables, le retour en arrière (chantier E5) (2026-09-27, décidée)
+
+**Contexte.** L'inventaire du versionnage (`docs/rapports/inventaire-versionnage.md`) a montré qu'une retouche
+d'un libellé des tables coûte aujourd'hui 1 + 2 × n gestes (publier les tables, puis, pour chaque exercice, y
+passer et le publier), et n'atteint pas les séances déjà commencées. Il proposait deux voies — A : séparer la
+présentation de ce qui sert à la correction ; B : un versionnage invisible, la question épinglée plutôt que la
+séance — et une voie hybride. Thierry retient la voie hybride, avec des ajouts. Cette décision encadre les quatre
+jalons du chantier E5.
+
+**Décision.**
+
+1. **Voie hybride** : la **présentation en direct** (H1) et la **publication en cascade des tables** (H2). Les
+   séances restent **épinglées à leur version** d'exercice, donc à ses tables (D47). La voie B est écartée ;
+   l'épinglage par question (H3) ne sera repris que si la limite du point 6 pose un vrai problème.
+2. **En direct : une liste blanche, imposée par le serveur** (un champ hors de la liste est refusé, 400) :
+   - **tables** : le **nom** et les **trois couleurs** des classes ISO, leur **image de chaleur**, sa **légende** et
+     leurs **caractéristiques** ; la **couleur** des matières d'outil ; le **pictogramme** des opérations ;
+   - **exercice** (jalon E5-3) : le **titre**, le **cours**, « **À l'accueil** » ; pour chaque copie d'outil, sa
+     **photo** et sa **note** (`commentaire`).
+3. **Tout le reste demeure versionné**, dont : les noms d'outils et les gabarits de nomenclature (figés dans chaque
+   question au tirage ; ils pourraient passer en direct plus tard), les noms et les descriptifs des matériaux
+   usinés, la clé et le nom des matières d'outil, la machine, la direction d'avance, le trait de famille, les
+   libellés des dimensions. Pour une image, c'est **le choix de l'identifiant** qui passe en direct : l'image
+   elle-même ne change jamais sous son identifiant (D56).
+4. **Effet dès que la page se recharge, pour tous, séances en cours comprises.** La présentation **part de celle de
+   la dernière version de tables publiée** et **s'applique à toutes les versions** ; une clé qu'elle ne connaît pas
+   (une classe, une matière d'outil ou une opération) garde la valeur de sa version. **La révision au pied des
+   feuilles identifie désormais les valeurs, plus l'apparence.**
+5. **Aperçu dans le panneau même** (le rendu de l'aperçu de l'onglet Tables : dix questions, l'image de chaleur de la
+   classe, sa légende et ses caractéristiques), puis **« Appliquer »**. **Pas de brouillon de présentation.** Chaque
+   contenu remplacé est **gardé, sans limite**, avec **« Rétablir »** en un clic ; **chaque geste est inscrit au
+   journal**. La **Sauvegarde** (export, import) porte la présentation et son historique.
+6. **La cascade** (jalon E5-2) : publier des tables propose **tous les exercices sur la version remplacée, archivés
+   compris**, chacun décochable, avec ce que ça change pour chacun (`exerciseTablesImpact`). Elle **republie le
+   dernier contenu publié, jamais le brouillon**, et fait aussi passer **le brouillon** aux nouvelles tables s'il
+   était sur la version remplacée (sinon sa prochaine publication ramènerait les anciennes, D62). Un exercice en
+   erreur est nommé et laissé tel quel. **Retour en arrière** : « **Reprendre cette version** » sur toute version
+   publiée (tables ou exercice) la recharge dans le brouillon, puis publication normale avec le résumé des
+   différences ; « **Annuler les modifications** » ramène un brouillon à sa dernière version publiée.
+   **Limite acceptée** : une séance commencée pendant qu'une valeur erronée était publiée garde cette version
+   jusqu'à sa fin ; la protection est le résumé des différences avant la cascade.
+7. **Le code reste hors du versionnage** : tolérances, formules, textes et en-têtes de l'attestation. **Règle : en
+   tête de chaque rapport, signaler tout changement qui touche la correction des séances en cours** ; Thierry
+   déploie hors des périodes de labo.
+8. **L'attestation reste entièrement figée à la réussite** ; la présentation en direct ne l'atteint jamais, ni
+   `/verifier`. Quand le titre passera en direct (E5-3), l'attestation inscrira **le titre affiché à la réussite**, et
+   la règle du titre en double (D74) suivra le titre. La page de description continue de montrer la dernière
+   version.
+9. **Quatre jalons, dans l'ordre, une branche chacun** : **E5-1** la présentation des tables en direct ; **E5-2** la
+   cascade des tables et le retour en arrière des versions ; **E5-3** la présentation des exercices en direct ;
+   **E5-4** l'historique de la banque d'outils (même mécanisme).
+
+**Ce que D75 remplace.**
+
+- **D47** : « versions publiées immuables » reste vrai du **contenu** d'une version, mais ce qu'une version
+  **montre** n'est plus figé : la présentation des tables (E5-1), puis celle des exercices (E5-3), se pose
+  par-dessus. « Une publication ne touche jamais une séance en cours » reste vrai des **valeurs** ; la présentation,
+  elle, l'atteint.
+- **D61** : les couleurs des classes ISO et des matières d'outil, le nom des classes et le pictogramme des
+  opérations **ne se modifient plus dans le brouillon des tables** et ne passent plus par la publication ni par les
+  différences valeur par valeur (`tablesDiff`). « Le quiz, les feuilles et l'éditeur lisent les couleurs de la
+  version en usage » devient : ils lisent **la présentation en vigueur**, et la valeur de la version pour une clé
+  qu'elle ne connaît pas.
+- **D62** : `exerciseTablesImpact` ne dit plus les pictogrammes. « Une séance utilise toujours les tables de sa
+  version d'exercice : … feuilles de référence et couleurs à l'écran » reste vrai des **valeurs** (questions,
+  correction, valeurs des feuilles, révision sur l'attestation), plus de l'apparence. En E5-2, la cascade
+  remplacera « chaque exercice y passe depuis sa page ».
+- **D63** : `/tables?version=` montre les valeurs de cette version **avec la présentation en vigueur**, plus « les
+  couleurs de cette version ».
+- **D64 à D66 et D68** : l'image de chaleur, les caractéristiques et la légende gardent leur format et leurs règles,
+  mais s'éditent dans le panneau de la présentation, plus dans le brouillon, et ne sont plus dans les différences à
+  la publication des tables.
+- **D74** : rien en E5-1. En E5-3, le titre en double sera refusé au moment d'**appliquer** le titre, plus seulement
+  à la publication.
+
+**Conséquences.** Les jalons E5-1 à E5-4 dans `PLAN.md` ; les choix propres à chaque jalon sont des décisions à
+part (D76 pour E5-1).
+
+## D76 — E5-1 : la présentation des tables en direct — stockage, point de départ, publication des tables, nouvelles clés, rétablissement (2026-09-27, décidée)
+
+**Contexte.** Le premier jalon de D75 laissait à trancher le stockage, le point de départ au déploiement, ce que
+devient la présentation dans le brouillon et dans une version publiée des tables, la présentation d'une clé
+nouvelle, et « Rétablir » quand une image a été archivée entre-temps.
+
+**Décision.**
+
+1. **Stockage** (migration `0010`) : `presentation_tables`, une seule ligne — `contenu` (le format des tables réduit
+   à la liste blanche : `classes_iso` [{ `code`, `nom`, `couleur`, `couleur_texte`, `couleur_ligne`,
+   `image_chaleur`, `legende_image`, `caracteristiques` }], `materiaux_outil` [{ `cle`, `couleur` }], `operations`
+   [{ `operation`, `pictogramme` }], chaque entrée complète), `revision` (le contrôle optimiste, D48),
+   `modifiee_le`, `enseignant` — et `presentation_tables_historique`, un contenu **remplacé** par ligne : le
+   contenu, quand et par qui il avait été posé, quand et par qui il a été remplacé, et par quoi (`application`,
+   `retablissement`, `import`). Rien ne s'efface.
+2. **Point de départ** : `contenu` est **vide (NULL) tant que rien n'a été appliqué**, et la présentation est alors
+   **celle de la dernière version publiée des tables**, lue à chaque fois. Rien ne change donc au déploiement pour
+   une séance sur la dernière version. Au premier « Appliquer », cette présentation de départ entre dans
+   l'historique (« présentation de départ ») : « Rétablir » la retrouve.
+3. **La présentation en vigueur est celle du panneau** : pour chaque classe, matière d'outil et opération de la
+   dernière version publiée, l'entrée appliquée si elle existe, sinon celle de la version ; puis les entrées
+   appliquées d'une clé que la dernière version n'a plus (elle sert encore aux versions plus anciennes). Elle se
+   pose par-dessus **toute** version pour les clés qu'elle connaît (`applyPresentation`, `presentData`,
+   `site/js/presentation.js`) ; une clé inconnue garde la valeur de sa version.
+4. **Où elle se pose** : après le cache des versions assemblées, dans ce que le serveur **montre** — `GET
+   /api/exercice` (page Question, feuilles de référence du quiz, page de description), `GET /api/tables?version=`
+   (feuilles imprimables), et, dans la Gestion du contenu, les tables d'un exercice et de la banque (pastilles,
+   aperçus). **Jamais** dans ce qui corrige ou atteste : le tirage, la correction, `isQuestionValid`, la question
+   figée, l'attestation et `/verifier` gardent le catalogue de la version, sans présentation (aucune n'en lit
+   d'ailleurs une couleur ou une image).
+5. **Routes** (rôle admin, journalisées) : `GET /api/prof/editeur/presentation` (la présentation en vigueur, sa
+   révision, ses erreurs, l'historique avec, pour chaque contenu, ce que le rétablir changerait) ;
+   `POST …/presentation/appliquer` `{ revision, presentation }` ; `POST …/presentation/retablir` `{ revision,
+   historique }`. Un champ hors de la liste blanche → 400 nommé ; une révision périmée → 409, rien n'est écrasé ;
+   rien à changer → 400. Actions du journal : `editeur_presentation_application`,
+   `editeur_presentation_retablissement` (les changements en clair dans les détails).
+6. **Validation** : celle d'aujourd'hui (nom non vide, couleurs « #rrggbb », légende de 40 caractères au plus, 6
+   caractéristiques au plus avec leurs longueurs, image existante et non archivée), et, nouveau, **le pictogramme
+   d'une opération doit aussi être une image existante et non archivée** (il n'était vérifié que dans sa forme).
+7. **« Rétablir » une présentation dont une image a été archivée depuis** : **permis**, avec un avertissement (une
+   image archivée est toujours servie : les étudiants retrouvent exactement ce qu'ils voyaient). Le panneau la
+   signale ensuite comme erreur : il faut en choisir une autre, ou la rétablir dans l'onglet Images, avant
+   d'appliquer autre chose. Une image nommée par la présentation, **actuelle ou dans l'historique**, compte comme
+   utilisée : elle ne se supprime pas, elle s'archive.
+8. **Le brouillon et la publication des tables** : les champs de la liste blanche **quittent le brouillon** pour
+   toute clé que la présentation en vigueur connaît (ils y restent, cachés, sans effet). **Une version publiée prend
+   la présentation en vigueur** (un instantané, pour les clés qu'elle connaît) : elle reste lisible seule, et
+   garde trace de l'apparence du jour. Les différences à la publication (`tablesDiff`), le « aucune différence à
+   publier » et le « brouillon modifié » ne comparent plus que les valeurs ; `exerciseTablesImpact` ne dit plus
+   les pictogrammes.
+9. **Une clé nouvelle** (une classe ou une opération ajoutée au brouillon ; les matières d'outil sont trois clés
+   fixes) **reçoit sa présentation de départ dans sa ligne du brouillon** : pour une clé que la présentation ne
+   connaît pas, les champs de présentation s'y montrent et s'y saisissent comme avant. La version publiée les porte ;
+   la clé entre alors dans la présentation en vigueur (dernière version) et ne se modifie plus que dans le panneau.
+10. **Retouches de présentation en attente dans le brouillon** (faites avant ce jalon, jamais publiées) : le
+    panneau les signale en doré, avec « Les reprendre dans le panneau » ; elles ne partent qu'à l'application, et
+    la prochaine publication des tables les abandonne.
+11. **Sauvegarde** : l'export porte `presentation_tables` (`contenu`, `modifiee_le`, `enseignant`, `historique`).
+    L'import ajoute les contenus d'historique absents, et, si la présentation de l'export diffère de celle de la
+    base, la remplace — celle de la base va à l'historique (« import »). Un export sans présentation (d'avant ce
+    jalon) ou dont la présentation n'a jamais été appliquée ne la change pas. Un aller-retour ne change rien.
+12. **Le pictogramme de l'opération sur la page Question** lit les tables, comme la feuille des avances et la page
+    de description (il prenait l'image nommée d'après l'opération, celle de la semence : inventaire, §8).
+13. **Onglet Tables** : un panneau distinct, **« Présentation — effet immédiat »** (contour vert, bouton
+    « Appliquer… » vert), en tête, avec ses tableaux (classes, matières d'outil, opérations), l'aperçu, la
+    confirmation qui liste les changements et l'historique ; puis **« Valeurs — brouillon à publier »**, le brouillon
+    d'avant sans ces champs. Les couleurs de la page suivent le panneau de la présentation.
+
+**Conséquences.** `migrations/0010_presentation_tables.sql` ; `site/js/presentation.js` (pur, testé) ;
+`site/js/tables.js` (`tablesDiff`, `tablesContent`) ; `site/js/ui/editeur-data.js` (`exerciseTablesImpact`,
+utilisations d'une image) ; `worker/base.js`, `worker/catalogue.js`, `worker/index.js`, `worker/images.js`,
+`worker/editeur.js` (import) ; `site/js/api.js`, `site/js/ui/editeur.js`, `site/css/editeur.css` ;
+`site/js/ui/question-screen.js` (pictogramme) ; SPEC §3, §7, §10 ; UI §3.9 ; CLAUDE.md ; PLAN. Rapport :
+`docs/rapports/e5-1-presentation-tables.md`.

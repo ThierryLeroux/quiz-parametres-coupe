@@ -199,6 +199,32 @@ Rapport de session : `docs/rapports/gestion-du-contenu.md`. Les tâches cochées
 - [x] **E3 — un titre en double bloque la publication** (remplace le simple signalement de D71) : au serveur (400, `doublons`) et à l'écran (refus en rouge, bouton inactif) ; brouillons libres ; republier le même exercice passe ; un archivé ne compte pas ; les doublons déjà publiés restent en place
 - [ ] **Thierry** : repérer les doublons de titre déjà en production (marche à suivre dans le rapport) et, s'il y en a, changer un titre ou archiver l'un des deux avant la prochaine publication ; trancher les points douteux du rapport
 
+## Chantier E5 — modifier le contenu sans créer de nouvelle version (décisions D75, D76)
+Inventaire : `docs/rapports/inventaire-versionnage.md`. Voie hybride (D75) : la présentation en direct, la publication
+en cascade des tables ; les séances restent épinglées à leur version. Un jalon par branche, dans l'ordre.
+
+### Jalon E5-1 — la présentation des tables en direct (décision D76)
+Rapport de session : `docs/rapports/e5-1-presentation-tables.md`.
+
+- [ ] Migration `0010` : la présentation des tables (une ligne, vide tant que rien n'est appliqué) et son historique
+- [ ] `site/js/presentation.js` (pur, testé) : liste blanche, présentation d'une version, présentation en vigueur, pose par-dessus une version et un catalogue, validation, différences, retouches en attente du brouillon ; `tablesDiff`, `tablesContent` et `exerciseTablesImpact` sans les champs de présentation
+- [ ] Serveur : la présentation posée après le cache des versions, sur `GET /api/exercice`, `GET /api/tables` et les tables de la Gestion du contenu, jamais sur la correction ni l'attestation ; routes lire, appliquer, rétablir (admin, 409, journal) ; une version de tables publiée prend la présentation en vigueur ; images de la présentation et de son historique comptées comme utilisées
+- [ ] Sauvegarde : la présentation et son historique dans l'export ; l'import les fusionne ; aller-retour identique
+- [ ] Onglet Tables : le panneau « Présentation — effet immédiat » (aperçu, Appliquer, historique, Rétablir), le brouillon sans ces champs pour les clés connues
+- [ ] Pictogramme de l'opération sur la page Question : celui des tables
+- [ ] Tests (liste blanche, séance épinglée à une vieille version, attestation identique octet pour octet, rétablissement, validation, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
+- [ ] Documents : SPEC §3, §7, §10 ; UI §3.9 ; CLAUDE.md
+
+### Jalon E5-2 — la cascade des tables et le retour en arrière des versions
+- [ ] Publier des tables propose tous les exercices sur la version remplacée (archivés compris), chacun décochable, avec `exerciseTablesImpact` ; republie leur dernier contenu publié, jamais le brouillon ; fait passer le brouillon s'il était sur la version remplacée ; un exercice en erreur est nommé et laissé tel quel
+- [ ] « Reprendre cette version » (tables ou exercice) : la version rechargée dans le brouillon, puis publication normale ; « Annuler les modifications » ramène un brouillon à sa dernière version publiée
+
+### Jalon E5-3 — la présentation des exercices en direct
+- [ ] Titre, cours, « À l'accueil », photo et note des copies d'outils en direct ; l'attestation inscrit le titre affiché à la réussite ; la règle du titre en double (D74) suit le titre
+
+### Jalon E5-4 — l'historique de la banque d'outils
+- [ ] Chaque contenu remplacé d'un outil de la banque gardé, « Rétablir » en un clic, journal (le mécanisme d'E5-1)
+
 ## Finition
 - [ ] Graphique de progression par opération
 - [ ] Décision D7 (dépôt) close — D6 (sécurité) est fermée par D19
