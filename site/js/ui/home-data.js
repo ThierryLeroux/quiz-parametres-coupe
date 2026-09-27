@@ -5,7 +5,7 @@
 
 import { allowedGroups, allowedToolMaterials, courseKey } from '../exercice.js';
 import { toolLabels } from './rules.js';
-import { operationPicto, toolPhotoUrl } from './sheets-data.js';
+import { operationPictoOf, toolPhotoUrl } from './sheets-data.js';
 import { fieldName } from './text.js';
 
 // Le lien d'un exercice, celui qu'on donne sur Léa : il mène à sa page de description (D71).
@@ -81,7 +81,7 @@ export function toolRows(exercise, data) {
       label: labels.get(tool.id) ?? tool.nom,
       photo: toolPhotoUrl(tool),
       operation: tool.operation,
-      picto: operationPicto(tool.operation, data.operationByName.get(tool.operation)),
+      picto: operationPictoOf(data, tool.operation),
       range: dimensionRange(tool, entry),
       materials: allowedToolMaterials(exercise, entry, tool),
       streak: entry.reussites_requises,

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
-import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
+import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationPictoOf, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
 const m10 = await lireFichier('exercices/m10-tournage-vc.json');
@@ -255,6 +255,12 @@ test('operationSlug et pictogrammes : chaque opération du catalogue a son SVG d
   }
   // Une opération qui nomme son pictogramme (partie B) : c'est lui qui est servi.
   assert.equal(operationPicto('Perçage', { operation: 'Perçage', pictogramme: 'img-0123456789abcdef' }), '/images/img-0123456789abcdef');
+  // Le pictogramme d'un outil sur la page Question : celui des tables du catalogue (D76, point 12), pas l'image nommée
+  // d'après l'opération ; sans pictogramme dans les tables, celle-là.
+  const choisi = { ...data, operationByName: new Map([...data.operationByName].map(([name, op]) => [name, name === 'Perçage' ? { ...op, pictogramme: 'img-0123456789abcdef' } : op])) };
+  assert.equal(operationPictoOf(choisi, 'Perçage'), '/images/img-0123456789abcdef');
+  assert.equal(operationPictoOf(choisi, 'Tronçonnage'), `/images/${operationSlug('Tronçonnage')}`);
+  assert.equal(operationPictoOf(data, 'Inconnue'), '/images/inconnue');
   assert.equal(toolPhotoUrl({ id: 'mvlnr' }), '/images/mvlnr');
   assert.equal(toolPhotoUrl({ id: 'mvlnr_2', image: 'mvlnr' }), '/images/mvlnr');
 });

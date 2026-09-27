@@ -7,7 +7,7 @@
 
 import { el, pointDecimalComma, showScreen } from './dom.js';
 import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
-import { classFeatures, classImages, heatImageMaxWidth, operationPicto, toolPhotoUrl } from './sheets-data.js';
+import { classFeatures, classImages, heatImageMaxWidth, operationPictoOf, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
 
 // Pictogramme d'une grandeur (UI §5) : le fichier SVG sert de masque, la couleur est celle du texte.
@@ -59,7 +59,8 @@ function progressPanel(progression, labels, marks) {
 }
 
 // Panneau de l'outil, à la couleur de son matériau (UI §1). Son titre est le gabarit de nom de
-// l'outil, résolu par le serveur avec les valeurs tirées (D24).
+// l'outil, résolu par le serveur avec les valeurs tirées (D24). Le pictogramme de l'opération est celui des tables
+// (D76, point 12 : il était pris d'après le nom de l'opération, l'image de la semence, sans lire les tables).
 function toolPanel(question, data) {
   const { outil } = question;
   return el('section', { class: 'panel tool-card', style: `--panel-color: var(${toolMaterialColor(outil.materiau, data)})` }, [
@@ -68,7 +69,7 @@ function toolPanel(question, data) {
       optionalImage(toolPhotoUrl(outil), 'tool-photo'),
       el('div', {}, [
         el('h2', { class: 'tool-title' }, question.identifiant),
-        el('p', { class: 'tool-operation small' }, [optionalImage(operationPicto(outil.operation), 'operation-picto'), `Opération : ${outil.operation}`]),
+        el('p', { class: 'tool-operation small' }, [optionalImage(operationPictoOf(data, outil.operation), 'operation-picto'), `Opération : ${outil.operation}`]),
         ...diameterLines(question).map((line) => el('p', { class: 'small' }, el('strong', {}, line))),
         el('p', { class: 'small' }, `Nombre de dents : ${outil.dents}`),
         el('p', { class: 'small' }, ['Vitesse de rotation max de la machine : ', el('strong', { class: 'accent' }, `${outil.limite_rpm} tr/min`)]),

@@ -26,6 +26,11 @@ export const imageUrl = (id) => `/images/${encodeURIComponent(id)}`;
 export const toolPhotoUrl = (tool) => imageUrl(tool.image ?? tool.id);
 export const operationPicto = (name, operation = null) => imageUrl(operation?.pictogramme ?? operationSlug(name));
 
+// Le pictogramme de l'opération d'un outil, tel que les tables du catalogue le donnent (et la présentation en vigueur,
+// D76) : la page Question, la page de description et la feuille des avances le prennent au même endroit.
+//   data : le catalogue (assembleData) ; name : le nom de l'opération
+export const operationPictoOf = (data, name) => operationPicto(name, data?.operationByName?.get(name) ?? null);
+
 // L'image d'une classe ISO (D64 ; D66 : la chaleur seulement), telle que l'écran Question la montre sous le
 // matériau brut, et l'aperçu de la Gestion du contenu : [{ key, label, id, url }] — vide pour une classe sans image (O),
 // inconnue, ou dont l'image est retirée : l'espace reste vide, sans erreur. `classesIso` : les classes de la
