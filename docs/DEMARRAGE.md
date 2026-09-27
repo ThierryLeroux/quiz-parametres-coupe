@@ -308,14 +308,20 @@ différences avant de créer la version, et refuse un titre déjà porté par un
 exercice publié et non archivé (D74) ; « Aperçu » tire dix questions avec leurs
 réponses. Dans les listes, **Modifier** ouvre un exercice ou un outil. Mode d'emploi : `docs/UI.md` §3.9.
 
-Les **tables de référence** (onglet **Tables de référence**, décisions D61 à D63) : les vitesses
-de coupe, les avances, les classes ISO et leurs couleurs, les matières d'outil, les
-pictogrammes — un seul brouillon, qu'on **publie** sous une révision (« A2026_r1 »
-est suggérée). Publier une version des tables **ne change aucun exercice** : chaque
+Les **tables de référence** (onglet **Tables de référence**, décisions D61 à D63, D76) ont deux
+parties. En tête, le panneau vert **Présentation — effet immédiat** : les noms et couleurs des
+classes ISO, les images de chaleur, leurs légendes, les caractéristiques, les couleurs des
+matières d'outil, les pictogrammes. Pas de brouillon : **Aperçu** montre dix questions avec la
+présentation du panneau, **Appliquer…** liste les changements puis les met en vigueur **tout de
+suite, pour tous les étudiants** (séances en cours comprises, dès que leur page se recharge ;
+ni les valeurs, ni la correction, ni les attestations ne bougent). Chaque contenu remplacé va à
+l'**Historique**, et **Rétablir** le remet en un clic. Dessous, **Valeurs — brouillon à publier** :
+les vitesses de coupe, les avances, les matériaux, les opérations, les noms des matières d'outil
+— un seul brouillon, qu'on **publie** sous une révision (« A2026_r1 » est suggérée). Publier une version des tables **ne change aucun exercice** : chaque
 exercice a sa version de tables, et sa page dit quand une plus récente existe
 (**Passer à A2026_r1…** montre d'abord ce que ça change pour lui, puis c'est sa
-prochaine publication qui prend ces tables). Les séances commencées gardent leurs
-tables jusqu'à la fin. « Feuilles imprimables », dans la liste des versions, ouvre les
+prochaine publication qui prend ces tables). Les séances commencées gardent les valeurs
+de leurs tables jusqu'à la fin (la présentation, elle, est toujours celle en vigueur). « Feuilles imprimables », dans la liste des versions, ouvre les
 trois feuilles d'une version (`/tables?version=A2026_r1`), prêtes pour l'atelier.
 
 Les **images** (onglet **Images**, décision D56) : les photos d'outils et les pictogrammes
@@ -324,10 +330,11 @@ outil (**Choisir une image…**, puis **Téléverser une image**) ou depuis l'on
 prise au téléphone est réduite dans le navigateur avant l'envoi (800 px, JPEG ; une image
 détourée avec de la transparence reste en PNG) : inutile de la retoucher. Un SVG est nettoyé par le serveur (scripts, liens et ressources externes refusés).
 L'**image de chaleur** d'une classe ISO et ses **caractéristiques** (décisions D64 à D66) se règlent
-dans l'onglet **Tables de référence** (colonnes **Image de chaleur** et **Caractéristiques** du
-tableau des classes ; l'usage de l'image dans l'onglet Images est « image de classe ISO ») : une
-image archivée y devient une erreur à corriger avant de publier ; les caractéristiques s'ajoutent,
-se retirent et se réordonnent ligne par ligne (libellé, texte, solution facultative).
+dans le panneau **Présentation** de l'onglet **Tables de référence** (colonnes **Image de chaleur**
+et **Caractéristiques** du tableau des classes ; l'usage de l'image dans l'onglet Images est « image
+de classe ISO ») : une image archivée y devient une erreur à corriger avant d'appliquer ; les
+caractéristiques s'ajoutent, se retirent et se réordonnent ligne par ligne (libellé, texte,
+solution facultative).
 Une image utilisée par une version publiée ne se supprime pas : on l'**archive** (elle n'est plus
 proposée, mais reste affichée là où elle est nommée). Les fichiers de `site/img/` du dépôt ne
 sont plus que la semence : y déposer un fichier ne change rien en production.

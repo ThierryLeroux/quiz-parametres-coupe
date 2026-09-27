@@ -206,14 +206,15 @@ en cascade des tables ; les séances restent épinglées à leur version. Un jal
 ### Jalon E5-1 — la présentation des tables en direct (décision D76)
 Rapport de session : `docs/rapports/e5-1-presentation-tables.md`.
 
-- [ ] Migration `0010` : la présentation des tables (une ligne, vide tant que rien n'est appliqué) et son historique
-- [ ] `site/js/presentation.js` (pur, testé) : liste blanche, présentation d'une version, présentation en vigueur, pose par-dessus une version et un catalogue, validation, différences, retouches en attente du brouillon ; `tablesDiff`, `tablesContent` et `exerciseTablesImpact` sans les champs de présentation
-- [ ] Serveur : la présentation posée après le cache des versions, sur `GET /api/exercice`, `GET /api/tables` et les tables de la Gestion du contenu, jamais sur la correction ni l'attestation ; routes lire, appliquer, rétablir (admin, 409, journal) ; une version de tables publiée prend la présentation en vigueur ; images de la présentation et de son historique comptées comme utilisées
-- [ ] Sauvegarde : la présentation et son historique dans l'export ; l'import les fusionne ; aller-retour identique
-- [ ] Onglet Tables : le panneau « Présentation — effet immédiat » (aperçu, Appliquer, historique, Rétablir), le brouillon sans ces champs pour les clés connues
-- [ ] Pictogramme de l'opération sur la page Question : celui des tables
-- [ ] Tests (liste blanche, séance épinglée à une vieille version, attestation identique octet pour octet, rétablissement, validation, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
-- [ ] Documents : SPEC §3, §7, §10 ; UI §3.9 ; CLAUDE.md
+- [x] Migration `0010` : la présentation des tables (une ligne, vide tant que rien n'est appliqué) et son historique
+- [x] `site/js/presentation.js` (pur, testé) : liste blanche, présentation d'une version, présentation en vigueur, pose par-dessus une version et un catalogue, validation, différences, retouches en attente du brouillon ; `tablesDiff`, `tablesContent` et `exerciseTablesImpact` sans les champs de présentation
+- [x] Serveur : la présentation posée après le cache des versions, sur `GET /api/exercice`, `GET /api/tables` et les tables de la Gestion du contenu, jamais sur la correction ni l'attestation ; routes lire, appliquer, rétablir (admin, 409, journal) ; une version de tables publiée prend la présentation en vigueur ; images de la présentation et de son historique comptées comme utilisées
+- [x] Sauvegarde : la présentation et son historique dans l'export ; l'import les fusionne ; aller-retour identique
+- [x] Onglet Tables : le panneau « Présentation — effet immédiat » (aperçu, Appliquer, historique, Rétablir), le brouillon sans ces champs pour les clés connues
+- [x] Pictogramme de l'opération sur la page Question : celui des tables
+- [x] Tests (liste blanche, séance épinglée à une vieille version, attestation identique octet pour octet, rétablissement, validation, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
+- [x] Documents : SPEC §3, §7, §10 ; UI §1, §3.9 ; CLAUDE.md ; DEMARRAGE
+- [ ] **Thierry** : trancher les points du rapport ; après la fusion, ouvrir l'onglet Tables de référence (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a) et vérifier la présentation de départ
 
 ### Jalon E5-2 — la cascade des tables et le retour en arrière des versions
 - [ ] Publier des tables propose tous les exercices sur la version remplacée (archivés compris), chacun décochable, avec `exerciseTablesImpact` ; republie leur dernier contenu publié, jamais le brouillon ; fait passer le brouillon s'il était sur la version remplacée ; un exercice en erreur est nommé et laissé tel quel
