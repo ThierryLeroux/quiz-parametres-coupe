@@ -1,4 +1,4 @@
-// La galerie d'images de l'éditeur (jalon 7b, décision D56 ; UI §3.9) et la préparation d'un
+// La galerie d'images de la Gestion du contenu (jalon 7b, décision D56 ; UI §3.9) et la préparation d'un
 // téléversement : ce module touche au DOM (canvas, FileReader) ; les règles — plan de réduction,
 // taille cible, filtre de la galerie — sont dans editeur-data.js (pur, testé).
 

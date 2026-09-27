@@ -25,7 +25,7 @@ async function editeurDeTest(options = {}) {
   return serveur;
 }
 
-// Le brouillon des tables, tel que l'éditeur le reçoit : { contenu, revision, … } et le reste de la page.
+// Le brouillon des tables, tel que la Gestion du contenu le reçoit : { contenu, revision, … } et le reste de la page.
 async function brouillonTables(serveur) {
   const { status, corps } = await serveur.editeur('GET', 'tables');
   assert.equal(status, 200, JSON.stringify(corps));

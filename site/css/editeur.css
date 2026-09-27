@@ -1,7 +1,7 @@
-/* L'éditeur des exercices et de la banque d'outils (docs/UI.md §3.9, jalon 7a). Ordinateur d'abord,
+/* La Gestion du contenu — exercices, banque d'outils, tables, images, sauvegarde (docs/UI.md §3.9, jalon 7a, D74). Ordinateur d'abord,
    utilisable à 390 px pour une retouche : les grilles passent à une colonne, les tableaux défilent
    dans leur cadre (table-wrap, prof.css). Les composants (panneau, champ, bouton, onglets) viennent
-   de base.css et prof.css ; ici, seulement la disposition propre à l'éditeur. */
+   de base.css et prof.css ; ici, seulement la disposition propre à la Gestion du contenu. */
 
 .editeur { max-width: 1400px; }
 .editeur .panel + .panel { margin-top: var(--space-5); }
@@ -246,7 +246,7 @@
 .sauvegarde-etapes { margin: var(--space-4) 0 0; padding-left: 1.5em; display: grid; gap: var(--space-4); }
 .sauvegarde-etapes input[type='file'] { display: block; margin-top: var(--space-2); color: var(--color-text); font-family: var(--font-text); }
 
-/* Lien vers l'éditeur depuis l'espace professeur, et retour. */
+/* Lien vers la Gestion du contenu depuis l'espace professeur, et retour. */
 .prof-editeur-link { margin-top: var(--space-4); }
 
 @media (min-width: 720px) {

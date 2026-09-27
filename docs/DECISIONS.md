@@ -1835,7 +1835,7 @@ attendu … ». Le serveur joint à chaque champ corrigé `coherence` (`null`, o
 attendue est faite : `{ saisies: ['fz'], dents: 2 }`, `{ saisies: ['n', 'f'] }`) ; le texte est une règle
 d'affichage pure (`coherenceSource`, `fieldResultNote`, `text.js`). SPEC §7 ; UI §3.4.
 
-## D71 — Grandeurs en toutes lettres et « tr/min », virgule convertie à la sortie du champ, accueil unique par cours, page de description d'un exercice (2026-09-27, décidée)
+## D71 — Grandeurs en toutes lettres et « tr/min », virgule convertie à la sortie du champ, accueil unique par cours, page de description d'un exercice (2026-09-27, décidée ; point 8 remplacé par D74)
 
 **Contexte.** Lot issu d'un remue-méninges de Thierry (rapport `docs/rapports/accueil-et-libelles.md`). Les
 rétroactions nomment les grandeurs par leur symbole (« Ta N de 3200 est à +6.7 % de 3000 ») ; l'unité de vitesse
@@ -1906,7 +1906,8 @@ un exercice avant de le donner.
    gardé avant cette version, sans exercice, se comporte comme avant.
 8. **Le nom d'un exercice identifie l'exercice pour les étudiants** : à la publication, le panneau de confirmation
    **signale** — en rouge, sans bloquer — un autre exercice publié et non archivé qui porte le même titre (sans tenir
-   compte de la casse, des accents ni des espaces), en le nommant.
+   compte de la casse, des accents ni des espaces), en le nommant. *(Remplacé par D74 : un tel doublon bloque
+   désormais la publication.)*
 
 **Conséquences.** `text.js` (`FIELD_PARTS`, `FIELD_LABELS`, `FIELD_NAMES`, `coherenceSource`, `decimalPoint`),
 `rules.js` (`gapExplanation`, `helpLine`, `diameterLines`), `correction.js` (`toleranceLabel`), `question-screen.js`,
@@ -1979,3 +1980,52 @@ pas de plan B, aucun secret à reposer.
 commentaires de `worker/crypto.js` et `site/js/session.js` ; `DEMARRAGE.md` §4 et §7 ; SPEC §7 ; CLAUDE.md ; PLAN ;
 tests (nom du Worker, adresses d'exemple) ; rapport `docs/rapports/accueil-et-libelles.md` (§6, « Suites données »).
 Remplace D72 pour le nom du Worker, l'adresse et la procédure.
+
+## D74 — « Gestion du contenu », bouton « Modifier », un titre en double bloque la publication (2026-09-27, décidée)
+
+**Contexte.** Trois retouches de la page `/prof/editeur` (éléments E1 à E3 de la liste de Thierry ; rapport
+`docs/rapports/gestion-du-contenu.md`). La page ne gère plus seulement les exercices : banque d'outils, tables de
+référence, images et sauvegarde s'y ajoutent depuis les jalons 7a et 7b, et « Éditeur des exercices » la décrit mal.
+Dans ses listes, le bouton qui ouvre un élément s'appelle « Ouvrir », alors qu'on l'ouvre pour le modifier. Enfin,
+D71 (point 8) ne fait que **signaler** en rouge un autre exercice publié du même titre : rien n'empêche deux exercices
+indiscernables à l'accueil.
+
+**Décision.**
+
+1. **La page s'appelle « Gestion du contenu »** : titre de l'onglet du navigateur, en-tête, lien de la barre du haut
+   de l'espace professeur (rôle admin), phrase du panneau « Enseignants » de l'accueil, et les messages qui la
+   nommaient (connexion refusée à la clé de consultation, fichier qui n'est pas un export). **Ne changent pas** :
+   l'adresse `/prof/editeur`, les routes `/api/prof/editeur/*`, les noms de fichiers (`editeur.html`, `editeur.js`,
+   `editeur.css`, `worker/editeur.js`…), les identifiants du code, les actions du journal (`editeur_publication`…)
+   et le format d'export. Les documents vivants (SPEC, UI, PLAN, DEMARRAGE, CLAUDE.md) et les commentaires suivent ;
+   les décisions passées et les rapports gardent « éditeur », le nom de l'époque.
+2. **« Modifier » au lieu d'« Ouvrir »** pour le bouton qui ouvre un élément d'une liste afin de le modifier. Seules
+   deux listes en ont un : **Exercices** et **Banque d'outils**. Les autres onglets n'ont pas d'équivalent : les
+   tables de référence n'ont qu'un brouillon, déjà modifiable sur la page (leurs versions publiées, immuables,
+   n'offrent que « Feuilles imprimables ») ; une image ne se modifie pas (elle se renomme, s'archive ou se
+   supprime) ; la Sauvegarde n'a pas de liste. Le titre en lien de chaque ligne ouvre toujours la même page.
+3. **Un titre en double bloque la publication** (remplace D71, point 8, « sans bloquer ») : la publication d'un
+   exercice est **refusée tant qu'un AUTRE exercice publié et non archivé** a pour titre (celui de sa dernière
+   version publiée) le titre du brouillon à publier — même comparaison qu'avant : sans tenir compte de la casse, des
+   accents ni des espaces (`titleKey`, `sameTitleExercises`, maintenant dans `site/js/exercice.js`, en un seul
+   exemplaire pour l'écran et le serveur).
+   - **Des deux côtés** : le serveur refuse (`POST /api/prof/editeur/exercice/publier` → 400, `doublons` joints),
+     même si l'on contourne l'écran ; à l'écran, le panneau de confirmation affiche le refus en rouge et le bouton
+     « Publier la version n » est inactif.
+   - **Le message nomme l'exercice en conflit** (titre et identifiant) **et dit quoi faire** : « Publication refusée :
+     un autre exercice publié porte déjà ce titre : « … » (id). Les étudiants reconnaissent un exercice à son titre :
+     change le titre de l'un des deux, puis publie. »
+   - **Les brouillons restent libres** : enregistrer, renommer, dupliquer, créer ne sont jamais refusés pour un titre.
+   - **Republier le même exercice** ne se bloque jamais lui-même ; un exercice **archivé** ne compte pas, un exercice
+     jamais publié non plus.
+   - **Les doublons déjà en production restent en place** : rien ne les défait ; le blocage joue à la prochaine
+     publication de l'un ou de l'autre (il faudra alors changer un titre, ou archiver l'autre exercice).
+   - **Hors du blocage**, faute de consigne (points à trancher du rapport) : rétablir un exercice archivé dont le
+     titre est pris, l'import d'une sauvegarde (une restauration), et `npm run publier:test-complet` (base locale
+     seulement, D70).
+
+**Conséquences.** `site/prof/editeur.html`, `site/js/ui/editeur.js`, `prof.js`, `home-screen.js`,
+`worker/editeur.js` (message d'import) ; `site/js/exercice.js` (`titleKey`, `sameTitleExercises`,
+`sameTitleRefusal`), `site/js/ui/editeur-data.js`, `worker/index.js` (publication) ; `site/css/editeur.css` ; tests
+(textes visibles, doublon à l'écran et au serveur) ; SPEC §7, §8, §10 ; UI §2, §3.8, §3.9 ; PLAN ; DEMARRAGE ;
+CLAUDE.md ; commentaires. Remplace D71, point 8.

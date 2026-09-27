@@ -183,8 +183,8 @@ function showDashboard() {
 function headerAside() {
   return [
     el('span', {}, roleLabel(state.role)),
-    // L'éditeur des exercices (jalon 7a, D47) : rôle admin seulement — le serveur refuse de toute façon la clé de consultation.
-    ...(canAct(state.role) ? [el('a', { class: 'button-link', href: '/prof/editeur' }, 'Éditeur des exercices')] : []),
+    // La Gestion du contenu (jalon 7a, D47, D74) : rôle admin seulement — le serveur refuse de toute façon la clé de consultation.
+    ...(canAct(state.role) ? [el('a', { class: 'button-link', href: '/prof/editeur' }, 'Gestion du contenu')] : []),
     el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter'),
   ];
 }

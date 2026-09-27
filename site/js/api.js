@@ -174,7 +174,7 @@ export function listIdentityCorrections(request) {
   return call('GET', '/api/prof/identites', {}, request);
 }
 
-// --- L'éditeur (jalon 7a, D47 à D49) : rôle admin, même cookie que l'espace professeur ----------------------------
+// --- La Gestion du contenu (jalon 7a, D47 à D49, D74) : rôle admin, même cookie que l'espace professeur ----------------------------
 
 const editor = (method, path, body, request) => call(method, `/api/prof/editeur/${path}`, body === undefined ? {} : { body }, request);
 

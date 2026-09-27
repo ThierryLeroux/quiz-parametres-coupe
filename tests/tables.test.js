@@ -71,7 +71,7 @@ test('validateTables : les vraies tables sont valides ; classes ISO et matières
   assert.deepEqual(validateTables(t4), ["classes_iso[0] (P) : « image_chaleur » doit être l'identifiant d'une image (ou null)"]);
   t4.materiaux.classes_iso[0].image_chaleur = 'img-0123456789abcdef';
   assert.deepEqual(validateTables(t4), []);
-  // Avec les fiches des images (l'éditeur) : une image de classe archivée ou inconnue est une erreur nommée ; sans elles, non.
+  // Avec les fiches des images (la Gestion du contenu) : une image de classe archivée ou inconnue est une erreur nommée ; sans elles, non.
   const fiches = DEFAULT_ISO_CLASSES.map((c) => c.image_chaleur).filter(Boolean)
     .filter((id) => id !== 'copeaux-k-chaleur').map((id) => ({ id, archivee_le: id === 'copeaux-p-chaleur' ? '2026-09-26T13:00:00.000Z' : null }));
   const t5 = tables();

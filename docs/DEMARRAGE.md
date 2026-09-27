@@ -131,7 +131,7 @@ regarder https://www.cloudflarestatus.com avant de toucher à quoi que ce soit.
 
 **Étape 5 — Remplacer les liens.** Sur Léa, chaque lien `https://quiz-parametres-coupe.thierryleroux.workers.dev/?exercice=<id>`
 devient `https://quiz-parametres-coupe.tgm-tmi.workers.dev/?exercice=<id>` (le bouton **Copier le lien** de la
-page de l'exercice, ou **Copier le lien étudiant** de l'éditeur, donne le bon). Mettre à jour les favoris de
+page de l'exercice, ou **Copier le lien étudiant** de la Gestion du contenu, donne le bon). Mettre à jour les favoris de
 l'espace professeur. Les QR des attestations déjà remises ne s'ouvrent plus : leur **code** se vérifie sur la
 nouvelle page `/verifier`, et l'adresse entière du QR, collée dans le même champ, marche aussi.
 
@@ -200,7 +200,7 @@ seule fois, dans PowerShell, à la racine du dépôt (après `npm install`) :
    ```
 
    (D70 : il prend `site/exercices/test-complet.json` et la banque d'outils de la
-   base locale, et le publie comme le ferait l'éditeur ; relancé, il ne republie
+   base locale, et le publie comme le ferait la Gestion du contenu ; relancé, il ne republie
    que si la banque ou le fichier ont changé ; **il refuse `--remote`** et ne
    touche jamais la production). Puis ouvrir
    <http://localhost:8787/?exercice=test-complet>. Un bandeau « Mode test »
@@ -230,7 +230,7 @@ appliquée dans la table `d1_migrations` et ne la rejoue jamais), et la page ser
 remèdes, au choix, **`npm run dev` arrêté** (Ctrl+C), depuis la racine du dépôt, dans PowerShell :
 
 - **Remettre la base locale à neuf** — tout ce que la base locale contenait (séances d'essai, brouillons et
-  images de l'éditeur local) disparaît ; faire d'abord un export dans l'onglet Sauvegarde de l'éditeur local
+  images de la Gestion du contenu locale) disparaît ; faire d'abord un export dans son onglet Sauvegarde
   si on y tient. Au prochain `npm run dev`, toutes les migrations sont réappliquées :
 
   ```powershell
@@ -298,14 +298,15 @@ séance, avec une boîte de confirmation qui nomme l'étudiant :
   supprimée » à la vérification, avec la date. L'étudiant peut recommencer de
   zéro avec le même matricule.
 
-Et, dans la barre du haut, **Éditeur des exercices** (`…/prof/editeur`, jalon 7a,
-décisions D47 à D49) : la clé d'administration seule y entre. C'est là que se
+Et, dans la barre du haut, **Gestion du contenu** (`…/prof/editeur`, jalon 7a,
+décisions D47 à D49 ; « Éditeur des exercices » jusqu'à D74) : la clé d'administration seule y entre. C'est là que se
 créent et se modifient les exercices et la banque d'outils, **en production, sans
 commit ni déploiement** : un exercice a un brouillon (modifiable) et des versions
 publiées (numérotées, figées) ; les étudiants voient la dernière version publiée,
 et une séance commencée garde la sienne jusqu'à la fin. « Publier » résume les
-différences avant de créer la version ; « Aperçu » tire dix questions avec leurs
-réponses. Mode d'emploi : `docs/UI.md` §3.9.
+différences avant de créer la version, et refuse un titre déjà porté par un autre
+exercice publié et non archivé (D74) ; « Aperçu » tire dix questions avec leurs
+réponses. Dans les listes, **Modifier** ouvre un exercice ou un outil. Mode d'emploi : `docs/UI.md` §3.9.
 
 Les **tables de référence** (onglet **Tables de référence**, décisions D61 à D63) : les vitesses
 de coupe, les avances, les classes ISO et leurs couleurs, les matières d'outil, les
@@ -338,7 +339,7 @@ liste), publier la copie, donner le nouveau lien sur Léa, puis **archiver**
 l'ancien : ses séances en cours finissent, ses attestations restent vérifiables,
 et il n'apparaît plus dans la liste de l'accueil.
 
-**Sauvegarde et restauration** (onglet **Sauvegarde** de l'éditeur, décision D49) :
+**Sauvegarde et restauration** (onglet **Sauvegarde** de la Gestion du contenu, décision D49) :
 
 - **Sauvegarder** : **Exporter tout en JSON** télécharge
   `quiz-parametres-coupe-exercices-AAAA-MM-JJ.json` — les tables de référence, la

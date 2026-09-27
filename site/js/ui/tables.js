@@ -1,6 +1,6 @@
 // La page /tables?version=<révision> (jalon 7b, décision D63) : les trois feuilles de référence d'une
 // version publiée des tables — vitesses de coupe, avances, formules —, telles que l'étudiant les voit,
-// avec les couleurs de cette version, prêtes à imprimer. Ouverte depuis l'éditeur (onglet Tables de
+// avec les couleurs de cette version, prêtes à imprimer. Ouverte depuis la Gestion du contenu (onglet Tables de
 // référence, liste des versions). Publique : ce sont les feuilles de l'atelier.
 
 import { getTables } from '../api.js';

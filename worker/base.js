@@ -432,7 +432,7 @@ export async function listVersions(db, exerciceId) {
   return results;
 }
 
-// Tous les exercices, pour la liste de l'éditeur : la fiche, le brouillon, le contenu de la dernière
+// Tous les exercices, pour la liste de la Gestion du contenu : la fiche, le brouillon, le contenu de la dernière
 // version et le nombre de séances (toutes versions confondues). Les versions détaillées : listVersions.
 export async function listExercises(db) {
   const { results } = await db.prepare(`
@@ -640,7 +640,7 @@ export async function listImagesWithContent(db) {
 
 // --- Sauvegarde : export complet, import par fusion (D49) ---
 
-// Tout ce que l'éditeur gère : tables de référence (versions et brouillon, D61), banque, exercices
+// Tout ce que la Gestion du contenu gère : tables de référence (versions et brouillon, D61), banque, exercices
 // avec leur version de tables (D62) et toutes leurs versions.
 export async function exportEditorData(db) {
   const tables = await listTables(db);

@@ -51,7 +51,7 @@ export async function loadLatest(db, exerciseId) {
 }
 
 // Le brouillon d'un exercice, assemblé avec des tables de référence — celles de sa version de tables
-// (D62), ou celles données (l'aperçu d'un brouillon de tables, D63) — pour l'aperçu de l'éditeur.
+// (D62), ou celles données (l'aperçu d'un brouillon de tables, D63) — pour l'aperçu de la Gestion du contenu.
 // Jamais gardé en mémoire : il change. Lève si le brouillon est invalide.
 //   draft  : le brouillon à assembler (celui de la requête, ou celui de la base)
 //   tables : { id?, materiaux, operations } — la version de tables (complétée ici)

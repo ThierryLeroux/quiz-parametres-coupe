@@ -1,7 +1,7 @@
 // Exercices configurables (décision D11, SPEC §10) : validation et chargement de
 // site/exercices/<id>.json. Un exercice choisit dans le catalogue (data.js) les outils
 // évalués, leurs réussites requises, les champs évalués et d'éventuelles restrictions.
-// La même validation sert aux tests, au quiz et à l'éditeur.
+// La même validation sert aux tests, au quiz et à la Gestion du contenu.
 
 import { TOOL_KEYS, fetchJson, toolErrors, toolMaterialNames } from './data.js';
 
@@ -38,6 +38,33 @@ export function courseErrors(course) {
   if (course.trim().length > COURSE_MAX) return [`Le cours a ${course.trim().length} caractères (au plus ${COURSE_MAX}).`];
   if (courseKey(course) === '') return ['Le cours doit contenir au moins une lettre ou un chiffre.'];
   return [];
+}
+
+// --- Le titre identifie l'exercice pour les étudiants (D71, D74) --------------------------------------------------
+// Deux exercices publiés et non archivés ne portent pas le même titre : la publication est refusée, par le serveur
+// comme à l'écran (D74). Les brouillons restent libres ; un exercice archivé ou jamais publié ne compte pas.
+
+// La clé d'un titre, pour reconnaître un même titre écrit autrement : sans casse, sans accents, les espaces réduits à
+// un seul — « M10 — Tournage : vitesse de coupe » et « m10 — tournage :   VITESSE de coupé » ont la même.
+export const titleKey = (text) => String(text ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+// Les AUTRES exercices publiés et non archivés dont le titre publié est celui-ci : [{ id, titre }], dans l'ordre reçu.
+//   title     : le titre du brouillon à publier
+//   published : [{ id, titre, archive_le }] — titre : celui de la dernière version publiée (null : jamais publié)
+//   exceptId  : l'exercice qu'on publie — republier le même exercice ne se bloque jamais lui-même
+export function sameTitleExercises(title, published, exceptId) {
+  if (titleKey(title) === '') return [];
+  return published
+    .filter((row) => row.id !== exceptId && row.archive_le === null && typeof row.titre === 'string' && titleKey(row.titre) === titleKey(title))
+    .map((row) => ({ id: row.id, titre: row.titre }));
+}
+
+// Le refus, le même dans la réponse du serveur et à l'écran : il nomme les exercices en conflit et dit quoi faire.
+export function sameTitleRefusal(twins) {
+  const others = twins.map((t) => `« ${t.titre} » (${t.id})`).join(', ');
+  return twins.length > 1
+    ? `Publication refusée : d'autres exercices publiés portent déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : change le titre de celui-ci (ou ceux des autres), puis publie.`
+    : `Publication refusée : un autre exercice publié porte déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : change le titre de l'un des deux, puis publie.`;
 }
 
 // Une clé inconnue est une erreur : « dimension » pour « dimensions » lèverait sinon la
@@ -208,7 +235,7 @@ export function engineExercise(id, version, draft) {
 }
 
 // Les erreurs d'un brouillon, chacune avec le champ en cause : [{ champ, message }] — « titre »,
-// « outils.2.fact_vc »… L'éditeur les écrit à côté du champ, le serveur refuse de publier tant
+// « outils.2.fact_vc »… La Gestion du contenu les écrit à côté du champ, le serveur refuse de publier tant
 // qu'il en reste. La règle d'un outil est celle du catalogue (toolErrors : le même validateData que le quiz).
 //   tables : { materiaux, operations } — le contenu des deux tables de référence, tels quels
 // Ne lève jamais d'exception ; liste vide = brouillon publiable.

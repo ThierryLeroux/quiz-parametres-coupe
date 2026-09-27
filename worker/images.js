@@ -125,7 +125,7 @@ export function imageHeaders(row) {
   return headers;
 }
 
-// La fiche d'une image telle que l'éditeur la reçoit (sans le contenu).
+// La fiche d'une image telle que la Gestion du contenu la reçoit (sans le contenu).
 export const imageView = ({ id, nom, usage, type, taille, empreinte, creee_le, archivee_le }) => ({ id, nom, usage, type, taille, empreinte, creee_le, archivee_le });
 
 // --- Où une image est utilisée --------------------------------------------------------------------------------

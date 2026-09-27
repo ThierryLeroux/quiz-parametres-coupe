@@ -71,7 +71,7 @@ test('migrations 0005 et 0006 sur des données réelles : les séances existante
   const avant = contenu(db);
   assert.deepEqual(avant, contenu(production.db));
 
-  // 3. La 0005 seule : les tables de l'éditeur arrivent semées, et chaque séance pointe vers la version 1 de son exercice.
+  // 3. La 0005 seule : les tables de la Gestion du contenu arrivent semées, et chaque séance pointe vers la version 1 de son exercice.
   db.sqlite.exec(migrationSql(5));
   db.sqlite.exec(migrationSql(6));
   assert.deepEqual(contenu(db), avant); // rien d'autre n'a bougé

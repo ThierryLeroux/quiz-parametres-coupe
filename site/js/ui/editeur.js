@@ -1,4 +1,6 @@
-// L'éditeur des exercices et de la banque d'outils (jalons 7a et 7b, décisions D47 à D49, D56 à D59 ; UI §3.9).
+// La Gestion du contenu — exercices, banque d'outils, tables de référence, images, sauvegarde (jalons 7a et 7b,
+// décisions D47 à D49, D56 à D59, D74 ; UI §3.9). « Éditeur des exercices » jusqu'à D74 : l'adresse /prof/editeur,
+// les routes /api/prof/editeur/* et les noms de fichiers gardent « editeur ».
 // Rôle admin seulement : la même clé que l'espace professeur ; le serveur refuse la clé de
 // consultation sur chaque route. Ce qu'on montre est décidé par editeur-data.js (pur, testé) et la
 // validation est celle du quiz (draftErrors, site/js/exercice.js) ; ici, on construit le DOM.
@@ -15,11 +17,11 @@ import {
   editorTables, editorTablesPreview, editorTablesPublish, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
-import { copyOfTool, draftErrors } from '../exercice.js';
+import { copyOfTool, draftErrors, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, sameTitleExercises, sameTitleWarning, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, moveItem, parseDimensions, permittedTokens, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -27,7 +29,7 @@ import { formatDateStamp, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
 convertDecimalCommas(main); // une virgule tapée devient un point à la sortie d'un champ décimal (D71)
-const TITLE = 'Éditeur des exercices';
+const TITLE = 'Gestion du contenu'; // le nom de la page (D74) ; son adresse reste /prof/editeur
 
 // Un identifiant libre parmi ceux pris : « mvlnr », « mvlnr_2 »…
 function freeId(wanted, taken) {
@@ -61,7 +63,7 @@ function showLogin(notice = '') {
       const { role } = await teacherLogin(input.value);
       if (role !== 'admin') {
         await teacherLogout().catch(() => {});
-        throw new Error("L'éditeur est réservé à la clé d'administration : la clé de consultation ne fait que lire l'espace professeur.");
+        throw new Error("La Gestion du contenu est réservée à la clé d'administration : la clé de consultation ne fait que lire l'espace professeur.");
       }
       state.connected = true;
       await showList();
@@ -74,7 +76,7 @@ function showLogin(notice = '') {
   const screen = el('div', { class: 'screen screen--narrow' }, el('section', { class: 'panel' }, [
     el('div', { class: 'eyebrow' }, TITLE),
     el('h1', { tabindex: '-1' }, 'Connexion'),
-    el('p', { class: 'muted small' }, "Entre la clé d'administration du serveur de correction. L'éditeur n'est pas ouvert à la clé de consultation. La séance dure 12 h."),
+    el('p', { class: 'muted small' }, "Entre la clé d'administration du serveur de correction. La Gestion du contenu n'est pas ouverte à la clé de consultation. La séance dure 12 h."),
     el('form', { novalidate: true, onsubmit: submit }, [
       el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration. Cinq essais, puis un délai croissant.")])),
       el('div', { class: 'form-actions' }, [status, button]),
@@ -83,7 +85,7 @@ function showLogin(notice = '') {
   showScreen(main, screen, { title: TITLE, aside: 'TGM-TMI' }, '#cle');
 }
 
-// Un appel à l'éditeur : un 401 ramène à la connexion, un 403 dit que la clé ne permet pas d'éditer.
+// Un appel à la Gestion du contenu : un 401 ramène à la connexion, un 403 dit que la clé ne permet pas d'éditer.
 async function guarded(action) {
   try {
     return await action();
@@ -137,7 +139,7 @@ async function showList(notice = '') {
   const rows = response.exercices.map((row, i) => {
     const open = () => leave(showExercise, row.id);
     const actions = [
-      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: open }, 'Ouvrir'),
+      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: open }, 'Modifier'), // « Modifier », dans toutes les listes (D74)
       // L'ordre de la liste est aussi celui de l'accueil des étudiants (D51).
       el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter dans la liste', onclick: () => act(() => editorMoveExercise(row.id, row.rang, 'monter')) }, '↑'),
       el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === response.exercices.length - 1, title: 'Descendre dans la liste', onclick: () => act(() => editorMoveExercise(row.id, row.rang, 'descendre')) }, '↓'),
@@ -661,13 +663,14 @@ async function showExercise(id, notice = '') {
   const dialogSlot = el('div');
   publishButton.addEventListener('click', async () => {
     if (!(await save())) return;
-    // Le titre identifie l'exercice pour les étudiants (D71) : un autre exercice publié du même titre est signalé.
+    // Le titre identifie l'exercice pour les étudiants : un autre exercice publié et non archivé du même titre bloque
+    // la publication (D74) — le serveur refuse de toute façon ; ici, le refus s'affiche et le bouton reste inactif.
     const listing = await guarded(() => editorListExercises());
     if (listing === null) return;
-    const twins = sameTitleExercises(readDraft().titre, listing.exercices, id);
+    const twins = sameTitleExercises(readDraft().titre, publishedTitles(listing.exercices), id);
     const diff = versionDiff(page.derniere_version?.contenu ?? null, readDraft(), { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id });
     const numero = (page.derniere_version?.numero ?? 0) + 1;
-    const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
+    const confirm = el('button', { class: 'button button--gold', type: 'button', disabled: twins.length > 0, onclick: async () => {
       confirm.disabled = true;
       try {
         const result = await guarded(() => editorPublish(id, revision));
@@ -682,9 +685,9 @@ async function showExercise(id, notice = '') {
     dialogSlot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
       el('div', { class: 'eyebrow' }, 'Confirmation'),
       el('h2', {}, `Publier la version ${numero} de « ${readDraft().titre} » ?`),
+      ...(twins.length > 0 ? [el('p', { class: 'small avis-doublon', role: 'alert' }, sameTitleRefusal(twins))] : []),
       el('p', { class: 'small' }, page.derniere_version === null ? "Première publication : l'exercice devient accessible aux étudiants par son lien." : `Différences avec la version ${page.derniere_version.numero} :`),
       el('ul', { class: 'editeur-diff' }, diffLines(diff).map((line) => el('li', {}, line))),
-      ...(twins.length > 0 ? [el('p', { class: 'small avis-doublon', role: 'alert' }, sameTitleWarning(twins))] : []),
       ...(deducibleWarnings(readDraft()).length > 0 ? [
         el('p', { class: 'small' }, "Avertissement, sans effet sur la publication : une grandeur à trouver se déduit des grandeurs fournies."),
         el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft()).map((line) => el('li', {}, line))),
@@ -819,7 +822,7 @@ async function showBank(notice = '') {
     el('td', {}, row.exercices.length === 0 ? 'aucun' : `${row.exercices.length} (${row.exercices.join(', ')})`),
     el('td', { class: row.archive_le === null ? '' : 'state--running' }, row.archive_le === null ? 'disponible' : `archivé le ${formatDateStamp(row.archive_le)}`),
     el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
-      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => leave(showBankTool, row.id) }, 'Ouvrir'),
+      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => leave(showBankTool, row.id) }, 'Modifier'),
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => {
         const id = window.prompt(`Identifiant du nouvel outil (minuscules, chiffres, soulignés), copie de « ${row.outil.nom} » :`, `${row.id}_2`);
         if (id) act(() => editorBankCreate({ id: id.trim(), depuis: row.id }), `« ${row.outil.nom} » dupliqué sous « ${id.trim()} ».`);

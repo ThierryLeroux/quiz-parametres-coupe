@@ -25,9 +25,10 @@ révolution, vitesse d'avance). La configuration d'un exercice (quels outils,
 combien de réussites, quels champs pré-remplis) doit permettre de reproduire le
 M10 actuel (« Vc seulement, tournage ») comme simple cas particulier (§10).
 
-Un **éditeur web** des exercices et de la banque d'outils fait aussi partie de la
-v1 (décisions D11, D47 à D49) : depuis le jalon 7a, il écrit **en production, dans
-la base D1**, derrière la clé d'administration (§8, §10). Les exercices et la
+Une page web de **Gestion du contenu** (`/prof/editeur` ; exercices, banque d'outils,
+tables de référence, images, sauvegarde) fait aussi partie de la v1 (décisions D11,
+D47 à D49, D74 : « éditeur des exercices » jusque-là) : depuis le jalon 7a, elle écrit
+**en production, dans la base D1**, derrière la clé d'administration (§8, §10). Les exercices et la
 banque n'y sont plus des fichiers du dépôt.
 
 ## 3. Données de référence (`site/data/`, et la table `tables_reference`)
@@ -39,7 +40,7 @@ quels comme version « A2026_r0 » de la table `tables_reference` (`materiaux` e
 un outil par ligne). Depuis, **le serveur et le navigateur lisent la base**, pas
 les fichiers ; les JSON ne servent plus qu'à la semence et aux tests (un test vérifie
 que la semence leur est identique). Les éditer ne change rien en production :
-c'est l'éditeur (§10) qui modifie la banque, et le jalon 7b qui versionnera les
+c'est la Gestion du contenu (§10) qui modifie la banque, et le jalon 7b qui versionnera les
 tables. Le format ci-dessous reste celui des tables en base.
 
 | Fichier | Contenu | Source Excel |
@@ -62,7 +63,7 @@ exercice est dans l'exercice (§10). `loadData` la rend dans `revisions`.
 = un trait fin au-dessus de sa ligne dans la feuille des vitesses de coupe : il
 marque un changement de **matériau usiné** (compositions et états d'un même
 matériau restent ensemble ; plastiques et graphite, groupes 42 à 47, forment une
-seule famille). Booléen facultatif, **donnée et non calcul** : l'éditeur peut le
+seule famille). Booléen facultatif, **donnée et non calcul** : la Gestion du contenu peut le
 changer. Il ne sert qu'à la feuille ; il n'entre pas dans la question tirée.
 
 **Outil à deux diamètres (décision D25).** Pour la barre à aléser et la barre
@@ -92,8 +93,8 @@ Champ `limite_avance` de `outils.json` : **obsolète** (D69). Présent dans le
 classeur, ce **n'est pas un plafond** : ni le moteur ni le VBA ne l'utilisent ; le
 seul plafond d'avance est `avance_max_po_rev` de l'opération (§5). La clé reste
 **acceptée** dans les données — absente, `null` ou un nombre > 0 —, sans
-migration : les outils semés la gardent, l'éditeur ne la montre plus et la garde
-telle quelle à l'enregistrement, un outil créé dans l'éditeur ne l'a pas.
+migration : les outils semés la gardent, la Gestion du contenu ne la montre plus et la garde
+telle quelle à l'enregistrement, un outil qu'on y crée ne l'a pas.
 
 Groupes « O - Plastique renforci d'aramid » et « O - Graphite » : **volontairement** attachés à aucun outil (jugés trop rares pour les étudiants) ; ils restent au catalogue pour pouvoir l'être plus tard.
 
@@ -105,7 +106,7 @@ jamais sous le même identifiant). Le champ `image` d'un outil nomme sa photo (u
 image d'usage `outil` ; sinon l'identifiant de l'outil) ; le pictogramme d'une opération
 est son `pictogramme` s'il en a un, sinon le slug de son nom. Les fichiers de
 `site/img/outils/`, de `site/img/pictos/operations/` et de `site/img/copeaux/` ne sont plus que la **semence**
-(29 PNG, 19 SVG assainis, 6 PNG détourés par `reference/semence-d1/detourer-copeaux.mjs`, 340 px de large au plus, jamais agrandis) et les données des tests. L'éditeur téléverse (réduction
+(29 PNG, 19 SVG assainis, 6 PNG détourés par `reference/semence-d1/detourer-copeaux.mjs`, 340 px de large au plus, jamais agrandis) et les données des tests. La Gestion du contenu téléverse (réduction
 dans le navigateur : photo 800 px, en JPEG sur fond blanc ou en PNG sans fond si elle a
 au moins un pixel non opaque (D60) ; pictogramme 256 px en PNG ; image de classe 340 px en PNG (D67) ; SVG tel quel
 puis assaini par liste blanche ou refusé), renomme, archive (retirée des galeries,
@@ -113,7 +114,7 @@ toujours servie) ou supprime (jamais utilisée seulement) ; un doublon exact n'e
 pas stocké deux fois (empreinte SHA-256).
 
 **Tables versionnées (décisions D61 à D63).** Depuis la partie B du jalon 7b, les
-tables s'éditent dans l'éditeur : **un brouillon unique** (`brouillon_tables`,
+tables se modifient dans la Gestion du contenu : **un brouillon unique** (`brouillon_tables`,
 migration `0008`) et des **versions publiées immuables** (`tables_reference`),
 chacune avec sa **révision** saisie à la publication (suggérée : la dernière
 incrémentée, « A2026_r0 » → « A2026_r1 » ; unique). Le format de `materiaux.json`
@@ -127,11 +128,11 @@ est complété par deux listes facultatives, valeurs par défaut (celles de
 
 et `operations[].pictogramme` (facultatif : l'identifiant d'une image de la base ;
 sinon le slug du nom de l'opération, les images de la semence). `groupes_iso` est
-**dérivé des lignes** par l'éditeur (« classe - matériau », dans l'ordre d'apparition).
+**dérivé des lignes** par la Gestion du contenu (« classe - matériau », dans l'ordre d'apparition).
 Chaque matériau a une classe de `classes_iso` ; chaque outil nomme ses matières
 parmi les noms de `materiaux_outil` de **sa** version de tables (D62) : renommer
 une matière met en erreur, nommément, les outils qui la nomment. **Les couleurs de
-sens vivent dans les tables** : le quiz, les feuilles et l'éditeur les lisent de la
+sens vivent dans les tables** : le quiz, les feuilles et la Gestion du contenu les lisent de la
 version en usage.
 
 ## 4. Génération d'une question
@@ -156,7 +157,7 @@ version en usage.
    | `[Operation]` | `operation` de l'outil |
    | `[Matoutil]` | matériau d'outil tiré (ex. « Acier rapide ») |
 
-   Tout autre jeton, ou un jeton sans valeur pour l'outil, ou un crochet non apparié, est une erreur **dès la validation du catalogue**. Les autres jetons du VBA (`[Couleur]`, `[FactVc]`, etc.) ne sont pas repris. Le gabarit résolu est le titre de la question, tel quel ; la progression garde le `nom` générique (`UI.md` §3.3). L'éditeur le modifie (D58) : un bouton par jeton permis pour l'outil, l'exemple composé en direct, « Autre exemple » tiré au hasard dans l'outil.
+   Tout autre jeton, ou un jeton sans valeur pour l'outil, ou un crochet non apparié, est une erreur **dès la validation du catalogue**. Les autres jetons du VBA (`[Couleur]`, `[FactVc]`, etc.) ne sont pas repris. Le gabarit résolu est le titre de la question, tel quel ; la progression garde le `nom` générique (`UI.md` §3.3). La Gestion du contenu le modifie (D58) : un bouton par jeton permis pour l'outil, l'exemple composé en direct, « Autre exemple » tiré au hasard dans l'outil.
 
 ## 5. Calcul des réponses attendues
 
@@ -386,7 +387,7 @@ base) est retirée et remplacée.
 
 Ni le NIP ni le jeton n'y sont en clair (ci-dessous). L'enseignant **efface les
 données des étudiants en fin de session** (espace professeur, §8, D46) — les
-cinq tables de l'éditeur (dont `images`) ne sont jamais touchées ; supprimer une séance
+cinq tables de la Gestion du contenu (dont `images`) ne sont jamais touchées ; supprimer une séance
 efface son journal, mais ses attestations restent, annulées (D45).
 
 **Le navigateur ne conserve que** `{ matricule, prenom, jeton, exercice }`
@@ -480,14 +481,14 @@ Aucune route `/api/prof/*` ne répond sans cookie valide (401 « Connexion
 requise. ») ; les routes d'action (**admin**) refusent le rôle consultation
 (403, D44).
 
-**L'éditeur** (`/api/prof/editeur/*`, décisions D47 à D49) : toutes les routes
+**La Gestion du contenu** (`/api/prof/editeur/*`, décisions D47 à D49, D74 : les routes gardent leur nom) : toutes les routes
 exigent le cookie avec le **rôle admin** (403 sinon), et chaque action est
 inscrite au journal des actions. Les corps sont en JSON, jusqu'à 4 Mo (un import
 porte toute la sauvegarde).
 
 | Appel | Requête | Réponse |
 |---|---|---|
-| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, cours, titre_publie, cours_publie, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) ; `titre` et `cours` : ceux du brouillon, `titre_publie` et `cours_publie` : ceux de la dernière version (`null` sans version ; D71 : les cours déjà utilisés, le doublon de titre) |
+| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, cours, titre_publie, cours_publie, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) ; `titre` et `cours` : ceux du brouillon, `titre_publie` et `cours_publie` : ceux de la dernière version (`null` sans version ; D71 : les cours déjà utilisés ; D74 : le doublon de titre, jugé sur le titre publié) |
 | `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le, tables_id }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, tables_versions, derniere_tables, erreurs }` — `tables` : la version de tables du brouillon (D62), `derniere_tables` : la plus récente ; `erreurs` : celles du brouillon contre ses tables (`draftErrors`), chacune avec son `champ` ; 404 inconnu |
 | `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié, sur la version de tables la plus récente (une copie garde celle de sa source, D62) ; 400 identifiant ou titre, 409 identifiant pris |
 | `POST /api/prof/editeur/exercice/tables` | `{ id, revision, tables_id }` | `{ change: true, tables_id, revision, erreurs }` — le brouillon passe à cette version des tables (D62), `erreurs` = celles du brouillon contre elle ; 404 version inconnue, 409 révision périmée |
@@ -496,7 +497,7 @@ porte toute la sauvegarde).
 | `POST /api/prof/editeur/exercice/deplacer` | `{ id, rang, direction: "monter" \| "descendre" }` | `{ deplace: true, id, rang }` — l'ordre de la liste et de l'accueil (D51) ; `rang` est celui que l'écran a vu : 409 s'il a changé (`rang_actuel` joint) ; 400 déjà en tête ou en queue |
 | `POST /api/prof/editeur/exercice/archiver` | `{ id, archive }` | `{ archive, id }` |
 | `POST /api/prof/editeur/exercice/supprimer` | `{ id }` | `{ supprime: true, id }` — 409 s'il a des séances (archiver alors) |
-| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; 400 s'il a des erreurs (`erreurs` jointes) ou s'il est identique à la dernière version, tables comprises (D51, D62), 409 révision périmée |
+| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; 400 s'il a des erreurs (`erreurs` jointes), s'il est identique à la dernière version, tables comprises (D51, D62), ou si un **autre exercice publié et non archivé porte son titre** (D74 : titre de sa dernière version, sans casse, accents ni espaces ; `doublons: [ { id, titre } ]` joints, le message les nomme et dit de changer l'un des titres), 409 révision périmée |
 | `POST /api/prof/editeur/apercu` | `{ id, brouillon }` ou `{ id, version }` | `{ questions: [ { identifiant, outil_id, outil, operation, dimension, barre, dents, materiau_outil, materiau, reponses } ], champs_evalues }` — dix questions, rien d'enregistré (D49) ; 400 brouillon en erreur |
 | `GET /api/prof/editeur/banque` | cookie admin | `{ outils: [ { id, outil, revision, rang, archive_le, modifie_le, exercices } ], tables }` — `exercices` : ceux dont le brouillon a une copie de cet outil |
 | `GET /api/prof/editeur/tables` | cookie admin | `{ brouillon: { contenu, revision, modifie_le, base_id }, modifie, erreurs, versions: [ { id, creee_le, utilisations: { versions_exercice, brouillons } } ], derniere, suggestion }` — le brouillon des tables complété, s'il diffère de la version dont il est parti, ses erreurs (`validateTables` avec les fiches des images : une image de classe inconnue ou archivée en est une, D64), les versions de la plus récente à la plus ancienne, la révision suggérée (D61) |
@@ -596,11 +597,11 @@ Pour chaque champ :
 
 | Code | Sens |
 |---|---|
-| 400 | requête invalide : JSON illisible, exercice inconnu ou jamais publié, exercice archivé pour une nouvelle séance, identification mal formée (le message dit quoi) ; éditeur : identifiant ou titre, brouillon en erreur à la publication, mot d'import absent |
+| 400 | requête invalide : JSON illisible, exercice inconnu ou jamais publié, exercice archivé pour une nouvelle séance, identification mal formée (le message dit quoi) ; Gestion du contenu : identifiant ou titre, brouillon en erreur à la publication, titre déjà porté par un autre exercice publié et non archivé (D74), mot d'import absent |
 | 401 | NIP incorrect (reprise, correction d'identité) ; ailleurs : jeton absent, inconnu, expiré ou **d'un autre exercice** → l'étudiant s'identifie de nouveau ; espace professeur : clé incorrecte, ou cookie absent, forgé ou expiré |
 | 403 | espace professeur : action réservée à la clé d'administration, refusée au rôle consultation (D44) |
 | 404 | adresse inconnue sous `/api/` ; reprise : aucune séance pour ce matricule dans cet exercice ; espace professeur : séance inconnue |
-| 409 | création ou correction d'identité : ce matricule a déjà une séance pour cet exercice ; correction : aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question ; attestation : l'exercice n'est pas encore réussi ; éditeur : révision périmée (enregistré ailleurs entre-temps, D48), identifiant pris, exercice à séances qu'on voudrait supprimer |
+| 409 | création ou correction d'identité : ce matricule a déjà une séance pour cet exercice ; correction : aucune question n'attend de correction (exercice réussi, question pas encore tirée, ou devenue caduque) → le navigateur redemande la question ; attestation : l'exercice n'est pas encore réussi ; Gestion du contenu : révision périmée (enregistré ailleurs entre-temps, D48), identifiant pris, exercice à séances qu'on voudrait supprimer |
 | 429 | reprise et correction d'identité : 5 essais de NIP en 10 minutes → verrou de 10 minutes, même pour le bon NIP ; correction : moins de 10 s depuis la précédente (`attendre_s` dit combien) ; consultation et vérification : limite de débit par adresse (§8) ; connexion professeur : cinq échecs par adresse, puis délai croissant |
 | 500 | erreur du serveur ; le détail reste dans ses journaux |
 
@@ -641,7 +642,7 @@ cycle complet, après avoir vérifié la cadence réelle.
 L'exercice `test-complet` (§10) sert à cet essai. Le mode ne sera **jamais**
 ouvert à une séance en production, pas même celle d'un professeur connecté
 (D55) : pour voir des questions avec leurs réponses, le professeur a l'aperçu
-de l'éditeur (§10, D49) ; pour toute séance d'étudiant, la règle « rien de ce
+de la Gestion du contenu (§10, D49) ; pour toute séance d'étudiant, la règle « rien de ce
 qui est à trouver ne part au navigateur » reste entière.
 
 **Tests.** `npm test` fait tourner le vrai Worker sur une base SQLite en mémoire
@@ -867,10 +868,11 @@ corrections d'identité, ni durées. Elle est soumise aux limites de débit
   s'il y en a une (D37), et la séance.
 - Aucune route `/api/prof/*` ne répond sans cookie valide ; le client ne
   contient aucun secret. Ordinateur d'abord, lisible à 390 px.
-- **L'éditeur des exercices** (`/prof/editeur`, décisions D47 à D49 ; `UI.md`
-  §3.9) : la même connexion, **rôle admin seulement** — la clé de consultation est
-  refusée à la connexion et par chaque route. Exercices (brouillon, versions,
-  aperçu, publication), banque d'outils, sauvegarde (export, import) : §10.
+- **La Gestion du contenu** (`/prof/editeur`, décisions D47 à D49, D74 ; `UI.md`
+  §3.9), lien de la barre du haut : la même connexion, **rôle admin seulement** — la
+  clé de consultation est refusée à la connexion et par chaque route. Exercices
+  (brouillon, versions, aperçu, publication), banque d'outils, tables de référence,
+  images, sauvegarde (export, import) : §10.
 - Il n'y aura ni clé par enseignant ni table des séances professeur (D55) :
   une séance professeur se révoque en changeant la clé (`DEMARRAGE.md` §7), et
   expire d'elle-même au plus 12 h après.
@@ -914,7 +916,7 @@ ferme D6.
   développer ; rien à installer pour l'étudiant.
 - **Les exercices, la banque d'outils, les tables de référence et les images
   vivent dans la base D1** (D47, D56) et s'éditent en production (D48) ; la
-  sauvegarde est l'export JSON de l'éditeur (D49, D59, `DEMARRAGE.md` §7).
+  sauvegarde est l'export JSON de la Gestion du contenu (D49, D59, `DEMARRAGE.md` §7).
 - **Données personnelles** : prénom, nom, matricule, NIP haché, réponses et
   résultats ne vont qu'au serveur de correction du projet, et sont **effacés par l'enseignant
   en fin de session** (§8, D46). Rien n'est envoyé à un tiers, et la page ne charge
@@ -933,7 +935,7 @@ Le **catalogue** (§3) décrit le métier ; un **exercice** choisit ce qui est
   sert plus qu'à la **semence** et aux **tests** (`test-complet` compris) ; le M10 du
   classeur est `site/exercices/m10-tournage-vc.json` ;
 - l'**exercice enregistré** en base — brouillon et versions —, avec ses **copies
-  d'outils** (« Exercice enregistré », plus bas), que l'éditeur produit et que le
+  d'outils** (« Exercice enregistré », plus bas), que la Gestion du contenu produit et que le
   serveur sert.
 
 La fonction `draftFromExercise` (`exercice.js`) convertit le premier dans le
@@ -958,7 +960,7 @@ second ; `engineExercise` rend le second au moteur.
 | Clé | Obligatoire | Règle |
 |---|---|---|
 | `id` | oui | minuscules, chiffres et tirets ; **identique au nom du fichier** (sans `.json`) |
-| `titre` | oui | texte affiché à l'étudiant et au rapport ; il identifie l'exercice pour les étudiants (D71 : un doublon est signalé à la publication) |
+| `titre` | oui | texte affiché à l'étudiant et au rapport ; il identifie l'exercice pour les étudiants : deux exercices publiés et non archivés ne portent pas le même titre (D74 : la publication est refusée ; le brouillon reste libre) |
 | `cours` | non | le cours (« M10 ») : texte de 1 à 30 caractères, avec au moins une lettre ou un chiffre (D71). L'accueil regroupe les exercices par cours, par la clé `courseKey` (sans casse, accents, espaces ni ponctuation : « m10 » et « M-10 » sont « M10 ») ; absent = « Autres exercices » |
 | `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
 | `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
@@ -996,10 +998,10 @@ Précisions :
   matériaux usinés pour **tous** les outils ; un outil sans plus aucun groupe rend
   l'exercice invalide.
 - La validation (`site/js/exercice.js`) est la même pour les tests, le quiz et
-  l'éditeur.
+  la Gestion du contenu.
 - **Liste des exercices offerts** : le serveur la compose (`GET /api/exercices`, D47)
   — les exercices publiés, non archivés, sans `"liste": false`, **dans l'ordre des
-  rangs** de l'éditeur (D51), chacun avec son cours (D71) —, et
+  rangs** de la Gestion du contenu (D51), chacun avec son cours (D71) —, et
   `site/exercices/index.json` ne sert plus qu'aux tests et à la semence.
   `?exercice=<id>` dans l'adresse ouvre la **page de description** d'un exercice
   **publié** (D71, UI §3.1). Il n'y a **pas d'exercice par défaut** (décision D18) :
@@ -1057,7 +1059,7 @@ immuables. Brouillon et version ont la même forme :
   servie par `/images/<image>` (D56).
   **Ses dimensions, ses matières et ses groupes sont ce que l'exercice permet** :
   il n'y a plus de restriction par outil, on retire de la copie.
-- **Validation** (`draftErrors`, la même dans l'éditeur et sur le serveur) : les
+- **Validation** (`draftErrors`, la même dans la Gestion du contenu et sur le serveur) : les
   règles du fichier d'exercice, plus celles de `validateData` pour chaque copie
   (`toolErrors`), chaque erreur nommant son champ (« outils.1.fact_vc »). Un
   brouillon en erreur s'enregistre, mais ne se publie pas.
@@ -1070,17 +1072,22 @@ immuables. Brouillon et version ont la même forme :
 - **Publier** = copier le brouillon tel quel comme version suivante, avec **la
   version de tables du brouillon** (D62). Un brouillon identique à la dernière
   version, tables comprises, ne se publie pas (D51) ; un changement de tables est
-  une différence (« Tables de référence : « A2026_r0 » → « A2026_r1 » »). Le
-  brouillon reste, modifiable. Le serveur sert la dernière version ; une séance
+  une différence (« Tables de référence : « A2026_r0 » → « A2026_r1 » »). **Un
+  titre déjà porté par un autre exercice publié et non archivé ne se publie pas
+  non plus** (D74 : `titleKey`, `sameTitleExercises` de `exercice.js`, la même
+  règle à l'écran et sur le serveur — casse, accents et espaces ignorés ; un
+  exercice archivé ou jamais publié ne compte pas ; republier le même exercice ne
+  se bloque pas lui-même ; un doublon déjà publié reste en place et bloque la
+  prochaine publication de l'un comme de l'autre). Le brouillon reste, modifiable. Le serveur sert la dernière version ; une séance
   garde la sienne, tables comprises (§7).
-- **Rang** (D51) : chaque exercice a un rang, celui de la liste de l'éditeur et de
+- **Rang** (D51) : chaque exercice a un rang, celui de la liste de la Gestion du contenu et de
   l'accueil ; un exercice créé prend le dernier ; Monter / Descendre réécrivent
   les rangs 1 à n.
 - **Semence** (migration `0005`) : les deux M10 du dépôt, convertis par
   `draftFromExercise`, version 1 ; `test-complet` n'est pas semé (il ne sert
   qu'aux tests, où il est publié à la volée).
-- **Sauvegarde** : l'export JSON de l'éditeur (`format`
-  « quiz-parametres-coupe/editeur/1 ») contient les tables de référence, la
+- **Sauvegarde** : l'export JSON de la Gestion du contenu (`format`
+  « quiz-parametres-coupe/editeur/1 », inchangé par D74) contient les tables de référence, la
   banque, les exercices avec toutes leurs versions et **les images** (fiche et
   contenu en base64, D59) ; l'import **fusionne** (ajoute ce qui manque, remplace
   les brouillons et la banque, ne supprime jamais une version ni un exercice,

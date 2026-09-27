@@ -1,4 +1,4 @@
-// Tests de l'API de l'éditeur (jalon 7a, décisions D47 à D49) : le vrai Worker sur une fausse D1 semée
+// Tests de l'API de la Gestion du contenu (jalon 7a, décisions D47 à D49, D74) : le vrai Worker sur une fausse D1 semée
 // (aide-serveur.js). Rôle admin seulement ; chaque action au journal ; brouillon et versions ; banque
 // d'outils ; contrôle de version optimiste ; aperçu ; export et import.
 import { test } from 'node:test';
@@ -22,7 +22,7 @@ async function connexion(serveur, cle = 'cle-admin-de-test') {
   return { cookie: `prof=${serveur.derniersEntetes.get('set-cookie').match(/^prof=([^;]+)/)[1]}` };
 }
 
-// Un serveur avec une séance professeur admin ouverte ; `editeur(methode, chemin, corps)` parle à l'éditeur.
+// Un serveur avec une séance professeur admin ouverte ; `editeur(methode, chemin, corps)` parle à la Gestion du contenu.
 async function editeurDeTest(options = {}) {
   const serveur = serveurDeTest(options);
   const entetes = await connexion(serveur);
@@ -31,7 +31,7 @@ async function editeurDeTest(options = {}) {
   return serveur;
 }
 
-// L'exercice de l'éditeur : { exercice: { brouillon, revision… }, versions, derniere_version, tables, erreurs }.
+// L'exercice de la Gestion du contenu : { exercice: { brouillon, revision… }, versions, derniere_version, tables, erreurs }.
 async function ouvrir(serveur, id) {
   const { status, corps } = await serveur.editeur('GET', `exercice?id=${id}`);
   assert.equal(status, 200, JSON.stringify(corps));
@@ -57,7 +57,7 @@ test('worker/index.js n’exporte que des fonctions et le gestionnaire : le Work
   }
 });
 
-test('chaque route de l’éditeur refuse le rôle consultation (403) et l’absence de cookie (401), sans rien écrire', async () => {
+test('chaque route de la Gestion du contenu refuse le rôle consultation (403) et l’absence de cookie (401), sans rien écrire', async () => {
   const serveur = serveurDeTest();
   const consultation = await connexion(serveur, 'cle-consultation-de-test');
   assert.ok(EDITOR_ROUTES.length >= 15, `${EDITOR_ROUTES.length} routes`);
@@ -74,7 +74,7 @@ test('chaque route de l’éditeur refuse le rôle consultation (403) et l’abs
   assert.deepEqual(photographie(), avant); // rien n'a été écrit, pas même au journal
 });
 
-test('chaque action de l’éditeur est inscrite au journal des actions, avec l’enseignant « admin » ; l’aperçu et les lectures, non', async () => {
+test('chaque action de la Gestion du contenu est inscrite au journal des actions, avec l’enseignant « admin » ; l’aperçu et les lectures, non', async () => {
   const serveur = await editeurDeTest();
   const depart = serveur.journalEnseignant().length; // la connexion
   assert.equal((await serveur.editeur('GET', 'exercices')).status, 200);
@@ -98,7 +98,7 @@ test('chaque action de l’éditeur est inscrite au journal des actions, avec l�
 
 // --- Liste des exercices (B2) ------------------------------------------------------------------------------------
 
-test('cours (D71) : enregistré avec le brouillon, validé, publié avec la version ; la liste de l’éditeur dit celui du brouillon et celui de la dernière version', async () => {
+test('cours (D71) : enregistré avec le brouillon, validé, publié avec la version ; la liste de la Gestion du contenu dit celui du brouillon et celui de la dernière version', async () => {
   const serveur = await editeurDeTest();
   const page = await ouvrir(serveur, M10);
   const trop = await enregistrer(serveur, M10, page.exercice.revision, { ...page.exercice.brouillon, cours: 'x'.repeat(31) });
@@ -233,7 +233,7 @@ test('enregistrer le brouillon : la révision monte, les erreurs sont rendues sa
   assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.titre, m10.titre);
 });
 
-test('conflit d’enregistrement (D48) : l’éditeur ouvert sur deux appareils, le second enregistrement est refusé (409) avec un message clair, rien n’est écrasé', async () => {
+test('conflit d’enregistrement (D48) : la Gestion du contenu ouverte sur deux appareils, le second enregistrement est refusé (409) avec un message clair, rien n’est écrasé', async () => {
   const serveur = await editeurDeTest();
   const poste1 = await ouvrir(serveur, M10);
   const poste2 = await ouvrir(serveur, M10);
@@ -350,6 +350,50 @@ test('publier : bloqué par une erreur de validation (400, erreurs jointes) ; pu
   // Un commentaire « _… » ou l'ordre des clés ne font pas une différence.
   assert.equal((await enregistrer(serveur, M10, 3, { ...brouillon, _note: 'x' })).status, 200);
   assert.equal((await serveur.editeur('POST', 'exercice/publier', { id: M10, revision: 4 })).status, 400);
+});
+
+test('publier (D74) : un titre porté par un AUTRE exercice publié et non archivé bloque la publication, même hors de l’écran ; brouillon libre, republier le même exercice passe, un archivé ne compte pas, un doublon existant reste', async () => {
+  const serveur = await editeurDeTest();
+  const publier = (id, revision) => serveur.editeur('POST', 'exercice/publier', { id, revision });
+  const versions = async (id) => (await serveur.editeur('GET', 'exercices')).corps.exercices.find((e) => e.id === id).versions.map((v) => v.numero);
+  const publications = () => serveur.journalEnseignant().filter((l) => l.action === 'editeur_publication').length;
+
+  // Le brouillon reste libre : dupliquer, puis donner le titre du M10 publié (autre casse, espaces en trop) s'enregistre.
+  assert.equal((await serveur.editeur('POST', 'exercice/creer', { id: 'm10-bis', depuis: M10 })).status, 200);
+  const bis = await ouvrir(serveur, 'm10-bis');
+  const enDouble = await enregistrer(serveur, 'm10-bis', bis.exercice.revision, { ...bis.exercice.brouillon, titre: `  ${m10.titre.toUpperCase()}  ` });
+  assert.deepEqual([enDouble.status, enDouble.corps.erreurs], [200, []]);
+  assert.equal((await serveur.editeur('POST', 'exercice/renommer', { id: 'm10-bis', titre: m10.titre })).status, 200);
+
+  // Publier : refusé (400), le message nomme l'exercice en conflit (titre et identifiant) et dit quoi faire ; rien d'écrit.
+  const refus = await publier('m10-bis', (await ouvrir(serveur, 'm10-bis')).exercice.revision);
+  assert.equal(refus.status, 400);
+  assert.equal(refus.corps.erreur, `Publication refusée : un autre exercice publié porte déjà ce titre : « ${m10.titre} » (${M10}). Les étudiants reconnaissent un exercice à son titre : change le titre de l'un des deux, puis publie.`);
+  assert.deepEqual(refus.corps.doublons, [{ id: M10, titre: m10.titre }]);
+  assert.deepEqual([await versions('m10-bis'), publications()], [[], 0]);
+  assert.equal((await serveur.appel('POST', '/api/creation', { corps: { ...CAMILLE, exercice: 'm10-bis' } })).status, 400); // toujours inexistant pour les étudiants
+
+  // Republier le M10 lui-même ne se bloque pas : m10-bis, jamais publié, ne compte pas.
+  const page = await ouvrir(serveur, M10);
+  const coursM10 = await enregistrer(serveur, M10, page.exercice.revision, { ...page.exercice.brouillon, cours: 'M10' });
+  assert.equal((await publier(M10, coursM10.corps.revision)).status, 200);
+
+  // Un exercice archivé ne compte pas : le M10 archivé, m10-bis se publie sous ce titre.
+  assert.equal((await serveur.editeur('POST', 'exercice/archiver', { id: M10, archive: true })).status, 200);
+  const ok = await publier('m10-bis', (await ouvrir(serveur, 'm10-bis')).exercice.revision);
+  assert.deepEqual([ok.status, ok.corps.numero], [200, 1]);
+
+  // Rétablir le M10 n'est pas une publication : le doublon existe alors, et reste en place ; il bloque la prochaine
+  // publication de l'un comme de l'autre, jusqu'à ce qu'un titre change.
+  assert.equal((await serveur.editeur('POST', 'exercice/archiver', { id: M10, archive: false })).status, 200);
+  assert.deepEqual((await serveur.appel('GET', '/api/exercices')).corps.exercices.filter((e) => e.titre === m10.titre).map((e) => e.id), [M10, 'm10-bis']);
+  const m10Page = await ouvrir(serveur, M10);
+  const retouche = await enregistrer(serveur, M10, m10Page.exercice.revision, { ...m10Page.exercice.brouillon, cours: 'M-10' });
+  const bloque = await publier(M10, retouche.corps.revision);
+  assert.deepEqual([bloque.status, bloque.corps.doublons], [400, [{ id: 'm10-bis', titre: m10.titre }]]);
+  const renomme = await enregistrer(serveur, M10, retouche.corps.revision, { ...m10Page.exercice.brouillon, cours: 'M-10', titre: `${m10.titre} (1)` });
+  assert.equal((await publier(M10, renomme.corps.revision)).status, 200);
+  assert.deepEqual(await versions(M10), [3, 2, 1]);
 });
 
 // --- Aperçu (B7) ---------------------------------------------------------------------------------------------------
@@ -483,7 +527,7 @@ test('import qui ferait disparaître des outils de la banque (D50) : la validati
   assert.equal((await serveur.editeur('POST', 'import', { export: exporte, confirmation: REPLACE_WORD })).status, 400);
 });
 
-// --- Les tables pour l'éditeur ---------------------------------------------------------------------------------------
+// --- Les tables pour la Gestion du contenu -----------------------------------------------------------------------------
 
 test('GET /api/prof/editeur/tables : le brouillon des tables (semé depuis A2026_r0, complété), sans erreur ni différence, la version publiée et la révision suggérée', async () => {
   const serveur = await editeurDeTest();

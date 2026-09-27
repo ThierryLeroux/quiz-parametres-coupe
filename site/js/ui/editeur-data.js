@@ -1,4 +1,4 @@
-// Ce que montre l'éditeur (jalon 7a, décisions D47 à D49 ; UI §3.9) : état d'un exercice dans la
+// Ce que montre la Gestion du contenu (jalon 7a, décisions D47 à D49, D74 ; UI §3.9) : état d'un exercice dans la
 // liste, différences entre le brouillon et la dernière version (confirmation de publication), texte
 // des dimensions dans le formulaire d'outil, exemple composé du gabarit de nomenclature, erreurs par
 // champ, lignes de l'aperçu, résumé d'un import. Fonctions PURES, sans DOM, testées sous Node ;
@@ -115,26 +115,19 @@ export function sessionsLabel(row) {
 // Le lien à donner aux étudiants sur Léa : celui de la page de l'exercice (le même que « Copier le lien » de cette page).
 export const studentLink = exerciseLink;
 
-// --- Le titre identifie l'exercice pour les étudiants (D71) -------------------------------------------------------
+// --- Le titre identifie l'exercice pour les étudiants (D71, D74) --------------------------------------------------
 
-// Les AUTRES exercices publiés et non archivés dont le titre publié est celui-ci, sans tenir compte de la casse, des
-// accents ni des espaces : [{ id, titre }]. La confirmation de publication les signale, sans bloquer.
-//   rows : la liste de l'éditeur (titre_publie, archive_le) ; exceptId : l'exercice qu'on publie
-export function sameTitleExercises(title, rows, exceptId) {
-  const key = (text) => plain(text).replace(/\s+/g, ' ').trim();
-  if (key(title) === '') return [];
-  return rows
-    .filter((row) => row.id !== exceptId && row.archive_le === null && typeof row.titre_publie === 'string' && key(row.titre_publie) === key(title))
-    .map((row) => ({ id: row.id, titre: row.titre_publie }));
-}
-
-export const sameTitleWarning = (twins) => `${twins.length > 1 ? "D'autres exercices publiés portent" : 'Un autre exercice publié porte'} déjà ce titre : ${twins.map((t) => `« ${t.titre} » (${t.id})`).join(', ')}. Les étudiants reconnaissent un exercice à son titre : change l'un des deux.`;
+// Les titres publiés de la liste des exercices, pour sameTitleExercises (exercice.js) : un doublon bloque la
+// publication (D74), à l'écran comme au serveur, avec la même règle. [{ id, titre, archive_le }] ; titre : celui de
+// la dernière version publiée, null pour un exercice jamais publié.
+//   rows : la liste de la Gestion du contenu (GET /api/prof/editeur/exercices : titre_publie, archive_le)
+export const publishedTitles = (rows) => rows.map((row) => ({ id: row.id, titre: row.titre_publie, archive_le: row.archive_le }));
 
 // --- Le cours d'un exercice (D71) -------------------------------------------------------------------------------
 
 // Les cours que les AUTRES exercices utilisent (brouillon ou dernière version publiée), un par cours — la première
 // écriture rencontrée dans l'ordre des rangs —, pour la liste que le champ Cours propose.
-//   rows : la liste de l'éditeur (GET /api/prof/editeur/exercices) ; exceptId : l'exercice de la page
+//   rows : la liste de la Gestion du contenu (GET /api/prof/editeur/exercices) ; exceptId : l'exercice de la page
 export function knownCourses(rows, exceptId = null) {
   const seen = new Map();
   for (const row of rows) {

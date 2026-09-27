@@ -4,7 +4,7 @@
 //
 // test-complet (D26) n'est pas semé (D47) : sans ce script, une base locale neuve ne l'a pas. Le script prend
 // site/exercices/test-complet.json et la banque d'outils de la base locale, et fait ce que fait « Publier » dans
-// l'éditeur, avec le même code (worker/base.js, draftErrors, sameContent) : les copies des outils de la banque,
+// la Gestion du contenu, avec le même code (worker/base.js, draftErrors, sameContent) : les copies des outils de la banque,
 // les tables de référence les plus récentes, la validation, la version suivante et une ligne au journal des
 // actions. Le brouillon local de test-complet est remplacé ; si la dernière version est identique, rien n'est
 // publié. Il marche `npm run dev` arrêté ou en marche.
@@ -37,7 +37,7 @@ export async function publishTestComplet(db, fichier, now) {
 
   const at = now.toISOString();
   const entry = (action, details) => ({ horodatage: at, enseignant: JOURNAL, action, details });
-  const conflict = () => new Error('test-complet a changé pendant le script (éditeur ouvert ?) : relance-le.');
+  const conflict = () => new Error('test-complet a changé pendant le script (Gestion du contenu ouverte ?) : relance-le.');
   let record = await base.findExercise(db, ID);
   const cree = record === null;
   if (cree) {
@@ -62,7 +62,7 @@ export async function publishTestComplet(db, fichier, now) {
 export function readArguments(args) {
   let persistTo = null;
   for (let i = 0; i < args.length; i += 1) {
-    if (/remote/i.test(args[i])) throw new Error('--remote est refusé : ce script ne publie que sur la base locale (D70). La production se règle dans l\'éditeur.');
+    if (/remote/i.test(args[i])) throw new Error('--remote est refusé : ce script ne publie que sur la base locale (D70). La production se règle dans la Gestion du contenu.');
     if (args[i] === '--persist-to' && typeof args[i + 1] === 'string') {
       persistTo = args[i + 1];
       i += 1;
@@ -89,7 +89,7 @@ async function main() {
     console.log(result.identique
       ? `Rien à publier : test-complet, version ${result.numero}, est identique (tables ${result.tables}, ${result.outils} outils).`
       : `test-complet ${result.cree ? 'créé et ' : ''}publié en version ${result.numero} sur la base locale (tables ${result.tables}, ${result.outils} outils).`);
-    if (result.archive) console.log('Attention : test-complet est archivé dans cette base ; désarchive-le dans l\'éditeur pour ouvrir une séance.');
+    if (result.archive) console.log('Attention : test-complet est archivé dans cette base ; désarchive-le dans la Gestion du contenu pour ouvrir une séance.');
     console.log('Ouvre http://localhost:8787/?exercice=test-complet (MODE_TEST=1 dans .dev.vars pour le mode test, D26).');
   } finally {
     await proxy.dispose();
