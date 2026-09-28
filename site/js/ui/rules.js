@@ -179,6 +179,15 @@ export function unreadableCase(cases) {
 // son résultat ; sinon le texte de la case — un nombre tapé, ou un résultat retouché à la main : l'expression est oubliée.
 export const answerOf = (text, kept = null) => (kept && text === kept.value ? kept.expression : text);
 
+// Ce qui reçoit le focus à l'affichage d'une question (sélecteur pour showScreen) : sur ordinateur, la première case à
+// saisir ; sur écran tactile, le titre, et la page part du haut (D82, retouche après l'essai sur téléphone) — le clavier
+// ouvert cacherait la moitié de l'écran, alors que l'étudiant doit d'abord lire les données du problème.
+//   touch : écran tactile (pointer: coarse), le même critère que la rangée de boutons
+export function initialFocus(question, touch) {
+  const first = question.champs.find((champ) => champ.evalue);
+  return first && !touch ? `#${first.champ}` : 'h1';
+}
+
 // La rangée de boutons de calcul, sur écran tactile (D82, point 6) : le caractère inséré, ou « = » qui calcule la case.
 export const CALC_KEYS = [
   { label: '(', insert: '(', name: 'parenthèse ouvrante' },

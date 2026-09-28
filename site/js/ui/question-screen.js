@@ -8,7 +8,7 @@
 import { EXPRESSION_MAX_LENGTH } from '../expression.js';
 import { el, pointDecimalComma, showScreen } from './dom.js';
 import {
-  CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, gapExplanation, helpLine, insertInCase,
+  CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, gapExplanation, helpLine, initialFocus, insertInCase,
   materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak, unreadableCase,
 } from './rules.js';
 import { classFeatures, classImages, heatImageMaxWidth, operationPictoOf, toolPhotoUrl } from './sheets-data.js';
@@ -46,9 +46,9 @@ const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
 
 // La rangée de boutons de calcul (D82, point 6 ; UI §3.3) : le clavier numérique n'a ni parenthèses ni opérateurs, ni
 // touche Entrée sur iPhone. Elle se tient en bas de la zone visible, juste au-dessus du clavier virtuel, tant qu'une
-// case à saisir a le focus, après un premier toucher dans une case (renderQuestion). Le clavier ne réduit que la zone
-// visible (window.visualViewport), pas la page : la rangée suit le bas de cette zone. Un bouton ne prend jamais le
-// focus (pointerdown et mousedown sans effet par défaut) : la case le garde, et le clavier reste ouvert.
+// case à saisir a le focus. Le clavier ne réduit que la zone visible (window.visualViewport), pas la page : la rangée
+// suit le bas de cette zone. Un bouton ne prend jamais le focus (pointerdown et mousedown sans effet par défaut) : la
+// case le garde, et le clavier reste ouvert.
 //   onKey(key) : un bouton pressé, une entrée de CALC_KEYS
 //   active()   : la case qui a le focus, pour que la rangée ne la couvre pas
 function calcBar(onKey, active) {
@@ -240,7 +240,8 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   // La rangée de boutons de calcul, sur écran tactile seulement (D82, point 6) : un bouton insère son caractère au
   // curseur de la case qui a le focus ; « = » la calcule.
   const activeCase = () => Object.entries(inputs).find(([, input]) => input === document.activeElement && !input.readOnly)?.[0] ?? null;
-  const bar = isTouch() ? calcBar(pressKey, () => inputs[activeCase()] ?? null) : null;
+  const touch = isTouch();
+  const bar = touch ? calcBar(pressKey, () => inputs[activeCase()] ?? null) : null;
   function pressKey(key) {
     const champ = activeCase();
     if (champ === null) return;
@@ -255,19 +256,11 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     input.setSelectionRange(next.caret, next.caret);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
-  // La rangée se montre quand une case à saisir prend le focus, se cache quand le focus quitte les cases — mais seulement
-  // après un premier toucher dans une case (D82, réponse de Thierry au rapport, point 4) : le focus automatique de la
-  // première case, à l'affichage de la question, n'ouvre pas le clavier d'un iPhone, et la rangée resterait seule au
-  // bas de l'écran. Une fois une case touchée, la rangée suit le focus d'une case à l'autre.
-  let touched = false;
-  const showBar = () => { if (touched) bar?.show(); };
+  // La rangée suit le focus des cases à saisir (D82, retouche après l'essai sur téléphone) : elle se montre quand une
+  // case prend le focus — un toucher, ou Vérifier qui donne le focus à une case illisible —, se cache quand le focus
+  // quitte les cases. Sur écran tactile, aucune case n'a le focus à l'affichage d'une question (initialFocus).
+  const showBar = () => bar?.show();
   const hideBar = (event) => { if (bar && !Object.values(inputs).includes(event.relatedTarget)) bar.hide(); };
-  // Un toucher dans une case : la case qui avait déjà le focus (la première, à l'affichage) ne reçoit pas d'événement
-  // focus ; la rangée se montre donc ici aussi.
-  function touchCase(champ) {
-    touched = true;
-    if (document.activeElement === inputs[champ] && !inputs[champ].readOnly) showBar();
-  }
 
   // Aide contextuelle, au clic seulement : la méthode, jamais la valeur (rules.js).
   const help = el('div', { class: 'help-line', hidden: true, 'aria-live': 'polite' });
@@ -311,7 +304,6 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
       onkeydown: evalue ? (event) => enter(event, champ) : () => {},
       oninput: evalue ? () => edited(champ) : () => {},
       onfocusout: evalue ? (event) => { compute(champ); hideBar(event); } : () => {},
-      onpointerdown: evalue ? () => touchCase(champ) : () => {},
     });
     notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, evalue ? '' : "fourni par l'exercice");
     boxes[champ] = el('div', { class: evalue ? 'field field--number' : 'field field--number field--provided' }, [
@@ -443,7 +435,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     bar?.element ?? '', // hors des panneaux : leur filtre (le halo) ferait de la rangée un élément de panneau, pas de la fenêtre
   ]);
 
-  // Le premier champ à saisir reçoit le focus à chaque nouvelle question.
-  const firstGraded = question.champs.find((champ) => champ.evalue);
-  showScreen(main, screen, header(seance, actions), firstGraded ? `#${firstGraded.champ}` : 'h1');
+  // À chaque nouvelle question, sur ordinateur, la première case à saisir reçoit le focus ; sur écran tactile, le titre,
+  // et la page part du haut : le clavier ne s'ouvre pas avant que l'étudiant ait lu les données (initialFocus).
+  showScreen(main, screen, header(seance, actions), initialFocus(question, touch));
 }

@@ -247,10 +247,10 @@
 
 .form-notes { flex: 1 1 260px; }
 
-/* Rangée de boutons de calcul (D82) : écran tactile seulement, tant qu'une case à saisir a le focus, après un premier
-   toucher dans une case. Fixée en haut de la fenêtre, puis descendue par question-screen.js au bas de la zone visible,
-   juste au-dessus du clavier virtuel (window.visualViewport) ; sans visualViewport, au bas de la fenêtre. Huit boutons
-   de 44 px de haut sur toute la largeur ; aucun ne prend le focus : la case le garde, et le clavier reste ouvert. */
+/* Rangée de boutons de calcul (D82) : écran tactile seulement, tant qu'une case à saisir a le focus. Fixée en haut de
+   la fenêtre, puis descendue par question-screen.js au bas de la zone visible, juste au-dessus du clavier virtuel
+   (window.visualViewport) ; sans visualViewport, au bas de la fenêtre. Huit boutons de 44 px de haut sur toute la
+   largeur ; aucun ne prend le focus : la case le garde, et le clavier reste ouvert. */
 .calc-bar {
   position: fixed;
   top: 0;

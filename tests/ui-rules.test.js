@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, insertInCase, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak, unreadableCase } from '../site/js/ui/rules.js';
+import { CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, initialFocus, insertInCase, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak, unreadableCase } from '../site/js/ui/rules.js';
 import { evaluateExpression } from '../site/js/expression.js';
 import { sessionView } from '../worker/seance.js';
 import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationPictoOf, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
@@ -255,6 +255,13 @@ test('answerOf (D82) : l’expression part tant que la case montre son résultat
   assert.equal(answerOf('1866.67', kept), '1866.67'); // retouché à la main : l'expression est oubliée
   assert.equal(answerOf('1600', null), '1600');
   assert.equal(answerOf('', null), '');
+});
+
+test('initialFocus (D82, retouche après l’essai sur téléphone) : la première case sur ordinateur, le titre sur écran tactile', () => {
+  const question = { champs: [{ champ: 'vc', evalue: false }, { champ: 'feedPerTooth', evalue: false, masque: true }, { champ: 'rpm', evalue: true }, { champ: 'feedRate', evalue: true }] };
+  assert.equal(initialFocus(question, false), '#rpm'); // la première case à saisir, dans l'ordre de l'écran
+  assert.equal(initialFocus(question, true), 'h1'); // le clavier ne s'ouvre pas : on lit d'abord les données
+  assert.equal(initialFocus({ champs: [{ champ: 'vc', evalue: false }] }, false), 'h1'); // rien à saisir
 });
 
 test('CALC_KEYS et insertInCase (D82) : ( ) + − × ÷ π =, insérés au curseur, jamais au-delà de la longueur permise', () => {
