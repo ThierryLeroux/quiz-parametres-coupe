@@ -2290,3 +2290,95 @@ les points 2 et 3 de cette décision :
   le cas « publié sur une version, brouillon sur une autre ».
 - **Un exercice en erreur** est nommé **avec ses erreurs** dans le message qui suit la publication ; il reste proposé aux
   cascades suivantes (décoché, puisqu'il est désormais sur une version plus ancienne).
+
+## D78 — E5-3 : la présentation des exercices en direct — stockage, où elle se pose, titre de l'attestation, titre en double, brouillon et publication (2026-09-28, décidée)
+
+**Contexte.** Le troisième jalon de D75 (points 2 et 8) : le titre, le cours et « À l'accueil » d'un exercice, la photo
+et la note (`commentaire`) de chacune de ses copies d'outils passent en direct, avec la mécanique d'E5-1 (D76), mais
+**par exercice**. Restaient à trancher le stockage, où la présentation se pose, le titre que l'attestation inscrit, la
+règle du titre en double (D74), l'exercice jamais publié, la copie nouvelle, et ce que deviennent ces champs dans le
+brouillon et à la publication.
+
+**Décision.**
+
+1. **Stockage** (migration `0011`) : `presentation_exercices`, **une ligne par exercice**, créée au premier
+   « Appliquer » — `contenu`, `revision` (le contrôle optimiste, D48), `modifiee_le`, `enseignant` — et
+   `presentation_exercices_historique`, un contenu **remplacé** par ligne, comme pour les tables (quand et par qui il
+   avait été posé, quand, par qui et par quoi il a été remplacé : `application`, `retablissement`, `import`). Le format
+   est celui de l'exercice réduit à la liste blanche : `{ titre, cours, liste, outils: [{ id, image, commentaire }] }`,
+   chaque entrée complète — `cours` null : sans cours ; `liste` : « À l'accueil » ; `image` null : la photo nommée
+   d'après l'identifiant de la copie ; `commentaire` null : pas de note. **La clé d'une copie est son identifiant dans
+   l'exercice.** Rien ne s'efface, sauf avec l'exercice (un exercice supprimé, sans séance, emporte sa présentation).
+2. **Point de départ** : **pas de ligne tant que rien n'a été appliqué**, et la présentation est alors **celle de la
+   dernière version publiée de l'exercice**, lue à chaque fois : rien ne change au déploiement. Au premier
+   « Appliquer », elle entre dans l'historique (« présentation de départ »).
+3. **La présentation en vigueur** d'un exercice : son titre, son cours et « À l'accueil » appliqués (sinon ceux de sa
+   dernière version) ; pour chaque copie de la dernière version, l'entrée appliquée si elle existe, sinon celle de la
+   version ; puis les entrées appliquées d'une copie que la dernière version n'a plus (elle sert encore aux séances
+   épinglées à une version plus ancienne). Elle se pose par-dessus **toute** version de l'exercice ; **une copie
+   qu'elle ne connaît pas garde la valeur de sa version**. Règles pures dans `site/js/presentation-exercice.js`.
+4. **Où elle se pose** : après le cache des versions assemblées, dans ce que le serveur **montre** seulement —
+   `GET /api/exercice` (page de description, identification, page Question, feuilles), `GET /api/exercices`
+   (l'accueil : titre, cours, liste), la séance que rendent `creation`, `reprise`, `identite`, `seance`, `question` et
+   `correction` (le titre de la barre, la photo et la note du panneau de l'outil), l'espace professeur (titres des
+   réussites, filtre, export CSV) et la Gestion du contenu. **Jamais** dans le tirage, la correction,
+   `isQuestionValid` ni la question figée : ce qui juge une réponse ne lit ni titre, ni photo, ni note.
+5. **L'attestation.** Une attestation déjà émise **ne change pas d'un octet**. Une attestation émise après ce jalon
+   inscrit, **dans le même champ** (`exercice.titre`), **le titre en vigueur au moment où elle est émise** — à la
+   réussite, ou à la première ouverture pour une séance réussie avant l'émission des attestations. C'est le seul
+   changement de l'enregistrement ; sa signature et sa vérification ne changent pas. La réémission qui suit une
+   correction d'identité (D37) recopie l'enregistrement d'origine : elle garde son titre.
+6. **Titre en double (D74)** : la règle s'applique **quand un titre entre en vigueur** — « Appliquer » dans le panneau,
+   « Renommer » dans la liste, et « Rétablir » un contenu de l'historique —, **si le titre change** (sa clé : casse,
+   accents et espaces ignorés), à l'écran comme au serveur (400, qui nomme l'exercice en conflit). Les titres comparés
+   sont **les titres en vigueur** des autres exercices publiés et non archivés. Le brouillon d'un exercice jamais publié
+   reste libre ; **la règle s'applique à sa première publication**, comme aujourd'hui. Une republication ne change pas
+   le titre (point 8) : elle n'est plus vérifiée. L'import restaure tel quel ; la cascade ne change aucun titre (D77).
+7. **Routes** (rôle admin, journalisées) : `GET /api/prof/editeur/exercice/presentation?id=` (la présentation en
+   vigueur, sa révision, ses erreurs, ses avertissements, les noms des copies, les retouches en attente,
+   l'historique avec ce que le rétablir changerait) ; `POST …/exercice/presentation/appliquer`
+   `{ id, revision, presentation }` ; `POST …/exercice/presentation/retablir` `{ id, revision, historique }`. Un champ
+   hors de la liste blanche → 400 nommé ; une copie que la présentation en vigueur ne connaît pas → 400 (une copie
+   nouvelle se publie d'abord) ; une révision périmée → 409, rien n'est écrasé ; rien à changer → 400 ; un exercice
+   jamais publié → 400 (sa présentation est dans son brouillon). Actions du journal :
+   `editeur_presentation_exercice_application`, `editeur_presentation_exercice_retablissement`.
+   **« Renommer » un exercice publié** fait ce même geste en direct (même règle, même historique, même journal) ;
+   pour un exercice jamais publié, il renomme le brouillon, comme avant.
+8. **Le brouillon et la publication** : pour un exercice publié, ces champs **quittent le brouillon** — le titre, le
+   cours et « À l'accueil » des réglages généraux, la photo et la note de toute copie que la présentation connaît ;
+   ils y restent, cachés, sans effet. **Une version publiée prend la présentation en vigueur** (un instantané, pour
+   les copies qu'elle connaît), cascade comprise. Le résumé des différences (`versionDiff`), le « aucune différence à
+   publier », le « brouillon modifié » et « Annuler les modifications » ne comparent plus que le reste.
+9. **Exercice jamais publié** : ses champs de présentation restent dans son brouillon, et entrent en vigueur à sa
+   première publication (sa dernière version les porte). **Une copie ajoutée au brouillon d'un exercice publié**
+   reçoit sa photo et sa note de départ **dans sa ligne du brouillon** (liseré doré), comme une clé nouvelle en E5-1 ;
+   la version publiée les porte, puis elles ne se modifient plus que dans le panneau. Dupliquer un exercice publié,
+   ou y prendre une copie, part de sa présentation en vigueur.
+10. **Retouches en attente** (faites dans le brouillon avant ce jalon, jamais publiées) : une valeur de présentation
+    du brouillon que ni la présentation en vigueur, ni **aucune** version publiée n'a jamais portée (une valeur venue
+    d'une version, par « Reprendre » ou d'avant un « Appliquer », n'est pas une retouche). Le panneau les signale en
+    doré, avec « Les reprendre dans le panneau » ; elles ne partent qu'à l'application, et la prochaine publication
+    les abandonne.
+11. **Images** : même règle qu'après la retouche de D76 — seule une photo **choisie** (différente de celle en vigueur
+    pour cette copie) doit exister et ne pas être archivée ; une photo archivée déjà en vigueur n'est qu'un
+    avertissement ; « Rétablir » est permis avec une image archivée depuis. Une image nommée par la présentation d'un
+    exercice, actuelle ou dans l'historique, compte comme utilisée.
+12. **Sauvegarde** : chaque exercice de l'export porte `presentation` (`contenu`, `modifiee_le`, `enseignant`,
+    `historique`) ; l'import l'ajoute ou la remplace comme celle des tables (D76, point 11). Un aller-retour ne change
+    rien.
+13. **Page d'un exercice publié** : un panneau **« Présentation — effet immédiat »** en tête, distinct du brouillon
+    (contour et bouton verts, comme E5-1) — titre, cours (avec les cours existants et le conseil d'écriture, D71),
+    « À l'accueil », une ligne par copie (photo, note), l'aperçu de ce que voit l'étudiant, « Appliquer… » avec la liste
+    des changements, l'historique et « Rétablir ».
+
+**Ce que D78 remplace.** Dans **D47**, ce qu'une version d'exercice **montre** n'est plus figé : sa présentation se
+pose par-dessus. Dans **D71**, le cours se modifie en direct pour un exercice publié, plus « publié avec la version ».
+Dans **D74**, le titre en double est refusé quand un titre entre en vigueur, plus à chaque publication ; il l'est
+toujours à la première. Dans **D31**, l'attestation copie toujours le titre à l'émission, mais c'est le titre en
+vigueur, plus celui de la version de la séance.
+
+**Conséquences.** `migrations/0011_presentation_exercices.sql` ; `site/js/presentation-exercice.js` (pur, testé) ;
+`site/js/exercice.js` (le refus du titre en direct) ; `site/js/ui/editeur-data.js` (`versionDiff`, textes) ;
+`worker/base.js`, `worker/catalogue.js`, `worker/index.js`, `worker/editeur.js` (cascade, import), `worker/images.js` ;
+`site/js/api.js`, `site/js/ui/editeur.js`, `site/css/editeur.css` ; SPEC §3, §7, §10 ; UI §3.9 ; CLAUDE.md ; PLAN.
+Rapport : `docs/rapports/e5-3-presentation-exercices.md`.

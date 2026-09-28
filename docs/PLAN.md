@@ -199,7 +199,7 @@ Rapport de session : `docs/rapports/gestion-du-contenu.md`. Les tâches cochées
 - [x] **E3 — un titre en double bloque la publication** (remplace le simple signalement de D71) : au serveur (400, `doublons`) et à l'écran (refus en rouge, bouton inactif) ; brouillons libres ; republier le même exercice passe ; un archivé ne compte pas ; les doublons déjà publiés restent en place
 - [ ] **Thierry** : repérer les doublons de titre déjà en production (marche à suivre dans le rapport) et, s'il y en a, changer un titre ou archiver l'un des deux avant la prochaine publication ; trancher les points douteux du rapport
 
-## Chantier E5 — modifier le contenu sans créer de nouvelle version (décisions D75, D76)
+## Chantier E5 — modifier le contenu sans créer de nouvelle version (décisions D75 à D78)
 Inventaire : `docs/rapports/inventaire-versionnage.md`. Voie hybride (D75) : la présentation en direct, la publication
 en cascade des tables ; les séances restent épinglées à leur version. Un jalon par branche, dans l'ordre.
 
@@ -228,8 +228,16 @@ Rapport de session : `docs/rapports/e5-2-cascade-retour.md`.
 - [x] Points du rapport tranchés par Thierry ; **retouche** (D77) : une seule liste de tout ce qui n'est pas à jour (cochés par défaut ceux sur la version remplacée, décochés ceux sur une plus ancienne, impact depuis leur propre version) ; pour un coché, contenu publié et brouillon passent chacun de son côté ; les laissés en erreur nommés avec leurs erreurs ; tests et Chrome
 - [ ] **Thierry** : fusionner
 
-### Jalon E5-3 — la présentation des exercices en direct
-- [ ] Titre, cours, « À l'accueil », photo et note des copies d'outils en direct ; l'attestation inscrit le titre affiché à la réussite ; la règle du titre en double (D74) suit le titre
+### Jalon E5-3 — la présentation des exercices en direct (décision D78)
+Rapport de session : `docs/rapports/e5-3-presentation-exercices.md`.
+
+- [ ] Migration `0011` : la présentation des exercices (une ligne par exercice, au premier « Appliquer ») et son historique
+- [ ] `site/js/presentation-exercice.js` (pur, testé) : liste blanche, présentation d'une version, présentation en vigueur, pose par-dessus un contenu et une séance, validation, différences, retouches en attente du brouillon, valeurs sans la présentation
+- [ ] Serveur : la présentation posée après le cache des versions, sur l'accueil, l'exercice, la séance (barre, panneau de l'outil), l'espace professeur et la Gestion du contenu, jamais sur le tirage ni la correction ; la nouvelle attestation inscrit le titre en vigueur ; routes lire, appliquer, rétablir (admin, 409, journal) ; « Renommer » en direct ; titre en double refusé à l'application ; une version publiée (cascade comprise) prend la présentation en vigueur ; images de la présentation et de son historique comptées comme utilisées
+- [ ] Sauvegarde : la présentation de chaque exercice et son historique dans l'export ; l'import les fusionne ; aller-retour identique
+- [ ] Page d'un exercice : le panneau « Présentation — effet immédiat » (aperçu, Appliquer, historique, Rétablir), le brouillon et le résumé des différences sans ces champs ; copie nouvelle avec sa photo et sa note dans sa ligne ; liste des exercices en vigueur
+- [ ] Tests (liste blanche, séance épinglée, attestation identique octet pour octet, titre de la nouvelle attestation, titre en double, copie nouvelle, rétablissement, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
+- [ ] Documents : SPEC §3, §7, §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE
 
 ### Jalon E5-4 — l'historique de la banque d'outils
 - [ ] Chaque contenu remplacé d'un outil de la banque gardé, « Rétablir » en un clic, journal (le mécanisme d'E5-1)
