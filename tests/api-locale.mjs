@@ -296,7 +296,7 @@ try {
   const ALEX = { exercice: VC_RPM, prenom: 'Alex', nom: 'Roy', matricule: '2466666', nip: '1357' };
   let attestationAlex;
 
-  await etape('exercice « Vc et RPM » (D40) : 22 réponses Vc et N, jamais de carbure solide ; attestation avec ses 22 questions listées (D41), vérifiable par le code', async () => {
+  await etape('exercice « Vc et RPM » (D40) : 22 réponses Vc et N — une N sur deux tapée en calcul (D82) —, jamais de carbure solide ; attestation avec ses 22 questions listées (D41), en nombres, vérifiable par le code', async () => {
     const creation = await appel('POST', '/api/creation', { corps: ALEX });
     assert.equal(creation.status, 200, JSON.stringify(creation.corps));
     const jetonAlex = creation.corps.jeton;
@@ -310,9 +310,13 @@ try {
       matieres.add(etat.question.outil.materiau);
       if (etat.question.outil.id === 'barre_a_aleser') barre = etat.question.identifiant;
       await sleep(1200);
-      const correction = await appel('POST', '/api/correction', { jeton: jetonAlex, corps: { exercice: VC_RPM, saisies: { vc: bonneVc(etat.question), rpm: bonN(etat.question) } } });
+      // Une N sur deux en calcul (D82) : le vrai runtime des Workers la lit, la juge et renvoie son expression.
+      const n2 = bonN(etat.question);
+      const rpm = n % 2 === 0 ? `(${n2})*2/2` : n2;
+      const correction = await appel('POST', '/api/correction', { jeton: jetonAlex, corps: { exercice: VC_RPM, saisies: { vc: bonneVc(etat.question), rpm } } });
       assert.equal(correction.status, 200, JSON.stringify(correction.corps));
       assert.equal(correction.corps.correction.reussie, true, `question ${n} : ${JSON.stringify(correction.corps.correction.champs)}`);
+      assert.deepEqual(correction.corps.correction.champs[2].expression, n % 2 === 0 ? { texte: `(${n2}) × 2 / 2`, valeur: n2, arrondie: false } : null);
       etat = correction.corps.seance;
       process.stdout.write(`\r  questions réussies : ${n}   `);
     }
@@ -327,6 +331,7 @@ try {
     assert.equal(corps.attestation.questions.length, 22);
     assert.deepEqual(corps.attestation.questions.map((q) => q.numero), Array.from({ length: 22 }, (_, i) => i + 1));
     assert.deepEqual(Object.keys(corps.attestation.questions[0].reponses), ['vc', 'rpm']);
+    assert.ok(corps.attestation.questions.every((q) => /^\d+$/.test(q.reponses.rpm)), 'l’attestation montre des nombres, jamais une expression');
     assert.ok(corps.attestation.questions.some((q) => q.outil === barre));
     const verification = await appel('POST', '/api/verification', { corps: { code: corps.code } });
     assert.deepEqual(verification.corps, { resultat: 'valide', attestation: corps.attestation });

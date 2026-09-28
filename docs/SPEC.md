@@ -268,7 +268,9 @@ Séparateur décimal : le **point** à l'affichage (« 0.0015 »), comme sur la
 commande CNC et dans les libellés ; la saisie accepte le point et la virgule
 (décision D10), et une virgule tapée devient un point, **visiblement, à la sortie
 du champ ou à la validation**, jamais pendant la frappe (D71 ; UI §7). L'unité de
-vitesse de rotation affichée est **tr/min** (D71).
+vitesse de rotation affichée est **tr/min** (D71). Une case de réponse accepte aussi
+un **calcul** (D82, §6 « Lecture d'une saisie ») : la case affiche son résultat, et
+c'est l'expression qui part au serveur.
 
 ## 6. Correction — tolérances (reprises du VBA `modCorrection`)
 
@@ -352,6 +354,33 @@ Précisions :
 - Saisie : le point et la virgule sont acceptés comme séparateur décimal
   (D10 ; le navigateur remplace la virgule par un point à la sortie du champ, D71,
   mais le serveur lit les deux) ; un champ vide ou illisible est une mauvaise réponse.
+  Une saisie peut aussi être une **expression** (D82) : voir ci-dessous.
+
+**Lecture d'une saisie** (`parseAnswer`, `site/js/correction.js` ; décisions D10,
+D82). Le serveur lit chaque saisie avec cette fonction, le navigateur aussi.
+
+- Un **nombre** : chiffres, un point ou une virgule décimale, espaces ignorés
+  (« 1 600 », « 0,0015 », « .5 », « 5. ») — lu exactement comme avant D82 ;
+  « 1,600 » vaut 1.6.
+- Une **expression** (`site/js/expression.js`, un évaluateur écrit à la main,
+  **jamais `eval` ni `Function`**) : des nombres (une virgule par nombre :
+  « 1,5 + 2,5 » vaut 4), `+`, `-` ou `−`, `*`, `×` ou `x`, `/` ou `÷`, les
+  parenthèses, `pi`, `PI` ou `π` (Math.PI). Priorités usuelles (× et / avant + et −,
+  de gauche à droite à priorité égale). Le moins unaire est permis partout où un
+  nombre peut aller (« 2 × −3 », « (−1 + 3) ») ; pas de plus unaire. **Rien
+  d'autre** : ni puissance, ni fonction, ni multiplication implicite (« 2pi »,
+  « 2(3+1) »). **60 caractères** au plus, **10 niveaux** de parenthèses. Le résultat
+  est pris à 12 chiffres significatifs : le bruit de la virgule flottante disparaît
+  (0.1 + 0.2 = 0.3).
+- **Illisible** (`null`, une mauvaise réponse) : vide ; ni nombre ni expression
+  permise (« abc », « 1.2.3 », « 1e3 ») ; expression mal formée ; division par
+  zéro ; résultat négatif, −0 compris (« -5 », « -0 », « 3 - 5 »).
+- Le serveur garde de chaque saisie au plus 60 caractères ; une saisie plus longue
+  est coupée et marquée « … » : illisible (`cleanAnswers`). Il ne filtre pas les
+  caractères : c'est `parseAnswer` qui refuse ce qu'il ne lit pas.
+- Partout où une saisie sert de nombre — la correction, l'écart en %, la ligne de
+  calcul, la cohérence de f et de Vf, l'attestation —, c'est le **nombre lu** qui
+  sert, jamais le texte d'une expression.
 
 Une question est **réussie** quand les 5 champs sont corrects. Les champs
 pré-remplis par la configuration de l'exercice (ex. M10 : tout sauf Vc) comptent
@@ -606,6 +635,10 @@ porte toute la sauvegarde).
 
 `saisies` : les champs évalués, en texte, sous les noms du moteur —
 `{ vc, feedPerTooth, rpm, feedPerRev, feedRate }`. Tout le reste est ignoré.
+Chaque texte est un nombre ou une expression (§6, « Lecture d'une saisie », D82) :
+pour une case calculée, le navigateur envoie l'**expression** tapée, pas le résultat
+qu'il affiche, et le serveur juge le nombre qu'elle donne. Le journal
+(`corrections.reponses`) garde le texte reçu, expression comprise.
 
 `seance` (composée par `worker/seance.js`) :
 
@@ -658,9 +691,19 @@ qu'avec la correction, une fois la réponse donnée. Toute nouvelle donnée ajou
 à `seance.question` se juge à cette règle.
 
 `correction` : `{ reussie, outil: { id, nom, avant, apres }, champs: [ { champ,
-evalue, ok, saisie, attendu, tolerance, ecart_pct, calcul, coherence } ] }`, montrée après
+evalue, ok, saisie, expression, attendu, tolerance, ecart_pct, calcul, coherence } ] }`, montrée après
 la correction (`UI.md` §3.4) ; `avant` et `apres` sont le compteur de l'outil.
 Pour chaque champ :
+
+- `saisie` : le texte reçu, tel quel (un nombre ou une expression) ;
+- `expression` (D82) : `null` — un nombre tapé, une saisie illisible, un champ
+  fourni ou masqué —, ou, pour une saisie lue qui est une expression,
+  `{ texte, valeur, arrondie }` : l'expression écrite proprement (« 4 × 350 / 0.75 » :
+  un point décimal, `×`, `/`, `−`, `π`, une espace autour des opérateurs, les
+  parenthèses de l'étudiant), le nombre qu'elle donne **tel que la case l'affiche**
+  (au plus 9 caractères : « 1866.6667 ») et si cet affichage est arrondi. Partout où
+  la saisie sert de nombre (`ecart_pct`, `calcul`, la cohérence de f et de Vf), c'est
+  ce nombre, jamais le texte de l'expression ;
 
 - `attendu` : la valeur théorique mise en forme — sauf pour **Vf**, où c'est
   *N × f* **avec les N et f saisis** (D15) : c'est sur elle que Vf est jugée ;
@@ -823,7 +866,8 @@ par une correction, ou constatée à la demande de question quand l'exercice a
   résolu, §4.6), `materiau_outil`, `materiau` (classe ISO, no de groupe, nom, état), `reponses`
   (les réponses de l'étudiant aux grandeurs évaluées seulement, sous les noms du moteur,
   **normalisées** : le nombre lu, écrit au format d'affichage de la grandeur, §5 — « 400,0 » →
-  « 400 », « 1 600 » → « 1600 »), `horodatage`. Une attestation figée avant cette liste n'en a
+  « 400 », « 1 600 » → « 1600 » ; d'une expression, son nombre seul, jamais son texte (D82) :
+  « 400*4/0.75 » → « 2133 »), `horodatage`. Une attestation figée avant cette liste n'en a
   pas, et reste valide telle quelle ;
 - une correction d'identité postérieure **annule et réémet** l'attestation
   (D37, ci-dessous) : les résultats, les dates et la liste sont repris tels quels.
