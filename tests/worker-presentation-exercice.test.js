@@ -8,8 +8,7 @@ import assert from 'node:assert/strict';
 import { SECONDE, serveurDeTest } from './aide-serveur.js';
 import { fausseD1, migrationSql } from './aide-d1.js';
 import { IMPORT_WORD } from '../worker/editeur.js';
-import { liveTitleRefusal } from '../site/js/exercice.js';
-import { copyOfTool } from '../site/js/exercice.js';
+import { copyOfTool, liveTitleRefusal } from '../site/js/exercice.js';
 import { lireFichier } from './aide.js';
 
 const M10 = 'm10-tournage-vc';
