@@ -46,9 +46,9 @@ const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
 
 // La rangée de boutons de calcul (D82, point 6 ; UI §3.3) : le clavier numérique n'a ni parenthèses ni opérateurs, ni
 // touche Entrée sur iPhone. Elle se tient en bas de la zone visible, juste au-dessus du clavier virtuel, tant qu'une
-// case à saisir a le focus. Le clavier ne réduit que la zone visible (window.visualViewport), pas la page : la rangée
-// suit le bas de cette zone. Un bouton ne prend jamais le focus (pointerdown et mousedown sans effet par défaut) : la
-// case le garde, et le clavier reste ouvert.
+// case à saisir a le focus, après un premier toucher dans une case (renderQuestion). Le clavier ne réduit que la zone
+// visible (window.visualViewport), pas la page : la rangée suit le bas de cette zone. Un bouton ne prend jamais le
+// focus (pointerdown et mousedown sans effet par défaut) : la case le garde, et le clavier reste ouvert.
 //   onKey(key) : un bouton pressé, une entrée de CALC_KEYS
 //   active()   : la case qui a le focus, pour que la rangée ne la couvre pas
 function calcBar(onKey, active) {
@@ -255,9 +255,19 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     input.setSelectionRange(next.caret, next.caret);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
-  // La rangée se montre quand une case à saisir prend le focus, se cache quand le focus quitte les cases.
-  const showBar = () => bar?.show();
+  // La rangée se montre quand une case à saisir prend le focus, se cache quand le focus quitte les cases — mais seulement
+  // après un premier toucher dans une case (D82, réponse de Thierry au rapport, point 4) : le focus automatique de la
+  // première case, à l'affichage de la question, n'ouvre pas le clavier d'un iPhone, et la rangée resterait seule au
+  // bas de l'écran. Une fois une case touchée, la rangée suit le focus d'une case à l'autre.
+  let touched = false;
+  const showBar = () => { if (touched) bar?.show(); };
   const hideBar = (event) => { if (bar && !Object.values(inputs).includes(event.relatedTarget)) bar.hide(); };
+  // Un toucher dans une case : la case qui avait déjà le focus (la première, à l'affichage) ne reçoit pas d'événement
+  // focus ; la rangée se montre donc ici aussi.
+  function touchCase(champ) {
+    touched = true;
+    if (document.activeElement === inputs[champ] && !inputs[champ].readOnly) showBar();
+  }
 
   // Aide contextuelle, au clic seulement : la méthode, jamais la valeur (rules.js).
   const help = el('div', { class: 'help-line', hidden: true, 'aria-live': 'polite' });
@@ -301,6 +311,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
       onkeydown: evalue ? (event) => enter(event, champ) : () => {},
       oninput: evalue ? () => edited(champ) : () => {},
       onfocusout: evalue ? (event) => { compute(champ); hideBar(event); } : () => {},
+      onpointerdown: evalue ? () => touchCase(champ) : () => {},
     });
     notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, evalue ? '' : "fourni par l'exercice");
     boxes[champ] = el('div', { class: evalue ? 'field field--number' : 'field field--number field--provided' }, [
