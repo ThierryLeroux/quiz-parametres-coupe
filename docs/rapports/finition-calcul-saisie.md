@@ -425,3 +425,106 @@ téléphone »).
 13. Focus à l'affichage sur écran tactile (`initialFocus`) ; la rangée suit le focus.
 14. La page ne défile jamais d'elle-même.
 15. Documents (D82, UI §3.3, §7), la procédure du tunnel, cette section et le PLAN.
+
+## 9. Retouche après le deuxième essai sur téléphone (même branche)
+
+> **Correction des séances en cours : rien de plus que ce qu'annonce la tête du rapport.** Cette retouche ne touche que
+> la rangée de boutons, dans le navigateur, et ajoute un diagnostic temporaire.
+
+**Ton deuxième essai** (Android) : le saut de la page est corrigé, le focus à l'affichage est gardé. Le bogue de la
+rangée invisible, mieux décrit : ce n'est pas le focus d'avant, c'est **le sens du défilement** que fait Chrome pour
+placer la case touchée au-dessus du clavier. Case dans la moitié inférieure → la page monte, rangée visible ; case dans
+la moitié supérieure → la page descend, rangée invisible. Consigné à la fin de **D82**.
+
+### Ton hypothèse
+
+**Le mécanisme existe, le cas n'est pas reproduit.**
+
+- Ce que je peux montrer sur le poste, avec une page d'essai dans Chrome à 390 px, écran tactile émulé : **un
+  défilement de la page n'envoie que `scroll` à `window`, jamais à `visualViewport`** — au doigt (26 `win:scroll`,
+  0 `vv:scroll`) comme par `scrollBy`. La rangée ne se replaçait que sur les événements de `visualViewport` : si
+  Chrome, sur ton téléphone, amène la case vers le centre en faisant défiler la page elle-même, rien ne la replaçait.
+- Ce que je ne peux pas montrer : **Chrome sans interface ne sait pas ouvrir un clavier**, ni réduire la zone visible
+  sous la fenêtre. J'ai essayé le paramètre `viewport` de l'émulation d'appareil et le zoom par pincement : la zone
+  visible reste à 844 px dans les deux cas. Je n'ai donc pas vu la rangée disparaître, et je ne sais pas pourquoi
+  elle disparaîtrait dans ce cas-là plutôt que de rester où elle est : fixée, elle ne bouge pas quand la page
+  défile. C'est le diagnostic qui le dira.
+
+### Ce que j'ai fait, et pourquoi ce choix
+
+**Piste 1, appliquée.** La rangée se replace :
+- sur `scroll` et `resize` de `window`, en plus de ceux de `visualViewport` ;
+- **à chaque image pendant 600 ms après la prise de focus** (`requestAnimationFrame`), le temps que le clavier
+  s'ouvre — quels que soient les événements que Chrome envoie ou n'envoie pas, et même si un événement arrive avant
+  la fin de l'animation du clavier, avec une hauteur pas encore définitive.
+
+Toujours un replacement seulement : la page ne défile jamais d'elle-même, sauf la remontée de la retouche précédente,
+qui reste armée jusqu'au premier geste de défilement.
+
+**Piste 2, en réserve : `interactive-widget=resizes-content`.** Je ne l'ai pas ajoutée, pour deux raisons :
+1. **Une chose à la fois.** Si j'ajoutais les deux, ton prochain essai ne dirait pas laquelle corrige, et le
+   diagnostic ne servirait à rien. La piste 1 est la moins intrusive : rien ne change pour la page, seulement quand la
+   rangée relit sa position.
+2. **Je ne peux pas vérifier ce qu'elle change ailleurs.** Avec elle, Chrome sur Android réduit toute la page à
+   l'ouverture du clavier : l'écran d'identification, dont les cases ouvrent aussi le clavier, se remettrait en page
+   à chaque ouverture. Le poste ne peut pas montrer l'effet, faute de clavier. Ce que j'ai regardé dans la CSS : le
+   corps de page a `min-height: 100dvh` (il suivrait la réduction, sans mal) ; les feuilles de référence sont fixées
+   sur toute la fenêtre (pas de clavier là) ; rien d'autre ne dépend de la hauteur de la fenêtre. Le risque est donc
+   faible, mais ce n'est pas vérifié.
+
+Si le diagnostic montre que la rangée est bien replacée et reste pourtant sous le clavier, c'est que Chrome ne dit pas
+la vraie zone visible : alors la piste 2, qui n'a plus besoin de la connaître pour Android. C'est une ligne dans
+`site/index.html` ; la formule par `visualViewport` reste juste avec elle (la zone visible devient la fenêtre réduite),
+donc le code ne change pas, seulement l'iPhone continue de dépendre de `visualViewport`.
+
+### Le diagnostic (`?diag=1`)
+
+`https://…trycloudflare.com/?exercice=m10-tournage-vc-rpm&diag=1` : un encadré noir en haut de l'écran, mis à jour à
+chaque image :
+- `zone visible : h … décalage … (fenêtre …)` — `visualViewport.height`, `offsetTop`, `innerHeight` ;
+- `scrollY …` ;
+- `rangée : visible|cachée haut … bas … — translate(…)` — sa position à l'écran et la transformation posée ;
+- `case active : vc haut … bas …` ;
+- `dernier événement : … hh:ss.mmm`.
+
+Ce que je voudrais lire sur tes deux captures, une fois le clavier ouvert :
+- **la hauteur de la zone visible** : si elle vaut encore celle de la fenêtre, Chrome ne réduit pas la zone visible et
+  la formule ne peut pas marcher → piste 2 ;
+- **`bas` de la rangée contre `décalage + h`** : égaux, la rangée est là où elle doit être, et si elle est pourtant
+  invisible, c'est autre chose que sa position ;
+- **le dernier événement** dans le cas « case en haut ».
+
+Il n'a aucun effet sans `?diag=1`, et `npm test` reste vert. **À retirer avant la fusion** : `site/js/ui/diag.js`, son
+import et l'appel `startDiag` dans `main.js`, le style `.diag` de `question.css` (chacun marqué « DIAGNOSTIC
+TEMPORAIRE »).
+
+### Vérifié
+
+- `npm test` : **726** tests, `fail 0`.
+- `npm run test:api` : **35 étapes** réussies.
+- **Chrome, 390 px, écran tactile émulé** (14 vérifications, aucun échec, aucune erreur console) :
+  - la case Vc placée dans la moitié supérieure, touchée : rangée au bas de la zone visible, la case au-dessus ; la
+    page descend de 120 px par `scrollBy`, comme Chrome le ferait : la rangée est toujours au bas ; clavier simulé
+    (fenêtre à 450 px) puis la page qui descend encore : toujours au bas ;
+  - la case N placée dans la moitié inférieure, touchée : la remontée la met au-dessus de la rangée, rangée au bas ;
+    clavier simulé puis la page qui monte : toujours au bas ;
+  - la page ne défile toujours pas d'elle-même : la case sortie par le bas, une barre d'adresse simulée et un petit
+    défilement vers le bas ne la ramènent pas ;
+  - le diagnostic : absent sans `?diag`, présent avec, avec ses cinq lignes, l'événement daté ;
+  - à 1280 px : la première case a le focus, pas de rangée, pas de diagnostic.
+- Les deux scénarios précédents, rejoués : 189 et 11 vérifications, aucun échec.
+- Captures (non versionnées) : `captures/finition-calcul-saisie-telephone-2/`.
+
+### À essayer (avec le tunnel, section 7)
+
+- [ ] Case Vc dans la moitié **supérieure** de l'écran, touchée : la rangée est-elle au-dessus du clavier ? Capture
+  avec `?diag=1`.
+- [ ] Case Vc dans la moitié **inférieure**, touchée : même chose, capture avec `?diag=1`.
+- [ ] Clavier ouvert, remonter relire le diamètre, redescendre un peu : la page ne saute pas.
+- [ ] Si la rangée reste invisible dans le premier cas, dis-le-moi avec les deux captures : j'ajoute la piste 2.
+
+### Commits de cette retouche
+
+16. La rangée replacée sur `scroll` et `resize` de `window` et à chaque image pendant l'ouverture du clavier ; le
+    diagnostic temporaire ; vu dans Chrome.
+17. Documents (D82, UI §3.3), cette section et le PLAN.

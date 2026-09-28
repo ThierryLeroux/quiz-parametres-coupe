@@ -294,4 +294,9 @@ Rapport de session : `docs/rapports/finition-calcul-saisie.md`. **Change la corr
 - [x] Retouche après l'essai : sur écran tactile, aucune case n'a le focus à l'affichage d'une question (`initialFocus`) ; la rangée suit simplement le focus des cases (l'état « case touchée » retiré)
 - [x] Retouche après l'essai : la page ne défile jamais d'elle-même pendant que l'étudiant fait défiler — une seule remontée, à la prise de focus, désarmée au premier geste de défilement
 - [x] Vérification : `npm test`, `test:api`, Chrome à 390 px écran tactile émulé (focus à l'affichage, défilement sans retour à la case) et à 1280 px ; documents (D82, UI §3.3, §7) ; procédure d'essai par le tunnel de wrangler, sans information sur le réseau
-- [ ] **Thierry** : refaire l'essai sur son téléphone avec le tunnel, puis fusionner — hors période de labo : la correction change au déploiement
+- [x] **Thierry** : deuxième essai sur son téléphone — le saut corrigé, le focus gardé ; la rangée invisible mieux décrite (le sens du défilement), consigné à la fin de D82
+- [x] Retouche après le deuxième essai : la rangée se replace aussi sur `scroll` et `resize` de `window`, et à chaque image pendant 600 ms après la prise de focus ; diagnostic temporaire `?diag=1` (diag.js) ; hypothèse : le mécanisme existe dans Chrome (un défilement de la page n'avertit pas visualViewport), le clavier lui-même n'est pas émulable — à confirmer sur le téléphone
+- [x] Vérification : `npm test`, `test:api`, Chrome à 390 px (case en haut et en bas de l'écran, clavier simulé, défilement sans retour, diagnostic) et à 1280 px ; documents (D82, UI §3.3)
+- [ ] **Thierry** : troisième essai avec le tunnel, une capture du diagnostic dans chacun des deux cas ; si la rangée reste invisible, ajouter `interactive-widget=resizes-content` (D82, piste 2)
+- [ ] **Retirer le diagnostic** (`site/js/ui/diag.js`, son import et `startDiag` dans `main.js`, le style `.diag` de `question.css`) avant la fusion
+- [ ] **Thierry** : fusionner — hors période de labo : la correction change au déploiement

@@ -2581,7 +2581,7 @@ proposés ; rien ne change dans le code :
 5. pendant le corrigé d'une réussite, l'outil n'est plus surligné « en cours » : le vert de la barre, le point qui se
    remplit et le bandeau disent où la question a compté.
 
-## D82 — Les calculs dans les cases de réponse : une expression se calcule dans la case, le serveur la juge (2026-09-28, décidée ; réponses de Thierry au rapport, et retouche, puis retouche après l'essai sur téléphone, en fin d'entrée)
+## D82 — Les calculs dans les cases de réponse : une expression se calcule dans la case, le serveur la juge (2026-09-28, décidée ; réponses de Thierry au rapport, et retouche, puis retouches après les essais sur téléphone, en fin d'entrée)
 
 **Contexte.** Une case de réponse de l'écran Question ne lit qu'un nombre : point ou virgule décimale (D10), espaces
 ignorés (« 1 600 »), et la virgule devient un point à la sortie du champ (D71). L'étudiant calcule N = Vc × 4 / Ø ou
@@ -2716,3 +2716,32 @@ les attestations déjà émises ne changent pas. Rapport : `docs/rapports/finiti
    comme fichier d'entrée. Sous Windows 11, la fenêtre du pare-feu pour `workerd.exe` autorise d'un coup les réseaux
    publics et privés, sans case à cocher. **Aucune information sur le réseau de Thierry** (nom du Wi-Fi, adresse IP)
    ne va dans un rapport : le dépôt est public.
+
+**Retouche après le deuxième essai sur téléphone (Thierry, Android, 2026-09-28).** Le saut de la page est corrigé, le
+focus à l'affichage est gardé. Le bogue de la rangée invisible, mieux décrit : quand on touche une case, le navigateur
+fait défiler la page pour placer la case au-dessus du clavier ; si la case était dans la moitié **inférieure** de
+l'écran, la page monte et la rangée apparaît ; si elle était dans la moitié **supérieure**, la page descend et la rangée
+reste invisible. Le sens du défilement fait la différence, pas le focus d'avant.
+
+1. **Hypothèse** (Thierry, à vérifier) : `calcBar` ne replaçait la rangée que sur les événements `scroll` et
+   `resize` de `window.visualViewport`. Quand la case est en bas, Chrome déplace la zone visible, ce qui les
+   déclenche ; quand elle est en haut, Chrome fait défiler la page elle-même (`scroll` de `window`), sans événement
+   de la zone visible : la rangée reste à une position périmée. **Ce que Chrome sur le poste en dit** : un défilement
+   de la page n'envoie que `scroll` à `window`, jamais à `visualViewport` (la sonde le montre, au doigt comme par
+   `scrollBy`) — le mécanisme supposé existe. Mais Chrome sans interface ne sait pas émuler un clavier (ni le
+   paramètre `viewport` de l'émulation, ni le zoom ne réduisent la zone visible sous la fenêtre) : le cas n'est
+   **pas reproduit** tel quel, et l'hypothèse reste à confirmer sur le téléphone, par le diagnostic.
+2. **Correction, piste 1** : la rangée se replace **aussi sur `scroll` et `resize` de `window`**, et **à chaque
+   image pendant 600 ms après la prise de focus**, le temps que le clavier s'ouvre, quels que soient les événements
+   que le navigateur envoie ou n'envoie pas. Toujours un replacement seulement : la page ne défile jamais d'elle-même,
+   sauf la remontée déjà prévue (retouche précédente, point 3).
+3. **Piste 2, en réserve** : `interactive-widget=resizes-content` dans la balise `meta viewport` du quiz — Chrome
+   réduirait alors la page avec le clavier, et la rangée, fixée, se poserait d'office au-dessus ; le calcul par
+   `visualViewport` resterait pour l'iPhone, qui ignore l'option. **Pas ajoutée** : une chose à la fois, pour que le
+   prochain essai dise ce qui corrige ; et le poste ne peut pas vérifier ce qu'elle change aux autres écrans avec un
+   clavier ouvert (identification, Gestion du contenu n'est pas touchée : autre page). À ajouter si la piste 1 ne
+   suffit pas, et alors vérifier sur le téléphone les écrans à saisie.
+4. **Diagnostic temporaire**, montré seulement avec `?diag=1` dans l'adresse (`site/js/ui/diag.js`, une ligne dans
+   `main.js`, un style) : un encadré en haut de l'écran, mis à jour à chaque image — hauteur et décalage de la zone
+   visible, `scrollY`, position et état de la rangée, case active, dernier événement reçu et son heure. Thierry fait
+   une capture dans chacun des deux cas. **À retirer avant la fusion.**
