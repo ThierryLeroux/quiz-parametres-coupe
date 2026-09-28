@@ -2525,7 +2525,7 @@ il ne reste plus aucun rapport du classeur à vérifier.
 jalon 3, chantier « accueil et libellés », E5-4, Finition). Aucun code, aucune migration ; rien ne touche la correction
 ni les attestations. Rapport : `docs/rapports/finition-d7-depot.md`.
 
-## D81 — Le graphique de progression par opération, dans le panneau Progression de l'écran Question (2026-09-28, décidée)
+## D81 — Le graphique de progression par opération, dans le panneau Progression de l'écran Question (2026-09-28, décidée ; réponses de Thierry au rapport en fin d'entrée)
 
 **Contexte.** Le classeur montrait, sur la feuille « Quiz - Menu Principal », un graphique de progression par
 opération (VBA `modAffGraph`) : une barre horizontale par opération évaluée, de 0 à 100 % = somme des réussites de
@@ -2571,7 +2571,17 @@ seuils du graphique de progression » disparaît) ; UI §3.3 et §3.4 ; PLAN (Fi
 UI.md fait foi (D17). Les séances en cours ne changent que d'affichage : ni leur correction, ni leurs compteurs, ni leurs
 attestations. Rapport : `docs/rapports/finition-graphique-progression.md`.
 
-## D82 — Les calculs dans les cases de réponse : une expression se calcule dans la case, le serveur la juge (2026-09-28, décidée)
+**Réponses de Thierry au rapport (2026-09-28).** Les cinq points à trancher du rapport sont acceptés tels que
+proposés ; rien ne change dans le code :
+
+1. le contour doré entoure la barre de l'opération, pas tout son bloc, et son « n / m » passe en doré ;
+2. l'acquis est bleu dans la barre de chaque opération ; les points et la barre « n / m outils » du haut restent verts ;
+3. les noms des outils restent alignés sur celui de leur opération, quitte à passer sur deux lignes ;
+4. rien n'est replié sur ordinateur, même quand le panneau est long (`test-complet`) ;
+5. pendant le corrigé d'une réussite, l'outil n'est plus surligné « en cours » : le vert de la barre, le point qui se
+   remplit et le bandeau disent où la question a compté.
+
+## D82 — Les calculs dans les cases de réponse : une expression se calcule dans la case, le serveur la juge (2026-09-28, décidée ; réponses de Thierry au rapport, et retouche, en fin d'entrée)
 
 **Contexte.** Une case de réponse de l'écran Question ne lit qu'un nombre : point ou virgule décimale (D10), espaces
 ignorés (« 1 600 »), et la virgule devient un point à la sortie du champ (D71). L'étudiant calcule N = Vc × 4 / Ø ou
@@ -2654,3 +2664,29 @@ résultat) ; `site/js/correction.js` (`parseAnswer`) ; `worker/seance.js` (`clea
 change dès le déploiement** : le serveur lit autrement les réponses (une expression, refusée hier, est jugée) ; une
 réponse qui était un nombre est jugée exactement comme avant. Le journal garde le texte envoyé, expression comprise ;
 les attestations déjà émises ne changent pas. Rapport : `docs/rapports/finition-calcul-saisie.md`.
+
+**Réponses de Thierry au rapport, et retouche (2026-09-28).**
+
+1. **Acceptés tels que proposés** (points 1, 3, 4 et 6 du rapport) : le résultat en 9 caractères au plus, avec « ≈ »
+   dans la note quand l'affichage est arrondi ; la note sous la case avant la correction ; le rappel « un calcul se
+   tape tel quel » sous le formulaire ; les limites (60 caractères, 10 niveaux de parenthèses, « … » au-delà de 60
+   caractères côté serveur).
+2. **Une expression illisible ne part jamais au serveur**, ni par Entrée ni par Vérifier. Avant cette retouche, un clic
+   sur Vérifier avec « 2(3) » dans une case la calculait à la sortie de la case, puis l'envoyait dans le même geste :
+   question ratée et série remise à zéro pour une faute de frappe dans un calcul. Désormais, Vérifier (clic, toucher
+   ou Entrée) **ne part pas** tant qu'une case contient une expression illisible : la case reste en rouge avec sa
+   raison et **reçoit le focus** ; l'étudiant corrige ou efface. Un texte illisible qui n'est pas une expression
+   (« 12a ») part comme avant et reste une mauvaise réponse. Le deuxième Entrée ne vérifie donc plus une case
+   illisible : cette retouche remplace la précision « Entrée calcule si la case contient une expression qu'on n'a pas
+   encore essayé de calculer ». **Côté navigateur seulement** : le serveur continue de juger illisible toute expression
+   mal formée qu'il recevrait.
+3. **Syntaxe élargie** (point 5 du rapport ; remplace la précision « `x` en minuscule seulement ; `pi`, `PI` et
+   `π` seulement ») : `pi` **sans égard à la casse** (`pi`, `Pi`, `PI`, `pI`, `π`), à cause des
+   majuscules automatiques des téléphones ; `x` **et `X`** ; le tiret demi-cadratin **« – »** comme moins. Le reste
+   ne change pas : « -0 » et « +5 » refusés, « --5 » vaut 5. Le test de non-régression reste le même : un nombre se lit
+   exactement comme avant.
+4. **La rangée de boutons n'apparaît qu'après un toucher dans une case**, pas au focus automatique de la première case
+   à l'affichage d'une question (point 2 du rapport) : sur iPhone, ce focus n'ouvre pas le clavier, et la rangée
+   resterait seule au bas de l'écran. Son emplacement, juste au-dessus du clavier virtuel, est gardé.
+5. **Essai sur un vrai téléphone** avant la fusion : le serveur local ouvert au Wi-Fi (procédure dans le rapport,
+   « Suite ») ; Thierry fusionne lui-même, hors des périodes de labo.
