@@ -66,8 +66,11 @@ function calcBar(onKey, active) {
   let reveal = false;
   const stopRevealing = () => { reveal = false; };
 
-  // Replace la rangée au bas de la zone visible — au défilement, et quand la zone visible change de hauteur (clavier,
-  // barre d'adresse) —, et ne fait rien d'autre, sauf la remontée tant qu'elle est armée (8 px d'air sous la case).
+  // Replace la rangée au bas de la zone visible, et ne fait rien d'autre, sauf la remontée tant qu'elle est armée (8 px
+  // d'air sous la case). Appelée au défilement de la zone visible ET de la page (deuxième essai sur téléphone : quand
+  // Chrome amène la case touchée vers le centre en faisant défiler la page elle-même, window.visualViewport n'annonce
+  // rien), quand la zone visible ou la fenêtre change de hauteur (clavier, barre d'adresse), et à chaque image pendant
+  // l'ouverture du clavier (settle).
   function place() {
     if (!bar.isConnected) { // l'écran a été remplacé pendant que la rangée était ouverte
       hide();
@@ -82,8 +85,20 @@ function calcBar(onKey, active) {
     if (covered > 0) window.scrollBy(0, covered);
   }
 
-  // Une case prend le focus : la rangée s'ouvre (ou reste ouverte), et la remontée s'arme. Ouverte, la rangée réserve sa
-  // hauteur au bas de l'écran (calc-bar-open) : elle ne cache jamais la fin de la page.
+  // Pendant l'ouverture du clavier — environ une demi-seconde après la prise de focus —, la rangée se replace à chaque
+  // image, quels que soient les événements que le navigateur envoie ou n'envoie pas.
+  const SETTLE_MS = 600;
+  let settleUntil = 0;
+  let settling = false;
+  function settle() {
+    if (!settling) return;
+    place();
+    if (Date.now() < settleUntil && !bar.hidden) requestAnimationFrame(settle);
+    else settling = false;
+  }
+
+  // Une case prend le focus : la rangée s'ouvre (ou reste ouverte), la remontée s'arme, et le replacement à chaque image
+  // repart. Ouverte, la rangée réserve sa hauteur au bas de l'écran (calc-bar-open) : elle ne cache jamais la fin de la page.
   function show() {
     reveal = true;
     if (bar.hidden) {
@@ -91,10 +106,17 @@ function calcBar(onKey, active) {
       bar.parentElement?.classList.add('calc-bar-open');
       viewport?.addEventListener('resize', place);
       viewport?.addEventListener('scroll', place);
+      window.addEventListener('scroll', place, { passive: true });
+      window.addEventListener('resize', place);
       window.addEventListener('touchmove', stopRevealing, { passive: true });
       window.addEventListener('wheel', stopRevealing, { passive: true });
     }
     place();
+    settleUntil = Date.now() + SETTLE_MS;
+    if (!settling) {
+      settling = true;
+      requestAnimationFrame(settle);
+    }
   }
   function hide() {
     reveal = false;
@@ -102,6 +124,8 @@ function calcBar(onKey, active) {
     bar.parentElement?.classList.remove('calc-bar-open');
     viewport?.removeEventListener('resize', place);
     viewport?.removeEventListener('scroll', place);
+    window.removeEventListener('scroll', place);
+    window.removeEventListener('resize', place);
     window.removeEventListener('touchmove', stopRevealing);
     window.removeEventListener('wheel', stopRevealing);
   }

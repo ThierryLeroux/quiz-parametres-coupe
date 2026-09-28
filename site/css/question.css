@@ -286,6 +286,21 @@
 /* La rangée ouverte réserve sa hauteur au bas de l'écran : elle ne cache jamais la fin de la page. */
 .calc-bar-open { padding-bottom: 60px; }
 
+/* DIAGNOSTIC TEMPORAIRE (?diag=1, diag.js) : à retirer avant la fusion. */
+.diag {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 4px 6px;
+  background: rgb(0 0 0 / 75%);
+  color: #fff;
+  font: 11px/1.3 var(--font-number);
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
 /* Bandeau après « Vérifier » : « Question ratée » à gauche, l'explication à droite. La couleur est
    doublée par le texte. */
 .banner {
