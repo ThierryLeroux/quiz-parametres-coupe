@@ -259,6 +259,7 @@ Rapport de session : `docs/rapports/e5-4-historique-banque.md`.
 
 ## Finition
 - [x] Graphique de progression par opération (jalon F2 ci-dessous, D81)
+- [ ] Calculs dans les cases de réponse (jalon F3 ci-dessous, D82)
 - [x] Décision D7 (dépôt) close (D80 : dépôt dédié ; D3 et D4 confirmées) — D6 (sécurité) est fermée par D19 ; rapport `docs/rapports/finition-d7-depot.md`
 - [ ] **Thierry** : dépublier GitHub Pages de `tgm-fab` (D80 ; marche à suivre dans le rapport)
 
@@ -270,4 +271,17 @@ Rapport de session : `docs/rapports/finition-graphique-progression.md`. Tout se 
 - [x] Panneau Progression (`question-screen.js`, `question.css`) : un en-tête par opération (pictogramme des tables de la séance, nom, barre, « n / m »), ses outils dessous ; bleu acquis, vert gagné et rouge perdu pendant le corrigé, contour doré d'une opération complète ; « n opérations terminées » sur téléphone
 - [x] Chrome à 1280 et 390 px, sans erreur console : `m10-tournage-vc`, `m10-tournage-vc-rpm`, `test-complet` — réussite (vert), échec (rouge, « remis à zéro »), opération complétée (contour doré), question suivante (barres simples), repli sur téléphone
 - [x] Documents : SPEC §7 (ce que le graphique montre), §10 (les seuils reportés disparaissent) ; UI §3.3, §3.4
-- [ ] **Thierry** : relire, trancher les points douteux du rapport, fusionner
+- [ ] **Thierry** : relire, trancher les points douteux du rapport (fusionné le 2026-09-28)
+
+### Jalon F3 — les calculs dans les cases de réponse (décision D82)
+Rapport de session : `docs/rapports/finition-calcul-saisie.md`. **Change la correction** : le serveur lit une expression ; une réponse qui était un nombre est jugée comme avant.
+
+- [x] D82 ; tâches du jalon dans le PLAN
+- [ ] `site/js/expression.js` : l'évaluateur écrit à la main (syntaxe de D82, point 1 ; 60 caractères, 10 niveaux de parenthèses ; jamais `eval` ni `Function`), l'écriture propre d'une expression, le résultat tel que la case l'affiche (9 caractères) ; testé
+- [ ] `parseAnswer` lit une expression ; tests : priorités, parenthèses, pi, virgules multiples, saisies illisibles, non-régression (toute saisie lue aujourd'hui donne le même nombre ; ce qui est refusé sans être une expression reste refusé)
+- [ ] Serveur : `cleanAnswers` (60 caractères, « … » au-delà), `correctionView` (`expression` de chaque champ ; le nombre évalué dans le calcul en une ligne) ; une route qui reçoit une expression ; l'attestation montre la valeur
+- [ ] Écran Question : Entrée calcule puis vérifie, quitter la case et Vérifier calculent, l'expression gardée et envoyée, oubliée si on retouche le résultat ; la note sous la case ; l'expression dans la correction — règles pures dans `rules.js` et `text.js`, testées avant d'être branchées
+- [ ] Rangée de boutons `( ) + − × ÷ π =` sur écran tactile, au-dessus du clavier virtuel ; aucune sur ordinateur
+- [ ] Chrome à 1280 et 390 px, sans erreur console : `m10-tournage-vc-rpm`, `test-complet` — `(3-1)*2` puis Entrée (4, on reste dans la case), deuxième Entrée (vérifie), Vérifier sur une expression pas encore calculée, `2(3)` illisible, boutons à 390 px, l'expression dans la correction
+- [ ] Documents : SPEC §5, §6, §7 ; UI §3.3, §3.4, §7
+- [ ] **Thierry** : relire, trancher les points douteux du rapport, fusionner — hors période de labo : la correction change au déploiement

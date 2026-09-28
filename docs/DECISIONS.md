@@ -2570,3 +2570,87 @@ repli sur téléphone), qui remplace le repli par outil (`foldDoneRows`) ; `site
 seuils du graphique de progression » disparaît) ; UI §3.3 et §3.4 ; PLAN (Finition). La maquette 03 reste telle quelle :
 UI.md fait foi (D17). Les séances en cours ne changent que d'affichage : ni leur correction, ni leurs compteurs, ni leurs
 attestations. Rapport : `docs/rapports/finition-graphique-progression.md`.
+
+## D82 — Les calculs dans les cases de réponse : une expression se calcule dans la case, le serveur la juge (2026-09-28, décidée)
+
+**Contexte.** Une case de réponse de l'écran Question ne lit qu'un nombre : point ou virgule décimale (D10), espaces
+ignorés (« 1 600 »), et la virgule devient un point à la sortie du champ (D71). L'étudiant calcule N = Vc × 4 / Ø ou
+Vf = N × f à la calculatrice, puis recopie le résultat, avec le risque d'une faute de recopie. Mastercam et Catia
+acceptent un calcul dans leurs cases : on tape `(3-1)*2`, Entrée, et la case affiche 4. Le serveur lit chaque saisie
+avec `parseAnswer` (`site/js/correction.js`), qu'il importe (`worker/seance.js`, `worker/attestation.js`) ; il coupait
+chaque saisie à 32 caractères, sans le dire (`cleanAnswers`).
+
+**Décision** (Thierry, 2026-09-28).
+
+1. **Syntaxe acceptée** : les nombres, avec point ou virgule décimale et espaces ignorés, comme aujourd'hui ; `+` et `-`
+   (aussi `−`) ; `*` (aussi `×` et `x`) ; `/` (aussi `÷`) ; les parenthèses ; `pi` (aussi `PI` et `π`), qui vaut
+   `Math.PI`. **Rien d'autre** : ni puissance, ni fonction, ni multiplication implicite (`2pi`, `2(3+1)` sont
+   illisibles). Le moins unaire est permis à l'intérieur d'une expression. Un résultat négatif, une division par zéro
+   ou une expression mal formée donnent « illisible », comme aujourd'hui.
+2. **Moteur** : `parseAnswer` lit désormais ces expressions, avec un petit évaluateur écrit à la main — **jamais
+   `eval()` ni `Function()`**. Le serveur, qui importe cette fonction, sait donc corriger une expression. La longueur de
+   la saisie et la profondeur des parenthèses sont limitées, pour protéger le Worker. **Non-régression** : toute saisie
+   acceptée aujourd'hui donne exactement le même nombre ; tout ce qui est refusé aujourd'hui sans être une expression
+   reste refusé (« abc », « 1.2.3 », « -5 ») ; « 1,600 » vaut toujours 1.6. La validation des réponses côté serveur
+   (longueur, caractères permis), en amont de `parseAnswer`, est revue.
+3. **Touche Entrée** : si la case contient une expression, Entrée la calcule et **on reste dans la case** ; un deuxième
+   Entrée vérifie, comme aujourd'hui. Quitter la case (Tab, clic) calcule aussi, au même moment où la virgule devient un
+   point (D71). Un clic sur **Vérifier** calcule toutes les cases, puis envoie. Seulement les cases de réponse de
+   l'écran Question : la Gestion du contenu ne change pas.
+4. **Ce que la case affiche** : le résultat, c'est-à-dire le nombre que le serveur jugera, **sans le bruit de la
+   virgule flottante et sans arrondi pédagogique**. Le navigateur **garde l'expression de côté et l'envoie comme
+   réponse**, pour que le serveur juge exactement la même chose. Si l'étudiant retouche ensuite le résultat à la main,
+   l'expression est oubliée et c'est le nombre tapé qui part.
+5. **Correction** : la saisie s'affiche avec son expression — « ta saisie : 4 × 350 / 0.75 = 1866.67 » —, pour qu'on
+   voie où l'étudiant s'est trompé dans sa formule. Partout où la saisie sert de nombre (ligne de calcul, écart en %,
+   bandeau rouge, cohérence de f et de Vf), c'est **le nombre évalué** qui sert, jamais le texte de l'expression.
+   **L'attestation ne change pas** : elle montre la valeur, pas l'expression.
+6. **Téléphone** : le clavier numérique (`inputmode="decimal"`) n'a ni parenthèses ni opérateurs, et sur iPhone pas de
+   touche Entrée. **Sur écran tactile seulement**, une rangée de boutons : `( ) + − × ÷ π =`. Un bouton insère son
+   caractère à la position du curseur **sans faire perdre le focus** à la case (le clavier reste ouvert) ; « = »
+   calcule la case active. La rangée reste visible pendant la saisie à 390 px. Pas de rangée sur ordinateur.
+7. **Documents** : D82 ; SPEC (lecture d'une saisie, D10) ; UI §3.3, §3.4 et §7.
+8. **Vérification** : `npm test` à `fail 0`, dont des tests de `parseAnswer` (priorités, parenthèses, pi, virgules
+   multiples, saisies illisibles, non-régression) et une route du serveur qui reçoit une expression ; Chrome à 1280 et
+   390 px, sans erreur console, sur `m10-tournage-vc-rpm` et `test-complet`.
+
+**Précisions de mise en œuvre** (proposées au rapport, à confirmer ; `// ❓` dans le code là où elles tranchent).
+
+- **Nombre ou expression.** Une saisie qui est un nombre (`^(\d+\.?\d*|\.\d+)$` une fois les espaces retirés et la
+  virgule changée en point) se lit **mot pour mot comme avant** : même code, même nombre, sans limite de longueur.
+  Tout le reste passe par l'évaluateur (`site/js/expression.js`). Les virgules deviennent toutes des points : « 1,5 +
+  2,5 » vaut 4, « 1,2,3 » reste illisible (« 1.2.3 »). Le moins unaire est permis partout où un nombre peut aller
+  (« 2 × −3 », « (−1 + 3) ») ; « -5 » reste refusé parce que son résultat est négatif, et « -0 » parce que −0 compte
+  comme négatif. Il n'y a pas de plus unaire : « +5 » reste refusé. `x` en minuscule seulement ; `pi`, `PI` et `π`
+  seulement (« Pi » est illisible).
+- **Limites** : une expression de **60 caractères** au plus (la case n'en accepte pas davantage, `maxlength`) et
+  **10 niveaux de parenthèses**. Le serveur (`cleanAnswers`) garde les 60 premiers caractères d'une saisie plus longue,
+  suivis de « … » : elle est illisible, et le journal montre ce qui a été envoyé. Il ne filtre pas les caractères :
+  c'est l'évaluateur qui refuse tout caractère hors de la liste du point 1 (une seule liste, pas deux à tenir
+  d'accord).
+- **Le nombre jugé** est le résultat de l'expression à 12 chiffres significatifs : le bruit de la virgule flottante
+  disparaît (0.1 + 0.2 = 0.3), loin sous toute tolérance. Un nombre tapé, lui, n'est jamais touché.
+- **Ce que la case affiche** : ce nombre, s'il tient en **9 caractères** (la largeur d'une case à 1280 px, mesurée
+  dans Chrome) ; sinon, le même nombre avec moins de chiffres significatifs, jusqu'à ce qu'il tienne : 4 × 350 / 0.75
+  → « 1866.6667 ». Sous la case, une note rappelle l'expression : « = (3 − 1) × 2 », ou « ≈ 4 × 350 / 0.75 » quand
+  l'affichage est arrondi. Une expression illisible reste telle quelle dans la case, en rouge, avec sa note :
+  « Illisible : division par zéro », « … : résultat négatif » ou « … : expression mal formée ».
+- **Entrée** calcule si la case contient une expression **qu'on n'a pas encore essayé de calculer** : sur une
+  expression illisible, le premier Entrée affiche la note, le deuxième vérifie.
+- **Correction** : chaque champ de `correction.champs` porte `expression` — `null`, ou `{ texte, valeur, arrondie }` :
+  l'expression écrite proprement (« 4 × 350 / 0.75 » : `×`, `/`, `−`, `π`, des espaces autour des opérateurs), le
+  nombre tel que la case l'affiche, et s'il est arrondi. L'écran écrit sous la case « ta saisie : 4 × 350 / 0.75 ≈
+  1866.6667 » (« = » quand rien n'est arrondi). Le calcul en une ligne, le bandeau rouge et « Juste (… attendu) »
+  reprennent `valeur`.
+- **La rangée de boutons** : une barre en bas de la zone visible, **juste au-dessus du clavier virtuel** (placée
+  d'après `window.visualViewport`), sur toute la largeur, montrée seulement tant qu'une case à saisir a le focus, sur
+  un écran dont le pointeur principal est tactile (`pointer: coarse`) ; 8 boutons de 44 px de haut. Les boutons
+  insèrent `(`, `)`, `+`, `−`, `×`, `÷`, `π`.
+
+**Conséquences.** `site/js/expression.js` (nouveau : l'évaluateur, l'écriture propre d'une expression, l'affichage du
+résultat) ; `site/js/correction.js` (`parseAnswer`) ; `worker/seance.js` (`cleanAnswers`, `correctionView`) ;
+`site/js/ui/rules.js`, `text.js`, `question-screen.js`, `site/css/question.css` ; tests. SPEC §5 (séparateur décimal),
+§6 (saisie), §7 (`correction`) ; UI §3.3, §3.4, §7 ; PLAN (Finition, jalon F3). **La correction des séances en cours
+change dès le déploiement** : le serveur lit autrement les réponses (une expression, refusée hier, est jugée) ; une
+réponse qui était un nombre est jugée exactement comme avant. Le journal garde le texte envoyé, expression comprise ;
+les attestations déjà émises ne changent pas. Rapport : `docs/rapports/finition-calcul-saisie.md`.
