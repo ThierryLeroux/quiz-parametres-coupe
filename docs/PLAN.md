@@ -258,7 +258,7 @@ Rapport de session : `docs/rapports/e5-4-historique-banque.md`.
 - [x] **Thierry** : fusionner (fait : fusionné et déployé le 2026-09-28)
 
 ## Finition
-- [ ] Graphique de progression par opération (jalon F2 ci-dessous, D81)
+- [x] Graphique de progression par opération (jalon F2 ci-dessous, D81)
 - [x] Décision D7 (dépôt) close (D80 : dépôt dédié ; D3 et D4 confirmées) — D6 (sécurité) est fermée par D19 ; rapport `docs/rapports/finition-d7-depot.md`
 - [ ] **Thierry** : dépublier GitHub Pages de `tgm-fab` (D80 ; marche à suivre dans le rapport)
 
@@ -266,8 +266,8 @@ Rapport de session : `docs/rapports/e5-4-historique-banque.md`.
 Rapport de session : `docs/rapports/finition-graphique-progression.md`. Tout se passe dans le navigateur : ni serveur, ni correction, ni séance, ni attestation, ni migration.
 
 - [x] D81 ; tâches du jalon dans le PLAN
-- [ ] `site/js/ui/rules.js` : une fonction pure (regroupement par opération, ordre, sommes, gain, perte, opération complète, repli sur téléphone), testée avant d'être branchée — opération à un seul outil, outils de même nom, réussite qui complète une opération, échec qui la vide, échec sur un outil déjà à zéro, premier affichage sans progression d'avant, opérations intercalées ; le repli par outil (`foldDoneRows`) remplacé, son test adapté
-- [ ] Panneau Progression (`question-screen.js`, `question.css`) : un en-tête par opération (pictogramme des tables de la séance, nom, barre, « n / m »), ses outils dessous ; bleu acquis, vert gagné et rouge perdu pendant le corrigé, contour doré d'une opération complète ; « n opérations terminées » sur téléphone
-- [ ] Chrome à 1280 et 390 px, sans erreur console : `m10-tournage-vc`, `m10-tournage-vc-rpm`, `test-complet` — réussite (vert), échec (rouge, « remis à zéro »), opération complétée (contour doré), question suivante (barres simples), repli sur téléphone
-- [ ] Documents : SPEC §7 (ce que le graphique montre), §10 (les seuils reportés disparaissent) ; UI §3.3, §3.4
+- [x] `site/js/ui/rules.js` : `operationProgress`, une fonction pure (regroupement par opération, ordre, sommes, gain, perte, opération complète, repli sur téléphone), testée avant d'être branchée — opération à un seul outil, outils de même nom, réussite qui complète une opération, échec qui la vide, échec sur un outil déjà à zéro, premier affichage sans progression d'avant, opérations intercalées ; le repli par outil (`foldDoneRows`) remplacé, son test adapté
+- [x] Panneau Progression (`question-screen.js`, `question.css`) : un en-tête par opération (pictogramme des tables de la séance, nom, barre, « n / m »), ses outils dessous ; bleu acquis, vert gagné et rouge perdu pendant le corrigé, contour doré d'une opération complète ; « n opérations terminées » sur téléphone
+- [x] Chrome à 1280 et 390 px, sans erreur console : `m10-tournage-vc`, `m10-tournage-vc-rpm`, `test-complet` — réussite (vert), échec (rouge, « remis à zéro »), opération complétée (contour doré), question suivante (barres simples), repli sur téléphone
+- [x] Documents : SPEC §7 (ce que le graphique montre), §10 (les seuils reportés disparaissent) ; UI §3.3, §3.4
 - [ ] **Thierry** : relire, trancher les points douteux du rapport, fusionner
