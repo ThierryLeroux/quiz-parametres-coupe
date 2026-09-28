@@ -57,34 +57,55 @@ function calcBar(onKey, active) {
     class: key.compute ? 'calc-key calc-key--equals' : 'calc-key', type: 'button', tabindex: '-1', 'aria-label': key.name, onpointerdown: keep, onmousedown: keep, onclick: () => onKey(key),
   }, key.label)));
   const viewport = window.visualViewport;
-  // Au bas de la zone visible ; puis, si la rangée couvre la case, la page remonte d'autant (et 8 px d'air).
+
+  // La page ne défile jamais d'elle-même pendant que l'étudiant fait défiler (D82, retouche après l'essai sur
+  // téléphone). La seule remontée automatique : quand une case prend le focus et que le clavier s'ouvre, si la rangée
+  // couvre alors la case. Elle est armée à la prise de focus, et désarmée au premier geste de défilement de l'étudiant
+  // (touchmove, wheel). Avant cette retouche, la page remontait à chaque changement de la zone visible : la barre
+  // d'adresse du navigateur, qui paraît ou disparaît selon le sens du défilement, ramenait la case à l'écran.
+  let reveal = false;
+  const stopRevealing = () => { reveal = false; };
+
+  // Replace la rangée au bas de la zone visible — au défilement, et quand la zone visible change de hauteur (clavier,
+  // barre d'adresse) —, et ne fait rien d'autre, sauf la remontée tant qu'elle est armée (8 px d'air sous la case).
   function place() {
+    if (!bar.isConnected) { // l'écran a été remplacé pendant que la rangée était ouverte
+      hide();
+      return;
+    }
     if (viewport) {
       bar.style.width = `${viewport.width}px`;
       bar.style.transform = `translate(${viewport.offsetLeft}px, ${viewport.offsetTop + viewport.height - bar.offsetHeight}px)`;
     } else bar.classList.add('calc-bar--bottom'); // navigateur sans visualViewport : au bas de la fenêtre
-    const input = active();
+    const input = reveal ? active() : null;
     const covered = input ? input.getBoundingClientRect().bottom + 8 - bar.getBoundingClientRect().top : 0;
     if (covered > 0) window.scrollBy(0, covered);
   }
-  return {
-    element: bar,
-    // Ouverte, la rangée réserve sa hauteur au bas de l'écran (calc-bar-open) : elle ne cache jamais la fin de la page.
-    show() {
-      if (!bar.hidden) return;
+
+  // Une case prend le focus : la rangée s'ouvre (ou reste ouverte), et la remontée s'arme. Ouverte, la rangée réserve sa
+  // hauteur au bas de l'écran (calc-bar-open) : elle ne cache jamais la fin de la page.
+  function show() {
+    reveal = true;
+    if (bar.hidden) {
       bar.hidden = false;
       bar.parentElement?.classList.add('calc-bar-open');
       viewport?.addEventListener('resize', place);
       viewport?.addEventListener('scroll', place);
-      place();
-    },
-    hide() {
-      bar.hidden = true;
-      bar.parentElement?.classList.remove('calc-bar-open');
-      viewport?.removeEventListener('resize', place);
-      viewport?.removeEventListener('scroll', place);
-    },
-  };
+      window.addEventListener('touchmove', stopRevealing, { passive: true });
+      window.addEventListener('wheel', stopRevealing, { passive: true });
+    }
+    place();
+  }
+  function hide() {
+    reveal = false;
+    bar.hidden = true;
+    bar.parentElement?.classList.remove('calc-bar-open');
+    viewport?.removeEventListener('resize', place);
+    viewport?.removeEventListener('scroll', place);
+    window.removeEventListener('touchmove', stopRevealing);
+    window.removeEventListener('wheel', stopRevealing);
+  }
+  return { element: bar, show, hide };
 }
 
 // Progression (UI §3.3, D81) : barre « n / m outils », puis les outils regroupés par opération (operationProgress) —
