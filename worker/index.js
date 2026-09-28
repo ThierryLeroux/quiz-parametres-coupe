@@ -1445,7 +1445,9 @@ async function editeurBanqueCreer(request, env, { now }) {
     if (source === null) throw new HttpError(404, "L'outil à dupliquer n'existe pas.");
     outil = { ...structuredClone(source.outil), id: body.id, nom: `${source.outil.nom} (copie)` };
   } else {
-    outil = { ...cleanTool(body.outil), id: body.id };
+    // Un outil créé à l'ancien format (un facteur de vitesse sans raison) fait son passage avec les tables d'aujourd'hui (D83).
+    const operations = (await latestTables(env)).operations.operations;
+    outil = adoptSpeedFactor({ ...cleanTool(body.outil), id: body.id }, operations.find((op) => op.operation === body.outil?.operation));
     // Une photo nommée à la création est choisie : elle doit exister et ne pas être archivée (D79).
     const photo = bankImageCheck(outil, null, await base.listImages(env.DB));
     if (photo.erreurs.length > 0) throw new HttpError(400, `${photo.erreurs.join(' ')} Rien n'a été créé.`, { erreurs: photo.erreurs.map((message) => ({ champ: 'image', message })) });

@@ -305,6 +305,10 @@ test('enregistrer un brouillon ou un outil de la banque : un ancien outil y fait
   assert.match(sansRaison.corps.erreurs[0].message, /Un facteur forcé exige une raison courte/);
   const force = await serveur.editeur('POST', 'banque/enregistrer', { id: 'alesoir', revision: sansRaison.corps.revision, outil: { ...outil.outil, fact_vc: 1, fact_vc_raison: 'alésoir au carbure' } });
   assert.deepEqual([force.status, force.corps.erreurs, force.corps.lignes], [200, [], ['Facteur de vitesse : « × 1 » → « forcé × 1 (alésoir au carbure) »']]);
+  // Un outil créé à l'ancien format (un script, un autre onglet) fait son passage : ici, égal à sa table, il hérite.
+  const { id: _id, ...modele } = outil.outil;
+  assert.equal((await serveur.editeur('POST', 'banque/creer', { id: 'alesoir_neuf', outil: { ...modele, fact_vc: 0.25 } })).status, 200);
+  assert.equal('fact_vc' in (await serveur.editeur('GET', 'banque/outil?id=alesoir_neuf')).corps.outil.outil, false);
   // Revenu à l'héritage : plus de facteur propre.
   const herite = await serveur.editeur('POST', 'banque/enregistrer', { id: 'alesoir', revision: force.corps.revision, outil: outil.outil });
   assert.deepEqual([herite.corps.erreurs, herite.corps.lignes], [[], ["Facteur de vitesse : « forcé × 1 (alésoir au carbure) » → « hérité de l'opération »"]]);
