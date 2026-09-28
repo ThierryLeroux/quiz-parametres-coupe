@@ -303,3 +303,18 @@ Rapport de session : `docs/rapports/finition-calcul-saisie.md`. **Change la corr
 - [x] **Thierry** : quatrième essai avec le tunnel, sur Android — concluant (rangée collée sous la case en haut comme en bas, Vérifier du premier coup, la page ne saute pas) ; **l'iPhone n'a pas encore été essayé**
 - [x] Diagnostic temporaire retiré (`site/js/ui/diag.js`, son import et `startDiag` dans `main.js`, le style `.diag` de `question.css`) ; aucune mention dans le code
 - [ ] **Thierry** : fusionner — hors période de labo : la correction change au déploiement ; essayer ensuite sur un iPhone
+
+## Chantier « facteurs de vitesse » — la 4e feuille des tables de référence (décision D83)
+Rapport de session : `docs/rapports/facteurs-vitesse.md`. Branche `facteurs-vitesse`. **Rien ne touche la correction des séances en cours** : ce qui existe se lit et se corrige comme avant ; les facteurs n'entrent en jeu qu'avec une version de tables qui les porte, que Thierry publie lui-même.
+
+- [x] Témoin de non-régression, produit par le code d'avant le chantier : questions, corrections, lignes de calcul, attestations (`tests/non-regression-d83.test.js`, `tests/instantanes/avant-d83.json`)
+- [x] D83 ; tâches du chantier dans le PLAN
+- [ ] Moteur : `site/js/facteur-vitesse.js` (pur, testé) — le facteur qui sert au calcul, l'état d'un outil (propre, hérité, forcé), le passage d'un ancien outil, la fraction, la lecture d'une saisie, la table papier ; validation des tables (`facteur_vitesse`, toutes les opérations ou aucune) et des outils (`fact_vc` facultatif, `fact_vc_raison`) ; `calcul.js` ; `tablesDiff` ; le réglage `facteur_vitesse_donne` de l'exercice
+- [ ] Serveur : la question (`outil.facteur_vitesse` : forcé, donné, à trouver — rien de ce qui est à trouver ne part), la ligne de calcul en fraction ; le brouillon des tables prérempli d'après la table papier ; le passage des copies dans la cascade, au passage d'un brouillon et à la reprise d'une version ; l'impact de la cascade nomme les outils forcés
+- [ ] Feuilles : la 4e feuille « Facteurs de vitesse » (`speedFactorSheet`, pure, testée), à l'écran et à l'impression, seulement pour des tables qui portent les facteurs ; la feuille des formules (rangée N, note, miniature)
+- [ ] Écran Question : la ligne du facteur (donné, forcé avec sa raison, rien s'il est à trouver), l'aide de N et son bouton vers la 4e feuille — règles pures dans `rules.js`, testées
+- [ ] Gestion du contenu : la colonne « Facteur de vitesse » des tables (« 1/4 » comme « 0.25 ») ; le formulaire d'outil (« Selon la table : … », « Forcer pour cet outil », valeur et raison) ; le badge « facteur forcé » ; le réglage de l'exercice ; les avertissements « se déduit de » ; l'impact de la cascade
+- [ ] Vérification : `npm test`, `test:api`, Chrome à 1280 et 390 px sans erreur console — la 4e feuille (écran et impression), une question d'alésoir avec le facteur à trouver puis donné, un outil forcé, la Gestion du contenu
+- [ ] Documents : SPEC §3, §5, §7, §10 ; UI §3.3, §3.4, §3.5, §3.9 ; CLAUDE.md ; rapport
+- [ ] **Thierry** : relire, trancher les points douteux du rapport ; fusionner et déployer **hors des périodes de labo**
+- [ ] **Thierry**, en production, après la fusion (marche à suivre dans le rapport) : vérifier la colonne préremplie des facteurs ; publier les tables ; faire la cascade ; trancher Nine9 90 degrés et l'outil à chambrer ; créer Chambrage et Moletage s'il le veut

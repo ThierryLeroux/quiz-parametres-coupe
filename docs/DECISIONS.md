@@ -2789,3 +2789,137 @@ la case soit en haut ou en bas de l'écran ; Vérifier répond du premier coup ;
 temporaire est retiré (`site/js/ui/diag.js`, son import et l'appel dans `main.js`, le style `.diag`) : il n'en reste
 aucune trace dans le code, seulement dans les documents. **L'iPhone n'a pas encore été essayé** : la rangée y est dans
 la page comme sur Android, et la remontée s'appuie sur Safari (`scrollIntoView`), sans calcul qui lui soit propre.
+
+## D83 — Les facteurs de modification de la vitesse de rotation : une valeur de l'opération, dans les tables ; l'outil en hérite ; la 4e feuille (2026-09-28, décidée ; précisions de mise en œuvre à confirmer)
+
+**Contexte.** En classe, les étudiants se réfèrent à une table papier, « Modification du RPM en fonction de
+l'opération », que le site n'a pas — un oubli du classeur : Perçage 1 · Alésage 1/4 · Alésage à la barre 1 ·
+Chanfreinage 1/4 · Rainurage 1/4 · Chambrage 1/4 · Moletage 1/4 · Tronçonnage 1/8. Jusqu'ici, chaque outil portait son
+propre `fact_vc`, tapé à la main, et la question l'affichait (« Vitesse réduite × 0.25 »). Désormais **le facteur
+appartient à l'opération**, dans les tables de référence, et **l'outil en hérite**, comme sa Vc vient de la table des
+vitesses.
+
+**Décision** (Thierry, 2026-09-28).
+
+1. **Le facteur de vitesse est une valeur de chaque opération des tables de référence** (`facteur_vitesse`, un
+   nombre plus grand que 0). Il est **versionné, comme les avances** : il touche la correction, donc il ne fait pas
+   partie de la présentation en direct (D75). Dans l'onglet Tables de référence, une colonne l'édite, qui accepte
+   « 1/4 » comme « 0.25 » (l'évaluateur de D82).
+2. **Valeurs de départ** : le brouillon des tables est **prérempli d'après la table papier** ; Thierry les vérifie,
+   puis publie lui-même la révision suivante. Tour : Tronçonnage 1/8 ; Rainurage externe et Rainurage interne 1/4 ;
+   toutes les autres 1 (chariotages, dressage, centrage, alésage à la barre, filetages). Perceuse / Fraiseuse :
+   Alésage à l'alésoir 1/4 ; Chanfreinage 1/4 ; Perçage, Pointage, Taraudage 1. Fraiseuse : Chanfreinage / ébavurage
+   1/4 (la ligne « Chanfreinage » du papier ; aucun outil ne l'utilise encore) ; Contournages et Surfaçage 1.
+   **Chambrage et Moletage ne sont pas créés** : Thierry le fera lui-même dans la Gestion du contenu s'il le veut, avec
+   leurs avances et leur pictogramme.
+3. **Rien ne change pour ce qui existe** (exigences d'E5, D75). Une version de tables sans facteurs, une version
+   d'exercice publiée, une séance commencée et une attestation émise sont corrigées et affichées exactement comme
+   avant, avec le `fact_vc` enregistré dans leurs copies. **La 4e feuille n'apparaît que pour une version de tables
+   qui porte les facteurs** : on ne montre jamais une feuille qui contredirait la correction de sa version.
+4. **L'outil hérite du facteur de son opération. On peut le forcer**, comme une exception signalée :
+   - formulaire d'outil (banque et copies) : le champ « Facteur de vitesse » devient une ligne en lecture seule,
+     « Selon la table : 1/4 (Chanfreinage) » ; une case « Forcer pour cet outil » ouvre deux champs obligatoires, la
+     valeur et une raison courte ;
+   - un badge « facteur forcé » dans la liste de la banque et dans la liste des outils d'un exercice ;
+   - **un facteur forcé est toujours affiché à l'étudiant** dans la question, avec sa raison, que l'exercice donne le
+     facteur ou non (« Facteur propre à cet outil : × 1 — fraise à inserts de carbure ») : sinon, la 4e feuille le
+     piégerait ;
+   - le facteur d'avance (`fact_av`) ne change pas : il reste propre à chaque outil.
+5. **Passage des outils existants, sans rien changer en silence.** Quand un outil (banque, brouillon d'exercice, copie
+   qui passe aux nouvelles tables par la cascade) rencontre des tables qui portent les facteurs : s'il est égal au
+   facteur de son opération, il devient « hérité » ; s'il diffère, il devient « forcé », avec la raison « Valeur
+   reprise de l'ancien outil — à vérifier », et il est nommé dans l'impact de la cascade et dans le rapport. Dans la
+   semence, deux cas : **Nine9 90 degrés** et **l'outil à chambrer**, tous deux rangés sous Chanfreinage (1/4) avec
+   un facteur de 1. Thierry tranchera leur cas lui-même dans la Gestion du contenu.
+6. **Réglage par exercice « Donner le facteur de vitesse à l'étudiant »**, versionné avec l'exercice (comme les
+   grandeurs masquées). **Décoché par défaut** pour un nouvel exercice : l'étudiant trouve le facteur dans la 4e
+   feuille, comme la Vc. Coché (exercices pour débutants) : la ligne « Vitesse réduite × 1/4 » s'affiche comme
+   aujourd'hui. **Une version publiée avant ce chantier garde l'affichage d'aujourd'hui.** Quand le facteur est à
+   trouver, l'aide contextuelle de N ne donne plus la valeur, seulement la méthode (« … × le facteur de l'opération,
+   feuille Facteurs de vitesse »), et son bouton ouvre la 4e feuille. Les avertissements « se déduit de » (D54)
+   suivent.
+7. **La 4e feuille** : onglet « Facteurs de vitesse », après Formules, et à l'impression (`/tables?version=`). Même
+   cadre que les trois autres (en-tête, pied avec la révision — D28 —, une page lettre, lisible à 390 px). Titre :
+   « Modification de la vitesse de rotation selon l'opération », avec la formule N = Vc × 4 / Ø × facteur. Une ligne
+   par opération des tables, regroupées par machine comme sur la feuille des avances, avec le pictogramme des tables
+   et le nom exact affiché dans la question. Le facteur s'écrit **en fraction, comme sur le papier** (1, 1/4, 1/8),
+   en décimal seulement s'il n'est pas de la forme 1/n. Les lignes réduites ressortent (couleur d'accent) ; celles à
+   1 restent sobres. Le contenu est composé par une fonction pure de `sheets-data.js`, testée.
+8. **Ailleurs, pour que tout parle du même facteur** : feuille des formules, rangée N : « N = Vc × 4 / Ø × facteur »,
+   et sa note renvoie à la feuille des facteurs (« relevé à l'opération de l'outil ; 1 si aucune réduction ») au lieu
+   de « Certains outils imposent une réduction (alésoir, lame à tronçonner) », avec une miniature de la feuille si
+   c'est simple ; correction : la ligne de calcul montre le facteur en fraction (« × 1/4 »). **La formule et les
+   tolérances de la correction ne changent pas.**
+9. **Vérifications** : non-régression (toute séance et toute version publiée existante donne la même correction, la
+   même ligne de calcul et la même attestation qu'avant, octet pour octet pour les attestations) ; tests (héritage,
+   forçage, passage des outils existants, feuille, réglage d'exercice, aide de N) ; Chrome à 1280 et 390 px.
+10. **Documents** : D83 ; SPEC ; UI ; PLAN ; rapport, avec la liste des gestes de Thierry en production après la
+    fusion. Le déploiement se fait **hors des périodes de labo**.
+
+**Précisions de mise en œuvre** (proposées au rapport, à confirmer ; `// ❓` dans le code là où elles tranchent).
+
+- **Les clés.** `operations[].facteur_vitesse` dans les tables ; dans un outil (banque, copie), `fact_vc` reste la clé
+  du facteur **propre à l'outil**, désormais facultative, et `fact_vc_raison` (texte de 80 caractères au plus) est la
+  raison de le forcer ; dans un exercice, `facteur_vitesse_donne` (`true` ; absent ou `false` : à trouver). Aucune
+  migration : le format ancien se lit tel quel.
+- **Des tables « portent les facteurs »** quand **chacune** de leurs opérations a `facteur_vitesse`. La validation
+  refuse l'entre-deux (toutes, ou aucune). Une version de tables d'avant D83 n'en reçoit **pas** à la lecture
+  (contrairement aux couleurs, D61) : elle garde sa correction et n'a pas de 4e feuille.
+- **Le facteur qui sert au calcul de N** : celui de l'outil s'il en a un (`fact_vc`), sinon celui de son opération
+  dans les tables de sa version. Avec des tables sans facteurs, `fact_vc` est exigé de l'outil, comme avant ; avec
+  des tables qui les portent, il est facultatif.
+- **L'état d'un outil**, lu avec les tables de sa version (`speedFactorState`) : **propre** (tables sans facteurs :
+  l'affichage et la correction d'avant) ; **hérité** (pas de `fact_vc`) ; **forcé** (`fact_vc` et sa raison). Un
+  **ancien outil** — un `fact_vc` sans raison — rencontré avec des tables qui portent les facteurs se lit selon le
+  point 5 : égal, hérité ; différent, forcé avec la raison du passage. Rien n'est donc jamais en erreur ni ignoré en
+  silence, même pour un contenu importé ou repris d'une vieille version.
+- **Le passage s'écrit** (`adoptSpeedFactor` : le `fact_vc` égal disparaît, le `fact_vc` différent reçoit sa raison)
+  au moment où un contenu rencontre des tables qui portent les facteurs : dans **la cascade** (la version qu'elle
+  publie, et le brouillon qui passe), au **passage d'un brouillon** depuis sa page (« Passer à … »), à **« Reprendre
+  cette version »** d'un exercice, et à chaque **enregistrement** depuis le formulaire d'outil. La **banque**, qui
+  n'a pas de version, se lit avec les tables les plus récentes : ses anciens outils s'y montrent hérités ou forcés,
+  et s'écrivent au nouveau format quand on les enregistre. Un outil hérité qui a fait son passage **suit** ensuite sa
+  table ; un outil forcé garde sa valeur.
+- **Une copie ajoutée à un exercice** (depuis la banque, depuis un autre exercice) prend le facteur que les tables de
+  l'exercice veulent (`settleSpeedFactor`) : avec des tables sans facteurs, elle reçoit son `fact_vc` — le sien, sinon
+  celui de son opération dans les tables d'où elle vient —, sans raison.
+- **Le brouillon des tables prérempli** : à la lecture du brouillon (jamais d'une version publiée), une opération
+  **sans** la clé reçoit la valeur de la table papier, 1 si le papier ne la nomme pas (`prefillSpeedFactors`) ; la
+  publication montre chaque facteur dans ses différences (« Opération « Tronçonnage » — facteur de vitesse : — →
+  1/8 »). « Reprendre cette version » d'une version sans facteurs et « Annuler les modifications » donnent donc un
+  brouillon prérempli de même ; « Annuler » est inactif quand le brouillon ne diffère de la dernière version que par
+  ce préremplissage.
+- **Le réglage de l'exercice n'a d'effet qu'avec des tables qui portent les facteurs** : avec les autres, le facteur
+  de l'outil s'affiche comme avant, quoi que dise le réglage. **Un exercice qui passe aux nouvelles tables par la
+  cascade n'a pas le réglage : le facteur y devient à trouver** ; l'impact de la cascade le dit pour chaque exercice.
+- **Ce que la question porte** (`seance.question.outil`) : pour une version d'avant D83, `fact_vc`, comme avant ;
+  sinon `facteur_vitesse` — `{ etat: "force", texte, valeur, raison }`, `{ etat: "donne", texte, valeur }` ou
+  `{ etat: "a_trouver" }`, sans valeur ni texte : **rien de ce qui est à trouver ne part au navigateur** (SPEC §7).
+- **La ligne de calcul de N**, pour une version qui porte les facteurs : « N = Vc × 4 / Ø × facteur = 100 × 4 / 0.25
+  × 1/4 » ; un facteur hérité de 1 ne s'écrit pas ; un facteur forcé s'écrit toujours, suivi de « (propre à cet
+  outil) ». Pour une version d'avant, la ligne d'avant (« … × 0.25 »).
+
+**Ce que D83 précise ou remplace.**
+
+- **D54** : les avertissements « se déduit de » nomment le « facteur de vitesse », et disent d'où il vient quand il
+  est à trouver (la feuille des facteurs).
+- **D61, D62** : les tables portent une valeur de plus par opération ; `tablesDiff` et `exerciseTablesImpact` la
+  disent ; l'impact nomme les outils forcés et le réglage de l'exercice.
+- **D77, point 3** : la version que la cascade publie reste le dernier contenu publié, **à ceci près** que, avec des
+  tables qui portent les facteurs, chaque copie fait son passage (point 5) ; le brouillon qui passe aussi.
+- **D82, point 3** (« la Gestion du contenu ne change pas ») : les cases de facteur de vitesse de la Gestion du
+  contenu — la colonne des tables, la valeur forcée d'un outil — lisent une fraction avec le même évaluateur. Le
+  reste de la Gestion du contenu ne change pas.
+- **SPEC §5** : `N_brut = Vc × 4 / D × facteur`, où le facteur est celui de l'outil s'il en a un, sinon celui de son
+  opération.
+
+**Conséquences.** `site/js/facteur-vitesse.js` (nouveau : les règles pures) ; `data.js` (validation des tables et
+des outils, `hasSpeedFactors`), `calcul.js`, `tables.js` (`tablesDiff`), `exercice.js` (`facteur_vitesse_donne`) ;
+`worker/seance.js` (`questionView`, la ligne de calcul), `worker/editeur.js` et `index.js` (cascade, passage,
+reprise, brouillon des tables), `worker/base.js` ; `site/js/ui/sheets-data.js` (`speedFactorSheet`),
+`reference-screen.js`, `rules.js` (`factorLines`, `helpLine`), `editeur-data.js`, `editeur.js` ; feuilles de style ;
+tests, dont `tests/non-regression-d83.test.js` et son témoin `tests/instantanes/avant-d83.json`, produit par le code
+d'avant le chantier. SPEC §3, §5, §7, §10 ; UI §3.3, §3.4, §3.5, §3.9 ; PLAN ; CLAUDE.md. **Rien ne touche la
+correction des séances en cours** : tant que Thierry n'a pas publié de tables qui portent les facteurs, tout se lit
+et se corrige comme avant ; ensuite, seules les nouvelles séances prennent les versions de la cascade. Rapport :
+`docs/rapports/facteurs-vitesse.md`.
