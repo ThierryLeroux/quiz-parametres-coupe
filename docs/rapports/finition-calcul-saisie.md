@@ -528,3 +528,91 @@ TEMPORAIRE »).
 16. La rangée replacée sur `scroll` et `resize` de `window` et à chaque image pendant l'ouverture du clavier ; le
     diagnostic temporaire ; vu dans Chrome.
 17. Documents (D82, UI §3.3), cette section et le PLAN.
+
+## 10. Retouche après le troisième essai sur téléphone (même branche)
+
+> **Correction des séances en cours : rien de plus que ce qu'annonce la tête du rapport.** Cette retouche ne touche que
+> la rangée de boutons, dans le navigateur, et le diagnostic temporaire.
+
+**Ton troisième essai** (Android, avec `?diag=1`) a donné la cause : la rangée était replacée juste d'après ce que
+Chrome dit de la zone visible, et Chrome se trompait de 56 px — la hauteur de sa barre d'adresse — quand elle
+réapparaît. Ta décision : la rangée quitte l'écran et s'attache à la case, dans la page. Consigné à la fin de **D82**.
+
+### Ce qui a changé
+
+1. **La rangée est dans la page**, insérée entre la case qui a le focus et sa note, et défile avec la case.
+   - Elle suit le focus : elle se déplace d'une case à l'autre, et se cache quand le focus quitte les cases.
+   - La note reste visible dessous, le rouge d'une expression illisible compris ; ce qui suit descend d'autant.
+   - Largeur : celle de la case, ou 334 px au moins pour huit boutons de 40 px avec 2 px d'écart. À 390 px, la case
+     fait 314 px : la rangée déborde de 10 px de chaque côté, dans la marge du panneau (32 px), sans élargir la page.
+   - Retirés : le placement par `visualViewport`, les écoutes de `scroll` et `resize` de `window`, le replacement à
+     chaque image, la marge réservée au bas de l'écran, la position fixée. Le code de la rangée a fondu de moitié.
+2. **La seule remontée automatique**, à la prise de focus : `scrollIntoView({ block: 'nearest' })` sur le bloc de la
+   case (libellé, case, rangée, note), par le navigateur. Elle se fait à la prise de focus, puis chaque fois que la zone
+   visible change de taille — c'est le clavier qui s'ouvre ; l'événement `resize` de `visualViewport` ne sert que de
+   moment, aucune de ses valeurs n'est lue —, et se désarme au premier geste de défilement, comme avant.
+3. **Un bogue trouvé en vérifiant, corrigé** : la rangée se cache **un instant après** que le focus quitte la case,
+   une fois le toucher terminé. Sans cela, un toucher sur **Vérifier** se perdait : le focus quitte la case dès que le
+   doigt se pose, la rangée disparaissait, la page se décalait de 50 px sous le doigt, et le clic n'atteignait plus le
+   bouton. Dans Chrome, c'est exactement ce qui s'est passé au premier passage du scénario complet (le toucher sur
+   Vérifier ne faisait plus rien). Même chose pour « Ouvrir la table ». Si une autre case a pris le focus entre-temps,
+   la rangée l'a déjà suivie : rien à cacher.
+4. **`interactive-widget=resizes-content`, écartée** : elle aurait fait dépendre la rangée de ce que Chrome dit de la
+   fenêtre — faux de 56 px dans ce cas.
+5. **Le diagnostic**, adapté : case active (haut, bas), rangée (visible ou cachée, haut, bas, dans le bloc de quelle
+   case), `scrollY`, dernier événement daté. J'ai gardé la zone visible en première ligne : elle ne coûte rien et c'est
+   elle qui a permis de lire tes captures.
+6. **Section 8, point 2** : l'historique Git n'est pas réécrit, comme tu l'as demandé.
+
+### Ce que je ne peux pas vérifier ici
+
+- **Le clavier, toujours.** Chrome sans interface ne l'ouvre pas ; la remontée par `scrollIntoView` est vérifiée avec
+  une case placée en bas de l'écran (la page remonte de 54 px, juste assez), et avec l'événement `resize` envoyé à la
+  main. Ce que fera Chrome sur Android à l'ouverture réelle du clavier — sa propre remontée de la case, puis la
+  nôtre —, seul ton téléphone le dira.
+- **iPhone** : Safari ouvre aussi le clavier en réduisant la zone visible, et fait défiler la page pour montrer la
+  case. La rangée étant dans la page, elle suit ; la remontée par `scrollIntoView` s'appuie sur Safari. Aucun calcul
+  qui lui soit propre.
+
+### Vérifié
+
+- `npm test` : **726** tests, `fail 0`.
+- `npm run test:api` : **35 étapes** réussies.
+- **Chrome, 390 px, écran tactile émulé** (23 vérifications, aucun échec, aucune erreur console) :
+  - la case placée dans le **haut** (10 %), au **milieu** (45 %) et en **bas** (92 %) de l'écran, touchée : la rangée
+    est collée sous la case (6 px d'écart), la note collée sous la rangée, tout visible, huit boutons de 44 × 40 px, la
+    rangée dans la largeur de l'écran, la page pas plus large que l'écran ; dans le bloc de la case, l'ordre est
+    libellé, case, rangée, note ;
+  - en haut et au milieu, la page n'a pas bougé ; en bas, où la rangée et la note ne tenaient pas, la page est
+    remontée une fois, de 54 px, juste assez ;
+  - les boutons : « (3−1)×2 » tapé aux boutons, le focus dans la case à chaque toucher ; « + » inséré au curseur ;
+    « = » calcule, la note « = (3 − 1) × 2 » visible sous la rangée ; « 2(3) » puis « = » : la case et la note en
+    rouge, « Illisible : expression mal formée », visible sous la rangée ;
+  - le focus passe à N : la rangée le suit, plus rien dans le bloc de Vc ; hors des cases : elle se cache ;
+  - la page ne défile pas d'elle-même : case et rangée sorties par le bas au doigt, un changement de la zone visible
+    (`resize` envoyé) puis un petit défilement vers le bas ne la ramènent pas ;
+  - le diagnostic : absent sans `?diag`, présent avec ses cinq lignes, l'événement daté.
+- **Chrome, scénario complet** (`m10-tournage-vc-rpm`, `test-complet`, 1280 et 390 px) : **189 vérifications, aucun
+  échec** — dont, à 390 px, le toucher sur Vérifier avec une expression illisible (la case rouge reçoit le focus, la
+  rangée y vient) et Vérifier au toucher qui calcule et envoie.
+- À 1280 px : la première case a le focus, pas de rangée, pas de diagnostic ; le bloc d'une case reste libellé, case,
+  note.
+- Captures (non versionnées) : `captures/finition-calcul-saisie-telephone-3/`.
+
+### À essayer (avec le tunnel, section 7 ; Android, puis iPhone)
+
+- [ ] Toucher une case dans le **haut** de l'écran : la rangée est collée dessous, la note dessous, le clavier ouvert.
+- [ ] Toucher une case dans le **bas** de l'écran : la page remonte une fois, la case, sa rangée et sa note sont
+  au-dessus du clavier.
+- [ ] Clavier ouvert, remonter relire le diamètre, redescendre : la page ne saute pas.
+- [ ] Taper `3`, toucher ×, taper `2`, toucher = : le clavier reste ouvert, la case affiche 6.
+- [ ] Taper `2(3)`, toucher **Vérifier** : le toucher est pris, rien ne part, la case rouge a le focus avec sa rangée.
+- [ ] Une expression juste, toucher **Vérifier** : la correction arrive (le toucher n'est pas perdu).
+- [ ] Toucher **Ouvrir la table** depuis une case : les tables s'ouvrent.
+- [ ] Si quelque chose cloche, une capture avec `?diag=1`.
+
+### Commits de cette retouche
+
+18. La rangée dans la page, sous la case active ; la remontée par `scrollIntoView` ; le masquage différé ; le
+    diagnostic adapté ; vu dans Chrome.
+19. Documents (D82, UI §3.3, §7), cette section et le PLAN.

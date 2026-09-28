@@ -2745,3 +2745,41 @@ reste invisible. Le sens du défilement fait la différence, pas le focus d'avan
    `main.js`, un style) : un encadré en haut de l'écran, mis à jour à chaque image — hauteur et décalage de la zone
    visible, `scrollY`, position et état de la rangée, case active, dernier événement reçu et son heure. Thierry fait
    une capture dans chacun des deux cas. **À retirer avant la fusion.**
+
+**Retouche après le troisième essai sur téléphone (Thierry, Android, 2026-09-28).** Avec `?diag=1` : la rangée reste
+invisible quand la case touchée est dans la moitié supérieure de l'écran ; au toucher, elle apparaît une fraction de
+seconde, puis disparaît.
+
+1. **Ce que le diagnostic a montré.** Case en haut (bogue) : zone visible h 434, décalage 0, fenêtre 817 ; scrollY
+   1263 ; rangée « visible », haut 381, bas 434 ; case rpm haut 120, bas 168 ; dernier événement `touchend`. Case en
+   bas (correct) : zone visible h 378, fenêtre 761 ; rangée haut 325, bas 378 ; case rpm haut 269, bas 317 ; dernier
+   événement `win:scroll`. **Lecture de Thierry** : le clavier fait 383 px dans les deux cas (817 − 434 = 761 − 378),
+   mais dans le cas du bogue Chrome annonce une fenêtre de 817 px, comme si la barre d'adresse était cachée, alors
+   qu'elle est affichée ; l'écart, 56 px, est sa hauteur. La rangée, replacée juste, se trouve donc 56 px trop bas,
+   derrière la bande d'icônes du haut du clavier. Le « flash » : bien placée d'abord, puis la barre d'adresse
+   réapparaît quand Chrome fait descendre la page, et tout se décale. **Toute position calculée à partir de
+   `visualViewport` ou de la fenêtre est fausse dans ce cas** : replacer plus souvent n'y change rien. L'hypothèse
+   du deuxième essai (un défilement de la page sans événement de la zone visible) n'était pas la cause.
+2. **Décision : la rangée n'est plus fixée à l'écran.** Elle s'attache à la case active, **dans la page, entre la case
+   et sa note**, et défile avec elle ; la note reste visible dessous, le rouge d'une expression illisible compris.
+   **Plus aucun calcul** à partir de `visualViewport`, de la fenêtre ou du clavier, sur Android comme sur iPhone.
+   Largeur : celle de la case, ou 334 px au moins pour que les huit boutons (44 px de haut, 40 px de large au moins)
+   y tiennent — à 390 px d'écran, la rangée déborde alors de 10 px de chaque côté, dans la marge du panneau. Retirés :
+   le placement par `visualViewport`, les écoutes de `scroll` et `resize` de `window`, le replacement à chaque
+   image, la marge réservée au bas de l'écran. Gardés : les boutons qui ne prennent pas le focus, la rangée qui suit
+   le focus des cases, aucun focus à l'affichage sur écran tactile, la page qui ne défile jamais d'elle-même pendant
+   que l'étudiant fait défiler.
+3. **La seule remontée automatique reste celle de la prise de focus** : si le clavier, en s'ouvrant, cache la rangée
+   sous la case, la page remonte pour montrer la case, sa rangée et sa note — **par le navigateur**
+   (`scrollIntoView` au plus près sur le bloc de la case), jamais par un calcul. Elle se fait à la prise de focus,
+   puis quand la zone visible change de taille (le clavier qui s'ouvre : l'événement `resize` de `visualViewport`
+   sert de moment, pas de mesure), et se désarme au premier geste de défilement, comme avant.
+4. **La rangée se cache un instant après que le focus quitte la case**, une fois le toucher terminé (trouvé dans
+   Chrome en vérifiant) : au toucher d'un bouton sous la case — Vérifier, Ouvrir la table —, le focus quitte la case
+   dès que le doigt se pose ; si la rangée disparaissait à cet instant, la page se décalerait sous le doigt et le
+   toucher n'atteindrait plus le bouton. Si une autre case a pris le focus entre-temps, la rangée l'a suivie.
+5. **La piste `interactive-widget=resizes-content` est écartée** : elle aurait aussi fait dépendre la rangée de ce
+   que Chrome dit de la fenêtre, faux de 56 px dans ce cas.
+6. **Le diagnostic `?diag=1` est gardé**, adapté (case active, rangée et le bloc où elle est, `scrollY`, dernier
+   événement ; la zone visible reste en première ligne, pour lire les captures) ; à retirer avant la fusion.
+7. **Réponse à la section 8 du rapport** : l'historique Git n'est pas réécrit pour l'adresse réseau qui s'y trouve.
