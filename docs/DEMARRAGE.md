@@ -317,7 +317,16 @@ publication ; **Rétablir**, dans l'historique, revient en arrière en un clic. 
 dans la liste des exercices, fait la même chose pour le titre. Un titre déjà pris par un
 autre exercice publié est refusé. Les attestations déjà émises ne changent pas ; celles
 émises ensuite portent le titre en vigueur. Le reste de l'exercice (grandeurs, outils,
-dimensions, facteurs…) se modifie toujours dans le brouillon, puis se publie.
+dimensions, facteurs…) se modifie toujours dans le brouillon, puis se publie. Si deux
+exercices publiés finissent sous le même titre (un exercice rétabli, un import), une note
+dorée le signale sur la ligne de chacun, sans rien bloquer, jusqu'à ce qu'un titre change (D79).
+
+La **banque d'outils** se modifie sur place (elle ne touche aucun exercice), mais **chaque
+enregistrement garde le contenu qu'il remplace** (D79) : sur la page d'un outil, **Historique**
+dit d'où vient chaque contenu et ce que le rétablir changerait ; **Rétablir** le remet en un
+clic. Un contenu devenu invalide depuis (une matière d'outil renommée dans les tables) se
+rétablit quand même, avec ses erreurs dites, à corriger ensuite. Un import met aussi dans
+l'historique chaque contenu qu'il remplace : une restauration se défait outil par outil.
 
 Les **tables de référence** (onglet **Tables de référence**, décisions D61 à D63, D76) ont deux
 parties. En tête, le panneau vert **Présentation — effet immédiat** : les noms et couleurs des

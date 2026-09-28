@@ -199,8 +199,8 @@ Rapport de session : `docs/rapports/gestion-du-contenu.md`. Les tâches cochées
 - [x] **E3 — un titre en double bloque la publication** (remplace le simple signalement de D71) : au serveur (400, `doublons`) et à l'écran (refus en rouge, bouton inactif) ; brouillons libres ; republier le même exercice passe ; un archivé ne compte pas ; les doublons déjà publiés restent en place
 - [ ] **Thierry** : repérer les doublons de titre déjà en production (marche à suivre dans le rapport) et, s'il y en a, changer un titre ou archiver l'un des deux avant la prochaine publication ; trancher les points douteux du rapport
 
-## Chantier E5 — modifier le contenu sans créer de nouvelle version (décisions D75 à D79)
-Inventaire : `docs/rapports/inventaire-versionnage.md`. Voie hybride (D75) : la présentation en direct, la publication
+## Chantier E5 — modifier le contenu sans créer de nouvelle version (décisions D75 à D79) — terminé
+**Chantier clos avec E5-4** : bilan dans `docs/rapports/e5-4-historique-banque.md`. Inventaire : `docs/rapports/inventaire-versionnage.md`. Voie hybride (D75) : la présentation en direct, la publication
 en cascade des tables ; les séances restent épinglées à leur version. Un jalon par branche, dans l'ordre.
 
 ### Jalon E5-1 — la présentation des tables en direct (décision D76)
@@ -215,7 +215,8 @@ Rapport de session : `docs/rapports/e5-1-presentation-tables.md`.
 - [x] Tests (liste blanche, séance épinglée à une vieille version, attestation identique octet pour octet, rétablissement, validation, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
 - [x] Documents : SPEC §3, §7, §10 ; UI §1, §3.9 ; CLAUDE.md ; DEMARRAGE
 - [x] Points du rapport tranchés par Thierry (les sept acceptés) ; **retouche** (D76) : « image existante et non archivée » ne vaut que pour une image choisie ; une image archivée déjà en vigueur n'est qu'un avertissement, qui ne bloque ni « Appliquer » ni la publication des tables ; tests et Chrome
-- [ ] **Thierry** : fusionner ; après la fusion, ouvrir l'onglet Tables de référence (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a ; les avertissements dorés, les images archivées en vigueur) et vérifier la présentation de départ
+- [x] **Thierry** : fusionner (fait)
+- [ ] **Thierry** : après la fusion, ouvrir l'onglet Tables de référence (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a ; les avertissements dorés, les images archivées en vigueur) et vérifier la présentation de départ
 
 ### Jalon E5-2 — la cascade des tables et le retour en arrière des versions (décision D77)
 Rapport de session : `docs/rapports/e5-2-cascade-retour.md`.
@@ -226,7 +227,7 @@ Rapport de session : `docs/rapports/e5-2-cascade-retour.md`.
 - [x] Tests (cascade, brouillons, décochés, erreurs, archivés, jamais publiés, titres en double, journal, séance en cours, reprendre, annuler, images, 409) ; `test:api` ; passe dans Chrome
 - [x] Documents : D77 ; SPEC §7, §10 ; UI §3.9 ; DEMARRAGE ; CLAUDE.md
 - [x] Points du rapport tranchés par Thierry ; **retouche** (D77) : une seule liste de tout ce qui n'est pas à jour (cochés par défaut ceux sur la version remplacée, décochés ceux sur une plus ancienne, impact depuis leur propre version) ; pour un coché, contenu publié et brouillon passent chacun de son côté ; les laissés en erreur nommés avec leurs erreurs ; tests et Chrome
-- [ ] **Thierry** : fusionner
+- [x] **Thierry** : fusionner (fait)
 
 ### Jalon E5-3 — la présentation des exercices en direct (décision D78)
 Rapport de session : `docs/rapports/e5-3-presentation-exercices.md`.
@@ -238,19 +239,21 @@ Rapport de session : `docs/rapports/e5-3-presentation-exercices.md`.
 - [x] Page d'un exercice : le panneau « Présentation — effet immédiat » (aperçu, Appliquer, historique, Rétablir), le brouillon et le résumé des différences sans ces champs ; copie nouvelle avec sa photo et sa note dans sa ligne ; liste des exercices en vigueur
 - [x] Tests (liste blanche, séance épinglée, attestation identique octet pour octet, titre de la nouvelle attestation, titre en double, copie nouvelle, rétablissement, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
 - [x] Documents : SPEC §3, §7, §8 (le titre de l'attestation), §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE
-- [ ] **Thierry** : fusionner ; trancher les points douteux du rapport ; après la fusion, ouvrir la page de chaque exercice publié (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a)
+- [x] **Thierry** : fusionner ; trancher les points douteux du rapport (fait : les huit acceptés, consignés à la fin de D78)
+- [ ] **Thierry** : après la fusion, ouvrir la page de chaque exercice publié (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a)
 
 ### Jalon E5-4 — l'historique de la banque d'outils (décision D79)
 Rapport de session : `docs/rapports/e5-4-historique-banque.md`.
 
 - [x] Réponses de Thierry aux huit points d'E5-3, consignées à la fin de D78
-- [ ] Migration `0012` : l'historique de la banque (un contenu remplacé par ligne) et l'auteur du contenu actuel
-- [ ] Serveur : chaque enregistrement garde le contenu remplacé (409, journal en clair, rien sans changement) ; « Rétablir » revalidé avec les tables d'aujourd'hui ; page d'un outil avec son historique ; photo choisie existante et non archivée ; images de l'historique utilisées
-- [ ] Sauvegarde : l'historique de la banque dans l'export ; l'import ajoute ce qui manque et met chaque contenu qu'il remplace ou retire dans l'historique ; aller-retour identique
-- [ ] Page d'un outil : l'historique replié, ce que le rétablir changerait, ses erreurs avec les tables d'aujourd'hui, « Rétablir »
-- [ ] Titres en double : l'avertissement doré dans la liste des exercices et dans le panneau « Présentation » de chacun
-- [ ] Tests (historique, rétablissement, 409, journal, contenu devenu invalide, images, Sauvegarde, import, avertissement) ; `test:api` ; passe dans Chrome
-- [ ] Documents : D79 ; SPEC §7, §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE ; bilan du chantier E5 dans le rapport
+- [x] Migration `0012` : l'historique de la banque (un contenu remplacé par ligne) et l'auteur du contenu actuel
+- [x] Serveur : chaque enregistrement garde le contenu remplacé (409, journal en clair, rien sans changement) ; « Rétablir » revalidé avec les tables d'aujourd'hui ; page d'un outil avec son historique ; photo choisie existante et non archivée ; images de l'historique utilisées
+- [x] Sauvegarde : l'historique de la banque dans l'export ; l'import ajoute ce qui manque et met chaque contenu qu'il remplace ou retire dans l'historique ; aller-retour identique
+- [x] Page d'un outil : l'historique replié, ce que le rétablir changerait, ses erreurs avec les tables d'aujourd'hui, « Rétablir »
+- [x] Titres en double : l'avertissement doré dans la liste des exercices et dans le panneau « Présentation » de chacun
+- [x] Tests (historique, rétablissement, 409, journal, contenu devenu invalide, images, Sauvegarde, import, avertissement) ; `test:api` ; passe dans Chrome
+- [x] Documents : D79 ; SPEC §7, §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE ; bilan du chantier E5 dans le rapport
+- [ ] **Thierry** : fusionner ; trancher les points douteux du rapport
 
 ## Finition
 - [ ] Graphique de progression par opération
