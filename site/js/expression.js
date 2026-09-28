@@ -2,15 +2,15 @@
 // évaluateur écrit à la main — jamais eval() ni Function() : le serveur de correction lit chaque saisie avec lui
 // (parseAnswer, correction.js). Fonctions PURES, sans DOM : le navigateur et le serveur importent ce même fichier.
 //
-// Syntaxe (D82, point 1) :
+// Syntaxe (D82, point 1, élargie par la réponse de Thierry au rapport, point 3) :
 //   nombres     : point ou virgule décimale (« 0.75 », « 0,75 », « .5 »), espaces ignorés (« 1 600 »)
-//   opérateurs  : + ; - ou − ; * ou × ou x ; / ou ÷ ; les parenthèses
-//   constante   : pi, PI ou π, qui vaut Math.PI
+//   opérateurs  : + ; - ou − ou – (tiret demi-cadratin) ; * ou × ou x ou X ; / ou ÷ ; les parenthèses
+//   constante   : pi sans égard à la casse (pi, Pi, PI, pI — les majuscules automatiques des téléphones) ou π,
+//                 qui vaut Math.PI
 // Rien d'autre : ni puissance, ni fonction, ni multiplication implicite (« 2pi », « 2(3+1) » sont illisibles).
-// Le moins unaire est permis partout où un nombre peut aller (« 2 × −3 », « (−1 + 3) ») ; il n'y a pas de plus unaire.
-// Un résultat négatif, une division par zéro ou une expression mal formée : illisible.
-// ❓ D82, précisions à confirmer : −0 compte comme négatif (« -0 » reste refusé, comme avant) ; « x » en minuscule
-// seulement ; « Pi » (ni « pi » ni « PI ») est illisible.
+// Le moins unaire est permis partout où un nombre peut aller (« 2 × −3 », « (−1 + 3) ») ; il n'y a pas de plus unaire
+// (« +5 » est illisible), et « --5 » vaut 5. Un résultat négatif — −0 compris : « -0 » reste refusé, comme avant —, une
+// division par zéro ou une expression mal formée : illisible.
 
 // Limites, pour que le Worker ne passe pas plus de temps sur une saisie démesurée que sur une réponse ordinaire.
 export const EXPRESSION_MAX_LENGTH = 60; // caractères de la saisie, espaces compris : le maxlength de la case
@@ -19,13 +19,14 @@ const MAX_DEPTH = 10; // niveaux de parenthèses
 // Ce que la case affiche d'un résultat : au plus 9 caractères, la largeur d'une case à 1280 px (mesurée dans Chrome).
 const SHOWN_MAX_LENGTH = 9;
 
-const OPERATORS = { '+': '+', '-': '-', '−': '-', '*': '*', '×': '*', x: '*', '/': '/', '÷': '/' };
+const OPERATORS = { '+': '+', '-': '-', '−': '-', '–': '-', '*': '*', '×': '*', x: '*', X: '*', '/': '/', '÷': '/' };
 const NUMBER = /^(\d+\.?\d*|\.\d+)$/;
 
 // La saisie contient-elle une expression plutôt qu'un nombre — un opérateur, une parenthèse ou pi ? Lisible ou non :
-// c'est ce que la touche Entrée essaie de calculer (« (3-1)*2 », « 2(3) », « -5 »), et pas « 1 600 » ni « abc ».
+// c'est ce que la touche Entrée calcule (« (3-1)*2 », « 2(3) », « -5 »), et ce que Vérifier n'envoie pas tant qu'il
+// est illisible ; pas « 1 600 » ni « 12a ».
 export function isExpression(text) {
-  return typeof text === 'string' && /[-+−*×x/÷()π]|pi|PI/.test(text);
+  return typeof text === 'string' && /[-+−–*×xX/÷()π]|pi/i.test(text);
 }
 
 // Découpe la saisie en éléments : { kind: 'number', value, text } (le texte avec un point décimal), { kind: 'pi' },
@@ -42,7 +43,7 @@ function tokenize(text) {
       if (!NUMBER.test(number)) return null;
       tokens.push({ kind: 'number', value: Number(number), text: number });
       i += number.length;
-    } else if (rest.startsWith('pi') || rest.startsWith('PI')) {
+    } else if (rest.slice(0, 2).toLowerCase() === 'pi') {
       tokens.push({ kind: 'pi' });
       i += 2;
     } else if (rest[0] === 'π') {

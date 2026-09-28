@@ -369,6 +369,10 @@ test('parseAnswer (D82) : une expression — priorités, parenthèses, pi', () =
   assert.equal(parseAnswer('4*350/0.75'), 1866.66666667);
   assert.equal(parseAnswer('0.1+0.2'), 0.3); // sans le bruit de la virgule flottante
   assert.equal(parseAnswer('2*-3+10'), 4); // moins unaire
+  // Syntaxe élargie (réponse de Thierry au rapport, point 3) : pi en toute casse, X, « – ».
+  assert.equal(parseAnswer('Pi*2'), parseAnswer('2*pi'));
+  assert.equal(parseAnswer('2X3'), 6);
+  assert.equal(parseAnswer('4–1'), 3);
 });
 
 test('parseAnswer (D82) : virgules multiples — une par nombre ; « 1,600 » vaut toujours 1.6', () => {

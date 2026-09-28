@@ -27,17 +27,21 @@ test('evaluateExpression : parenthèses, imbriquées ou non', () => {
   assert.equal(value('400*4/(0.5+0.5)'), 1600);
 });
 
-test('evaluateExpression : pi, PI et π valent Math.PI', () => {
+test('evaluateExpression : pi, sans égard à la casse, et π valent Math.PI', () => {
   assert.equal(value('pi'), Number(Math.PI.toPrecision(12)));
-  assert.equal(value('PI'), value('π'));
+  for (const pi of ['PI', 'Pi', 'pI', 'π']) assert.equal(value(pi), value('pi'), pi); // majuscules automatiques des téléphones
+  assert.equal(value('Pi*2'), Number((2 * Math.PI).toPrecision(12)));
   assert.equal(value('2*pi'), Number((2 * Math.PI).toPrecision(12)));
   assert.equal(value('400*12/(π*2)'), Number((400 * 12 / (Math.PI * 2)).toPrecision(12)));
 });
 
-test('evaluateExpression : les autres symboles — −, ×, x, ÷ — et les virgules', () => {
+test('evaluateExpression : les autres symboles — −, –, ×, x, X, ÷ — et les virgules', () => {
   assert.equal(value('5−2'), 3);
+  assert.equal(value('4–1'), 3); // tiret demi-cadratin
+  assert.equal(value('10–-2'), 12);
   assert.equal(value('4×2'), 8);
   assert.equal(value('4x2'), 8);
+  assert.equal(value('2X3'), 6);
   assert.equal(value('9÷3'), 3);
   assert.equal(value('1,5+2,5'), 4); // chaque nombre a sa virgule
   assert.equal(value('0,75*4'), 3);
@@ -67,7 +71,7 @@ test('evaluateExpression : le bruit de la virgule flottante disparaît (12 chiff
 test('evaluateExpression : illisible — mal formée, avec sa raison', () => {
   for (const saisie of [
     '', '   ', 'abc', '2(3)', '(2)(3)', '2pi', 'pi2', '(3+1)2', '2 3+', '3)', '(3', '()', '1+', '*2', '+5', '2++3', '1**2',
-    '2^3', '1e3', '1.2.3+1', '1,2,3', '.+1', 'sqrt(4)', 'Pi', 'pI', '2X3', '5–2', '1/0+', '2%',
+    '2^3', '1e3', '1.2.3+1', '1,2,3', '.+1', 'sqrt(4)', '2Pi', 'PI2', 'X2', '2X', '–', '2—3', '1/0+', '2%',
   ]) {
     assert.equal(error(saisie), 'syntax', saisie);
   }
@@ -75,7 +79,7 @@ test('evaluateExpression : illisible — mal formée, avec sa raison', () => {
 
 test('evaluateExpression : illisible — division par zéro, résultat négatif (−0 compris)', () => {
   for (const saisie of ['1/0', '5/(2-2)', '0/0', '1/-0']) assert.equal(error(saisie), 'divisionByZero', saisie);
-  for (const saisie of ['-5', '3-5', '2*-3', '-0', '0*-1', '-(1)', '-pi']) assert.equal(error(saisie), 'negative', saisie);
+  for (const saisie of ['-5', '–5', '3-5', '3–5', '2*-3', '-0', '0*-1', '-(1)', '-pi', '-Pi']) assert.equal(error(saisie), 'negative', saisie);
   assert.equal(value('0'), 0);
   assert.equal(value('-0+0'), 0); // −0 + 0 = +0
   assert.equal(value('3-3'), 0);
@@ -99,8 +103,8 @@ test('evaluateExpression : jamais eval() ni Function() dans le fichier (D82, poi
 });
 
 test('isExpression : un opérateur, une parenthèse ou pi — lisible ou non ; un nombre ou du texte, non', () => {
-  for (const saisie of ['(3-1)*2', '2(3)', '-5', '4×2', '9÷3', '2x3', 'pi', 'PI', 'π', '1/0', '3+', '5−2']) assert.equal(isExpression(saisie), true, saisie);
-  for (const saisie of ['', '1600', '1 600', '0,0015', '.5', 'abc', '1.2.3', '1e3', 'Pi', null, undefined, 12]) assert.equal(isExpression(saisie), false, String(saisie));
+  for (const saisie of ['(3-1)*2', '2(3)', '-5', '4×2', '9÷3', '2x3', '2X3', 'pi', 'PI', 'Pi', 'pI', 'π', '1/0', '3+', '5−2', '4–1']) assert.equal(isExpression(saisie), true, saisie);
+  for (const saisie of ['', '1600', '1 600', '0,0015', '.5', 'abc', '12a', '1.2.3', '1e3', 'P', null, undefined, 12]) assert.equal(isExpression(saisie), false, String(saisie));
 });
 
 test('expressionText : l’expression écrite proprement, ou null si elle est mal formée', () => {
@@ -108,6 +112,7 @@ test('expressionText : l’expression écrite proprement, ou null si elle est ma
   assert.equal(expressionText('(3-1)x2'), '(3 − 1) × 2');
   assert.equal(expressionText(' 1 600 ÷ 2 '), '1600 / 2');
   assert.equal(expressionText('2*-pi+10'), '2 × −π + 10');
+  assert.equal(expressionText('Pi*2X3–1'), 'π × 2 × 3 − 1'); // pi en toute casse, X et « – » s'écrivent comme les autres
   assert.equal(expressionText('PI*(.5+2.)'), 'π × (.5 + 2.)');
   assert.equal(expressionText('((2))'), '((2))');
   assert.equal(expressionText('1/0'), '1 / 0'); // lisible mais incalculable : elle s'écrit quand même
