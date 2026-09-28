@@ -2030,7 +2030,7 @@ indiscernables à l'accueil.
 (textes visibles, doublon à l'écran et au serveur) ; SPEC §7, §8, §10 ; UI §2, §3.8, §3.9 ; PLAN ; DEMARRAGE ;
 CLAUDE.md ; commentaires. Remplace D71, point 8.
 
-## D75 — Modifier le contenu sans créer de nouvelle version : la présentation en direct, la publication en cascade des tables, le retour en arrière (chantier E5) (2026-09-27, décidée)
+## D75 — Modifier le contenu sans créer de nouvelle version : la présentation en direct, la publication en cascade des tables, le retour en arrière (chantier E5) (2026-09-27, décidée ; les quatre exigences de Thierry inscrites à la clôture du chantier, le 2026-09-28)
 
 **Contexte.** L'inventaire du versionnage (`docs/rapports/inventaire-versionnage.md`) a montré qu'une retouche
 d'un libellé des tables coûte aujourd'hui 1 + 2 × n gestes (publier les tables, puis, pour chaque exercice, y
@@ -2038,6 +2038,14 @@ passer et le publier), et n'atteint pas les séances déjà commencées. Il prop
 présentation de ce qui sert à la correction ; B : un versionnage invisible, la question épinglée plutôt que la
 séance — et une voie hybride. Thierry retient la voie hybride, avec des ajouts. Cette décision encadre les quatre
 jalons du chantier E5.
+
+**Les quatre exigences de Thierry**, posées au début du chantier (inscrites ici mot pour mot à sa clôture, le
+2026-09-28 ; le bilan du chantier, dans le rapport d'E5-4, les reprend dans cet ordre) :
+
+- a) Une question affichée à un étudiant ne doit jamais être corrigée contre une valeur modifiée après son tirage.
+- b) Les attestations déjà émises doivent rester valides et afficher ce qu'elles affichaient.
+- c) Je veux pouvoir revenir en arrière après une erreur de saisie.
+- d) Je veux que corriger ou essayer un libellé prenne quelques secondes, pas une procédure.
 
 **Décision.**
 
@@ -2402,7 +2410,7 @@ Rapport : `docs/rapports/e5-3-presentation-exercices.md`.
 8. l'import restaure la présentation sans la règle du titre en double (point 6) — complété, lui aussi, par
    l'avertissement de D79.
 
-## D79 — E5-4 : l'historique de la banque d'outils ; l'avertissement des titres en double ; clôture du chantier E5 (2026-09-28, décidée)
+## D79 — E5-4 : l'historique de la banque d'outils ; l'avertissement des titres en double ; clôture du chantier E5 (2026-09-28, décidée ; réponses de Thierry au rapport en fin d'entrée)
 
 **Contexte.** Le dernier jalon de D75 : la banque d'outils se modifiait sur place, sans historique (inventaire, §1) ;
 une erreur d'enregistrement ne se défaisait qu'à la main. Et les réponses au rapport d'E5-3 demandent un complément : la
@@ -2460,3 +2468,15 @@ titre sans que rien ne le dise.
 (import), `worker/images.js` ; `site/js/ui/editeur-data.js` (`bankToolDiff`, textes de l'historique et des titres en
 double), `site/js/api.js`, `site/js/ui/editeur.js`, `site/css/editeur.css` ; SPEC §7, §10 ; UI §3.9 ; CLAUDE.md ;
 DEMARRAGE ; PLAN. Rapport : `docs/rapports/e5-4-historique-banque.md`.
+
+**Réponses de Thierry au rapport (2026-09-28).** Les cinq points à trancher du rapport sont acceptés tels que proposés :
+
+1. un contenu devenu invalide se rétablit quand même, ses erreurs dites avant et après (point 3) ;
+2. une photo choisie inconnue ou archivée est refusée (400) : c'est la règle de la retouche de D76 (point 4) ;
+3. un enregistrement sans changement n'écrit rien (point 2) ;
+4. un outil retiré par un import se retrouve en le recréant sous le même identifiant : c'est suffisant, puisque le
+   résumé de l'import nomme déjà chaque outil retiré avec son identifiant (point 6) ;
+5. l'action du journal d'un contenu rétabli est `editeur_banque_historique_retablissement` (point 3).
+
+Et une retouche des documents : les quatre exigences de Thierry, posées au début du chantier, sont inscrites mot pour
+mot dans D75, et le bilan du chantier (rapport d'E5-4, §7) les reprend dans leur ordre, a) à d).

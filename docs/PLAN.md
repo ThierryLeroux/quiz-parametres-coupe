@@ -253,7 +253,8 @@ Rapport de session : `docs/rapports/e5-4-historique-banque.md`.
 - [x] Titres en double : l'avertissement doré dans la liste des exercices et dans le panneau « Présentation » de chacun
 - [x] Tests (historique, rétablissement, 409, journal, contenu devenu invalide, images, Sauvegarde, import, avertissement) ; `test:api` ; passe dans Chrome
 - [x] Documents : D79 ; SPEC §7, §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE ; bilan du chantier E5 dans le rapport
-- [ ] **Thierry** : fusionner ; trancher les points douteux du rapport
+- [x] **Thierry** : trancher les points douteux du rapport (fait : les cinq acceptés, consignés à la fin de D79) ; **retouche** des documents : ses quatre exigences inscrites mot pour mot dans D75, et le bilan du chantier (rapport, §7) rattaché à elles, dans leur ordre
+- [ ] **Thierry** : fusionner
 
 ## Finition
 - [ ] Graphique de progression par opération

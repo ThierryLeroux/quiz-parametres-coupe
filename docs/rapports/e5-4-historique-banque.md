@@ -156,35 +156,11 @@ apparaîtront tout de suite dans la liste.
 
 ## 7. Bilan du chantier E5 (ton point 8)
 
-**Tes quatre exigences.** Je n'ai pas trouvé de liste numérotée sous ce nom. Je les lis ainsi, à partir de ta demande
-d'inventaire et de D75 ; si tu en comptais d'autres, dis-le-moi et je complète ce bilan.
+Tes quatre exigences, telles que tu les as posées au début du chantier, sont inscrites mot pour mot dans D75. Voici,
+pour chacune, dans leur ordre, comment elle est tenue et ce qui reste en dehors.
 
-1. Retoucher ce qui ne fait qu'afficher en quelques secondes, avec effet immédiat.
-2. Ce qui sert à corriger reste versionné, et une séance en cours n'est jamais jugée autrement.
-3. Chaque modification est gardée, avec un retour en arrière.
-4. L'attestation reste une preuve figée.
-
-**1. Retoucher ce qui ne fait qu'afficher en quelques secondes, avec effet immédiat** (D75, points 2, 4 et 5).
-
-*Comment c'est tenu* :
-
-- **E5-1, tables** : la présentation en direct — noms et couleurs des classes, images de chaleur, légendes,
-  caractéristiques, couleurs des matières d'outil, pictogrammes.
-- **E5-3, exercices** : titre, cours, « À l'accueil », photo et note des outils.
-- Un panneau « Présentation — effet immédiat », un aperçu, « Appliquer », et c'est vu par tous dès le rechargement,
-  séances en cours comprises. La liste blanche est imposée par le serveur.
-- Une image archivée en vigueur ne bloque jamais une retouche (retouche de D76).
-- **E5-2** : une correction de **valeur** (une Vc) ne coûte plus qu'un geste. Publier les tables propose la cascade,
-  dans la même confirmation que le résumé des différences.
-
-*Ce qui reste en dehors* :
-
-- les noms d'outils et les gabarits de nomenclature : versionnés, figés dans chaque question au tirage (D75, point 3) ;
-- les noms et descriptifs des matériaux, les libellés des dimensions : versionnés ;
-- une valeur passe toujours par une publication, cascade comprise.
-
-**2. Ce qui sert à corriger reste versionné, et une séance en cours n'est jamais jugée autrement** (D75, points 1, 3
-et 7).
+**a) « Une question affichée à un étudiant ne doit jamais être corrigée contre une valeur modifiée après son
+tirage. »** (D75, points 1, 3 et 7)
 
 *Comment c'est tenu* :
 
@@ -201,10 +177,24 @@ et 7).
   en tête de chaque rapport, dire ce qui touche la correction ; elle est inscrite dans `CLAUDE.md` —, et tu déploies
   hors des périodes de labo ;
 - **la limite du point 6 de D75** : une séance commencée pendant qu'une valeur erronée était publiée garde cette
-  version jusqu'à sa fin. La protection est le résumé des différences avant la cascade. L'épinglage par question (H3)
+  version jusqu'à sa fin. C'est le revers de cette exigence : sa question reste corrigée contre la valeur de son
+  tirage, même erronée. La protection est le résumé des différences avant la cascade. L'épinglage par question (H3)
   n'a pas été fait ; il ne le serait que si cette limite posait un vrai problème.
 
-**3. Chaque modification est gardée, avec un retour en arrière** (D75, points 5 et 6).
+**b) « Les attestations déjà émises doivent rester valides et afficher ce qu'elles affichaient. »** (D75, point 8)
+
+*Comment c'est tenu* :
+
+- l'enregistrement est figé et signé à l'émission ; ni la présentation ni la banque ne l'atteignent ;
+- `/verifier` relit l'enregistrement figé ;
+- depuis E5-3, une attestation émise inscrit le titre en vigueur **à son émission**, dans le même champ ; celles déjà
+  émises gardent le leur ;
+- une attestation déjà émise ne change jamais d'un octet, et se vérifie toujours : testé à chaque jalon.
+
+*Ce qui reste en dehors* : les textes du code autour de l'attestation (en-têtes, mise en forme des dates, adresse du
+QR), recomposés à l'affichage, suivent le code déployé (voir a), le code au déploiement).
+
+**c) « Je veux pouvoir revenir en arrière après une erreur de saisie. »** (D75, points 5 et 6)
 
 *Comment c'est tenu* :
 
@@ -225,17 +215,27 @@ historique ne se supprime pas.
 - **le rang et l'archivage** : en direct, au journal, sans historique ;
 - **les images** : immuables sous leur identifiant ; leur nom et leur archivage changent sur place.
 
-**4. L'attestation reste une preuve figée** (D75, point 8).
+**d) « Je veux que corriger ou essayer un libellé prenne quelques secondes, pas une procédure. »** (D75, points 2, 4
+et 5)
 
 *Comment c'est tenu* :
 
-- l'enregistrement est figé et signé à l'émission ; ni la présentation ni la banque ne l'atteignent ;
-- `/verifier` relit l'enregistrement figé ;
-- depuis E5-3, une attestation émise inscrit le titre en vigueur **à son émission**, dans le même champ ;
-- une attestation déjà émise ne change jamais d'un octet : testé à chaque jalon.
+- **E5-1, tables** : la présentation en direct — noms et couleurs des classes, images de chaleur, légendes,
+  caractéristiques, couleurs des matières d'outil, pictogrammes.
+- **E5-3, exercices** : titre, cours, « À l'accueil », photo et note des outils.
+- Un panneau « Présentation — effet immédiat », un aperçu, « Appliquer », et c'est vu par tous dès le rechargement,
+  séances en cours comprises. La liste blanche est imposée par le serveur.
+- **Essayer** : l'aperçu suit la frappe, même non appliqué (les couleurs de la page pour les tables, ce que voit
+  l'étudiant pour un exercice) ; et un essai appliqué qui ne convient pas se défait avec « Rétablir » (c).
+- Une image archivée en vigueur ne bloque jamais une retouche (retouche de D76).
+- **E5-2** : une correction de **valeur** (une Vc) ne coûte plus qu'un geste. Publier les tables propose la cascade,
+  dans la même confirmation que le résumé des différences.
 
-*Ce qui reste en dehors* : les textes du code autour de l'attestation (en-têtes, mise en forme des dates, adresse du
-QR), recomposés à l'affichage, suivent le code déployé (point 2 ci-dessus).
+*Ce qui reste en dehors* :
+
+- les noms d'outils et les gabarits de nomenclature : versionnés, figés dans chaque question au tirage (D75, point 3) ;
+- les noms et descriptifs des matériaux, les libellés des dimensions : versionnés ;
+- une valeur passe toujours par une publication, cascade comprise.
 
 **En chiffres, sur le chantier** :
 
@@ -248,17 +248,37 @@ QR), recomposés à l'affichage, suivent le code déployé (point 2 ci-dessus).
 
 1. **Rétablir un contenu devenu invalide** : permis, comme un enregistrement en erreur, avec les erreurs dites avant et
    après (§2). L'autre choix serait de refuser, ce qui obligerait à corriger les tables d'abord. D'accord ?
+   *Tranché : d'accord (§9).*
 2. **Une photo choisie inconnue ou archivée est refusée (400)**, alors que la banque ne refuse aucune autre erreur. La
    galerie ne propose jamais une image archivée : ce refus ne survient qu'avec une page restée ouverte pendant un
-   archivage. D'accord ?
+   archivage. D'accord ? *Tranché : d'accord, c'est la règle de la retouche de D76.*
 3. **Un enregistrement sans changement n'écrit plus rien** : avant, il faisait monter la révision. D'accord ?
+   *Tranché : d'accord.*
 4. **Un outil retiré par un import** se retrouve en le recréant sous le même identifiant ; pas de bouton « Restaurer un
-   outil disparu ». Suffisant ?
+   outil disparu ». Suffisant ? *Tranché : suffisant, puisque le résumé de l'import nomme déjà chaque outil retiré avec
+   son identifiant.*
 5. **Le journal** : `editeur_banque_historique_retablissement` pour un contenu rétabli, pour le distinguer de
-   `editeur_banque_retablissement`, qui existe déjà et désigne un outil désarchivé. D'accord ?
+   `editeur_banque_retablissement`, qui existe déjà et désigne un outil désarchivé. D'accord ? *Tranché : d'accord.*
+
+## 9. Réponses et retouche (même branche)
+
+**Tes réponses.** Les cinq points sont acceptés tels que proposés ; ils sont consignés à la fin de D79. Le code ne
+change pas.
+
+**La retouche des documents.** Tes quatre exigences, telles que tu les as posées au début du chantier, sont inscrites
+mot pour mot dans D75, juste après son contexte. Le bilan (§7) les reprend dans leur ordre, a) à d), chacune citée ;
+son contenu est celui d'avant, rattaché à ces quatre phrases. Deux précisions y entrent :
+
+- sous a), la limite du point 6 de D75 est dite comme le revers de l'exigence : une question reste corrigée contre la
+  valeur de son tirage, même erronée ;
+- sous d), « essayer » : l'aperçu suit la frappe, même non appliqué, et un essai appliqué se défait avec « Rétablir ».
+
+`npm test` : 686 réussis, 0 échec (documents seulement).
+
+**Plus rien à trancher pour E5-4.**
 
 ## Ce qui reste
 
-- **Toi** : fusionner ; trancher les points ci-dessus. Les vérifications après fusion d'E5-1 et d'E5-3 restent dans
-  `PLAN.md` : l'onglet Tables et la page de chaque exercice publié, pour les retouches en attente.
+- **Toi** : fusionner. Les vérifications après fusion d'E5-1 et d'E5-3 restent dans `PLAN.md` : l'onglet Tables et la
+  page de chaque exercice publié, pour les retouches en attente.
 - Le chantier E5 est clos. Prochain élément de `PLAN.md` : la section « Finition ».
