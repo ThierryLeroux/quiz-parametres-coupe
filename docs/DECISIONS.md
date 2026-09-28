@@ -2291,7 +2291,7 @@ les points 2 et 3 de cette décision :
 - **Un exercice en erreur** est nommé **avec ses erreurs** dans le message qui suit la publication ; il reste proposé aux
   cascades suivantes (décoché, puisqu'il est désormais sur une version plus ancienne).
 
-## D78 — E5-3 : la présentation des exercices en direct — stockage, où elle se pose, titre de l'attestation, titre en double, brouillon et publication (2026-09-28, décidée)
+## D78 — E5-3 : la présentation des exercices en direct — stockage, où elle se pose, titre de l'attestation, titre en double, brouillon et publication (2026-09-28, décidée ; réponses de Thierry au rapport en fin d'entrée, complétées par D79)
 
 **Contexte.** Le troisième jalon de D75 (points 2 et 8) : le titre, le cours et « À l'accueil » d'un exercice, la photo
 et la note (`commentaire`) de chacune de ses copies d'outils passent en direct, avec la mécanique d'E5-1 (D76), mais
@@ -2385,3 +2385,77 @@ vigueur, plus celui de la version de la séance.
 `worker/base.js`, `worker/catalogue.js`, `worker/index.js`, `worker/editeur.js` (cascade, import), `worker/images.js` ;
 `site/js/api.js`, `site/js/ui/editeur.js`, `site/css/editeur.css` ; SPEC §3, §7, §10 ; UI §3.9 ; CLAUDE.md ; PLAN.
 Rapport : `docs/rapports/e5-3-presentation-exercices.md`.
+
+**Réponses de Thierry au rapport (2026-09-28).** Les huit points à trancher du rapport sont acceptés tels que proposés :
+
+1. au déploiement, une séance épinglée à une version plus ancienne montre le titre, les photos et les notes de la
+   dernière version (point 2) ;
+2. la republication ne vérifie plus le titre en double (point 6) — complétée par l'avertissement des titres en double
+   (D79, point 8) ;
+3. la réémission qui suit une correction d'identité (D37) garde le titre d'origine (point 5) ;
+4. la barre de l'écran de réussite montre le titre en vigueur, l'attestation le sien ;
+5. l'espace professeur et l'export CSV montrent le titre en vigueur ;
+6. l'angle mort des retouches en attente (un brouillon revenu à la valeur d'une vieille version n'est pas signalé) est
+   acceptable : il ne concerne que des brouillons d'avant E5-3 (point 10) ;
+7. une copie rajoutée sous le même identifiant retrouve sa présentation en vigueur ; au besoin, sa photo se change dans
+   le panneau ;
+8. l'import restaure la présentation sans la règle du titre en double (point 6) — complété, lui aussi, par
+   l'avertissement de D79.
+
+## D79 — E5-4 : l'historique de la banque d'outils ; l'avertissement des titres en double ; clôture du chantier E5 (2026-09-28, décidée)
+
+**Contexte.** Le dernier jalon de D75 : la banque d'outils se modifiait sur place, sans historique (inventaire, §1) ;
+une erreur d'enregistrement ne se défaisait qu'à la main. Et les réponses au rapport d'E5-3 demandent un complément : la
+republication et l'import ne vérifiant plus le titre en double, deux exercices publiés peuvent se retrouver sous le même
+titre sans que rien ne le dise.
+
+**Décision.**
+
+1. **Stockage** (migration `0012`) : `banque_outils_historique`, un contenu **remplacé** par ligne — l'identifiant de
+   l'outil, le contenu (l'outil au format de la banque), quand et par qui il avait été enregistré, quand, par qui et par
+   quoi il a été remplacé (`enregistrement`, `retablissement`, `import`). Sans limite ; rien ne s'efface. La banque
+   gagne `modifie_par` (qui a enregistré le contenu actuel ; vide pour les outils d'avant, semés ou créés avant ce
+   jalon).
+2. **Chaque enregistrement** d'un outil met le contenu qu'il remplace dans l'historique, dans le même lot que
+   l'écriture et le journal, avec le contrôle optimiste (D48, 409 : rien n'est écrit). Un enregistrement **sans
+   changement** n'écrit rien (ni révision, ni historique, ni journal) et le dit. Le journal
+   (`editeur_banque_enregistrement`) dit les changements en clair. **L'archivage reste tel quel** (hors de l'historique).
+   Créer ou dupliquer un outil ne remplace rien.
+3. **« Rétablir »** (`POST …/banque/retablir`) remet un contenu de l'historique de cet outil ; le contenu qu'il remplace
+   va lui-même à l'historique (`retablissement`) ; journal `editeur_banque_historique_retablissement`. Il **revalide le
+   contenu avec les règles et les tables d'aujourd'hui** :
+   - un contenu devenu **invalide** (une matière d'outil renommée dans les tables, un groupe ou une opération disparus)
+     **se rétablit quand même**, comme un enregistrement en erreur (la banque n'en refuse aucun) : ses erreurs sont
+     dites **avant**, sur la ligne de l'historique, et **après**, sous les champs, pour être corrigées puis
+     enregistrées ;
+   - une **image archivée** depuis est permise (elle est toujours servie) et dite en avertissement ; une image inconnue
+     (impossible : une image nommée par l'historique ne se supprime pas) est refusée (400).
+4. **Images** (comme après la retouche de D76) : à l'enregistrement ou à la création, seule une photo **choisie**
+   (différente de celle de l'outil) doit exister et ne pas être archivée — sinon 400, rien n'est écrit ; une photo
+   archivée déjà en place n'est qu'un avertissement. Une image nommée par l'historique de la banque compte comme
+   utilisée (`banque_historique`).
+5. **La page de l'outil** montre l'historique, replié, le plus récent en tête : pour chaque contenu, quand et par qui il
+   avait été enregistré, quand et par quoi il a été remplacé, **ce que le rétablir changerait** (en clair), ses erreurs
+   et avertissements avec les tables d'aujourd'hui, et **Rétablir** (sans confirmation, sauf modifications non
+   enregistrées). Route `GET /api/prof/editeur/banque/outil?id=`.
+6. **Sauvegarde** : l'export porte `historique_banque` (tous les contenus remplacés, avec l'identifiant de leur outil,
+   même disparu de la banque). L'import ajoute ceux qui manquent, et, comme il remplace la banque (D49), **met chaque
+   contenu qu'il remplace ou retire dans l'historique** (`import`) : une restauration se défait outil par outil. Un
+   outil **inchangé** par l'import garde sa ligne telle quelle (révision, date, auteur) ; un outil modifié prend la
+   révision suivante ; un outil retiré garde son historique (recréé sous le même identifiant, il le retrouve, et
+   « Rétablir » ramène son dernier contenu). Un aller-retour ne change rien.
+7. **Aucune séance n'est touchée** : la banque ne touche aucun exercice (D47), et ce jalon ne change ni la correction
+   ni les attestations.
+8. **L'avertissement des titres en double** (complément de D78, réponses 2 et 8) : deux exercices publiés et
+   non archivés dont les **titres en vigueur** se confondent (même clé : casse, accents, espaces ignorés) sont signalés
+   en **doré**, sans rien bloquer : dans la liste des exercices, sur la ligne de chacun, et dans le panneau
+   « Présentation » de chacun, en nommant l'autre. L'avertissement disparaît dès qu'un des deux titres change (ou
+   qu'un des deux est archivé). Le serveur le calcule (`doublons` dans la liste et dans le panneau), avec la règle de
+   D74 (`sameTitleExercises`).
+9. **Clôture du chantier E5** : le rapport d'E5-4 fait le bilan des exigences de D75 ; le chantier est coché dans
+   `PLAN.md`.
+
+**Conséquences.** `migrations/0012_historique_banque.sql` ; `worker/base.js`, `worker/index.js`, `worker/editeur.js`
+(import), `worker/images.js` ; `site/js/ui/editeur-data.js` (`bankToolDiff`, textes de l'historique et des titres en
+double), `site/js/api.js`, `site/js/ui/editeur.js`, `site/css/editeur.css` ; SPEC §7, §10 ; UI §3.9 ; CLAUDE.md ;
+DEMARRAGE ; PLAN. Rapport : `docs/rapports/e5-4-historique-banque.md`.

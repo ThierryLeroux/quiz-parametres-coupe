@@ -199,7 +199,7 @@ Rapport de session : `docs/rapports/gestion-du-contenu.md`. Les tâches cochées
 - [x] **E3 — un titre en double bloque la publication** (remplace le simple signalement de D71) : au serveur (400, `doublons`) et à l'écran (refus en rouge, bouton inactif) ; brouillons libres ; republier le même exercice passe ; un archivé ne compte pas ; les doublons déjà publiés restent en place
 - [ ] **Thierry** : repérer les doublons de titre déjà en production (marche à suivre dans le rapport) et, s'il y en a, changer un titre ou archiver l'un des deux avant la prochaine publication ; trancher les points douteux du rapport
 
-## Chantier E5 — modifier le contenu sans créer de nouvelle version (décisions D75 à D78)
+## Chantier E5 — modifier le contenu sans créer de nouvelle version (décisions D75 à D79)
 Inventaire : `docs/rapports/inventaire-versionnage.md`. Voie hybride (D75) : la présentation en direct, la publication
 en cascade des tables ; les séances restent épinglées à leur version. Un jalon par branche, dans l'ordre.
 
@@ -240,8 +240,17 @@ Rapport de session : `docs/rapports/e5-3-presentation-exercices.md`.
 - [x] Documents : SPEC §3, §7, §8 (le titre de l'attestation), §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE
 - [ ] **Thierry** : fusionner ; trancher les points douteux du rapport ; après la fusion, ouvrir la page de chaque exercice publié (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a)
 
-### Jalon E5-4 — l'historique de la banque d'outils
-- [ ] Chaque contenu remplacé d'un outil de la banque gardé, « Rétablir » en un clic, journal (le mécanisme d'E5-1)
+### Jalon E5-4 — l'historique de la banque d'outils (décision D79)
+Rapport de session : `docs/rapports/e5-4-historique-banque.md`.
+
+- [x] Réponses de Thierry aux huit points d'E5-3, consignées à la fin de D78
+- [ ] Migration `0012` : l'historique de la banque (un contenu remplacé par ligne) et l'auteur du contenu actuel
+- [ ] Serveur : chaque enregistrement garde le contenu remplacé (409, journal en clair, rien sans changement) ; « Rétablir » revalidé avec les tables d'aujourd'hui ; page d'un outil avec son historique ; photo choisie existante et non archivée ; images de l'historique utilisées
+- [ ] Sauvegarde : l'historique de la banque dans l'export ; l'import ajoute ce qui manque et met chaque contenu qu'il remplace ou retire dans l'historique ; aller-retour identique
+- [ ] Page d'un outil : l'historique replié, ce que le rétablir changerait, ses erreurs avec les tables d'aujourd'hui, « Rétablir »
+- [ ] Titres en double : l'avertissement doré dans la liste des exercices et dans le panneau « Présentation » de chacun
+- [ ] Tests (historique, rétablissement, 409, journal, contenu devenu invalide, images, Sauvegarde, import, avertissement) ; `test:api` ; passe dans Chrome
+- [ ] Documents : D79 ; SPEC §7, §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE ; bilan du chantier E5 dans le rapport
 
 ## Finition
 - [ ] Graphique de progression par opération
