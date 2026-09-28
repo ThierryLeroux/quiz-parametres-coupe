@@ -584,7 +584,9 @@ try {
     contenu.materiaux.materiaux[0].vc_pi_min.insert_carbure = 555;
     const enregistre = await appel('POST', '/api/prof/editeur/tables/enregistrer', { corps: { revision: page.corps.brouillon.revision, contenu }, cookie });
     const propose = await appel('GET', '/api/prof/editeur/tables/cascade', { cookie });
-    assert.deepEqual([propose.corps.remplacee, propose.corps.candidats.map((c) => [c.id, c.publication?.numero ?? null, c.en_erreur])], ['A2026_r1', [[M10, 4, false]]]);
+    const candidat = (id) => propose.corps.candidats.find((c) => c.id === id);
+    assert.deepEqual([propose.corps.remplacee, candidat(M10).publication.numero, candidat(M10).par_defaut, candidat(M10).en_erreur], ['A2026_r1', 4, true, false]);
+    assert.deepEqual([candidat(VC_RPM).sur, candidat(VC_RPM).par_defaut], ['A2026_r0', false]); // resté sur une version plus ancienne : proposé, décoché (D77, retouche)
     const v3 = (await appel('GET', `/api/exercice?exercice=${M10}&version=3`)).corps.exercice;
     const publie = await appel('POST', '/api/prof/editeur/tables/publier', { corps: { revision: enregistre.corps.revision, id: 'A2026_r2', cascade: [M10] }, cookie });
     assert.deepEqual([publie.status, publie.corps.cascade.publies, publie.corps.cascade.brouillons], [200, [{ id: M10, numero: 4 }], [M10]], JSON.stringify(publie.corps));

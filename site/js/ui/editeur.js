@@ -1505,19 +1505,23 @@ async function showTables(notice = '') {
       const lines = previous ? tablesDiff(previous, readTables()) : ['Première version des tables.'];
       const idInput = el('input', { id: 'tables-revision', type: 'text', autocomplete: 'off', spellcheck: 'false', value: page.suggestion, class: 'mono' });
       const checks = new Map();
-      const cascadeItems = proposal.candidats.map((c) => {
-        const box = el('input', { id: `cascade-${c.id}`, type: 'checkbox', checked: !c.en_erreur, disabled: c.en_erreur });
+      // Une ligne par exercice : cochée par défaut s'il est sur la version remplacée, décochée s'il est sur une plus
+      // ancienne (D77, retouche) ; un exercice en erreur, jamais cochable.
+      const cascadeItem = (c) => {
+        const box = el('input', { id: `cascade-${c.id}`, type: 'checkbox', checked: c.par_defaut, disabled: c.en_erreur });
         if (!c.en_erreur) checks.set(c.id, box);
-        const tags = [c.archive_le !== null ? 'archivé' : null, c.jamais_publie ? 'jamais publié' : null].filter(Boolean);
+        const tags = [c.sur !== proposal.remplacee ? `sur ${c.sur ?? '—'}` : null, c.archive_le !== null ? 'archivé' : null, c.jamais_publie ? 'jamais publié' : null].filter(Boolean);
         return el('li', { class: c.en_erreur ? 'cascade-erreur' : null }, [
           el('label', { for: box.id, class: 'cascade-titre' }, [box, el('strong', {}, c.titre), el('span', { class: 'muted mono smaller' }, c.id), ...tags.map((tag) => el('span', { class: 'cascade-etiquette' }, tag))]),
           el('p', { class: 'small' }, cascadeAction(c)),
           c.en_erreur
             ? el('ul', { class: 'editeur-erreurs' }, c.erreurs.map((line) => el('li', {}, line)))
             : el('ul', { class: 'editeur-diff' }, (c.lignes.length === 0 ? ['Rien ne change pour lui : ses outils tirent les mêmes valeurs.'] : c.lignes).map((line) => el('li', {}, line))),
-          c.brouillon !== null && c.brouillon.erreurs.length > 0 ? el('p', { class: 'small avis-doublon' }, `Son brouillon aura ${c.brouillon.erreurs.length} erreur${c.brouillon.erreurs.length > 1 ? 's' : ''} avec ces tables, à corriger avant sa prochaine publication : ${c.brouillon.erreurs.join(' ; ')}`) : '',
+          !c.en_erreur && c.brouillon.erreurs.length > 0 ? el('p', { class: 'small avis-doublon' }, `Son brouillon aura ${c.brouillon.erreurs.length} erreur${c.brouillon.erreurs.length > 1 ? 's' : ''} avec ces tables, à corriger avant sa prochaine publication : ${c.brouillon.erreurs.join(' ; ')}`) : '',
         ]);
-      });
+      };
+      const onReplaced = proposal.candidats.filter((c) => c.sur === proposal.remplacee);
+      const older = proposal.candidats.filter((c) => c.sur !== proposal.remplacee);
       const checkedIds = () => [...checks].filter(([, box]) => box.checked).map(([id]) => id);
       const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
         if (presentationDirty && !window.confirm("Les modifications du panneau « Présentation » ne sont pas appliquées : elles seront perdues au rechargement de l'onglet. Publier quand même ?")) return;
@@ -1543,16 +1547,19 @@ async function showTables(notice = '') {
         el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence de valeurs avec la version précédente : rien à publier.' : `Différences de valeurs avec ${previous?.id ?? '—'} (${lines.length}) — relis-les : une faute de frappe partirait chez tous les exercices cochés ci-dessous.`),
         el('ul', { class: 'editeur-diff editeur-diff--en-tete' }, lines.map((line) => el('li', {}, line))),
         el('div', { class: 'field field--half' }, [el('label', { for: 'tables-revision' }, 'Révision de cette version'), idInput, el('div', { class: 'field-note' }, `Suggérée : ${page.suggestion}. Unique ; inscrite au pied des feuilles et sur les attestations. Lettres, chiffres, « _ », « . », « - ».`)]),
-        el('h3', { class: 'cascade-entete' }, proposal.remplacee === null ? 'Cascade' : `Cascade : les exercices sur ${proposal.remplacee}`),
+        el('h3', { class: 'cascade-entete' }, 'Cascade : les exercices qui ne sont pas à jour'),
         proposal.candidats.length === 0
-          ? el('p', { class: 'muted small' }, "Aucun exercice n'est sur la version remplacée : rien à publier en cascade.")
+          ? el('p', { class: 'muted small' }, "Aucun exercice : rien à publier en cascade.")
           : el('div', {}, [
-            el('p', { class: 'small' }, `Chaque exercice coché reçoit une version suivante : son dernier contenu publié avec ces tables, jamais son brouillon ; son brouillon passe aussi à ces tables s'il était sur ${proposal.remplacee}, ses modifications gardées. Un exercice décoché n'est pas touché. Les séances en cours gardent leur version ; seules les nouvelles séances prennent celle de la cascade.`),
+            el('p', { class: 'small' }, "Pour chaque exercice coché, son contenu publié passe à ces tables — une version suivante, faite de son dernier contenu publié, jamais de son brouillon —, et son brouillon aussi, chacun de son côté, ses modifications gardées. Un exercice décoché n'est pas touché. Les séances en cours gardent leur version ; seules les nouvelles séances prennent celle de la cascade."),
             el('div', { class: 'outil-actions' }, [
               el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => setAll(true) }, 'Tout cocher'),
               el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => setAll(false) }, 'Tout décocher'),
             ]),
-            el('ul', { class: 'cascade-liste' }, cascadeItems),
+            onReplaced.length === 0 ? '' : el('h4', { class: 'cascade-groupe' }, `Sur ${proposal.remplacee ?? '—'}, la version remplacée — cochés par défaut`),
+            onReplaced.length === 0 ? '' : el('ul', { class: 'cascade-liste' }, onReplaced.map(cascadeItem)),
+            older.length === 0 ? '' : el('h4', { class: 'cascade-groupe' }, 'Sur une version plus ancienne — décochés par défaut : ils ont pu être laissés de côté exprès'),
+            older.length === 0 ? '' : el('ul', { class: 'cascade-liste' }, older.map(cascadeItem)),
           ]),
         el('p', { class: 'muted smaller' }, 'Une version publiée ne se modifie plus ; elle prend la présentation en vigueur (panneau « Présentation »). Tout se publie ensemble, ou rien.'),
         el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),

@@ -227,6 +227,7 @@
 .editeur-diff--en-tete { padding: var(--space-2) var(--space-3) var(--space-2) calc(1.4em + var(--space-3)); border-left: 3px solid var(--color-gold); background: color-mix(in srgb, var(--color-gold) 8%, transparent); font-size: var(--text-md); }
 .cascade-entete { margin: var(--space-5) 0 var(--space-2); color: var(--color-gold); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .cascade-liste { margin: var(--space-3) 0 0; padding: 0; list-style: none; }
+.cascade-groupe { margin: var(--space-4) 0 0; color: var(--color-text); font-size: var(--text-sm); font-weight: 600; }
 .cascade-liste > li { padding: var(--space-2) 0; border-bottom: 1px solid color-mix(in srgb, var(--color-text-muted) 30%, transparent); }
 .cascade-liste p { margin: 4px 0 0; }
 .cascade-liste .editeur-diff, .cascade-liste .editeur-erreurs { margin-top: 4px; }

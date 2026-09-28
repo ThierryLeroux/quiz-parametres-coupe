@@ -94,45 +94,55 @@ export function previewQuestions(exercise, data, random, count = 10) {
   });
 }
 
-// --- La cascade d'une publication de tables (D75, point 6 ; D77) --------------------------------------------------
-// Publier des tables propose, dans la même confirmation, tous les exercices « sur la version remplacée » — la version
-// dont le brouillon des tables est parti : ceux dont la DERNIÈRE VERSION PUBLIÉE est sur elle, et ceux dont le
-// BROUILLON y est (archivés et jamais publiés compris). Pour chacun, ce que la cascade fera :
-//   - publication : sa dernière version publiée est sur la version remplacée → la version suivante sera son DERNIER
-//     CONTENU PUBLIÉ avec les nouvelles tables, jamais son brouillon ; sans titre vérifié (D74 : la cascade n'en change aucun) ;
-//   - brouillon : son brouillon est sur la version remplacée → il passe aux nouvelles tables, ses modifications gardées ;
+// --- La cascade d'une publication de tables (D75, point 6 ; D77 et sa retouche) -------------------------------------
+// Publier des tables propose, dans la même confirmation, UNE liste de tout ce qui n'est pas à jour : chaque exercice,
+// archivés et jamais publiés compris — aucun n'est encore sur la version qu'on publie. Ceux qui sont sur la version
+// remplacée (la version dont le brouillon des tables est parti) sont cochés par défaut ; ceux qui sont sur une version
+// plus ancienne sont DÉCOCHÉS par défaut (ils ont pu être laissés de côté exprès) : ils restent dans la vue, cascade après
+// cascade. « Sur » une version se lit à la dernière version publiée ; pour un exercice jamais publié, à son brouillon.
+// Pour chaque exercice, ce que la cascade fera s'il est coché — chacun de son côté :
+//   - publication : s'il a été publié, sa version suivante sera son DERNIER CONTENU PUBLIÉ avec les nouvelles tables,
+//     jamais son brouillon ; sans titre vérifié (D74 : la cascade n'en change aucun) ;
+//   - brouillon : son brouillon passe aux nouvelles tables, ses modifications gardées (d'où qu'il parte) ;
 //   - en_erreur : le contenu à republier a des erreurs avec les nouvelles tables → nommé, et laissé tel quel (brouillon compris).
-// Retourne [{ id, titre, archive_le, jamais_publie, publication: { depuis, numero } | null, brouillon: { modifie, erreurs } | null,
-// en_erreur, erreurs, lignes }] dans l'ordre des rangs — lignes : ce que ça change pour lui (exerciseTablesImpact de son
-// contenu publié, ou de son brouillon s'il n'en a pas) ; brouillon.erreurs : les erreurs qui apparaîtraient dans son brouillon.
+// Retourne [{ id, titre, archive_le, jamais_publie, sur (la version où il est), par_defaut, publication: { depuis, numero, tables } | null,
+// brouillon: { depuis, modifie, erreurs }, en_erreur, erreurs, lignes }] dans l'ordre des rangs — lignes : ce que ça
+// change pour lui DEPUIS SA PROPRE VERSION (exerciseTablesImpact de son contenu publié et des tables de celui-ci, ou de
+// son brouillon et de ses tables s'il n'a jamais été publié) ; brouillon.erreurs : celles qui apparaîtraient dans son brouillon.
 //   rows : base.listExercises (id, brouillon, tables_id, archive_le, contenu_publie, derniere_version, tables_publiees)
-//   replacedId, replaced, next : l'identifiant et les tables de la version remplacée, et les nouvelles tables (complétées)
+//   replacedId : la version remplacée ; tablesById : Map id → tables complétées (toutes les versions) ; latestId : la plus
+//   récente (celle d'un brouillon sans version de tables) ; next : les nouvelles tables (complétées)
 //   draftErrorsOf : draftErrors (exercice.js) ; impactOf : exerciseTablesImpact (editeur-data.js) — injectées
-export function cascadeCandidates(rows, { replacedId, replaced, next }, { draftErrorsOf, impactOf }) {
-  if (replacedId === null || replacedId === undefined || replaced === null) return [];
-  return rows.filter((row) => row.tables_publiees === replacedId || row.tables_id === replacedId).map((row) => {
-    const published = row.tables_publiees === replacedId ? row.contenu_publie : null;
+export function cascadeCandidates(rows, { replacedId, tablesById, latestId, next }, { draftErrorsOf, impactOf }) {
+  const tablesOfId = (id) => tablesById.get(id ?? latestId) ?? null;
+  return rows.map((row) => {
+    const published = row.contenu_publie;
+    const publishedTables = published === null ? null : tablesOfId(row.tables_publiees);
+    const draftTables = tablesOfId(row.tables_id);
     const erreurs = published === null ? [] : draftErrorsOf(published, next).map((e) => `${e.champ} : ${e.message}`);
-    const moves = row.tables_id === replacedId;
-    const draftImpact = moves ? impactOf(row.brouillon, replaced, next, draftErrorsOf) : null;
+    const draftImpact = draftTables === null ? { erreurs: [], lignes: [] } : impactOf(row.brouillon, draftTables, next, draftErrorsOf);
+    const impact = published === null ? draftImpact : (publishedTables === null ? { erreurs: [], lignes: [] } : impactOf(published, publishedTables, next, draftErrorsOf));
+    const sur = published === null ? (row.tables_id ?? latestId) : row.tables_publiees;
     return {
       id: row.id,
-      titre: (row.contenu_publie ?? row.brouillon).titre,
+      titre: (published ?? row.brouillon).titre,
       archive_le: row.archive_le,
-      jamais_publie: row.contenu_publie === null,
-      publication: published === null ? null : { depuis: row.derniere_version, numero: row.derniere_version + 1 },
-      brouillon: moves ? { modifie: row.contenu_publie === null || !sameContent(row.brouillon, row.contenu_publie), erreurs: draftImpact.erreurs } : null,
+      jamais_publie: published === null,
+      sur,
+      par_defaut: erreurs.length === 0 && sur === replacedId,
+      publication: published === null ? null : { depuis: row.derniere_version, numero: row.derniere_version + 1, tables: row.tables_publiees },
+      brouillon: { depuis: row.tables_id ?? null, modifie: published === null || !sameContent(row.brouillon, published), erreurs: draftImpact.erreurs },
       en_erreur: erreurs.length > 0,
       erreurs,
-      lignes: (published === null ? draftImpact : impactOf(published, replaced, next, draftErrorsOf)).lignes,
+      lignes: impact.lignes,
     };
   });
 }
 
-// Ce que la cascade fait des exercices cochés (D77) : { versions: [{ exercice_id, numero, contenu }], brouillons: [{ id }],
-// publies, laisses, ignores }. Un exercice coché qui n'est plus sur la version remplacée (la liste a changé depuis
-// l'ouverture) est ignoré ; un exercice en erreur est laissé tel quel, coché ou non (laisses les nomme tous) ; un
-// exercice décoché n'est pas touché, brouillon compris.
+// Ce que la cascade fait des exercices cochés (D77) : { versions: [{ exercice_id, numero, contenu }], brouillons: [{ id,
+// depuis }], laisses, ignores }. Pour chaque coché, son contenu publié passe aux nouvelles tables (une version suivante),
+// et son brouillon aussi, chacun de son côté ; un exercice en erreur est laissé tel quel, coché ou non (laisses les nomme
+// tous, avec leurs erreurs) ; un identifiant inconnu est ignoré ; un exercice décoché n'est pas touché, brouillon compris.
 //   candidates : cascadeCandidates ; rows : les mêmes lignes (le contenu publié) ; checked : les identifiants cochés
 export function cascadePlan(candidates, rows, checked) {
   const byId = new Map(candidates.map((c) => [c.id, c]));
@@ -142,7 +152,7 @@ export function cascadePlan(candidates, rows, checked) {
     if (c === undefined) { plan.ignores.push(id); continue; }
     if (c.en_erreur) continue;
     if (c.publication !== null) plan.versions.push({ exercice_id: id, numero: c.publication.numero, contenu: rows.find((row) => row.id === id).contenu_publie });
-    if (c.brouillon !== null) plan.brouillons.push({ id });
+    plan.brouillons.push({ id, depuis: c.brouillon.depuis });
   }
   return plan;
 }

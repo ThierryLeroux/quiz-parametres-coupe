@@ -341,12 +341,14 @@ export function presentationHistoryLabel(h) {
 
 // --- La cascade des tables et le retour en arrière (D77) ------------------------------------------------------------
 
-// Ce que la cascade fera pour un exercice proposé (GET /api/prof/editeur/tables/cascade, candidats), en une phrase.
+// Ce que la cascade fera pour un exercice proposé, s'il est coché (GET /api/prof/editeur/tables/cascade, candidats ; D77 et sa
+// retouche : son contenu publié et son brouillon passent, chacun de son côté), en une phrase.
 export function cascadeAction(c) {
   if (c.en_erreur) return 'En erreur avec ces tables : il ne sera pas publié et reste tel quel, brouillon compris.';
-  const draft = c.brouillon === null ? '' : c.brouillon.modifie ? ' ; son brouillon passe aussi à ces tables, avec ses modifications non publiées' : ' ; son brouillon passe aussi à ces tables';
-  if (c.publication !== null) return `Version ${c.publication.numero} publiée avec ces tables : le contenu de sa version ${c.publication.depuis}, pas son brouillon${draft}.`;
-  return c.jamais_publie ? 'Jamais publié : seul son brouillon passe à ces tables.' : "Sa dernière version est sur d'autres tables : seul son brouillon passe à ces tables.";
+  const elsewhere = c.brouillon.depuis !== null && c.brouillon.depuis !== (c.publication?.tables ?? c.brouillon.depuis) ? ` (sur ${c.brouillon.depuis})` : '';
+  const draft = `son brouillon${elsewhere} passe aussi à ces tables${c.brouillon.modifie ? ', avec ses modifications non publiées' : ''}`;
+  if (c.publication !== null) return `Version ${c.publication.numero} publiée avec ces tables : le contenu de sa version ${c.publication.depuis} (sur ${c.publication.tables}), pas son brouillon ; ${draft}.`;
+  return 'Jamais publié : seul son brouillon passe à ces tables.';
 }
 
 // Le bouton de la confirmation : « Publier A2026_r2 », « Publier A2026_r2 et la cascade (3 exercices) ».
@@ -361,7 +363,7 @@ export function cascadeResultText(result, titles = new Map()) {
   if (c.publies.length > 0) parts.push(`Publiés en cascade : ${c.publies.map((p) => `${name(p.id)} (version ${p.numero})`).join(', ')}.`);
   const draftsOnly = c.brouillons.filter((id) => !c.publies.some((p) => p.id === id));
   if (draftsOnly.length > 0) parts.push(`Brouillons seuls passés à ${result.id} : ${draftsOnly.map(name).join(', ')}.`);
-  if (c.laisses.length > 0) parts.push(`Laissés tels quels, en erreur avec ${result.id} : ${c.laisses.map((l) => `« ${l.titre} »`).join(', ')}.`);
+  if (c.laisses.length > 0) parts.push(`Laissés tels quels, en erreur avec ${result.id} (ils restent proposés aux cascades suivantes) : ${c.laisses.map((l) => `« ${l.titre} »${l.erreurs?.length > 0 ? ` (${l.erreurs.join(' ; ')})` : ''}`).join(', ')}.`);
   if (c.ignores.length > 0) parts.push(`Ignorés (plus sur la version remplacée) : ${c.ignores.map(name).join(', ')}.`);
   parts.push('Les séances en cours gardent leur version.');
   return parts.join(' ');

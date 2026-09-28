@@ -64,7 +64,7 @@ async function commencer(serveur, etudiant) {
 
 // --- La cascade ---------------------------------------------------------------------------------------------------
 
-test('cascade (D77) : proposée pour tous les exercices sur la version remplacée (archivés, jamais publiés, titres en double compris) ; chaque coché publie son DERNIER CONTENU PUBLIÉ avec les nouvelles tables, jamais son brouillon, et son brouillon suit ; un décoché reste intact ; tout est au journal', async () => {
+test('cascade (D77) : proposée pour tous les exercices (archivés, jamais publiés, titres en double compris), cochés par défaut ceux sur la version remplacée ; chaque coché publie son DERNIER CONTENU PUBLIÉ avec les nouvelles tables, jamais son brouillon, et son brouillon suit ; un décoché reste intact ; tout est au journal', async () => {
   const serveur = await editeurDeTest();
   // M10 : un brouillon modifié, jamais publié ainsi. VC_RPM : archivé. « brouillon-seul » : jamais publié.
   // « m10-bis » : le même titre publié que M10 (un doublon d'avant D74). « autre » : laissé décoché.
@@ -82,18 +82,19 @@ test('cascade (D77) : proposée pour tous les exercices sur la version remplacé
   const propose = (await serveur.editeur('GET', 'tables/cascade')).corps;
   assert.equal(propose.remplacee, 'A2026_r0');
   assert.deepEqual(propose.candidats.map((c) => c.id).sort(), ['autre', 'brouillon-seul', 'm10-bis', M10, VC_RPM]);
+  assert.ok(propose.candidats.every((x) => x.par_defaut), 'tous sur A2026_r0 : cochés par défaut');
   const c = (id) => propose.candidats.find((x) => x.id === id);
-  assert.deepEqual([c(M10).publication, c(M10).brouillon.modifie, c(M10).en_erreur, c(M10).titre], [{ depuis: 1, numero: 2 }, true, false, avant.m10v1.contenu.titre]);
+  assert.deepEqual([c(M10).publication, c(M10).brouillon.modifie, c(M10).en_erreur, c(M10).titre], [{ depuis: 1, numero: 2, tables: 'A2026_r0' }, true, false, avant.m10v1.contenu.titre]);
   assert.ok(c(M10).lignes.some((l) => /Insert de carbure de tungstène : \d+ → \d+ pi\/min/.test(l)), c(M10).lignes.join('\n'));
   assert.equal(c(VC_RPM).archive_le !== null, true);
   assert.deepEqual([c('brouillon-seul').publication, c('brouillon-seul').brouillon.modifie], [null, true]);
-  assert.equal(c('m10-bis').brouillon, null); // son brouillon n'a pas de version de tables : il suivra la plus récente
+  assert.equal(c('m10-bis').brouillon.depuis, null); // son brouillon n'a pas de version de tables : il passe aussi
   // Publier, tous cochés sauf « autre ».
   const publie = await serveur.editeur('POST', 'tables/publier', { revision: enregistre.corps.revision, id: 'A2026_r1', cascade: [M10, VC_RPM, 'brouillon-seul', 'm10-bis', 'inconnu'] });
   assert.equal(publie.status, 200, JSON.stringify(publie.corps));
   assert.deepEqual(publie.corps.cascade, {
     publies: [{ id: M10, numero: 2 }, { id: VC_RPM, numero: 2 }, { id: 'm10-bis', numero: 2 }],
-    brouillons: [M10, VC_RPM, 'brouillon-seul'],
+    brouillons: [M10, VC_RPM, 'brouillon-seul', 'm10-bis'],
     laisses: [],
     ignores: ['inconnu'],
   });
@@ -109,6 +110,7 @@ test('cascade (D77) : proposée pour tous les exercices sur la version remplacé
   // Jamais publié : seul le brouillon passe. Titre en double : publié, la cascade ne change aucun titre (D74 ne s'applique pas).
   assert.deepEqual([versions(serveur, 'brouillon-seul').length, ligne(serveur, 'brouillon-seul').tables_id], [0, 'A2026_r1']);
   assert.deepEqual(versions(serveur, 'm10-bis').map((v) => v.tables_id), ['A2026_r0', 'A2026_r1']);
+  assert.equal(ligne(serveur, 'm10-bis').tables_id, 'A2026_r1');
   // Décoché : intact, brouillon compris.
   assert.deepEqual(ligne(serveur, 'autre'), avant.autre);
   assert.equal(versions(serveur, 'autre').length, 1);
@@ -116,8 +118,8 @@ test('cascade (D77) : proposée pour tous les exercices sur la version remplacé
   const journal = serveur.journalEnseignant();
   const mention = 'cascade de la publication des tables A2026_r1';
   assert.deepEqual(journal.filter((l) => l.action === 'editeur_publication').map((l) => l.details), [`${M10} · version 2 · tables A2026_r1 · ${mention}`, `${VC_RPM} · version 2 · tables A2026_r1 · ${mention}`, `m10-bis · version 2 · tables A2026_r1 · ${mention}`]);
-  assert.deepEqual(journal.filter((l) => l.action === 'editeur_tables_exercice').map((l) => l.details), [`${M10} · tables A2026_r0 → A2026_r1 · ${mention}`, `${VC_RPM} · tables A2026_r0 → A2026_r1 · ${mention}`, `brouillon-seul · tables A2026_r0 → A2026_r1 · ${mention}`]);
-  assert.equal(journal.filter((l) => l.action === 'editeur_tables_publication').at(-1).details, 'tables A2026_r1 · depuis A2026_r0 · cascade sur 5 exercice(s) proposé(s) : 3 version(s) publiée(s), 3 brouillon(s) passé(s), 0 en erreur laissé(s) tel(s) quel(s)');
+  assert.deepEqual(journal.filter((l) => l.action === 'editeur_tables_exercice').map((l) => l.details), [`${M10} · tables A2026_r0 → A2026_r1 · ${mention}`, `${VC_RPM} · tables A2026_r0 → A2026_r1 · ${mention}`, `brouillon-seul · tables A2026_r0 → A2026_r1 · ${mention}`, `m10-bis · tables — → A2026_r1 · ${mention}`]);
+  assert.equal(journal.filter((l) => l.action === 'editeur_tables_publication').at(-1).details, 'tables A2026_r1 · depuis A2026_r0 · cascade sur 5 exercice(s) proposé(s) : 3 version(s) publiée(s), 4 brouillon(s) passé(s), 0 en erreur laissé(s) tel(s) quel(s)');
   // La page de M10 : plus d'avis « version plus récente », et le brouillon (modifié) diffère de la version 2 par son titre seulement.
   const page10 = await exercice(serveur, M10);
   assert.deepEqual([page10.exercice.tables_id, page10.derniere_tables, page10.derniere_version.numero], ['A2026_r1', 'A2026_r1', 2]);
@@ -139,9 +141,50 @@ test('cascade : un exercice en erreur avec les nouvelles tables est nommé, ne s
   const publie = await serveur.editeur('POST', 'tables/publier', { revision: enregistre.corps.revision, id: 'A2026_r1', cascade: [M10, VC_RPM] });
   assert.equal(publie.status, 200, JSON.stringify(publie.corps));
   assert.deepEqual(publie.corps.cascade.laisses.map((l) => [l.id, l.titre]), [[VC_RPM, versions(serveur, VC_RPM)[0].contenu.titre]]);
+  assert.ok(publie.corps.cascade.laisses[0].erreurs.some((e) => /Acier rapide/.test(e)), 'le message peut nommer ses erreurs');
   assert.deepEqual(publie.corps.cascade.publies, [{ id: M10, numero: 2 }]);
   assert.equal(versions(serveur, VC_RPM).length, 1);
   assert.deepEqual(ligne(serveur, VC_RPM), avant);
+  // Il reste proposé aux cascades suivantes (décoché : il est sur une version plus ancienne, et toujours en erreur).
+  const suivante = (await serveur.editeur('GET', 'tables/cascade')).corps.candidats.find((x) => x.id === VC_RPM);
+  assert.deepEqual([suivante.par_defaut, suivante.en_erreur, suivante.publication.tables], [false, true, 'A2026_r0']);
+});
+
+test('retouche de D77 : un exercice resté sur une version plus ancienne est proposé DÉCOCHÉ, avec ce que ça change depuis SA version ; coché, son contenu publié et son brouillon passent ; publié sur une version et brouillon sur une autre, les deux passent, chacun de son côté', async () => {
+  const serveur = await editeurDeTest();
+  const v0 = materiaux.materiaux[0].vc_pi_min.insert_carbure;
+  // A2026_r1 : le M10 seul en cascade ; « Vc et RPM », décoché, reste sur A2026_r0.
+  const page = await brouillonTables(serveur);
+  assert.equal((await publierAvecCascade(serveur, vcCorrigees(page.brouillon.contenu), 'A2026_r1', [M10])).status, 200);
+  assert.deepEqual([versions(serveur, VC_RPM).length, ligne(serveur, VC_RPM).tables_id], [1, 'A2026_r0']);
+  // Le brouillon du M10 revient à A2026_r0 (à la main) : publié sur A2026_r1, brouillon sur A2026_r0.
+  const m10 = await exercice(serveur, M10);
+  assert.equal((await serveur.editeur('POST', 'exercice/tables', { id: M10, revision: m10.exercice.revision, tables_id: 'A2026_r0' })).status, 200);
+  // A2026_r2 (depuis A2026_r1) : l'insert encore + 10.
+  const r1 = await brouillonTables(serveur);
+  const enregistre = await serveur.editeur('POST', 'tables/enregistrer', { revision: r1.brouillon.revision, contenu: vcCorrigees(r1.brouillon.contenu) });
+  const propose = (await serveur.editeur('GET', 'tables/cascade')).corps;
+  assert.equal(propose.remplacee, 'A2026_r1');
+  const m = propose.candidats.find((x) => x.id === M10);
+  const rpm = propose.candidats.find((x) => x.id === VC_RPM);
+  assert.deepEqual([m.par_defaut, m.publication.tables, m.brouillon.depuis], [true, 'A2026_r1', 'A2026_r0']);
+  assert.deepEqual([rpm.par_defaut, rpm.en_erreur, rpm.publication, rpm.brouillon.depuis], [false, false, { depuis: 1, numero: 2, tables: 'A2026_r0' }, 'A2026_r0']);
+  // Ce que ça change pour chacun, depuis SA version : 410 → 420 pour le M10 (sur A2026_r1), 400 → 420 pour « Vc et RPM » (sur A2026_r0).
+  const insert = (avant, apres) => `Acier non allié (groupe 1), Insert de carbure de tungstène : ${avant} → ${apres} pi/min`;
+  assert.ok(m.lignes.includes(insert(v0 + 10, v0 + 20)), m.lignes.join('\n'));
+  assert.ok(rpm.lignes.includes(insert(v0, v0 + 20)), rpm.lignes.join('\n'));
+  // Tous deux cochés : chacun passe, de son côté.
+  const publie = await serveur.editeur('POST', 'tables/publier', { revision: enregistre.corps.revision, id: 'A2026_r2', cascade: [M10, VC_RPM] });
+  assert.equal(publie.status, 200, JSON.stringify(publie.corps));
+  assert.deepEqual([publie.corps.cascade.publies, publie.corps.cascade.brouillons], [[{ id: M10, numero: 3 }, { id: VC_RPM, numero: 2 }], [M10, VC_RPM]]);
+  assert.deepEqual(versions(serveur, M10).map((v) => v.tables_id), ['A2026_r0', 'A2026_r1', 'A2026_r2']);
+  assert.deepEqual(versions(serveur, VC_RPM).map((v) => v.tables_id), ['A2026_r0', 'A2026_r2']);
+  assert.deepEqual(versions(serveur, VC_RPM)[1].contenu, versions(serveur, VC_RPM)[0].contenu);
+  assert.deepEqual([ligne(serveur, M10).tables_id, ligne(serveur, VC_RPM).tables_id], ['A2026_r2', 'A2026_r2']);
+  const mention = 'cascade de la publication des tables A2026_r2';
+  assert.deepEqual(serveur.journalEnseignant().filter((l) => l.action === 'editeur_tables_exercice' && l.details.endsWith(mention)).map((l) => l.details), [`${M10} · tables A2026_r0 → A2026_r2 · ${mention}`, `${VC_RPM} · tables A2026_r0 → A2026_r2 · ${mention}`]);
+  // Une nouvelle séance de « Vc et RPM » lit la Vc de A2026_r2.
+  assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${VC_RPM}`)).corps.tables.materiaux.materiaux[0].vc_pi_min.insert_carbure, v0 + 20);
 });
 
 test('une séance en cours garde exactement sa version et ses valeurs attendues après une cascade ; une nouvelle séance prend la version de la cascade et la Vc corrigée', async () => {

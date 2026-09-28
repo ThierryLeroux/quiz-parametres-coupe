@@ -221,31 +221,38 @@ test('cours d’un exercice (D71) : facultatif, 1 à 30 caractères avec une let
 
 // --- La cascade d'une publication de tables (D77) ------------------------------------------------------------------
 
-test('cascadeCandidates et cascadePlan (D77) : les exercices sur la version remplacée (par leur dernière version publiée ou leur brouillon), ce que la cascade fera pour chacun ; les cochés seulement, jamais un exercice en erreur, un inconnu ignoré', () => {
+test('cascadeCandidates et cascadePlan (D77 et sa retouche) : une liste de tous les exercices, cochés par défaut ceux sur la version remplacée, décochés ceux sur une version plus ancienne, avec leur impact depuis leur propre version ; un coché passe de son côté (contenu publié) et du côté de son brouillon ; jamais un exercice en erreur ; un inconnu ignoré', () => {
   const contenu = (titre) => ({ titre, champs_evalues: ['vc'], outils: [] });
+  const row = (id, { publie = contenu(id.toUpperCase()), tables = 'r1', brouillon = publie ?? contenu(id.toUpperCase()), brouillonTables = tables, archive = null, version = 2 } = {}) => ({
+    id, brouillon, tables_id: brouillonTables, archive_le: archive, contenu_publie: publie, derniere_version: publie === null ? null : version, tables_publiees: publie === null ? null : tables,
+  });
   const rows = [
-    { id: 'a', brouillon: contenu('A'), tables_id: 'r0', archive_le: null, contenu_publie: contenu('A'), derniere_version: 2, tables_publiees: 'r0' },
-    { id: 'b', brouillon: contenu('B modifié'), tables_id: 'r0', archive_le: '2026-09-01T00:00:00.000Z', contenu_publie: contenu('B'), derniere_version: 1, tables_publiees: 'r0' },
-    { id: 'c', brouillon: contenu('C'), tables_id: 'r0', archive_le: null, contenu_publie: null, derniere_version: null, tables_publiees: null },
-    { id: 'd', brouillon: contenu('D'), tables_id: 'r9', archive_le: null, contenu_publie: contenu('D'), derniere_version: 4, tables_publiees: 'r0' },
-    { id: 'e', brouillon: contenu('E'), tables_id: 'r9', archive_le: null, contenu_publie: contenu('E'), derniere_version: 1, tables_publiees: 'r9' },
-    { id: 'f', brouillon: contenu('F'), tables_id: 'r0', archive_le: null, contenu_publie: contenu('F en erreur'), derniere_version: 3, tables_publiees: 'r0' },
+    row('a'),
+    row('b', { brouillon: contenu('B modifié'), archive: '2026-09-01T00:00:00.000Z', version: 1 }),
+    row('c', { publie: null, brouillon: contenu('C') }),
+    row('d', { brouillonTables: 'r0', version: 4 }), // publié sur la version remplacée, brouillon sur une plus ancienne
+    row('e', { tables: 'r0', version: 1 }), // resté sur une version plus ancienne
+    row('f', { publie: contenu('F en erreur'), version: 3 }),
+    row('g', { tables: 'r0', brouillonTables: null, version: 1 }), // un brouillon sans version de tables : la plus récente
   ];
+  const tablesById = new Map(['r0', 'r1'].map((id) => [id, { id }]));
   const draftErrorsOf = (draft) => (draft.titre === 'F en erreur' ? [{ champ: 'outils.0.operation', message: 'opération inconnue' }] : []);
-  const impactOf = (draft) => ({ erreurs: draft.titre === 'C' ? ['outils : x'] : [], lignes: [`impact de ${draft.titre}`] });
-  const candidates = cascadeCandidates(rows, { replacedId: 'r0', replaced: {}, next: {} }, { draftErrorsOf, impactOf });
-  assert.deepEqual(candidates.map((c) => c.id), ['a', 'b', 'c', 'd', 'f']); // « e » est ailleurs
+  const impactOf = (draft, before) => ({ erreurs: draft.titre === 'C' ? ['outils : x'] : [], lignes: [`impact de ${draft.titre} depuis ${before.id}`] });
+  const candidates = cascadeCandidates(rows, { replacedId: 'r1', tablesById, latestId: 'r1', next: { id: 'r2' } }, { draftErrorsOf, impactOf });
+  assert.deepEqual(candidates.map((c) => [c.id, c.par_defaut]), [['a', true], ['b', true], ['c', true], ['d', true], ['e', false], ['f', false], ['g', false]]);
   const by = (id) => candidates.find((c) => c.id === id);
-  assert.deepEqual(by('a'), { id: 'a', titre: 'A', archive_le: null, jamais_publie: false, publication: { depuis: 2, numero: 3 }, brouillon: { modifie: false, erreurs: [] }, en_erreur: false, erreurs: [], lignes: ['impact de A'] });
-  assert.deepEqual([by('b').brouillon.modifie, by('b').archive_le !== null, by('b').titre, by('b').lignes], [true, true, 'B', ['impact de B']]); // le contenu publié, pas le brouillon
-  assert.deepEqual([by('c').jamais_publie, by('c').publication, by('c').brouillon, by('c').lignes], [true, null, { modifie: true, erreurs: ['outils : x'] }, ['impact de C']]); // jamais publié : son brouillon
-  assert.deepEqual([by('d').publication, by('d').brouillon], [{ depuis: 4, numero: 5 }, null]); // publié sur r0, brouillon ailleurs : il ne passe pas
+  assert.deepEqual(by('a'), { id: 'a', titre: 'A', archive_le: null, jamais_publie: false, sur: 'r1', par_defaut: true, publication: { depuis: 2, numero: 3, tables: 'r1' }, brouillon: { depuis: 'r1', modifie: false, erreurs: [] }, en_erreur: false, erreurs: [], lignes: ['impact de A depuis r1'] });
+  assert.deepEqual([by('b').brouillon.modifie, by('b').archive_le !== null, by('b').titre, by('b').lignes], [true, true, 'B', ['impact de B depuis r1']]); // le contenu publié, pas le brouillon
+  assert.deepEqual([by('c').jamais_publie, by('c').publication, by('c').brouillon, by('c').lignes], [true, null, { depuis: 'r1', modifie: true, erreurs: ['outils : x'] }, ['impact de C depuis r1']]);
+  assert.deepEqual([by('d').publication.tables, by('d').brouillon.depuis], ['r1', 'r0']);
+  assert.deepEqual([by('e').publication, by('e').lignes], [{ depuis: 1, numero: 2, tables: 'r0' }, ['impact de E depuis r0']]); // depuis SA version
   assert.deepEqual([by('f').en_erreur, by('f').erreurs], [true, ['outils.0.operation : opération inconnue']]);
-  assert.deepEqual(cascadeCandidates(rows, { replacedId: null, replaced: null, next: {} }, { draftErrorsOf, impactOf }), []);
-  // Le plan : cochés a, c, d, f et un inconnu ; b décoché.
-  const plan = cascadePlan(candidates, rows, ['a', 'c', 'd', 'f', 'inconnu', 'a']);
-  assert.deepEqual(plan.versions, [{ exercice_id: 'a', numero: 3, contenu: contenu('A') }, { exercice_id: 'd', numero: 5, contenu: contenu('D') }]);
-  assert.deepEqual(plan.brouillons, [{ id: 'a' }, { id: 'c' }]);
+  assert.deepEqual([by('g').brouillon.depuis, by('g').sur, by('c').sur, by('e').sur], [null, 'r0', 'r1', 'r0']);
+  // Le plan : cochés a, c, d, e, f, g et un inconnu ; b décoché.
+  const plan = cascadePlan(candidates, rows, ['a', 'c', 'd', 'e', 'f', 'g', 'inconnu', 'a']);
+  assert.deepEqual(plan.versions.map((v) => [v.exercice_id, v.numero]), [['a', 3], ['d', 5], ['e', 2], ['g', 2]]);
+  assert.deepEqual(plan.versions[0].contenu, contenu('A'));
+  assert.deepEqual(plan.brouillons, [{ id: 'a', depuis: 'r1' }, { id: 'c', depuis: 'r1' }, { id: 'd', depuis: 'r0' }, { id: 'e', depuis: 'r0' }, { id: 'g', depuis: null }]);
   assert.deepEqual(plan.laisses, [{ id: 'f', titre: 'F en erreur', erreurs: ['outils.0.operation : opération inconnue'] }]);
   assert.deepEqual(plan.ignores, ['inconnu']);
   assert.deepEqual(cascadePlan(candidates, rows, undefined).versions, []); // sans liste cochée (un navigateur d'avant) : aucune cascade

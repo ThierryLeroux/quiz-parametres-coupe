@@ -427,7 +427,7 @@ export async function saveTablesDraft(db, revision, contenu, now, entry) {
 // sa version suivante (son dernier contenu publié avec ces tables) et le passage de son brouillon.
 //   contenu : { materiaux, operations } avec leurs révisions posées à `id`
 //   cascade : { versions: [{ exercice_id, numero, contenu, entry }], brouillons: [{ id, depuis, entry }] }
-//             — un brouillon ne passe que s'il est encore sur la version remplacée (`depuis`) : sa ligne du journal aussi
+//             — un brouillon ne passe que s'il est encore sur la version qu'on a lue (`depuis`, null compris) : sa ligne du journal aussi
 //   baseBefore : la version dont le brouillon partait ; si le lot échoue, le brouillon y est rattaché de nouveau
 export async function publishTables(db, { id, revision, contenu, now, cascade = { versions: [], brouillons: [] }, baseBefore = null }, entry) {
   const { meta } = await db.prepare('UPDATE brouillon_tables SET contenu = ?, revision = revision + 1, modifie_le = ?, base_id = ? WHERE id = 1 AND revision = ?').bind(JSON.stringify(contenu), now, null, revision).run();
@@ -446,9 +446,9 @@ export async function publishTables(db, { id, revision, contenu, now, cascade = 
   }
   for (const b of cascade.brouillons) {
     statements.push(
-      db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND tables_id = ?)')
+      db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND tables_id IS ?)')
         .bind(b.entry.horodatage, b.entry.enseignant, b.entry.action, b.entry.details ?? null, b.id, b.depuis),
-      db.prepare('UPDATE exercices SET tables_id = ?, revision = revision + 1, brouillon_modifie_le = ? WHERE id = ? AND tables_id = ?').bind(id, now, b.id, b.depuis),
+      db.prepare('UPDATE exercices SET tables_id = ?, revision = revision + 1, brouillon_modifie_le = ? WHERE id = ? AND tables_id IS ?').bind(id, now, b.id, b.depuis),
     );
   }
   try {

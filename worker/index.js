@@ -951,14 +951,13 @@ async function editeurTablesPublier(request, env, { now }) {
   const previous = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
   if (previous !== null && sameContent(tablesContent(contenu), tablesContent(tablesOf(previous)))) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${previous.id}.`);
   if ((await base.findTables(env.DB, body.id)) !== null) throw new HttpError(409, `La révision « ${body.id} » existe déjà : une version publiée ne se remplace pas.`);
-  // La cascade (D77) : les exercices cochés parmi ceux sur la version remplacée, recalculés ici (jamais crus du navigateur).
-  const rows = await base.listExercises(env.DB);
-  const candidates = cascadeCandidates(rows, { replacedId: draft.base_id, replaced: previous === null ? null : tablesOf(previous), next: contenu }, { draftErrorsOf: draftErrors, impactOf: exerciseTablesImpact });
+  // La cascade (D77) : les exercices cochés, recalculés ici (jamais crus du navigateur).
+  const { rows, candidates } = await cascadeFor(env, draft.base_id, contenu);
   const plan = cascadePlan(candidates, rows, body.cascade);
   const mention = `cascade de la publication des tables ${body.id}`;
   const cascade = {
     versions: plan.versions.map((v) => ({ ...v, entry: logEntry(teacher, now, 'editeur_publication', `${v.exercice_id} · version ${v.numero} · tables ${body.id} · ${mention}`) })),
-    brouillons: plan.brouillons.map((b) => ({ id: b.id, depuis: draft.base_id, entry: logEntry(teacher, now, 'editeur_tables_exercice', `${b.id} · tables ${draft.base_id} → ${body.id} · ${mention}`) })),
+    brouillons: plan.brouillons.map((b) => ({ id: b.id, depuis: b.depuis, entry: logEntry(teacher, now, 'editeur_tables_exercice', `${b.id} · tables ${b.depuis ?? '—'} → ${body.id} · ${mention}`) })),
   };
   const summary = candidates.length === 0 ? '' : ` · cascade sur ${candidates.length} exercice(s) proposé(s) : ${plan.versions.length} version(s) publiée(s), ${plan.brouillons.length} brouillon(s) passé(s), ${plan.laisses.length} en erreur laissé(s) tel(s) quel(s)`;
   const outcome = await base.publishTables(env.DB, { id: body.id, revision: draft.revision, contenu, now: now.toISOString(), cascade, baseBefore: draft.base_id },
@@ -974,16 +973,26 @@ async function editeurTablesPublier(request, env, { now }) {
   });
 }
 
+// Les exercices que la cascade propose (D77, cascadeCandidates) : tous, puisqu'aucun n'est encore sur les nouvelles tables
+// `next` ; cochés par défaut ceux qui sont sur la version remplacée ; ce que ça change pour chacun depuis sa propre version.
+async function cascadeFor(env, replacedId, next) {
+  const versions = await base.listTables(env.DB);
+  const tablesById = new Map(versions.map((row) => [row.id, tablesOf(row)]));
+  const rows = await base.listExercises(env.DB);
+  const candidates = cascadeCandidates(rows, { replacedId, tablesById, latestId: versions.at(-1)?.id ?? null, next }, { draftErrorsOf: draftErrors, impactOf: exerciseTablesImpact });
+  return { rows, candidates };
+}
+
 // GET /api/prof/editeur/tables/cascade — ce que la publication du brouillon des tables (tel qu'enregistré) proposerait en
-// cascade (D77) : la version remplacée (celle dont le brouillon est parti) et, pour chaque exercice sur elle, ce que la
-// cascade ferait et ce que ça change pour lui (cascadeCandidates). Rien n'est écrit.
+// cascade (D77) : la version remplacée (celle dont le brouillon est parti) et une liste de tous les exercices — cochés par
+// défaut ceux qui sont sur elle, décochés ceux qui sont sur une version plus ancienne —, avec ce que la cascade ferait et
+// ce que ça change pour chacun depuis sa propre version (cascadeCandidates). Rien n'est écrit.
 async function editeurTablesCascade(request, env, { now }) {
   await requireAdmin(request, env, now);
   const draft = await base.findTablesDraft(env.DB);
   const next = applyPresentation(tablesOf(draft.contenu), (await loadPresentation(env.DB)).contenu);
-  const previous = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
-  const candidats = cascadeCandidates(await base.listExercises(env.DB), { replacedId: draft.base_id, replaced: previous === null ? null : tablesOf(previous), next }, { draftErrorsOf: draftErrors, impactOf: exerciseTablesImpact });
-  return json({ remplacee: draft.base_id, candidats });
+  const { candidates } = await cascadeFor(env, draft.base_id, next);
+  return json({ remplacee: draft.base_id, candidats: candidates });
 }
 
 // --- Reprendre une version, annuler les modifications (D75, point 6 ; D77) ---------------------------------------------
