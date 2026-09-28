@@ -14,14 +14,15 @@ function picto(name) {
 
 // La page lettre : en-tête (logo, titre, bloc du département), contenu, pied (date, signature, révision
 // de la table — D28 ; la feuille des formules, qui n'a pas de données, n'en porte pas — et page).
-function page(content, revision = null) {
+//   fill : le contenu occupe toute la hauteur de la page, et sa grille se la partage (la feuille des facteurs, D83)
+function page(content, revision = null, fill = false) {
   return el('article', { class: 'print-page sheet' }, [
     el('header', { class: 'sheet-header' }, [
       el('img', { class: 'sheet-logo', src: 'img/logo-cvm.png', alt: 'Cégep du Vieux Montréal' }),
       el('div', { class: 'sheet-title' }, [el('div', {}, 'Paramètres de coupe'), el('small', {}, 'valeurs de départ')]),
       el('div', { class: 'sheet-program' }, DEPARTMENT_LINES.map((line) => el('div', {}, line))),
     ]),
-    el('div', { class: 'sheet-body' }, content),
+    el('div', { class: fill ? 'sheet-body sheet-body--fill' : 'sheet-body' }, content),
     el('footer', { class: 'sheet-footer' }, [
       el('span', {}, localDate()),
       el('span', {}, sheetSignature()),
@@ -96,19 +97,21 @@ function feedPage(data) {
 }
 
 // --- Facteurs de vitesse (D83) : une grille, un rang par opération, regroupées par machine comme les avances --------------
-// Les lignes réduites ressortent (la couleur de la vitesse de rotation) ; celles à 1 restent sobres.
+// Quatre colonnes sur toute la largeur de la page : machine, opération, facteur, pictogramme. Les lignes réduites
+// ressortent (la couleur de la vitesse de rotation) ; celles à 1 restent sobres. Les rangs se partagent la hauteur de
+// la page (--rows, lu par sheets.css) : une opération de plus dans les tables, et la feuille tient encore sur sa page.
 function factorPage(data) {
   const { title, formula, rows, machines, revision } = speedFactorSheet(data);
   const at = (start, span) => `grid-row: ${start + 2} / span ${span}`; // le rang 1 est l'en-tête
   const lastOfMachine = new Set(machines.map((run) => run.start + run.span - 1));
   return page([
     el('div', { class: 'sheet-caption' }, [el('strong', {}, title), el('span', { class: 'factor-formula' }, formula)]),
-    el('div', { class: 'factor-grid' }, [
+    el('div', { class: 'factor-grid', style: `--rows: ${rows.length}` }, [
       // Le facteur tout de suite après le nom de l'opération : à 390 px, les deux se lisent sans faire défiler la feuille.
       el('div', { class: 'feed-head' }, 'Machine-outil'),
       el('div', { class: 'feed-head' }, 'Opération'),
-      el('div', { class: 'feed-head factor-head', style: 'grid-column: 3 / span 3' }, 'Facteur'),
-      ...rows.flatMap((row, i) => (row.marked ? [el('div', { class: 'factor-band', style: `grid-column: 2 / span 4; ${at(i, 1)}` })] : [])),
+      el('div', { class: 'feed-head factor-head', style: 'grid-column: 3 / span 2' }, 'Facteur'),
+      ...rows.flatMap((row, i) => (row.marked ? [el('div', { class: 'factor-band', style: `grid-column: 2 / span 3; ${at(i, 1)}` })] : [])),
       ...machines.map((run) => el('div', { class: 'feed-machine factor-machine', style: `grid-column: 1; ${at(run.start, run.span)}` }, run.key.split(' / ').flatMap((part, i) => (i === 0 ? [part] : [el('br'), part])))),
       ...rows.flatMap((row, i) => {
         const end = lastOfMachine.has(i) ? ' feed-cell--end' : '';
@@ -117,11 +120,10 @@ function factorPage(data) {
           el('div', { class: `feed-cell feed-operation${end}`, style: `grid-column: 2; ${at(i, 1)}` }, row.operation),
           el('div', { class: `feed-cell factor-value${row.marked ? ' factor-value--marked' : ''}${end}`, style: `grid-column: 3; ${at(i, 1)}` }, [el('span', { class: 'factor-times', 'aria-hidden': 'true' }, '×'), el('strong', {}, row.factor)]),
           el('div', { class: `feed-cell feed-picto${end}`, style: `grid-column: 4; ${at(i, 1)}` }, image),
-          el('div', { class: `feed-cell${end}`, style: `grid-column: 5; ${at(i, 1)}` }),
         ];
       }),
     ]),
-  ], revision);
+  ], revision, true);
 }
 
 // --- Formules : deux parties, du relevé dans les tables jusqu'à Vf ---------------------------------------------------

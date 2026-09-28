@@ -245,33 +245,57 @@ body.sheets-open { overflow: hidden; }
 .feed-box .strong { font-weight: 700; }
 .feed-box .italic { font-style: italic; }
 
-/* --- Facteurs de vitesse (D83) : la grille des avances, sans direction ni encadré ; machine, opération, pictogramme,
-   facteur. Une ligne réduite ressort — la bande et le bleu de la vitesse de rotation ; une ligne à 1 reste sobre. ------ */
+/* --- Facteurs de vitesse (D83) : quatre colonnes sur toute la largeur de la page — machine, opération, facteur,
+   pictogramme. Une ligne réduite ressort — la bande et le bleu de la vitesse de rotation, sur toute la ligne ; une
+   ligne à 1 reste sobre. Les rangs se partagent la hauteur qui reste dans la page (--rows : le nombre d'opérations,
+   posé par reference-screen.js), 56 px au plus chacun : la feuille tient sur sa page lettre, quel que soit leur nombre,
+   et le pictogramme suit la hauteur de son rang. ----------------------------------------------------------------------- */
+
+.sheet-body--fill { display: flex; flex-direction: column; }
 
 .factor-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(26px + var(--rows) * 56px);
+  margin-bottom: 8px; /* un peu d'air avant le pied de la page */
   display: grid;
-  grid-template-columns: 78px 150px 84px 62px minmax(0, 1fr);
-  grid-auto-rows: 41px;
-  font-size: 11px;
+  grid-template-columns: 104px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: 26px repeat(var(--rows), minmax(0, 1fr));
+  font-size: 15px;
 }
 
 .sheet-caption .factor-formula { font-family: var(--font-number); font-size: 12px; font-weight: 500; }
+.factor-grid .feed-head { font-size: 12px; }
+.factor-grid .feed-machine { font-size: 14px; }
 .factor-machine { border-right: 2.5px solid #000; }
 .factor-head { padding-left: 8px; }
-.factor-band { background: linear-gradient(to right, #fff 0%, var(--color-part-rotation) 22%, var(--color-part-rotation) 48%, #fff 100%); }
+.factor-band { background: linear-gradient(to right, #fff 0%, var(--color-part-rotation) 10%, var(--color-part-rotation) 86%, #fff 100%); }
+.factor-grid .feed-picto img { width: auto; height: calc(100% - 4px); aspect-ratio: 56 / 38; }
 
 .factor-value {
-  gap: 6px;
+  gap: 8px;
   padding-left: 8px;
   color: var(--color-page-muted);
   font-family: var(--font-number);
-  font-size: 13px;
+  font-size: 19px;
 }
 
 .factor-value strong { font-weight: 500; }
-.factor-times { font-size: 11px; }
-.factor-value--marked { color: #000; font-size: 17px; }
+.factor-times { font-size: 14px; }
+.factor-value--marked { color: #000; font-size: 25px; }
 .factor-value--marked strong { font-weight: 700; color: var(--color-factor); }
+
+/* Sur téléphone, la page garde sa taille et défile dans son cadre : les colonnes se serrent à gauche, pour que le nom
+   de l'opération et son facteur se lisent sans faire défiler, à 360 px comme à 390 px. À l'impression, la pleine largeur. */
+@media screen and (max-width: 639px) {
+  .factor-grid { grid-template-columns: 68px 146px 78px minmax(0, 1fr); font-size: 13px; }
+  .factor-grid .feed-head { font-size: 11px; white-space: nowrap; }
+  .factor-grid .feed-machine { font-size: 11px; }
+  .factor-grid .feed-picto { justify-content: flex-start; padding-left: 12px; }
+  .factor-value { font-size: 16px; }
+  .factor-times { font-size: 12px; }
+  .factor-value--marked { font-size: 21px; }
+}
 
 /* --- Formules -------------------------------------------------------------------------------------------------------------------- */
 
