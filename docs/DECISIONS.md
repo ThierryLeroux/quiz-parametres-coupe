@@ -2204,3 +2204,68 @@ présentation dans une version publiée (point 8). Et une retouche, qui précise
   panneau les montre en doré, sous les erreurs ; `GET …/presentation`, `…/appliquer` et `…/retablir` les rendent
   (`avertissements`). Une classe **nouvelle** du brouillon qui nomme une image archivée la choisit : c'est une erreur.
   La galerie ne propose pas les images archivées (seule celle déjà en place y reste, marquée).
+
+## D77 — E5-2 : la cascade des tables et le retour en arrière des versions (2026-09-27, décidée)
+
+**Contexte.** D75, point 6 : une correction de valeurs (une Vc, une avance) coûtait une publication des tables, puis, pour
+chaque exercice, un passage aux nouvelles tables et une publication. Et rien ne permettait de revenir à une version
+publiée, sinon à la main.
+
+**Décision.**
+
+1. **La version remplacée** est celle dont le brouillon des tables est parti (`base_id`) : la dernière publiée, en usage
+   normal comme après « Reprendre cette version » (point 6), qui fait repartir le brouillon de la dernière.
+2. **La cascade est proposée dans la confirmation même de la publication des tables**, sous le résumé des différences
+   valeur par valeur, qui reste en tête (la protection contre une faute de frappe) : **une seule confirmation** pour le
+   tout. Elle liste **tous les exercices sur la version remplacée** — ceux dont la dernière version publiée est sur
+   elle, et ceux dont le brouillon y est —, **archivés et jamais publiés compris**, **cochés par défaut**, chacun
+   décochable, avec ce que la cascade fera pour lui et **ce que ça change pour lui** (`exerciseTablesImpact` de son
+   contenu publié, ou de son brouillon s'il n'a jamais été publié ; les erreurs qui apparaîtraient dans son brouillon).
+3. **Pour chaque exercice coché** :
+   - **sa version suivante est son dernier contenu publié avec les nouvelles tables, jamais son brouillon** ; la règle du
+     titre en double (D74) ne s'y applique pas : la cascade ne change aucun titre ;
+   - **son brouillon passe aussi aux nouvelles tables s'il était sur la version remplacée**, ses modifications non
+     publiées gardées ;
+   - **jamais publié** : seul son brouillon passe.
+
+   **Un exercice en erreur** avec les nouvelles tables (son contenu publié ne se republierait pas) est **nommé, ne se
+   coche pas, et reste tel quel**, brouillon compris. **Un exercice décoché n'est pas touché**, brouillon compris.
+4. **Tout passe ensemble, ou rien** : la version des tables, les versions d'exercice de la cascade, les brouillons qui
+   passent et les lignes du journal vont dans **un seul lot**. Le serveur recalcule la liste (il ne croit pas celle du
+   navigateur) : un exercice coché qui n'est plus sur la version remplacée est ignoré, et le résultat le dit.
+5. **Journal** : chaque version de la cascade est une publication ordinaire (`editeur_publication`, « … · cascade de la
+   publication des tables A2026_r2 ») ; chaque brouillon qui passe, un passage de tables (`editeur_tables_exercice`,
+   même mention) ; la publication des tables résume la cascade (proposés, publiés, brouillons, laissés).
+6. **« Reprendre cette version » sur une version publiée des tables** : ses **valeurs** entrent dans le brouillon, qui
+   **repart de la dernière version publiée** — le résumé des différences montre ce qui change par rapport à elle, et le
+   brouillon se publie comme version suivante, **avec la cascade**. **Sa présentation n'est pas reprise** : pour les
+   clés que la présentation en vigueur connaît, le brouillon prend la sienne (l'encadré des retouches en attente ne
+   s'allume pas à tort) ; la présentation se rétablit par son propre historique (D76).
+7. **« Reprendre cette version » sur une version publiée d'un exercice** : son contenu entre dans le brouillon, qui
+   **garde sa version de tables actuelle** (reprendre un contenu ne ramène pas d'anciennes tables en silence) ; puis
+   publication normale, avec le résumé.
+8. **« Annuler les modifications »** ramène un brouillon à sa dernière version publiée : pour un exercice, son contenu
+   **et** sa version de tables ; pour les tables, la dernière version publiée (présentation comme au point 6). **Inactif
+   quand le brouillon est à jour** (le serveur refuse aussi, 400) ; un exercice jamais publié n'a rien à annuler.
+9. **Pour les points 6 à 8** : si le brouillon a des modifications non publiées — enregistrées ou seulement à l'écran —,
+   **une confirmation les liste et dit qu'elles seront perdues** (pour « Reprendre » un exercice, son contenu seulement,
+   puisque sa version de tables est gardée ; pour les tables, les différences de valeurs et les retouches de
+   présentation en attente) ; sans modification, le geste se fait tout de suite. Contrôle optimiste (D48, 409) ;
+   chaque geste est au journal (`editeur_reprise`, `editeur_annulation`, `editeur_tables_reprise`,
+   `editeur_tables_annulation`).
+10. **Les images nommées par le brouillon des tables comptent comme utilisées** (`brouillon_tables` dans les
+    utilisations d'une image) : celle d'une classe ou d'une opération nouvelle ne se supprime plus avant d'être publiée.
+11. **Ni la correction ni les attestations ne changent.** Les séances restent épinglées à leur version (D47) : une
+    cascade ne crée que des versions, pour les nouvelles séances.
+
+**Ce que D77 remplace.** Dans **D62**, « aucun exercice ne change de tables tout seul : chaque exercice y passe depuis
+sa page » : la publication des tables les fait passer, en cascade, ceux qu'on laisse cochés — le passage depuis la page
+d'un exercice (« Passer à … ») reste possible. Dans **D74**, la règle du titre en double vaut pour la publication depuis
+la page d'un exercice, pas pour la cascade (qui ne change aucun titre).
+
+**Conséquences.** `cascadeCandidates`, `cascadePlan` (`worker/editeur.js`, purs) ; `base.publishTables` (la cascade dans
+le même lot), `replaceTablesDraft`, `replaceDraft`, `listExercises` (`tables_publiees`) ; routes `GET
+…/tables/cascade`, `POST …/tables/reprendre`, `…/tables/annuler`, `…/exercice/reprendre`, `…/exercice/annuler`, et la
+cascade de `POST …/tables/publier` (`worker/index.js`) ; `worker/images.js` ; l'onglet Tables et la page d'un exercice
+(`site/js/ui/editeur.js`, `editeur-data.js`) ; SPEC §7, §10 ; UI §3.9 ; PLAN. Rapport :
+`docs/rapports/e5-2-cascade-retour.md`.

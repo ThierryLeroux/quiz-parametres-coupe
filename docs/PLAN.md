@@ -217,9 +217,14 @@ Rapport de session : `docs/rapports/e5-1-presentation-tables.md`.
 - [x] Points du rapport tranchés par Thierry (les sept acceptés) ; **retouche** (D76) : « image existante et non archivée » ne vaut que pour une image choisie ; une image archivée déjà en vigueur n'est qu'un avertissement, qui ne bloque ni « Appliquer » ni la publication des tables ; tests et Chrome
 - [ ] **Thierry** : fusionner ; après la fusion, ouvrir l'onglet Tables de référence (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a ; les avertissements dorés, les images archivées en vigueur) et vérifier la présentation de départ
 
-### Jalon E5-2 — la cascade des tables et le retour en arrière des versions
-- [ ] Publier des tables propose tous les exercices sur la version remplacée (archivés compris), chacun décochable, avec `exerciseTablesImpact` ; republie leur dernier contenu publié, jamais le brouillon ; fait passer le brouillon s'il était sur la version remplacée ; un exercice en erreur est nommé et laissé tel quel
-- [ ] « Reprendre cette version » (tables ou exercice) : la version rechargée dans le brouillon, puis publication normale ; « Annuler les modifications » ramène un brouillon à sa dernière version publiée
+### Jalon E5-2 — la cascade des tables et le retour en arrière des versions (décision D77)
+Rapport de session : `docs/rapports/e5-2-cascade-retour.md`.
+
+- [ ] Publier des tables propose, dans la même confirmation que le résumé des différences, tous les exercices sur la version remplacée (archivés et jamais publiés compris), cochés par défaut, chacun décochable, avec `exerciseTablesImpact` ; republie leur dernier contenu publié, jamais le brouillon, sans la règle du doublon ; fait passer le brouillon s'il était sur la version remplacée ; un exercice en erreur est nommé et laissé tel quel ; tout dans un seul lot ; journal
+- [ ] « Reprendre cette version » (tables : les valeurs, la présentation en vigueur gardée ; exercice : le contenu, sa version de tables gardée), puis publication normale ; « Annuler les modifications » ramène un brouillon à sa dernière version publiée ; confirmation qui liste les modifications perdues ; journal
+- [ ] Les images nommées par le brouillon des tables comptent comme utilisées
+- [ ] Tests (cascade, brouillons, décochés, erreurs, archivés, jamais publiés, titres en double, journal, séance en cours, reprendre, annuler, images, 409) ; `test:api` ; passe dans Chrome
+- [ ] Documents : D77 ; SPEC §7, §10 ; UI §3.9
 
 ### Jalon E5-3 — la présentation des exercices en direct
 - [ ] Titre, cours, « À l'accueil », photo et note des copies d'outils en direct ; l'attestation inscrit le titre affiché à la réussite ; la règle du titre en double (D74) suit le titre
