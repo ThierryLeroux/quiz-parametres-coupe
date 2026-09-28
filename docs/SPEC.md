@@ -377,7 +377,16 @@ comme corrects.
   jamais, même quand un compteur d'outil retombe à zéro.
 - État de progression, sérialisable, tenu **par le serveur** (ci-dessous) :
   `{ exerciceId, reussites: { [id d'outil]: n }, totalReussies }`.
-- Un graphique de progression par opération est affiché (VBA `modAffGraph`).
+- **Progression par opération** (décision D81 ; VBA `modAffGraph`), dans le panneau Progression de l'écran
+  Question seulement (`UI.md` §3.3, §3.4) : les outils de l'exercice y sont regroupés par opération — les
+  opérations dans l'ordre de leur premier outil dans l'exercice, les outils dans l'ordre de l'exercice. Chaque
+  opération a « n / m » et une barre de 0 à 100 % : n = somme des réussites de suite de ses outils (plafonnées
+  à leurs `reussites_requises`, comme le serveur les envoie), m = somme de leurs `reussites_requises` ; aucun
+  réglage dans l'exercice. Pendant le corrigé seulement, la barre montre en vert ce que la question vient de
+  gagner et en rouge ce qu'elle vient de faire perdre ; une opération complète a un contour doré, dès la
+  question qui la complète. Le navigateur le calcule seul, à partir de `progression.outils` (chaque outil y
+  porte son `operation`, ses `reussites` et ses `requises`) d'avant et d'après « Vérifier » : ni la correction,
+  ni la séance, ni l'attestation n'en dépendent.
 
 ### Serveur de correction (décisions D19, D21, D22, D23)
 
@@ -1101,7 +1110,8 @@ Précisions :
   y figure. Il est dans l'index (le serveur ne connaît que l'index) mais pas
   dans la liste de l'accueil ; joignable par `?exercice=test-complet`, il ne
   donne aucune réponse en production (le mode test n'existe qu'en local, §7).
-- Reporté : seuils du graphique de progression (finition).
+- Le graphique de progression par opération n'a aucun réglage dans l'exercice : il se déduit des
+  `reussites_requises` de ses outils (D81, §7).
 
 ### Exercice enregistré : brouillon et versions (décisions D47 à D49)
 
