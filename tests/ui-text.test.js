@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   DEPARTMENT_LINES, DEPARTMENT_SHORT, FIELD_LABELS, FIELD_PARTS, coherenceSource, correctionBanner, decimalPoint, decimalPointInValues, fieldInSentence, newSessionNotice, sessionFoundNotice, exerciseMeta, exerciseSummary, fieldResultNote, formatDateTime, identificationErrorMessage,
-  localDate, serverErrorMessage, sheetSignature, studentLine,
+  computedNote, expressionLine, localDate, serverErrorMessage, sheetSignature, studentLine, typedNumber, unreadableNote,
 } from '../site/js/ui/text.js';
 import { loadExercise } from '../site/js/exercice.js';
 import { ApiError } from '../site/js/api.js';
@@ -119,6 +119,34 @@ test('fieldResultNote (D70, D71) : une valeur attendue faite des saisies le dit,
   assert.equal(fieldResultNote({ ...f, coherence: null }), 'Juste (0.000284 attendu)');
   const { coherence: _sans, ...ancien } = f;
   assert.equal(fieldResultNote(ancien), 'Juste (0.000284 attendu)');
+});
+
+// --- Calculs dans les cases (D82) -------------------------------------------------------------------------------
+
+test('fieldResultNote (D82) : une expression se compare par son nombre — « Juste » s’il est celui attendu', () => {
+  const vc = { champ: 'vc', evalue: true, ok: true, saisie: '400*1', expression: { texte: '400 × 1', valeur: '400', arrondie: false }, attendu: '400' };
+  assert.equal(fieldResultNote(vc), 'Juste');
+  const rpm = { champ: 'rpm', evalue: true, ok: true, saisie: '400*12/(pi*1)', expression: { texte: '400 × 12 / (π × 1)', valeur: '1527.8875', arrondie: true }, attendu: '1600' };
+  assert.equal(fieldResultNote(rpm), 'Juste (1600 attendu)');
+  assert.equal(fieldResultNote({ ...rpm, ok: false }), 'Faux — attendu 1600');
+  assert.equal(typedNumber(rpm), '1527.8875');
+  assert.equal(typedNumber({ saisie: '1 600', expression: null }), '1 600'); // un nombre, tel que tapé
+  assert.equal(typedNumber({ saisie: '1600' }), '1600'); // une correction d'avant D82, sans `expression`
+});
+
+test('expressionLine (D82) : « ta saisie : … = … », « ≈ » quand la case l’affiche arrondi ; rien pour un nombre', () => {
+  assert.equal(expressionLine({ expression: { texte: '4 × 350 / 0.75', valeur: '1866.6667', arrondie: true } }), 'ta saisie : 4 × 350 / 0.75 ≈ 1866.6667');
+  assert.equal(expressionLine({ expression: { texte: '(3 − 1) × 2', valeur: '4', arrondie: false } }), 'ta saisie : (3 − 1) × 2 = 4');
+  assert.equal(expressionLine({ saisie: '1600', expression: null }), null);
+  assert.equal(expressionLine({ saisie: '1600' }), null);
+});
+
+test('computedNote et unreadableNote (D82) : la note sous une case calculée, ou illisible', () => {
+  assert.equal(computedNote('(3 − 1) × 2', false), '= (3 − 1) × 2');
+  assert.equal(computedNote('4 × 350 / 0.75', true), '≈ 4 × 350 / 0.75');
+  assert.equal(unreadableNote('syntax'), 'Illisible : expression mal formée');
+  assert.equal(unreadableNote('divisionByZero'), 'Illisible : division par zéro');
+  assert.equal(unreadableNote('negative'), 'Illisible : résultat négatif');
 });
 
 test('coherenceSource (D70, D71) : les saisies dont la valeur attendue est faite, en toutes lettres', () => {

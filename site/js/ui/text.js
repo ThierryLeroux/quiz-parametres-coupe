@@ -176,6 +176,10 @@ export function coherenceSource(field, coherence) {
   return null;
 }
 
+// La saisie d'un champ corrigé, en nombre, pour une phrase : telle que tapée, ou, pour une expression (D82), le nombre
+// qu'elle donne, tel que la case l'a affiché — jamais le texte de l'expression.
+export const typedNumber = (champ) => champ.expression?.valeur ?? champ.saisie;
+
 // Note sous un champ corrigé (UI §3.4) : « Juste », « Juste (2496 attendu) » si la saisie diffère de
 // la valeur attendue mais est tolérée — « Juste (0.000284 = ton avance par dent × 2) » quand cette valeur est faite
 // de ses saisies —, « Faux — attendu 12.500 » ; un champ fourni garde sa mention.
@@ -183,10 +187,27 @@ export function fieldResultNote(champ) {
   if (champ.masque) return 'non demandée';
   if (!champ.evalue) return "fourni par l'exercice";
   if (!champ.ok) return `Faux — attendu ${champ.attendu}`;
-  const typed = decimalPoint(champ.saisie.replace(/\s/g, ''));
+  const typed = decimalPoint(typedNumber(champ).replace(/\s/g, ''));
   if (typed === champ.attendu) return 'Juste';
   const source = coherenceSource(champ.champ, champ.coherence);
   return source === null ? `Juste (${champ.attendu} attendu)` : `Juste (${champ.attendu} = ${source})`;
+}
+
+// --- Calculs dans les cases (D82) ----------------------------------------------------------------------------------
+
+// Sous une case calculée, avant la correction : « = (3 − 1) × 2 », ou « ≈ 4 × 350 / 0.75 » quand la case montre le
+// résultat arrondi (le serveur, lui, jugera l'expression).
+export const computedNote = (expression, rounded) => `${rounded ? '≈' : '='} ${expression}`;
+
+// Sous une case dont l'expression est illisible, avant la correction : pourquoi (expression.js, evaluateExpression).
+const UNREADABLE = { syntax: 'expression mal formée', divisionByZero: 'division par zéro', negative: 'résultat négatif' };
+export const unreadableNote = (reason) => `Illisible : ${UNREADABLE[reason] ?? UNREADABLE.syntax}`;
+
+// Sous un champ corrigé dont la saisie est une expression : « ta saisie : 4 × 350 / 0.75 ≈ 1866.6667 » (« = » quand
+// rien n'est arrondi), pour voir où la formule s'est trompée ; null pour un nombre tapé.
+export function expressionLine(champ) {
+  const { expression } = champ;
+  return expression ? `ta saisie : ${expression.texte} ${expression.arrondie ? '≈' : '='} ${expression.valeur}` : null;
 }
 
 // Bandeau après « Vérifier » (UI §3.4).

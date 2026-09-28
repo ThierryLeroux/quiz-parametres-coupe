@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { checkButtonLabel, diameterLines, factorLines, feedFamily, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, insertInCase, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { evaluateExpression } from '../site/js/expression.js';
 import { sessionView } from '../worker/seance.js';
 import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationPictoOf, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
@@ -203,6 +204,65 @@ test('gapExplanation (D71) : l’exemple de Thierry, et les avances nommées « 
     const texte = gapExplanation({ champs: [{ champ, evalue: true, ok: false, saisie: '1', attendu: '2', tolerance: 'exacte', ecart_pct: -50 }] });
     assert.doesNotMatch(texte, /^Ta (Vc|N|Vf|f|fz) |^Ton (fz|f) |RPM|rév\/min/, texte);
   }
+});
+
+test('gapExplanation (D82) : une saisie en expression s’écrit en nombre, jamais en formule', () => {
+  const champ = { champ: 'rpm', evalue: true, ok: false, saisie: '4*350/0.75', expression: { texte: '4 × 350 / 0.75', valeur: '1866.6667', arrondie: true }, attendu: '1400', tolerance: '±5 % et ±1 tr/min', ecart_pct: 33.3 };
+  assert.equal(gapExplanation({ champs: [champ] }), 'Ta vitesse de rotation de 1866.6667 tr/min est à +33.3 % de 1400 tr/min (tolérance : ±5 % et ±1 tr/min).');
+  // Illisible : pas d'expression (le serveur la met à null), le texte « réponse vide ou illisible » comme avant.
+  assert.equal(gapExplanation({ champs: [{ ...champ, saisie: '2(3)', expression: null, ecart_pct: null }] }), 'Vitesse de rotation : réponse vide ou illisible (attendu 1400 tr/min).');
+});
+
+// --- Calculs dans les cases (D82) -------------------------------------------------------------------------------------
+
+test('computeCase (D82) : une expression → le résultat, l’expression à envoyer, la note ; un nombre ou du texte → rien', () => {
+  assert.deepEqual(computeCase('(3-1)*2'), { value: '4', expression: '(3-1)*2', note: '= (3 − 1) × 2' });
+  assert.deepEqual(computeCase(' 4*350/0.75 '), { value: '1866.6667', expression: '4*350/0.75', note: '≈ 4 × 350 / 0.75' });
+  assert.deepEqual(computeCase('0.006×0.25'), { value: '0.0015', expression: '0.006×0.25', note: '= 0.006 × 0.25' });
+  assert.deepEqual(computeCase('400*12/(π*0.5)'), { value: '3055.7749', expression: '400*12/(π*0.5)', note: '≈ 400 × 12 / (π × 0.5)' });
+  for (const texte of ['', '1600', '1 600', '0,0015', 'abc', '1.2.3']) assert.equal(computeCase(texte), null, texte);
+});
+
+test('computeCase (D82) : une expression illisible → la note qui dit pourquoi', () => {
+  assert.deepEqual(computeCase('2(3)'), { error: 'Illisible : expression mal formée' });
+  assert.deepEqual(computeCase('3+'), { error: 'Illisible : expression mal formée' });
+  assert.deepEqual(computeCase('1/0'), { error: 'Illisible : division par zéro' });
+  assert.deepEqual(computeCase('3-5'), { error: 'Illisible : résultat négatif' });
+  assert.deepEqual(computeCase('-5'), { error: 'Illisible : résultat négatif' });
+});
+
+test('enterComputes (D82) : Entrée calcule une expression pas encore essayée ; sinon elle vérifie, comme avant', () => {
+  assert.equal(enterComputes('(3-1)*2'), true); // premier Entrée : calcule
+  assert.equal(enterComputes('4'), false); // la case montre le résultat : le deuxième Entrée vérifie
+  assert.equal(enterComputes('1600'), false); // un nombre tapé : Entrée vérifie, comme avant
+  assert.equal(enterComputes(''), false);
+  assert.equal(enterComputes('abc'), false); // pas une expression : vérifie (illisible, comme avant)
+  assert.equal(enterComputes('2(3)', null), true); // illisible, premier Entrée : la note
+  assert.equal(enterComputes('2(3)', '2(3)'), false); // deuxième Entrée : vérifie
+  assert.equal(enterComputes('2*(3)', '2(3)'), true); // corrigée : calcule de nouveau
+});
+
+test('answerOf (D82) : l’expression part tant que la case montre son résultat ; retouchée, c’est le nombre tapé', () => {
+  const kept = computeCase('4*350/0.75');
+  assert.equal(answerOf('1866.6667', kept), '4*350/0.75'); // le serveur juge l'expression, pas l'affichage arrondi
+  assert.equal(answerOf('1866.67', kept), '1866.67'); // retouché à la main : l'expression est oubliée
+  assert.equal(answerOf('1600', null), '1600');
+  assert.equal(answerOf('', null), '');
+});
+
+test('CALC_KEYS et insertInCase (D82) : ( ) + − × ÷ π =, insérés au curseur, jamais au-delà de la longueur permise', () => {
+  assert.deepEqual(CALC_KEYS.map((key) => key.label), ['(', ')', '+', '−', '×', '÷', 'π', '=']);
+  // Chaque caractère inséré est lu par l'évaluateur.
+  for (const { insert } of CALC_KEYS.filter((key) => !key.compute)) {
+    const essai = { '(': `${insert}2)`, ')': `(2${insert}`, π: insert }[insert] ?? `2${insert}1`;
+    assert.equal(evaluateExpression(essai).error, undefined, essai);
+  }
+  assert.equal(CALC_KEYS.filter((key) => key.compute).length, 1);
+  assert.deepEqual(insertInCase('400', 3, 3, '×', 60), { value: '400×', caret: 4 });
+  assert.deepEqual(insertInCase('4004', 3, 3, '×', 60), { value: '400×4', caret: 4 }); // au curseur, pas à la fin
+  assert.deepEqual(insertInCase('400*4', 3, 4, '×', 60), { value: '400×4', caret: 4 }); // remplace la sélection
+  assert.deepEqual(insertInCase('', 0, 0, '(', 60), { value: '(', caret: 1 });
+  assert.equal(insertInCase('1'.repeat(60), 60, 60, '+', 60), null);
 });
 
 // --- Progression -------------------------------------------------------------------------------------------------------------

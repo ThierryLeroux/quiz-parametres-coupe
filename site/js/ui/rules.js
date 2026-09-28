@@ -3,7 +3,8 @@
 // Elles reçoivent ce que renvoie le serveur (SPEC §7) et le catalogue (loadData).
 
 import { TOOL_MATERIAL_KEYS, isMetricDimension } from '../data.js';
-import { FIELD_PARTS, fieldInSentence } from './text.js';
+import { computedText, evaluateExpression, expressionText, isExpression } from '../expression.js';
+import { FIELD_PARTS, computedNote, fieldInSentence, typedNumber, unreadableNote } from './text.js';
 
 // --- Outils de même nom -------------------------------------------------------------------------------------
 // Le TITRE de la question est le gabarit de l'outil résolu par le serveur (question.identifiant,
@@ -141,11 +142,59 @@ export function helpLine(field, question, family, metric = false) {
   return plain("Vitesse d'avance → Vf = N × f.");
 }
 
+// --- Calculs dans les cases (D82) ----------------------------------------------------------------------------------
+// Une case de réponse accepte une expression (« (3-1)*2 ») : elle se calcule dans la case, qui affiche le résultat ; le
+// texte tapé est gardé de côté et envoyé au serveur, qui juge la même chose. question-screen.js ne fait que brancher
+// ces règles sur les événements (Entrée, sortie de la case, Vérifier, rangée de boutons).
+
+// Calcule une case (Entrée, sortie de la case, Vérifier, bouton « = ») :
+//   null                          — pas d'expression (un nombre, rien, « abc ») : la case ne change pas ;
+//   { value, expression, note }   — la case affiche `value` (le résultat, en 9 caractères au plus) ; `expression`, le
+//                                   texte tapé, part au serveur tant que la case montre `value` ; `note`, sous la case :
+//                                   « = (3 − 1) × 2 », « ≈ 4 × 350 / 0.75 » ;
+//   { error }                     — expression illisible : la case garde son texte, en rouge, avec cette note.
+export function computeCase(text) {
+  if (!isExpression(text)) return null;
+  const result = evaluateExpression(text);
+  if (result.error !== undefined) return { error: unreadableNote(result.error) };
+  const shown = computedText(result.value);
+  return { value: shown.text, expression: text.trim(), note: computedNote(expressionText(text), shown.rounded) };
+}
+
+// Entrée dans une case : calcule-t-elle (true), ou vérifie-t-elle, comme avant (false) ? Elle calcule une expression
+// qu'on n'a pas encore essayé de calculer ; `tried` est le texte du dernier essai illisible. Après un calcul réussi, la
+// case montre un nombre : le deuxième Entrée vérifie ; sur une expression illisible aussi, une fois la note montrée.
+export const enterComputes = (text, tried = null) => isExpression(text) && text !== tried;
+
+// Ce qui part au serveur pour une case : l'expression gardée de côté (`kept`, de computeCase) tant que la case montre
+// son résultat ; sinon le texte de la case — un nombre tapé, ou un résultat retouché à la main : l'expression est oubliée.
+export const answerOf = (text, kept = null) => (kept && text === kept.value ? kept.expression : text);
+
+// La rangée de boutons de calcul, sur écran tactile (D82, point 6) : le caractère inséré, ou « = » qui calcule la case.
+export const CALC_KEYS = [
+  { label: '(', insert: '(', name: 'parenthèse ouvrante' },
+  { label: ')', insert: ')', name: 'parenthèse fermante' },
+  { label: '+', insert: '+', name: 'plus' },
+  { label: '−', insert: '−', name: 'moins' },
+  { label: '×', insert: '×', name: 'multiplié par' },
+  { label: '÷', insert: '÷', name: 'divisé par' },
+  { label: 'π', insert: 'π', name: 'pi' },
+  { label: '=', compute: true, name: 'calculer' },
+];
+
+// Un bouton de la rangée insère son caractère à la place de la sélection [start, end[ — au curseur quand rien n'est
+// sélectionné — et le curseur se place après lui : { value, caret }. null si la case dépasserait `max` caractères.
+export function insertInCase(value, start, end, text, max) {
+  const next = value.slice(0, start) + text + value.slice(end);
+  return next.length > max ? null : { value: next, caret: start + text.length };
+}
+
 // --- Question corrigée (UI §3.4) --------------------------------------------------------------------------------
 
 // L'explication de l'écart et de la tolérance, pour chaque champ faux, la grandeur en toutes lettres et l'unité après
 // chaque valeur (D71) : « Ta vitesse de rotation de 3200 tr/min est à +6.7 % de 3000 tr/min (tolérance : ±5 % et
-// ±1 tr/min). » La tolérance écrite en formule garde ses symboles (« ±0.5 % de N × f »).
+// ±1 tr/min). » La tolérance écrite en formule garde ses symboles (« ±0.5 % de N × f »). La saisie d'une expression
+// s'y écrit en nombre (D82, typedNumber).
 export function gapExplanation(correction) {
   const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
   return correction.champs.filter((champ) => champ.evalue && !champ.ok).map((champ) => {
@@ -153,7 +202,7 @@ export function gapExplanation(correction) {
     if (champ.ecart_pct === null) return `${name} : réponse vide ou illisible (attendu ${champ.attendu} ${unit}).`;
     const sign = champ.ecart_pct > 0 ? '+' : '−';
     const tolerance = champ.tolerance === 'exacte' ? 'la réponse doit être exacte' : `tolérance : ${champ.tolerance}`;
-    return `${capital(fieldInSentence(champ.champ))} de ${champ.saisie} ${unit} est à ${sign}${Math.abs(champ.ecart_pct)} % de ${champ.attendu} ${unit} (${tolerance}).`;
+    return `${capital(fieldInSentence(champ.champ))} de ${typedNumber(champ)} ${unit} est à ${sign}${Math.abs(champ.ecart_pct)} % de ${champ.attendu} ${unit} (${tolerance}).`;
   }).join(' ');
 }
 
