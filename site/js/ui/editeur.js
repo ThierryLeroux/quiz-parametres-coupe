@@ -5,7 +5,8 @@
 // consultation sur chaque route. Ce qu'on montre est décidé par editeur-data.js (pur, testé) et la
 // validation est celle du quiz (draftErrors, site/js/exercice.js) ; ici, on construit le DOM.
 //
-// Écrans : connexion → liste des exercices → page d'un exercice (réglages, outils, versions,
+// Écrans : connexion → liste des exercices → page d'un exercice (la présentation en direct d'un exercice publié —
+// titre, cours, « À l'accueil », photos et notes, D78 — ; réglages, outils, versions,
 // aperçu, publication, version des tables) ; banque d'outils → fiche d'un outil ; tables de
 // référence (la présentation en direct — aperçu, application, historique, D76 — ; le brouillon des valeurs,
 // publication d'une version avec sa révision, aperçu, feuilles imprimables) ;
@@ -15,15 +16,17 @@
 import {
   editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankSave, editorCreateExercise, editorDeleteExercise, editorExport,
   editorExerciseTables, editorGetExercise, editorImageArchive, editorImageDelete, editorImageImport, editorImageRename, editorImageUpload, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft,
-  editorCancel, editorPresentation, editorPresentationApply, editorPresentationRestore, editorResume, editorTables, editorTablesCancel, editorTablesCascade, editorTablesPreview, editorTablesPublish, editorTablesResume, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
+  editorCancel, editorExercisePresentation, editorExercisePresentationApply, editorExercisePresentationRestore, editorPresentation, editorPresentationApply, editorPresentationRestore, editorResume, editorTables, editorTablesCancel, editorTablesCascade, editorTablesPreview, editorTablesPublish, editorTablesResume, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
-import { copyOfTool, draftErrors, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
+import { copyOfTool, draftErrors, liveTitleRefusal, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
 import { applyPresentation, archivedWarnings, presentationDiff, presentationErrors, presentationKeys } from '../presentation.js';
+import { applyCopyPresentation, applyExercisePresentation, exerciseArchivedWarnings, exercisePresentationDiff, exercisePresentationErrors, knownCopies } from '../presentation-exercice.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseHistoryLabel, exerciseState, exerciseTablesImpact, exportFileName,
+  liveTitleConflicts, presentationPreview, renameDone, renamePrompt, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -149,9 +152,15 @@ async function showList(notice = '') {
         const id = window.prompt(`Identifiant du nouvel exercice (minuscules, chiffres, tirets), copie de « ${row.titre} » :`, `${row.id}-2`);
         if (id) act(() => editorCreateExercise({ id: id.trim(), depuis: row.id }), `« ${row.titre} » dupliqué sous « ${id.trim()} » : un brouillon, à publier.`);
       } }, 'Dupliquer'),
+      // Renommer (D78) : un exercice publié, en direct — le même geste que le panneau de sa présentation, avec la règle du
+      // titre en double (à l'écran, puis au serveur) ; jamais publié, le titre du brouillon.
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => {
-        const titre = window.prompt('Nouveau titre (celui du brouillon ; à publier pour que les étudiants le voient) :', row.titre);
-        if (titre && titre.trim() !== row.titre) act(() => editorRenameExercise(row.id, titre.trim()), 'Titre du brouillon changé : publier pour que les étudiants le voient.');
+        const titre = window.prompt(renamePrompt(row), row.titre)?.trim();
+        if (!titre || titre === row.titre) return;
+        const live = row.derniere_version !== null;
+        const twins = live ? liveTitleConflicts(titre, row.titre, response.exercices, row.id) : [];
+        if (twins.length > 0) { status.textContent = liveTitleRefusal(twins); return; }
+        act(() => editorRenameExercise(row.id, titre), renameDone({ en_direct: live, titre }));
       } }, 'Renommer'),
       row.archive_le === null
         ? el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(archiveConfirmation(row))) act(() => editorArchiveExercise(row.id, true), `« ${row.titre} » archivé.`); } }, 'Archiver')
@@ -250,8 +259,10 @@ function toolForm(tool, ctx) {
   const operationSelect = el('select', { id: `${p}-operation` }, ops.map((op) => el('option', { value: op.operation, selected: op.operation === tool.operation }, op.operation)));
   const isThread = () => ctx.opsByName.get(operationSelect.value)?.avance_egale_pas_filetage === true;
   // La photo (D56) : la galerie des images « outil » de la base, avec téléversement sur place ; un
-  // changement dans la galerie vaut un changement du formulaire (validation, brouillon modifié).
-  const picker = imagePicker({ usage: 'outil', images: ctx.images, value: tool.image ?? null, upload: (file) => uploadImage(file, 'outil'), onChange: () => element.dispatchEvent(new Event('change', { bubbles: true })), idPrefix: `${p}-image` });
+  // changement dans la galerie vaut un changement du formulaire (validation, brouillon modifié). Une copie que la
+  // présentation en vigueur connaît (ctx.live, D78) n'a ni photo ni note ici : elles sont en direct, dans le panneau ;
+  // celles du brouillon dorment, gardées telles quelles.
+  const picker = ctx.live ? null : imagePicker({ usage: 'outil', images: ctx.images, value: tool.image ?? null, upload: (file) => uploadImage(file, 'outil'), onChange: () => element.dispatchEvent(new Event('change', { bubbles: true })), idPrefix: `${p}-image` });
   // Les matières d'outil et les couleurs sont celles de la version de tables de la page (D61).
   const materials = checkboxes(`${p}-mat`, toolMaterialNames(ctx.tables.materiaux).map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: (label) => materialSwatch(label, ctx.tables.materiaux), buttons: true });
   const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: (group) => groupSwatch(group, ctx.tables.materiaux), buttons: true });
@@ -293,8 +304,10 @@ function toolForm(tool, ctx) {
     id: field('id', 'Identifiant', el('input', { id: `${p}-id`, type: 'text', readonly: true, value: tool.id }), ctx.copy ? "Propre à l'exercice (dupliquer donne « _2 »)." : 'Définitif.'),
     nom: field('nom', 'Nom', el('input', { id: `${p}-nom`, type: 'text', autocomplete: 'off', value: tool.nom ?? '' }), 'Le nom générique, celui de la progression et de l\'attestation.'),
     operation: field('operation', 'Opération', operationSelect, 'Fixe la famille d\'avance (table des avances).'),
-    commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
-    image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées ; « Téléverser » réduit la photo dans le navigateur avant l'envoi (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence).", 'field--wide'),
+    ...(ctx.live ? {} : {
+      commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
+      image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées ; « Téléverser » réduit la photo dans le navigateur avant l'envoi (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence).", 'field--wide'),
+    }),
     format_identifiant: field('format_identifiant', 'Gabarit de nomenclature', template, "Le nom affiché dans la question : du texte et des jetons entre crochets, remplacés au tirage. Les boutons insèrent au curseur les jetons permis pour cet outil.", 'field--wide'),
     dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', 'data-decimal': 'valeurs', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
       'Valeur : Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte : « 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 ».', 'field--half'),
@@ -312,8 +325,9 @@ function toolForm(tool, ctx) {
   if (ctx.copy) fields.reussites_requises = field('reussites_requises', 'Réussites de suite exigées', numberInput(`${p}-reussites`, tool.reussites_requises, { inputmode: 'numeric' }), 'Un échec remet le compteur de cet outil à zéro.');
 
   // Les champs, regroupés par thème (UI §3.9) : un intertitre par groupe ; la même disposition pour la banque.
+  const liveNote = el('div', { class: 'field field--wide' }, [el('span', { class: 'field-label-text' }, 'Photo et note'), el('p', { class: 'muted small' }, 'En direct, dans le panneau « Présentation » en tête de la page : elles changent tout de suite, sans publication.')]);
   const sections = [
-    ['Identification', [fields.nom.element, fields.operation.element, fields.commentaire.element, fields.id.element, fields.image.element]],
+    ['Identification', ctx.live ? [fields.nom.element, fields.operation.element, fields.id.element, liveNote] : [fields.nom.element, fields.operation.element, fields.commentaire.element, fields.id.element, fields.image.element]],
     ['Nomenclature', [fields.format_identifiant.element]],
     ['Dimensions', [fields.dimensions.element, el('div', { class: 'field' }, [el('span', { class: 'field-label-text' }, 'Lecture par le moteur'), readings]), fields.dimensions_barre.element, fields.rapport_barre_max.element]],
     ['Dents', [fields.nb_dents_min.element, fields.nb_dents_max.element]],
@@ -330,7 +344,8 @@ function toolForm(tool, ctx) {
       id: tool.id,
       nom: fields.nom.control.value.trim(),
       format_identifiant: template.value.trim(),
-      commentaire: fields.commentaire.control.value.trim() === '' ? null : fields.commentaire.control.value.trim(), // null = pas de note, comme dans le catalogue
+      // null = pas de note, comme dans le catalogue ; une copie en direct garde celle qui dort dans le brouillon (D78)
+      commentaire: ctx.live ? (tool.commentaire ?? null) : (fields.commentaire.control.value.trim() === '' ? null : fields.commentaire.control.value.trim()),
       operation: operationSelect.value,
       fact_vc: readNumber(fields.fact_vc.control),
       fact_av: readNumber(fields.fact_av.control),
@@ -340,7 +355,7 @@ function toolForm(tool, ctx) {
       nb_dents_max: readNumber(fields.nb_dents_max.control),
       materiaux_outil: materials.read(),
       groupes_materiaux_usinables: groupChoices.read(),
-      image: picker.read(),
+      image: ctx.live ? (tool.image ?? null) : picker.read(),
       dimensions: parseDimensions(fields.dimensions.control.value, isThread()),
     };
     if (tool.colonne_excel !== undefined) out.colonne_excel = tool.colonne_excel;
@@ -482,8 +497,19 @@ async function showExercise(id, notice = '') {
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const generalErrors = el('ul', { class: 'editeur-erreurs' });
   const draft = page.exercice.brouillon;
-  // Les autres exercices : leurs cours (proposés dans le champ Cours, D71) et leurs outils (ajout depuis un autre exercice).
+  // Les autres exercices : leurs cours (proposés dans le champ Cours, D71), leurs titres en vigueur (un titre déjà pris est
+  // refusé, D74) et leurs outils (ajout depuis un autre exercice).
   const others = ((await guarded(() => editorListExercises())) ?? { exercices: [] }).exercices.filter((row) => row.id !== id);
+  // Un exercice publié (D78) : sa présentation en vigueur — titre, cours, « À l'accueil », photo et note des copies qu'elle
+  // connaît — se modifie en direct, dans le panneau en tête ; ces champs quittent le brouillon (ils y dorment, gardés tels quels).
+  let shown = page.presentation; // null : jamais publié, tout est dans le brouillon
+  const live = shown !== null;
+  const knownIds = live ? knownCopies(shown.presentation) : new Set();
+  const liveImageOf = (copyId) => shown?.presentation.outils.find((e) => e.id === copyId)?.image ?? null;
+  // Deux choses peuvent ne pas être enregistrées : le brouillon, et le panneau de la présentation (pas encore appliqué).
+  let draftDirty = false;
+  let presentationDirty = false;
+  const syncDirty = () => { state.dirty = draftDirty || presentationDirty; };
 
   // Réglages généraux.
   const titre = el('input', { id: 'titre', type: 'text', autocomplete: 'off', value: draft.titre ?? '' });
@@ -500,29 +526,36 @@ async function showExercise(id, notice = '') {
   const materialsChoice = checkboxes('matiere', toolMaterials.map((key) => ({ key, label: key })), draft.materiaux_outil ?? toolMaterials, { inline: true, swatchOf: (label) => materialSwatch(label, tables.materiaux), buttons: true });
   const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: (group) => groupSwatch(group, tables.materiaux), buttons: true });
   const listed = el('input', { id: 'liste', type: 'checkbox', checked: draft.liste !== false });
+  // Jamais publié : le titre, le cours et « À l'accueil » sont ici, et entrent en vigueur à la première publication.
   const settings = {
-    titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation ; il identifie l'exercice pour les étudiants.", 'field--half'),
-    cours: field('cours', 'Cours', cours, "Ex. M10 : l'accueil regroupe les exercices par cours ; vide, sous « Autres exercices ». Publié avec la version."),
+    ...(live ? {} : {
+      titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation ; il identifie l'exercice pour les étudiants. Il entre en vigueur à la première publication ; ensuite, il se change en direct.", 'field--half'),
+      cours: field('cours', 'Cours', cours, "Ex. M10 : l'accueil regroupe les exercices par cours ; vide, sous « Autres exercices ». En vigueur à la première publication."),
+    }),
     champs_evalues: field('champs_evalues', 'Grandeurs : évaluée (à saisir), fournie (valeur montrée) ou masquée (« — », sans valeur)', el('div', {}, [fieldsChoice.element, warningsList]), 'Au moins une grandeur évaluée. Une grandeur masquée compte comme fournie pour la cohérence de Vf.', 'field--wide'),
     materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice", materialsChoice.element, 'Tout coché = aucune restriction ; se croise avec les matières de chaque outil.', 'field--wide'),
     groupes: field('groupes', 'Groupes de matériaux usinés permis pour tout l\'exercice', groupsChoice.element, 'Tout coché = aucune restriction ; se croise avec les groupes de chaque outil.', 'field--wide'),
-    liste: field('liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'liste' }, el('li', {}, el('label', { for: 'liste' }, [listed, 'oui (sinon, joignable seulement par son lien)']))), ''),
+    ...(live ? {} : { liste: field('liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'liste' }, el('li', {}, el('label', { for: 'liste' }, [listed, 'oui (sinon, joignable seulement par son lien)']))), '') }),
   };
 
-  settings.cours.element.insertBefore(el('datalist', { id: 'cours-connus' }, courses.map((course) => el('option', { value: course }))), settings.cours.noteEl);
-  settings.cours.element.insertBefore(courseAdvice, settings.cours.noteEl);
+  if (!live) {
+    settings.cours.element.insertBefore(el('datalist', { id: 'cours-connus' }, courses.map((course) => el('option', { value: course }))), settings.cours.noteEl);
+    settings.cours.element.insertBefore(courseAdvice, settings.cours.noteEl);
+  }
 
   const toolsSlot = el('div');
   let forms = [];
 
   function readDraft() {
     const course = cours.value.trim();
-    const out = { titre: titre.value.trim(), ...(course === '' ? {} : { cours: course }), ...fieldsChoice.read(), outils: forms.map((f) => f.read()) };
+    // Publié : le titre, le cours et « À l'accueil » du brouillon dorment, gardés tels quels (D78).
+    const head = live ? { titre: draft.titre, ...(draft.cours === undefined ? {} : { cours: draft.cours }) } : { titre: titre.value.trim(), ...(course === '' ? {} : { cours: course }) };
+    const out = { ...head, ...fieldsChoice.read(), outils: forms.map((f) => f.read()) };
     const materials = materialsChoice.read();
     if (materials.length !== toolMaterials.length) out.materiaux_outil = materials;
     const groups = groupsChoice.read();
     if (groups.length !== tables.materiaux.groupes_iso.length) out.groupes = groups;
-    if (!listed.checked) out.liste = false;
+    if (live ? draft.liste === false : !listed.checked) out.liste = false;
     for (const key of Object.keys(draft)) if (key.startsWith('_')) out[key] = draft[key];
     return out;
   }
@@ -552,21 +585,27 @@ async function showExercise(id, notice = '') {
       form.row.setAttribute('data-erreur', count > 0 ? 'true' : 'false');
       form.summaryErrors.textContent = count > 0 ? `${count} erreur${count > 1 ? 's' : ''}` : '';
       form.summaryName.textContent = `${form.fields.nom.control.value.trim() || '(sans nom)'} · ${form.fields.reussites_requises.control.value || '?'} réussite(s) de suite`;
-      form.thumbnail.src = imageUrl(form.picker.read() ?? form.read().id);
+      // La vignette : la photo du brouillon, ou, pour une copie en direct, celle en vigueur (D78).
+      form.thumbnail.src = imageUrl((form.picker ? form.picker.read() : liveImageOf(form.read().id)) ?? form.read().id);
     });
     generalErrors.replaceChildren(...(map.get('') ?? []).map((message) => el('li', {}, message)));
     warningsList.replaceChildren(...deducibleWarnings(current).map((line) => el('li', {}, line)));
-    const spelling = courseSpelling(cours.value, courses);
-    courseAdvice.replaceChildren(...(spelling === null ? [] : [
-      `Même cours que « ${spelling} », écrit autrement dans un autre exercice. `,
-      el('button', { class: 'button-link', type: 'button', onclick: () => { cours.value = spelling; cours.dispatchEvent(new Event('input', { bubbles: true })); } }, `Écrire « ${spelling} »`),
-    ]));
+    if (!live) courseAdvice.replaceChildren(...courseAdviceFor(cours));
     const diff = versionDiff(page.derniere_version?.contenu ?? null, current, { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id });
     const ps = publishState(errors, diff);
     publishButton.disabled = !ps.enabled;
     publishButton.textContent = ps.label;
     cancelDraftButton.disabled = page.derniere_version === null || lostDraftChanges(true).length === 0;
     return { current, errors };
+  }
+
+  // Le conseil sous un champ Cours (D71) : écrit autrement qu'ailleurs, l'écriture existante est offerte.
+  function courseAdviceFor(input) {
+    const spelling = courseSpelling(input.value, courses);
+    return spelling === null ? [] : [
+      `Même cours que « ${spelling} », écrit autrement dans un autre exercice. `,
+      el('button', { class: 'button-link', type: 'button', onclick: () => { input.value = spelling; input.dispatchEvent(new Event('input', { bubbles: true })); } }, `Écrire « ${spelling} »`),
+    ];
   }
 
   // La sélection (cases à cocher) survit aux re-rendus ; Retirer la sélection nomme les outils.
@@ -589,14 +628,18 @@ async function showExercise(id, notice = '') {
   // Une ligne par copie : case, vignette, nom, erreurs, les boutons (sans déplier), puis le formulaire replié.
   function renderTools() {
     forms = copies.map((copy, i) => {
-      const form = toolForm(copy, { tables, opsByName, images, copy: true, prefix: `o${i}` });
+      // Une copie que la présentation connaît : sa photo et sa note sont en direct (D78). Une copie nouvelle d'un exercice
+      // publié les reçoit ici, dans sa ligne (liseré doré), jusqu'à sa publication.
+      const known = knownIds.has(copy.id);
+      const form = toolForm(copy, { tables, opsByName, images, copy: true, prefix: `o${i}`, live: known });
       form.summaryName = el('span', { class: 'muted' }, '');
       form.summaryErrors = el('span', { class: 'outil-erreurs' }, '');
-      form.thumbnail = el('img', { class: 'outil-vignette', src: imageUrl(copy.image ?? copy.id), alt: '', onerror: () => { form.thumbnail.style.visibility = 'hidden'; } });
+      form.thumbnail = el('img', { class: 'outil-vignette', src: imageUrl((known ? liveImageOf(copy.id) : copy.image) ?? copy.id), alt: '', onerror: () => { form.thumbnail.style.visibility = 'hidden'; } });
       form.checkbox = el('input', { type: 'checkbox', 'aria-label': `Sélectionner ${copy.id}`, checked: selected.has(copy.id), onchange: () => { if (form.checkbox.checked) selected.add(copy.id); else selected.delete(copy.id); refreshSelection(); } });
       const swap = (j) => { copies = forms.map((f) => f.read()); [copies[i], copies[j]] = [copies[j], copies[i]]; touch(); renderTools(); };
       const buttons = el('div', { class: 'outil-actions' }, [
-        el('button', { class: 'button-small button-small--neutral', type: 'button', title: "Dupliquer dans l'exercice", onclick: () => { copies = forms.map((f) => f.read()); const twin = copyOfTool(copies[i], { id: freeId(copies[i].id, copies.map((c) => c.id)), reussites_requises: copies[i].reussites_requises }); copies.splice(i + 1, 0, twin); openIds.add(twin.id); touch(); renderTools(); } }, 'Dupliquer'),
+        // Le double d'une copie en direct part de sa photo et de sa note en vigueur (D78) : c'est une copie nouvelle.
+        el('button', { class: 'button-small button-small--neutral', type: 'button', title: "Dupliquer dans l'exercice", onclick: () => { copies = forms.map((f) => f.read()); const twin = copyOfTool(applyCopyPresentation(copies[i], shown?.presentation ?? null), { id: freeId(copies[i].id, copies.map((c) => c.id)), reussites_requises: copies[i].reussites_requises }); copies.splice(i + 1, 0, twin); openIds.add(twin.id); touch(); renderTools(); } }, 'Dupliquer'),
         el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter', onclick: () => swap(i - 1) }, '↑'),
         el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === copies.length - 1, title: 'Descendre', onclick: () => swap(i + 1) }, '↓'),
         el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(removeToolConfirmation(copy))) { copies = forms.map((f) => f.read()); copies.splice(i, 1); selected.delete(copy.id); touch(); renderTools(); } } }, 'Retirer'),
@@ -607,8 +650,10 @@ async function showExercise(id, notice = '') {
         toggle.setAttribute('aria-expanded', String(!body.hidden));
         if (body.hidden) openIds.delete(copy.id); else openIds.add(copy.id);
       } }, [el('strong', {}, `${i + 1}. ${copy.id}`)]);
-      form.row = el('div', { class: 'outil-ligne' }, [
+      const fresh = live && !known;
+      form.row = el('div', { class: `outil-ligne${fresh ? ' ligne-nouvelle' : ''}` }, [
         el('div', { class: 'outil-entete' }, [form.checkbox, form.thumbnail, toggle, form.summaryName, form.summaryErrors, buttons]),
+        ...(fresh ? [el('p', { class: 'muted smaller outil-nouvelle' }, "Copie nouvelle : sa photo et sa note de départ se saisissent dans son formulaire ; publiée, elles passeront dans le panneau « Présentation », en direct.")] : []),
         body,
       ]);
       return form;
@@ -621,7 +666,7 @@ async function showExercise(id, notice = '') {
     validate();
   }
 
-  const touch = () => { state.dirty = true; };
+  const touch = () => { draftDirty = true; syncDirty(); };
 
   // Ajouter depuis la banque.
   const bank = await guarded(() => editorBank());
@@ -643,8 +688,10 @@ async function showExercise(id, notice = '') {
   const otherSelect = el('select', { id: 'ajout-exercice' }, [el('option', { value: '' }, '(choisir un exercice)'), ...others.map((row) => el('option', { value: row.id }, row.titre))]);
   const otherToolSelect = el('select', { id: 'ajout-exercice-outil' }, [el('option', { value: '' }, '—')]);
   let otherCopies = [];
+  // Un exercice publié : ses copies avec leur photo et leur note en vigueur (D78), pas celles qui dorment dans son brouillon.
   otherSelect.addEventListener('change', async () => {
-    otherCopies = otherSelect.value === '' ? [] : ((await guarded(() => editorGetExercise(otherSelect.value)))?.exercice.brouillon.outils ?? []);
+    const other = otherSelect.value === '' ? null : await guarded(() => editorGetExercise(otherSelect.value));
+    otherCopies = other ? applyExercisePresentation(other.exercice.brouillon, other.presentation?.presentation ?? null).outils : [];
     otherToolSelect.replaceChildren(...(otherCopies.length === 0 ? [el('option', { value: '' }, '—')] : otherCopies.map((c) => el('option', { value: c.id }, `${c.nom} (${c.id}), ${c.reussites_requises} réussite(s)`))));
   });
   const addFromOther = el('button', { class: 'button-outline', type: 'button', onclick: () => {
@@ -666,7 +713,8 @@ async function showExercise(id, notice = '') {
       const result = await guarded(() => editorSaveDraft(id, revision, current));
       if (result === null) return false;
       revision = result.revision;
-      state.dirty = false;
+      draftDirty = false;
+      syncDirty();
       status.textContent = `Brouillon enregistré à ${formatDateStamp(new Date().toISOString()).slice(11)} (révision ${revision})${errors.length > 0 ? ` — ${errors.length} erreur(s) restent à corriger avant de publier` : ''}.`;
       return true;
     } catch (error) {
@@ -688,9 +736,10 @@ async function showExercise(id, notice = '') {
     if (!(await save())) return;
     // Le titre identifie l'exercice pour les étudiants : un autre exercice publié et non archivé du même titre bloque
     // la publication (D74) — le serveur refuse de toute façon ; ici, le refus s'affiche et le bouton reste inactif.
+    // Déjà publié, le titre ne change qu'en direct (D78), où la règle s'applique : la republication ne la vérifie plus.
     const listing = await guarded(() => editorListExercises());
     if (listing === null) return;
-    const twins = sameTitleExercises(readDraft().titre, publishedTitles(listing.exercices), id);
+    const twins = live ? [] : sameTitleExercises(readDraft().titre, publishedTitles(listing.exercices), id);
     const diff = versionDiff(page.derniere_version?.contenu ?? null, readDraft(), { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id });
     const numero = (page.derniere_version?.numero ?? 0) + 1;
     const confirm = el('button', { class: 'button button--gold', type: 'button', disabled: twins.length > 0, onclick: async () => {
@@ -707,7 +756,7 @@ async function showExercise(id, notice = '') {
     } }, `Publier la version ${numero}`);
     dialogSlot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
       el('div', { class: 'eyebrow' }, 'Confirmation'),
-      el('h2', {}, `Publier la version ${numero} de « ${readDraft().titre} » ?`),
+      el('h2', {}, `Publier la version ${numero} de « ${live ? shown.presentation.titre : readDraft().titre} » ?`),
       ...(twins.length > 0 ? [el('p', { class: 'small avis-doublon', role: 'alert' }, sameTitleRefusal(twins))] : []),
       el('p', { class: 'small' }, page.derniere_version === null ? "Première publication : l'exercice devient accessible aux étudiants par son lien." : `Différences avec la version ${page.derniere_version.numero} :`),
       el('ul', { class: 'editeur-diff' }, diffLines(diff).map((line) => el('li', {}, line))),
@@ -715,7 +764,7 @@ async function showExercise(id, notice = '') {
         el('p', { class: 'small' }, "Avertissement, sans effet sur la publication : une grandeur à trouver se déduit des grandeurs fournies."),
         el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft()).map((line) => el('li', {}, line))),
       ] : []),
-      el('p', { class: 'muted smaller' }, `Cette version sera sur les tables de référence ${page.exercice.tables_id}. Les séances déjà commencées gardent leur version ; seules les nouvelles séances prennent celle-ci. Une version publiée ne se modifie plus.`),
+      el('p', { class: 'muted smaller' }, `Cette version sera sur les tables de référence ${page.exercice.tables_id}. Les séances déjà commencées gardent leur version ; seules les nouvelles séances prennent celle-ci. Une version publiée ne se modifie plus.${live ? " Elle prend la présentation en vigueur (titre, cours, « À l'accueil », photos et notes : un instantané) ; celle-ci continue de se modifier en direct." : ''}`),
       el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
     ]));
     dialogSlot.scrollIntoView({ block: 'nearest' });
@@ -807,6 +856,185 @@ async function showExercise(id, notice = '') {
     } }, `Passer à ${page.derniere_tables}…`),
   ]);
 
+  // --- La présentation en direct d'un exercice publié (D78) : un panneau à part, redessiné après chaque application --------
+  const heading = el('h1', { tabindex: '-1' }, live ? shown.presentation.titre : draft.titre);
+  const presentationSlot = el('div');
+  const copyNamesOf = () => new Map(shown.outils.map((o) => [o.id, o.nom]));
+  const galleryImages = () => state.images.outil ?? images;
+
+  // Relit la présentation (et les retouches en attente du brouillon) et redessine le panneau ; le brouillon n'est pas touché.
+  async function reloadPresentation(message) {
+    const next = await guarded(() => editorExercisePresentation(id));
+    if (next === null) return;
+    shown = next;
+    presentationDirty = false;
+    syncDirty();
+    heading.textContent = shown.presentation.titre;
+    renderPresentation(shown.presentation, message);
+  }
+
+  // Un refus du serveur, en clair : 409 (appliquée ailleurs) avec « Recharger le panneau », 400 avec ses erreurs.
+  const failure = (error) => {
+    if (error.status === 409) return [el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => reloadPresentation('') }, 'Recharger le panneau')];
+    if (error.status === 400 && Array.isArray(error.details?.erreurs)) return [el('strong', {}, error.message), el('ul', { class: 'editeur-erreurs' }, error.details.erreurs.map((m) => el('li', {}, m)))];
+    return [error.status === 400 || error.status === 404 ? error.message : serverErrorMessage(error)];
+  };
+
+  //   start : le contenu à montrer — la présentation en vigueur, ou celle qui reprend les retouches en attente
+  function renderPresentation(start, message = '') {
+    const panelStatus = el('div', { class: 'server-message', role: 'status' }, message);
+    const panelErrors = el('ul', { class: 'editeur-erreurs' });
+    const panelWarnings = el('ul', { class: 'avertissements' }); // une photo archivée en vigueur : dite, jamais bloquante
+    const twinNotice = el('p', { class: 'small avis-doublon', role: 'alert', hidden: true });
+    const dialog = el('div');
+    const names = copyNamesOf();
+    const onEdit = () => { presentationDirty = true; syncDirty(); check(); };
+
+    const titreInput = el('input', { id: 'pr-titre', type: 'text', autocomplete: 'off', value: start.titre });
+    const coursInput = el('input', { id: 'pr-cours', type: 'text', autocomplete: 'off', list: 'pr-cours-connus', value: start.cours ?? '' });
+    const advice = el('div', { class: 'cours-conseil', 'aria-live': 'polite' });
+    const listeBox = el('input', { id: 'pr-liste', type: 'checkbox', checked: start.liste });
+    const titleField = field('pr-titre', 'Titre', titreInput, "Affiché à l'étudiant — accueil, page de l'exercice, barre du haut — et inscrit sur les attestations émises ensuite (celles déjà émises ne changent pas). Il identifie l'exercice : un titre déjà pris par un autre exercice publié est refusé.", 'field--half');
+    const coursField = field('pr-cours', 'Cours', coursInput, "Ex. M10 : l'accueil regroupe les exercices par cours ; vide, sous « Autres exercices ».");
+    coursField.element.insertBefore(el('datalist', { id: 'pr-cours-connus' }, courses.map((course) => el('option', { value: course }))), coursField.noteEl);
+    coursField.element.insertBefore(advice, coursField.noteEl);
+    const listeField = field('pr-liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'pr-liste' }, el('li', {}, el('label', { for: 'pr-liste' }, [listeBox, 'oui (sinon, joignable seulement par son lien)']))), '');
+
+    // Une ligne par copie que la présentation connaît : sa photo et sa note ; une copie qui n'est plus dans la dernière
+    // version sert encore aux séances épinglées à une plus ancienne.
+    const rows = start.outils.map((entry, i) => {
+      const info = shown.outils.find((o) => o.id === entry.id);
+      const picker = imagePicker({ usage: 'outil', images: galleryImages(), value: entry.image, upload: (file) => uploadImage(file, 'outil'), onChange: onEdit, idPrefix: `pr-o${i}-image`, compact: true });
+      const note = el('input', { id: `pr-o${i}-note`, type: 'text', autocomplete: 'off', class: 'input-note', value: entry.commentaire ?? '', 'aria-label': `Note de ${info?.nom ?? entry.id}` });
+      const who = el('div', {}, [el('strong', {}, info?.nom ?? entry.id), el('div', { class: 'mono smaller muted' }, entry.id), ...(info?.derniere_version === false ? [el('div', { class: 'muted smaller' }, 'plus dans la dernière version (séances épinglées à une plus ancienne)')] : [])]);
+      return { tr: el('tr', {}, [cell(who), cell(picker.element, 'picto-cell'), cell(note)]), read: () => ({ id: entry.id, image: picker.read(), commentaire: note.value.trim() === '' ? null : note.value.trim() }) };
+    });
+    const read = () => ({ titre: titreInput.value.trim(), cours: coursInput.value.trim() === '' ? null : coursInput.value.trim(), liste: listeBox.checked, outils: rows.map((r) => r.read()) });
+
+    // L'aperçu : ce que voit l'étudiant — l'en-tête de la page de l'exercice, sa place à l'accueil, et chaque outil de la
+    // dernière version avec sa photo et sa note (panneau de l'outil de la page Question).
+    const preview = el('div', { class: 'presentation-apercu' });
+    const paintPreview = (current) => {
+      const p = presentationPreview(current);
+      preview.replaceChildren(
+        el('div', { class: 'eyebrow' }, "Aperçu — ce que voit l'étudiant, même non appliqué"),
+        el('div', { class: 'apercu-entete' }, [el('div', { class: 'eyebrow' }, p.eyebrow), el('div', { class: 'apercu-titre' }, p.titre || '(sans titre)'), el('p', { class: 'muted smaller' }, p.accueil)]),
+        el('ul', { class: 'apercu-outils' }, current.outils.filter((e) => shown.outils.find((o) => o.id === e.id)?.derniere_version !== false).map((e) => el('li', { class: 'apercu-outil' }, [
+          el('img', { src: imageUrl(e.image ?? e.id), alt: '', onerror: (event) => { event.target.style.visibility = 'hidden'; } }),
+          el('div', {}, [el('strong', { class: 'small' }, names.get(e.id) ?? e.id), el('p', { class: 'muted smaller' }, e.commentaire ? `Note : ${e.commentaire}` : 'Pas de note.')]),
+        ]))),
+      );
+    };
+
+    // Erreurs, titre déjà pris, avertissements, changements, bouton. Seule une photo CHOISIE (différente de celle en vigueur)
+    // doit exister et ne pas être archivée ; une photo archivée déjà en vigueur n'est qu'un avertissement.
+    const applyButton = el('button', { class: 'button button--direct', type: 'button' }, 'Appliquer…');
+    function check() {
+      const current = read();
+      const errors = exercisePresentationErrors(current, { images: galleryImages(), inForce: shown.presentation, copies: knownCopies(shown.presentation) });
+      const twins = liveTitleConflicts(current.titre, shown.presentation.titre, others, id);
+      const lines = exercisePresentationDiff(shown.presentation, current, names);
+      panelErrors.replaceChildren(...errors.map((m) => el('li', {}, m)));
+      panelWarnings.replaceChildren(...exerciseArchivedWarnings(current, galleryImages(), names).map((m) => el('li', {}, m)));
+      twinNotice.hidden = twins.length === 0;
+      twinNotice.textContent = twins.length === 0 ? '' : liveTitleRefusal(twins);
+      advice.replaceChildren(...courseAdviceFor(coursInput));
+      paintPreview(current);
+      const button = twins.length > 0 ? { enabled: false, label: 'Appliquer (titre déjà pris)' } : presentationApplyState(errors, lines);
+      applyButton.disabled = !button.enabled;
+      applyButton.textContent = button.label;
+      return { current, errors, lines, twins };
+    }
+
+    // « Appliquer… » : la liste des changements, puis l'application, effet immédiat.
+    applyButton.addEventListener('click', () => {
+      const { current, errors, lines, twins } = check();
+      if (errors.length > 0 || lines.length === 0 || twins.length > 0) return;
+      const confirm = el('button', { class: 'button button--direct', type: 'button', onclick: async () => {
+        confirm.disabled = true;
+        try {
+          const result = await guarded(() => editorExercisePresentationApply(id, shown.revision, current));
+          if (result === null) return;
+          await reloadPresentation(`Présentation appliquée à ${formatDateStamp(new Date().toISOString()).slice(11)} : ${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}, effet immédiat — chaque page d'étudiant la montre dès qu'elle se recharge. Le contenu remplacé est dans l'historique.`);
+        } catch (error) {
+          confirm.disabled = false;
+          panelStatus.replaceChildren(...failure(error));
+        }
+      } }, 'Appliquer maintenant');
+      dialog.replaceChildren(el('section', { class: 'panel panel--direct' }, [
+        el('div', { class: 'eyebrow' }, 'Confirmation — effet immédiat'),
+        el('h3', {}, `Appliquer ${lines.length} changement${lines.length > 1 ? 's' : ''} de présentation, tout de suite ?`),
+        el('ul', { class: 'editeur-diff' }, lines.map((line) => el('li', {}, line))),
+        el('p', { class: 'small' }, "Tous les étudiants le voient dès que leur page se recharge, séances en cours comprises, quelle que soit leur version de l'exercice. Les valeurs, la correction et les attestations déjà émises ne changent pas ; une attestation émise ensuite inscrit le titre en vigueur. Le contenu remplacé va à l'historique : « Rétablir » le remet en un clic."),
+        el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialog.replaceChildren() }, 'Annuler')]),
+      ]));
+      dialog.scrollIntoView({ block: 'nearest' });
+    });
+
+    // « Rétablir » : un contenu de l'historique remis en vigueur, en un geste ; celui qu'il remplace va à l'historique.
+    async function restore(entry) {
+      if (presentationDirty && !window.confirm('Les modifications du panneau ne sont pas appliquées : elles seront perdues. Rétablir quand même ?')) return;
+      try {
+        const result = await guarded(() => editorExercisePresentationRestore(id, shown.revision, entry.id));
+        if (result === null) return;
+        const warnings = result.avertissements.length === 0 ? '' : ` Attention : ${result.avertissements.join(' ')}`;
+        await reloadPresentation(`Présentation rétablie à ${formatDateStamp(new Date().toISOString()).slice(11)} (${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}) : effet immédiat. Celle qu'elle remplace est dans l'historique.${warnings}`);
+      } catch (error) {
+        panelStatus.replaceChildren(...failure(error));
+      }
+    }
+    const history = el('details', { class: 'presentation-historique' }, [
+      el('summary', {}, `Historique (${shown.historique.length})`),
+      shown.historique.length === 0
+        ? el('p', { class: 'muted small' }, "Vide : chaque application y mettra le contenu qu'elle remplace.")
+        : el('ul', { class: 'versions-liste historique-liste' }, shown.historique.map((h) => el('li', {}, [
+          el('div', {}, [
+            el('div', { class: 'small' }, exerciseHistoryLabel(h)),
+            h.lignes.length === 0
+              ? el('div', { class: 'muted smaller' }, 'Identique à la présentation en vigueur.')
+              : el('details', {}, [el('summary', { class: 'muted smaller' }, `Rétablir changerait ${h.lignes.length} valeur${h.lignes.length > 1 ? 's' : ''}`), el('ul', { class: 'editeur-diff' }, h.lignes.map((line) => el('li', {}, line)))]),
+          ]),
+          el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir'),
+        ]))),
+    ]);
+
+    // Les retouches de présentation en attente dans le brouillon (D78, point 10), s'il y en a.
+    const pending = shown.en_attente;
+    const pendingBox = pending.lignes.length === 0 ? '' : el('div', { class: 'avis-tables avis-presentation' }, [
+      el('div', {}, [
+        el('strong', {}, `Retouches de présentation en attente dans le brouillon (${pending.lignes.length})`),
+        el('p', { class: 'small' }, "Faites dans le brouillon avant que la présentation passe en direct, elles n'ont jamais été publiées et ne le seront plus : pour les garder, reprends-les dans ce panneau, vérifie l'aperçu, puis applique. La prochaine publication les abandonne."),
+        el('ul', { class: 'editeur-diff' }, pending.lignes.map((line) => el('li', {}, line))),
+      ]),
+      el('button', { class: 'button-small', type: 'button', onclick: () => { renderPresentation(pending.contenu, 'Retouches reprises dans le panneau, pas encore appliquées : vérifie-les, puis « Appliquer… ».'); presentationDirty = true; syncDirty(); } }, 'Les reprendre dans le panneau'),
+    ]);
+
+    const onInput = (event) => { event.stopPropagation(); onEdit(); }; // pas jusqu'au brouillon, plus bas
+    presentationSlot.replaceChildren(el('section', { class: 'panel panel--direct presentation', oninput: onInput, onchange: onInput }, [
+      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Présentation — effet immédiat'), el('span', { class: 'badge-direct' }, 'En direct')]),
+      el('h2', {}, "Présentation de l'exercice"),
+      el('p', { class: 'small' }, [
+        el('strong', {}, "« Appliquer… » change ce que tous les étudiants voient de cet exercice dès que leur page se recharge, séances en cours comprises, quelle que soit leur version."),
+        " Ce panneau n'a ni brouillon ni publication : ce qu'il montre est en vigueur. Il ne porte que ce qui s'affiche — le titre, le cours, « À l'accueil », la photo et la note de chaque outil. Les valeurs, la correction et les attestations déjà émises n'en dépendent pas.",
+      ]),
+      el('p', { class: 'muted small' }, `${shown.appliquee ? `Appliquée le ${formatDateStamp(shown.modifiee_le)} par ${shown.enseignant}` : `Jamais appliquée : c'est celle de la dernière version publiée (version ${shown.derniere_version})`} · révision ${shown.revision}.`),
+      el('div', { class: 'editeur-bar' }, [el('div', {}), el('div', { class: 'editeur-bar-actions' }, [applyButton])]),
+      panelStatus,
+      panelErrors,
+      twinNotice,
+      panelWarnings,
+      pendingBox,
+      dialog,
+      el('div', { class: 'editeur-grid' }, [titleField.element, coursField.element, listeField.element]),
+      el('h3', { class: 'presentation-titre' }, 'Outils : photo et note'),
+      plainTable(['Outil', 'Photo', "Note affichée sous l'outil"], rows, 'tables-edit--outils'),
+      preview,
+      history,
+    ]));
+    check();
+  }
+  if (live) renderPresentation(shown.presentation);
+
   const versionsList = el('ul', { class: 'versions-liste' }, page.versions.length === 0 ? [el('li', {}, 'Aucune version publiée : les étudiants ne voient pas encore cet exercice.')] : page.versions.map((v) => el('li', {}, [
     el('strong', {}, `Version ${v.numero}`), el('span', { class: 'muted' }, `publiée le ${formatDateStamp(v.publiee_le)} · tables ${v.tables_id} · ${v.seances} séance${v.seances > 1 ? 's' : ''}`),
     el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => preview({ version: v.numero }, `de la version ${v.numero}`) }, 'Aperçu'),
@@ -816,7 +1044,7 @@ async function showExercise(id, notice = '') {
   const screen = el('div', { class: 'screen screen--wide prof editeur', oninput: () => { touch(); validate(); }, onchange: () => { touch(); validate(); } }, [
     el('section', { class: 'panel' }, [
       panelHead(`exercice · ${id}`, 'exercices'),
-      el('h1', { tabindex: '-1' }, draft.titre),
+      heading,
       el('div', { class: 'editeur-bar' }, [
         el('div', { class: 'muted small' }, [
           `Identifiant ${id} · lien étudiant : `, el('span', { class: 'mono' }, studentLink(location.origin, id)),
@@ -837,13 +1065,16 @@ async function showExercise(id, notice = '') {
       generalErrors,
       dialogSlot,
     ]),
+    presentationSlot,
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, 'Réglages généraux'),
+      el('div', { class: 'eyebrow' }, live ? 'Réglages généraux — brouillon à publier' : 'Réglages généraux'),
+      ...(live ? [el('p', { class: 'muted small' }, "Le titre, le cours et « À l'accueil » sont en direct, dans le panneau « Présentation » ci-dessus.")] : []),
       el('div', { class: 'editeur-grid' }, Object.values(settings).map((s) => s.element)),
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, "Outils de l'exercice"),
+      el('div', { class: 'eyebrow' }, live ? "Outils de l'exercice — brouillon à publier" : "Outils de l'exercice"),
       el('p', { class: 'muted small' }, "Chaque outil est une copie indépendante de la banque : ses dimensions, matières et groupes sont ce que l'exercice permet. Modifier la banque ne change pas cet exercice."),
+      ...(live ? [el('p', { class: 'muted small' }, "La photo et la note d'un outil déjà publié sont en direct, dans le panneau « Présentation » ; une copie nouvelle les reçoit ici (liseré doré), et sa publication les y fait passer.")] : []),
       toolsSlot,
       el('div', { class: 'ajout-outil' }, [
         el('div', { class: 'field' }, [el('label', { for: 'ajout-banque' }, 'Depuis la banque'), bankSelect]),

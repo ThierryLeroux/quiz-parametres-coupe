@@ -92,17 +92,18 @@ export function applyExercisePresentation(content, presentation) {
     if (presentation.liste === false) out.liste = false;
     else delete out.liste;
   }
-  if (Array.isArray(content.outils)) {
-    const byId = new Map(copiesOf(presentation).map((e) => [e.id, e]));
-    out.outils = content.outils.map((copy) => {
-      const entry = isObject(copy) ? byId.get(copy.id) : undefined;
-      if (entry === undefined) return copy;
-      const was = copyEntryOf(copy);
-      const changed = COPY_PRESENTATION_FIELDS.filter((field) => !same(was[field], entry[field]));
-      return changed.length === 0 ? copy : { ...copy, ...Object.fromEntries(changed.map((field) => [field, entry[field]])) };
-    });
-  }
+  if (Array.isArray(content.outils)) out.outils = content.outils.map((copy) => applyCopyPresentation(copy, presentation));
   return out;
+}
+
+// Une copie d'outil avec la présentation posée par-dessus : sa photo et sa note, si la présentation la connaît ; sinon
+// telle quelle. Même règle qu'applyExercisePresentation (un champ n'est réécrit que s'il change).
+export function applyCopyPresentation(copy, presentation) {
+  const entry = isObject(copy) ? copiesOf(presentation).find((e) => e.id === copy.id) : undefined;
+  if (entry === undefined) return copy;
+  const was = copyEntryOf(copy);
+  const changed = COPY_PRESENTATION_FIELDS.filter((field) => !same(was[field], entry[field]));
+  return changed.length === 0 ? copy : { ...copy, ...Object.fromEntries(changed.map((field) => [field, entry[field]])) };
 }
 
 // La séance que le serveur rend (sessionView) avec la présentation posée par-dessus (D78, point 4) : le titre de la

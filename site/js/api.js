@@ -190,6 +190,8 @@ export const editorCreateExercise = (body, request) => editor('POST', 'exercice/
 // Enregistrer le brouillon : { enregistre: true, revision, erreurs }. Erreur : 409 enregistré ailleurs entre-temps (D48).
 export const editorSaveDraft = (id, revision, brouillon, request) => editor('POST', 'exercice/enregistrer', { id, revision, brouillon }, request);
 
+// Renommer : { renomme: true, titre, en_direct } — un exercice publié, en direct (D78 ; 400 titre en double, avec
+// `doublons`) ; jamais publié, le titre du brouillon.
 export const editorRenameExercise = (id, titre, request) => editor('POST', 'exercice/renommer', { id, titre }, request);
 // Monter ou descendre un exercice dans la liste (D51) : { deplace: true, id, rang }. Erreurs : 400 déjà au bord ; 409 la liste a changé.
 export const editorMoveExercise = (id, rang, direction, request) => editor('POST', 'exercice/deplacer', { id, rang, direction }, request);
@@ -236,6 +238,14 @@ export const editorExerciseTables = (id, revision, tablesId, request) => editor(
 export const editorPresentation = (request) => editor('GET', 'presentation', undefined, request);
 export const editorPresentationApply = (revision, presentation, request) => editor('POST', 'presentation/appliquer', { revision, presentation }, request);
 export const editorPresentationRestore = (revision, historique, request) => editor('POST', 'presentation/retablir', { revision, historique }, request);
+
+// La présentation d'un exercice publié en direct (D78) : la lire ({ presentation, revision, appliquee, outils, erreurs,
+// avertissements, en_attente, historique } ; 400 jamais publié), l'appliquer ({ applique, revision, lignes, avertissements } ;
+// 400 erreurs — liste blanche comprise —, titre en double (`doublons`) ou rien à changer ; 409 appliquée ailleurs), rétablir un
+// contenu de son historique ({ retablie, revision, lignes, avertissements } ; 400 titre en double ; 404, 409).
+export const editorExercisePresentation = (id, request) => editor('GET', `exercice/presentation?id=${encodeURIComponent(id)}`, undefined, request);
+export const editorExercisePresentationApply = (id, revision, presentation, request) => editor('POST', 'exercice/presentation/appliquer', { id, revision, presentation }, request);
+export const editorExercisePresentationRestore = (id, revision, historique, request) => editor('POST', 'exercice/presentation/retablir', { id, revision, historique }, request);
 
 // Images (D56) : la liste avec les utilisations ({ images }), le téléversement ({ image, existante, retires }),
 // archiver, renommer, supprimer (409 si utilisée), et l'envoi d'une image d'un export avant l'import (D59).

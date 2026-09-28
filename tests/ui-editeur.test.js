@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
+  exerciseHistoryLabel, liveTitleConflicts, presentationPreview, renameDone, renamePrompt,
   cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, lostChangesTitle, publishTablesLabel, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
@@ -432,6 +433,30 @@ test('présentation en direct (D76) : le bouton « Appliquer… » dit les erreu
   assert.equal(presentationHistoryLabel({ posee_le: heure(13, 5), posee_par: 'admin', remplacee_le: heure(14, 10), remplacee_par: 'admin', action: 'retablissement' }),
     'Présentation appliquée le 2026-09-27 13:05 par admin, remplacée le 2026-09-27 14:10 par admin (un rétablissement)');
   assert.equal(presentationHistoryLabel({ posee_le: heure(13, 5), posee_par: null, remplacee_le: heure(14, 10), remplacee_par: null, action: 'import' }), 'Présentation appliquée le 2026-09-27 13:05, remplacée le 2026-09-27 14:10 (un import)');
+});
+
+test('présentation des exercices en direct (D78) : le titre déjà pris (seulement s’il change), « Renommer » en direct ou dans le brouillon, l’aperçu de ce que voit l’étudiant, l’historique', () => {
+  const rows = [
+    { id: 'autre', titre_publie: 'M10 — Tournage', archive_le: null },
+    { id: 'archive', titre_publie: 'Archivé', archive_le: '2026-09-01' },
+    { id: 'brouillon', titre_publie: null, archive_le: null },
+    { id: 'moi', titre_publie: 'Mon titre', archive_le: null },
+  ];
+  assert.deepEqual(liveTitleConflicts(' m10 — TOURNAGE ', 'Mon titre', rows, 'moi'), [{ id: 'autre', titre: 'M10 — Tournage' }]);
+  assert.deepEqual(liveTitleConflicts('Archivé', 'Mon titre', rows, 'moi'), []);
+  assert.deepEqual(liveTitleConflicts('Mon  TITRE', 'Mon titre', rows, 'moi'), []); // la même clé : le titre ne change pas
+  assert.deepEqual(liveTitleConflicts('M10 — Tournage', 'm10 — tournage', rows, 'moi'), []); // un doublon d'avant ne bloque pas une retouche de casse
+  assert.match(renamePrompt({ derniere_version: 2 }), /^Nouveau titre — en direct : les étudiants le voient dès que leur page se recharge/);
+  assert.match(renamePrompt({ derniere_version: null }), /celui du brouillon ; il entrera en vigueur à la première publication/);
+  assert.equal(renameDone({ en_direct: true, titre: 'T' }), "Titre changé en direct : « T ». Les étudiants le voient dès que leur page se recharge ; l'ancien est dans l'historique de la présentation de l'exercice.");
+  assert.equal(renameDone({ en_direct: false, titre: 'T' }), 'Titre du brouillon changé : « T ». Il entrera en vigueur à la première publication.');
+  assert.deepEqual(presentationPreview({ titre: 'T', cours: 'M10', liste: true }), { eyebrow: 'M10 · exercice', titre: 'T', accueil: "À l'accueil, sous « M10 » (un cours écrit autrement s'y regroupe)." });
+  assert.equal(presentationPreview({ titre: 'T', cours: null, liste: true }).eyebrow, 'Exercice');
+  assert.match(presentationPreview({ titre: 'T', cours: null, liste: true }).accueil, /sous « Autres exercices »/);
+  assert.equal(presentationPreview({ titre: 'T', cours: 'M10', liste: false }).accueil, "Pas à l'accueil : joignable seulement par son lien.");
+  const heure = (h, m) => new Date(2026, 8, 27, h, m).toISOString();
+  assert.equal(exerciseHistoryLabel({ posee_le: null, posee_par: null, remplacee_le: heure(14, 10), remplacee_par: 'admin', action: 'application' }),
+    'Présentation de départ (celle de sa dernière version publiée), remplacée le 2026-09-27 14:10 par admin (une application)');
 });
 
 test('cascade et retour en arrière (D77 et sa retouche) : ce que la cascade fera pour un exercice, le bouton de la confirmation, le message après la publication (les laissés en erreur nommés avec leurs erreurs), la confirmation d’une perte', () => {

@@ -236,8 +236,21 @@
 .cascade-etiquette { padding: 0 8px; border: 1px solid var(--color-text-muted); color: var(--color-text-muted); font-size: var(--text-xs); }
 .cascade-erreur .cascade-titre { cursor: default; color: var(--color-wrong); }
 
-/* Une classe ou une opération nouvelle du brouillon reçoit sa présentation de départ sur sa ligne (D76, point 9). */
+/* Une classe ou une opération nouvelle du brouillon reçoit sa présentation de départ sur sa ligne (D76, point 9) ; une
+   copie nouvelle d'un exercice publié, sa photo et sa note (D78). */
 .tables-edit tr.ligne-nouvelle td:first-child { box-shadow: inset 3px 0 0 var(--color-gold); }
+.outil-ligne.ligne-nouvelle { box-shadow: inset 3px 0 0 var(--color-gold); }
+.outil-nouvelle { margin: 0; padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + 3px); color: var(--color-gold); }
+
+/* La présentation d'un exercice en direct (D78) : ses outils (photo, note), et l'aperçu de ce que voit l'étudiant. */
+.tables-edit--outils input.input-note { min-width: 260px; width: 100%; }
+.presentation-apercu { margin-top: var(--space-5); padding: var(--space-3); border: 1px dashed color-mix(in srgb, var(--color-correct) 60%, transparent); }
+.apercu-entete { margin-top: var(--space-2); }
+.apercu-titre { font-size: var(--text-lg); font-weight: 600; }
+.apercu-outils { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-2); margin: var(--space-3) 0 0; padding: 0; list-style: none; }
+.apercu-outil { display: flex; gap: var(--space-2); align-items: flex-start; }
+.apercu-outil img { flex: none; width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 4px; }
+.apercu-outil p { margin: 2px 0 0; }
 
 /* L'onglet Images : la vignette, le nom et l'identifiant, l'état. */
 .images-table td { vertical-align: middle; }

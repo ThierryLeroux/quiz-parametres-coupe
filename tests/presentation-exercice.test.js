@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  COPY_PRESENTATION_FIELDS, EXERCISE_PRESENTATION_FIELDS, applyExercisePresentation, copyNames, currentExercisePresentation, exerciseArchivedWarnings,
+  COPY_PRESENTATION_FIELDS, EXERCISE_PRESENTATION_FIELDS, applyCopyPresentation, applyExercisePresentation, copyNames, currentExercisePresentation, exerciseArchivedWarnings,
   exercisePresentationDiff, exercisePresentationErrors, exercisePresentationOf, exerciseValues, imagesOfExercisePresentation, knownCopies,
   normalizeExercisePresentation, pendingExercisePresentation, presentSessionView, withLiveTitle,
 } from '../site/js/presentation-exercice.js';
@@ -71,6 +71,10 @@ test('applyExercisePresentation : titre, cours, liste, photo et note des copies 
   assert.equal('liste' in back, false, 'À l’accueil : la clé disparaît, comme dans un brouillon');
   assert.equal(back.cours, 'M10');
   assert.equal(applyExercisePresentation(c, null), c, 'sans présentation : tel quel');
+  // Une seule copie (le double d'une copie en direct, dans la page d'un exercice) : la même règle.
+  assert.deepEqual(applyCopyPresentation(c.outils[0], p), out.outils[0]);
+  assert.equal(applyCopyPresentation(c.outils[1], p), c.outils[1]);
+  assert.equal(applyCopyPresentation(c.outils[0], null), c.outils[0]);
 });
 
 test('applyExercisePresentation sur l’exercice du moteur avec ses outils (GET /api/exercice) : les mêmes champs, rien d’autre', () => {

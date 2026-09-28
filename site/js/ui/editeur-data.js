@@ -6,7 +6,7 @@
 
 import { TEMPLATE_TOKENS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
-import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey } from '../exercice.js';
+import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey, sameTitleExercises, titleKey } from '../exercice.js';
 import { COPY_PRESENTATION_FIELDS } from '../presentation-exercice.js';
 import { exerciseLink } from './home-data.js';
 import { formatDateStamp } from './text.js';
@@ -340,6 +340,36 @@ export function presentationHistoryLabel(h, start = 'celle des tables publiées'
   const who = (par) => (par ? ` par ${par}` : '');
   const origin = h.posee_le === null ? `Présentation de départ (${start})` : `Présentation appliquée le ${formatDateStamp(h.posee_le)}${who(h.posee_par)}`;
   return `${origin}, remplacée le ${formatDateStamp(h.remplacee_le)}${who(h.remplacee_par)} (${REPLACED_BY[h.action] ?? h.action})`;
+}
+
+// --- La présentation des exercices en direct (D78) ------------------------------------------------------------------
+
+// Une ligne de l'historique de la présentation d'un exercice.
+export const exerciseHistoryLabel = (h) => presentationHistoryLabel(h, 'celle de sa dernière version publiée');
+
+// Le titre qu'on veut mettre en vigueur est-il déjà celui d'un AUTRE exercice publié et non archivé (D74, D78) ? Seulement
+// s'il change (sa clé : casse, accents, espaces ignorés) : un doublon d'avant ne bloque pas un autre changement.
+// Retourne [{ id, titre }], comme sameTitleExercises ; le serveur applique la même règle.
+//   rows : la liste de la Gestion du contenu (titre_publie : le titre en vigueur)
+export function liveTitleConflicts(title, before, rows, exceptId) {
+  if (titleKey(title) === titleKey(before)) return [];
+  return sameTitleExercises(title, publishedTitles(rows), exceptId);
+}
+
+// « Renommer » dans la liste (D78) : en direct pour un exercice publié, dans le brouillon sinon — la question posée, et
+// le message qui suit.
+export const renamePrompt = (row) => (row.derniere_version === null
+  ? 'Nouveau titre (celui du brouillon ; il entrera en vigueur à la première publication) :'
+  : "Nouveau titre — en direct : les étudiants le voient dès que leur page se recharge, séances en cours comprises (l'ancien reste dans l'historique de la présentation de l'exercice) :");
+export const renameDone = ({ en_direct: live, titre }) => (live
+  ? `Titre changé en direct : « ${titre} ». Les étudiants le voient dès que leur page se recharge ; l'ancien est dans l'historique de la présentation de l'exercice.`
+  : `Titre du brouillon changé : « ${titre} ». Il entrera en vigueur à la première publication.`);
+
+// L'aperçu de ce que voit l'étudiant (D78) : l'en-tête de la page de l'exercice et sa place à l'accueil (homeGroups).
+export function presentationPreview(p) {
+  let accueil = "Pas à l'accueil : joignable seulement par son lien.";
+  if (p.liste) accueil = p.cours ? `À l'accueil, sous « ${p.cours} » (un cours écrit autrement s'y regroupe).` : "À l'accueil, sous « Autres exercices » (ou dans la liste seule, si aucun exercice n'a de cours).";
+  return { eyebrow: p.cours ? `${p.cours} · exercice` : 'Exercice', titre: p.titre, accueil };
 }
 
 // --- La cascade des tables et le retour en arrière (D77) ------------------------------------------------------------
