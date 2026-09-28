@@ -616,3 +616,22 @@ réapparaît. Ta décision : la rangée quitte l'écran et s'attache à la case,
 18. La rangée dans la page, sous la case active ; la remontée par `scrollIntoView` ; le masquage différé ; le
     diagnostic adapté ; vu dans Chrome.
 19. Documents (D82, UI §3.3, §7), cette section et le PLAN.
+
+## 11. Quatrième essai sur téléphone : concluant (même branche)
+
+> **Correction des séances en cours : rien de plus que ce qu'annonce la tête du rapport.**
+
+**Ton quatrième essai** (Android) : la rangée est collée sous la case, que la case soit en haut ou en bas de l'écran ;
+Vérifier répond du premier coup ; la page ne saute pas. Consigné à la fin de **D82**.
+
+**Le diagnostic temporaire est retiré** : `site/js/ui/diag.js` supprimé, son import et l'appel `startDiag` retirés de
+`site/js/ui/main.js`, le style `.diag` retiré de `question.css`. Une recherche dans le dépôt ne trouve plus
+« DIAGNOSTIC TEMPORAIRE », `startDiag`, `diag.js` ni `.diag` dans le code ; les documents (D82, ce rapport, le PLAN)
+gardent l'histoire.
+
+**L'iPhone n'a pas encore été essayé.** La rangée y est dans la page comme sur Android ; la remontée s'appuie sur
+Safari (`scrollIntoView`), sans calcul qui lui soit propre. À essayer après la fusion, avec la liste de la section 10.
+
+**Vérifié** : `npm test`, **726** tests, `fail 0` — rien d'autre n'a changé.
+
+**Commit** : 20. Diagnostic retiré ; D82, PLAN et cette section.

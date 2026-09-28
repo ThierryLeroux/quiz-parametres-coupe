@@ -300,6 +300,6 @@ Rapport de session : `docs/rapports/finition-calcul-saisie.md`. **Change la corr
 - [x] **Thierry** : troisième essai avec le tunnel et le diagnostic — la rangée, replacée juste, finit 56 px trop bas : Chrome se trompe sur la zone visible quand la barre d'adresse réapparaît ; décision : la rangée dans la page, sous la case active (fin de D82)
 - [x] Retouche après le troisième essai : la rangée s'insère entre la case active et sa note et défile avec elle ; plus aucun calcul par `visualViewport` (placement fixé, écoutes de `window`, replacement à chaque image, marge du bas retirés) ; la remontée à la prise de focus par `scrollIntoView` ; la rangée cachée un instant après la sortie de la case (toucher sur Vérifier) ; `resizes-content` écartée ; diagnostic adapté
 - [x] Vérification : `npm test`, `test:api`, Chrome à 390 px (case en haut, au milieu et en bas : rangée collée sous la case, note visible ; boutons au curseur ; défilement sans retour ; diagnostic) et à 1280 px ; documents (D82, UI §3.3, §7)
-- [ ] **Thierry** : quatrième essai avec le tunnel, sur Android puis sur un iPhone
-- [ ] **Retirer le diagnostic** (`site/js/ui/diag.js`, son import et `startDiag` dans `main.js`, le style `.diag` de `question.css`) avant la fusion
-- [ ] **Thierry** : fusionner — hors période de labo : la correction change au déploiement
+- [x] **Thierry** : quatrième essai avec le tunnel, sur Android — concluant (rangée collée sous la case en haut comme en bas, Vérifier du premier coup, la page ne saute pas) ; **l'iPhone n'a pas encore été essayé**
+- [x] Diagnostic temporaire retiré (`site/js/ui/diag.js`, son import et `startDiag` dans `main.js`, le style `.diag` de `question.css`) ; aucune mention dans le code
+- [ ] **Thierry** : fusionner — hors période de labo : la correction change au déploiement ; essayer ensuite sur un iPhone

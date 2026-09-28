@@ -10,7 +10,6 @@ import { renderHome, renderHomeList, renderLoadError } from './home-screen.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
 import { applyTableColors, convertDecimalCommas } from './dom.js';
 import { renderQuestion } from './question-screen.js';
-import { startDiag } from './diag.js'; // DIAGNOSTIC TEMPORAIRE (?diag=1), à retirer avant la fusion
 import { createReference } from './reference-screen.js';
 import { toolLabels } from './rules.js';
 import { identificationErrorMessage, serverErrorMessage } from './text.js';
@@ -189,5 +188,4 @@ async function start() {
   }
 }
 
-startDiag(location.search); // DIAGNOSTIC TEMPORAIRE, à retirer avant la fusion
 start();

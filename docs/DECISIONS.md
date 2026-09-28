@@ -2783,3 +2783,9 @@ seconde, puis disparaît.
 6. **Le diagnostic `?diag=1` est gardé**, adapté (case active, rangée et le bloc où elle est, `scrollY`, dernier
    événement ; la zone visible reste en première ligne, pour lire les captures) ; à retirer avant la fusion.
 7. **Réponse à la section 8 du rapport** : l'historique Git n'est pas réécrit pour l'adresse réseau qui s'y trouve.
+
+**Quatrième essai sur téléphone (Thierry, Android, 2026-09-28) : concluant.** La rangée est collée sous la case, que
+la case soit en haut ou en bas de l'écran ; Vérifier répond du premier coup ; la page ne saute pas. Le diagnostic
+temporaire est retiré (`site/js/ui/diag.js`, son import et l'appel dans `main.js`, le style `.diag`) : il n'en reste
+aucune trace dans le code, seulement dans les documents. **L'iPhone n'a pas encore été essayé** : la rangée y est dans
+la page comme sur Android, et la remontée s'appuie sur Safari (`scrollIntoView`), sans calcul qui lui soit propre.
