@@ -243,6 +243,34 @@ body.sheets-open { overflow: hidden; }
 .feed-box .strong { font-weight: 700; }
 .feed-box .italic { font-style: italic; }
 
+/* --- Facteurs de vitesse (D83) : la grille des avances, sans direction ni encadré ; machine, opération, pictogramme,
+   facteur. Une ligne réduite ressort — la bande et le bleu de la vitesse de rotation ; une ligne à 1 reste sobre. ------ */
+
+.factor-grid {
+  display: grid;
+  grid-template-columns: 78px 190px 62px minmax(0, 1fr);
+  grid-auto-rows: 41px;
+  font-size: 11px;
+}
+
+.factor-formula { font-family: var(--font-number); font-size: 11px; }
+.factor-machine { border-right: 2.5px solid #000; }
+.factor-head { padding-left: 26px; }
+.factor-band { background: linear-gradient(to right, #fff 0%, var(--color-part-rotation) 30%, var(--color-part-rotation) 62%, #fff 100%); }
+
+.factor-value {
+  gap: 6px;
+  padding-left: 26px;
+  color: var(--color-page-muted);
+  font-family: var(--font-number);
+  font-size: 13px;
+}
+
+.factor-value strong { font-weight: 500; }
+.factor-times { font-size: 11px; }
+.factor-value--marked { color: #000; font-size: 17px; }
+.factor-value--marked strong { font-weight: 700; color: var(--color-factor); }
+
 /* --- Formules -------------------------------------------------------------------------------------------------------------------- */
 
 .formula-part {
@@ -273,6 +301,8 @@ body.sheets-open { overflow: hidden; }
 .formula-math { font-family: var(--font-number); font-size: 14px; white-space: nowrap; }
 .formula-math small { display: block; margin-top: 4px; color: var(--color-page-muted); font-size: 10.5px; }
 .formula-miniature { width: 112px; height: auto; }
+/* La miniature de la feuille des facteurs, sous la formule de N (D83). */
+.formula-miniature--under { display: block; margin-top: 6px; }
 
 .formula-boxes {
   display: grid;

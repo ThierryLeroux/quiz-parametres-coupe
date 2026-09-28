@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 80">
+  <rect x="18" y="12" width="56" height="7" fill="#ddd">
+  </rect>
+  <rect x="18" y="21" width="56" height="7" fill="#ddd">
+  </rect>
+  <rect x="18" y="30" width="102" height="7" fill="#C1EFFF">
+  </rect>
+  <rect x="18" y="39" width="56" height="7" fill="#ddd">
+  </rect>
+  <rect x="18" y="48" width="102" height="7" fill="#C1EFFF">
+  </rect>
+  <rect x="18" y="57" width="56" height="7" fill="#ddd">
+  </rect>
+  <rect x="4" y="12" width="12" height="7" fill="#00B0F0">
+  </rect>
+  <rect x="4" y="21" width="12" height="7" fill="#00B0F0">
+  </rect>
+  <rect x="4" y="30" width="12" height="7" fill="#00B0F0">
+  </rect>
+  <rect x="4" y="39" width="12" height="7" fill="#00B0F0">
+  </rect>
+  <rect x="4" y="48" width="12" height="7" fill="#00B0F0">
+  </rect>
+  <rect x="4" y="57" width="12" height="7" fill="#00B0F0">
+  </rect>
+  <path d="M136 33.5h-14" stroke="#1b1b1b" stroke-width="1.5">
+  </path>
+  <path d="M126 31l-4 2.5 4 2.5" fill="none" stroke="#1b1b1b" stroke-width="1.5">
+  </path>
+  <text x="84" y="18" font-size="6.5" font-family="Carlito, sans-serif">1</text>
+  <text x="84" y="27" font-size="6.5" font-family="Carlito, sans-serif">1</text>
+  <text x="84" y="36" font-size="6.5" font-weight="700" font-family="Carlito, sans-serif">1/4</text>
+  <text x="84" y="45" font-size="6.5" font-family="Carlito, sans-serif">1</text>
+  <text x="84" y="54" font-size="6.5" font-weight="700" font-family="Carlito, sans-serif">1/8</text>
+  <text x="84" y="63" font-size="6.5" font-family="Carlito, sans-serif">1</text>
+  <text x="80" y="10" font-size="6.5" font-family="Carlito, sans-serif">facteur</text>
+  <text x="4" y="8" font-size="6.5" font-family="Carlito, sans-serif">opération</text>
+  <text x="4" y="76" font-size="7" font-family="Carlito, sans-serif">Trouver l'opération de l'outil : N × facteur</text>
+</svg>

@@ -1,17 +1,11 @@
-// Tables de référence (UI §3.5) : vitesses de coupe, avances, formules — la même page lettre qu'à
-// l'impression. Elles s'ouvrent PAR-DESSUS l'écran Question, dans leur propre cadre qui défile :
-// la saisie en cours n'est pas perdue, et la page en dessous ne bouge pas.
+// Tables de référence (UI §3.5) : vitesses de coupe, avances, formules et, pour des tables qui les portent,
+// facteurs de vitesse (D83) — la même page lettre qu'à l'impression. Elles s'ouvrent PAR-DESSUS l'écran
+// Question, dans leur propre cadre qui défile : la saisie en cours n'est pas perdue, et la page en dessous ne bouge pas.
 // Le contenu vient du catalogue, composé par sheets-data.js (pur, testé) ; ici, la mise en page.
 
 import { el } from './dom.js';
-import { feedSheet, vcSheet } from './sheets-data.js';
+import { FACTOR_FORMULA, feedSheet, sheetTabs, speedFactorSheet, vcSheet } from './sheets-data.js';
 import { DEPARTMENT_LINES, localDate, sheetSignature } from './text.js';
-
-const TABS = [
-  { id: 'vc', label: 'Vitesses de coupe' },
-  { id: 'avances', label: 'Avances' },
-  { id: 'formules', label: 'Formules' },
-];
 
 function picto(name) {
   const url = `url(img/pictos/grandeurs/${name}.svg)`;
@@ -101,6 +95,33 @@ function feedPage(data) {
   ], revision);
 }
 
+// --- Facteurs de vitesse (D83) : une grille, un rang par opération, regroupées par machine comme les avances --------------
+// Les lignes réduites ressortent (la couleur de la vitesse de rotation) ; celles à 1 restent sobres.
+function factorPage(data) {
+  const { title, formula, rows, machines, revision } = speedFactorSheet(data);
+  const at = (start, span) => `grid-row: ${start + 2} / span ${span}`; // le rang 1 est l'en-tête
+  const lastOfMachine = new Set(machines.map((run) => run.start + run.span - 1));
+  return page([
+    el('div', { class: 'sheet-caption' }, [el('strong', {}, title), el('span', { class: 'factor-formula' }, formula)]),
+    el('div', { class: 'factor-grid' }, [
+      el('div', { class: 'feed-head' }, 'Machine-outil'),
+      el('div', { class: 'feed-head', style: 'grid-column: 2 / span 2' }, 'Opération'),
+      el('div', { class: 'feed-head factor-head' }, 'Facteur'),
+      ...rows.flatMap((row, i) => (row.marked ? [el('div', { class: 'factor-band', style: `grid-column: 2 / span 3; ${at(i, 1)}` })] : [])),
+      ...machines.map((run) => el('div', { class: 'feed-machine factor-machine', style: `grid-column: 1; ${at(run.start, run.span)}` }, run.key.split(' / ').flatMap((part, i) => (i === 0 ? [part] : [el('br'), part])))),
+      ...rows.flatMap((row, i) => {
+        const end = lastOfMachine.has(i) ? ' feed-cell--end' : '';
+        const image = el('img', { src: row.picto, alt: '', onerror: () => image.remove() });
+        return [
+          el('div', { class: `feed-cell feed-operation${end}`, style: `grid-column: 2; ${at(i, 1)}` }, row.operation),
+          el('div', { class: `feed-cell feed-picto${end}`, style: `grid-column: 3; ${at(i, 1)}` }, image),
+          el('div', { class: `feed-cell factor-value${row.marked ? ' factor-value--marked' : ''}${end}`, style: `grid-column: 4; ${at(i, 1)}` }, [el('span', { class: 'factor-times', 'aria-hidden': 'true' }, '×'), el('strong', {}, row.factor)]),
+        ];
+      }),
+    ]),
+  ], revision);
+}
+
 // --- Formules : deux parties, du relevé dans les tables jusqu'à Vf ---------------------------------------------------
 function formulaRow(pictoName, name, unit, formula, note) {
   return el('div', { class: 'formula-row' }, [
@@ -112,15 +133,24 @@ function formulaRow(pictoName, name, unit, formula, note) {
 }
 
 // Miniature schématique d'une feuille : où se fait le relevé (UI §3.5).
-const miniature = (name, alt) => el('img', { class: 'formula-miniature', src: `img/pictos/miniatures/${name}.svg`, alt });
+const miniature = (name, alt, className = 'formula-miniature') => el('img', { class: className, src: `img/pictos/miniatures/${name}.svg`, alt });
 
-function formulasPage() {
+//   factors : les tables portent les facteurs de vitesse (D83) — la rangée N nomme le facteur et renvoie à sa feuille,
+//             avec sa miniature ; pour une version d'avant, la feuille d'avant, mot pour mot
+function formulasPage(factors = false) {
   const b = (text) => el('strong', {}, text);
+  const indicative = el('em', {}, 'La formule exacte est donnée à titre indicatif (12 / π = 3.82) : le cours et la correction utilisent N = Vc × 4 / Ø.');
+  const rotation = factors
+    ? formulaRow('n', 'Vitesse de rotation', 'N (tr/min)', [FACTOR_FORMULA, el('small', {}, 'exacte : N = Vc × 12 / (π × Ø) × facteur'), miniature('table-facteurs', 'Schéma de la feuille des facteurs de vitesse : le rang de l’opération', 'formula-miniature formula-miniature--under')], [
+      'Ø en pouces : Ø de l’outil en fraisage et perçage, Ø usiné en tournage. ', b('Facteur'), ' : relevé dans la ', b('feuille des facteurs de vitesse'), ', à l’opération de l’outil ; 1 si aucune réduction. ',
+      b('Plafonnée à la vitesse maximale de la machine.'), ' ', indicative,
+    ])
+    : formulaRow('n', 'Vitesse de rotation', 'N (tr/min)', ['N = Vc × 4 / Ø', el('small', {}, 'exacte : N = Vc × 12 / (π × Ø)')], ['Ø en pouces : Ø de l’outil en fraisage et perçage, Ø usiné en tournage. ', b('Plafonnée à la vitesse maximale de la machine.'), ' Certains outils imposent une réduction (alésoir, lame à tronçonner). ', indicative]);
   return page([
     el('div', { class: 'sheet-caption' }, [el('strong', {}, 'Formules et unités'), el('span', {}, 'Unités impériales')]),
     el('div', { class: 'formula-part formula-part--rotation' }, [el('strong', {}, '1re partie — Vitesse de rotation (tr/min)'), el('span', {}, 'Vc → N')]),
     formulaRow('vc', 'Vitesse de coupe', 'Vc (pi/min)', miniature('table-vc', 'Schéma de la table des vitesses de coupe : une ligne, une colonne'), ['Relevée dans la ', b('table des vitesses de coupe'), ' : le matériau brut donne la ligne, le matériau de l’outil donne la colonne.']),
-    formulaRow('n', 'Vitesse de rotation', 'N (tr/min)', ['N = Vc × 4 / Ø', el('small', {}, 'exacte : N = Vc × 12 / (π × Ø)')], ['Ø en pouces : Ø de l’outil en fraisage et perçage, Ø usiné en tournage. ', b('Plafonnée à la vitesse maximale de la machine.'), ' Certains outils imposent une réduction (alésoir, lame à tronçonner). ', el('em', {}, 'La formule exacte est donnée à titre indicatif (12 / π = 3.82) : le cours et la correction utilisent N = Vc × 4 / Ø.')]),
+    rotation,
     el('div', { class: 'formula-part formula-part--feed' }, [el('strong', {}, '2e partie — Vitesse d’avance (po/min)'), el('span', {}, 'fz → f → Vf')]),
     formulaRow('fz', 'Avance par dent', 'fz (po/dent)', miniature('table-avances', 'Schéma de la table des avances : le rang de l’opération'), ['Relevée dans la ', b('table des avances'), ', à l’opération de l’outil. Fixe : la valeur de la table. ', b('Proportionnelle au Ø'), ' : fz = avance × Ø outil, sans dépasser l’avance maximale. ', b('Filetage'), ' : fz = pas.']),
     formulaRow('pas', 'Pas d’un filet', '(po)', ['pas = 1 / filets par pouce', 'pas = mm / 25.4'], [el('div', {}, '1/4-20 UNC : pas = 1 / 20 = 0.0500 po'), el('div', {}, 'M10 × 1.5 : pas = 1.5 / 25.4 = 0.0591 po'), el('div', {}, 'M10 : Ø = 10 / 25.4 = 0.3937 po')]),
@@ -129,7 +159,7 @@ function formulasPage() {
     el('div', { class: 'formula-boxes' }, [
       el('div', {}, [
         el('p', {}, [b('Exemple'), ' — foret Ø 1/4 po, acier rapide, 2 lèvres, acier 1020 (P-1, 125 HB)']),
-        el('p', {}, el('span', { class: 'mark-rotation' }, 'Vc = 100 pi/min · N = 100 × 4 / 0.25 = 1600 tr/min')),
+        el('p', {}, el('span', { class: 'mark-rotation' }, factors ? 'Vc = 100 pi/min · perçage : facteur 1 · N = 100 × 4 / 0.25 × 1 = 1600 tr/min' : 'Vc = 100 pi/min · N = 100 × 4 / 0.25 = 1600 tr/min')),
         el('p', {}, el('span', { class: 'mark-feed' }, 'fz = 0.006 × 0.25 = 0.0015 po/dent · f = 0.0015 × 2 = 0.0030 po/rév · Vf = 1600 × 0.0030 = 4.8 po/min')),
       ]),
       el('div', {}, [
@@ -144,7 +174,8 @@ function formulasPage() {
 //   standalone : la page /tables (D63) — les feuilles seules, toujours ouvertes, sans retour à une question ;
 //                le titre nomme la révision des tables
 export function createReference(data, { standalone = false } = {}) {
-  const pages = { vc: () => vcPage(data), avances: () => feedPage(data), formules: formulasPage };
+  const TABS = sheetTabs(data); // la 4e feuille, seulement pour des tables qui portent les facteurs (D83)
+  const pages = { vc: () => vcPage(data), avances: () => feedPage(data), formules: () => formulasPage(data.hasSpeedFactors === true), facteurs: () => factorPage(data) };
   const stage = el('div', { class: 'print-stage sheets-stage' });
   const title = el('div', { class: 'app-title' }, 'Tables de référence');
   const tabs = TABS.map(({ id, label }) => el('button', { class: 'tab', type: 'button', role: 'tab', 'data-tab': id, onclick: () => show(id) }, label));

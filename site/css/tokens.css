@@ -93,6 +93,7 @@
   --color-part-rotation: #c1efff; /* 1re partie — vitesse de rotation */
   --color-part-feed: #fff1c5;     /* 2e partie — vitesse d'avance */
   --color-feed-bar: #ffc000;
+  --color-factor: #0070a8;        /* feuille des facteurs de vitesse : le facteur d'une ligne réduite (bleu de la 1re partie, lisible sur blanc) */
 
   /* --- Polices (fichiers dans site/fonts/, déclarés par les @font-face ci-dessus) ---------- */
   --font-text: 'IBM Plex Sans', system-ui, sans-serif;

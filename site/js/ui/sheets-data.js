@@ -3,6 +3,7 @@
 // données : ajouter une opération à operations.json l'ajoute à la feuille des avances.
 
 import { TOOL_MATERIAL_KEYS } from '../data.js';
+import { factorText } from '../facteur-vitesse.js';
 import { CLASS_IMAGE_KEYS, isoClassOf } from '../tables.js';
 
 // Une avance en pouces, comme sur la feuille de l'atelier : sans zéro de tête, au moins trois
@@ -146,4 +147,45 @@ export function feedSheet(data) {
       .map(({ start, span }) => ({ start, span, lines: proportionalBox(operations.slice(start, start + span)) })),
     revision: data.revisions.operations,
   };
+}
+
+// --- Facteurs de vitesse (D83) : « Modification de la vitesse de rotation selon l'opération » ----------------------------
+// La 4e feuille n'existe que pour des tables qui portent les facteurs (data.hasSpeedFactors) : pour une version
+// d'avant, null — on ne montre jamais une feuille qui contredirait la correction de sa version.
+// Retourne { title, formula, rows, machines, revision } :
+//   title, formula : le titre de la feuille et la formule rappelée à sa droite
+//   rows     : une opération par rang, dans l'ordre des tables — { operation (le nom exact, celui de la question),
+//              picto (celui des tables), factor (en fraction, comme sur le papier : « 1 », « 1/4 », « 1/8 » ; en
+//              décimal seulement hors de la forme 1/n), marked (le facteur n'est pas 1 : la ligne ressort) }
+//   machines : [{ key, start, span }] — la machine-outil, sur la hauteur de ses opérations, comme la feuille des avances
+//   revision : celle de la table des opérations, pour le pied de la feuille (D28)
+export const FACTOR_SHEET_TITLE = "Modification de la vitesse de rotation selon l'opération";
+export const FACTOR_FORMULA = 'N = Vc × 4 / Ø × facteur';
+
+export function speedFactorSheet(data) {
+  if (data.hasSpeedFactors !== true) return null;
+  const { operations } = data;
+  return {
+    title: FACTOR_SHEET_TITLE,
+    formula: FACTOR_FORMULA,
+    rows: operations.map((operation) => ({
+      operation: operation.operation,
+      picto: operationPicto(operation.operation, operation),
+      factor: factorText(operation.facteur_vitesse),
+      marked: operation.facteur_vitesse !== 1,
+    })),
+    machines: runs(operations, (operation) => operation.machine),
+    revision: data.revisions.operations,
+  };
+}
+
+// Les onglets des feuilles, dans l'ordre : la 4e, « Facteurs de vitesse », après Formules, seulement pour des tables
+// qui portent les facteurs (D83).
+export function sheetTabs(data) {
+  return [
+    { id: 'vc', label: 'Vitesses de coupe' },
+    { id: 'avances', label: 'Avances' },
+    { id: 'formules', label: 'Formules' },
+    ...(data?.hasSpeedFactors === true ? [{ id: 'facteurs', label: 'Facteurs de vitesse' }] : []),
+  ];
 }

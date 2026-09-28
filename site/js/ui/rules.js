@@ -73,12 +73,25 @@ export function feedFamily(operation) {
 }
 
 // Un facteur n'est montré que s'il diffère de 1, en clair : « Vitesse réduite × 0.25 ».
+// Le facteur de vitesse depuis D83 (`outil.facteur_vitesse`, que le serveur compose : questionFactor) :
+//   - forcé : toujours dit, avec sa raison, même à 1 — « Facteur propre à cet outil : × 1 — fraise à inserts de
+//     carbure » —, que l'exercice donne le facteur ou non : sinon la feuille des facteurs piégerait l'étudiant ;
+//   - donné par l'exercice : comme avant, en fraction — « Vitesse réduite × 1/4 » ;
+//   - à trouver : rien — il se relève dans la feuille des facteurs, comme la Vc dans la sienne.
+// Pour une version d'avant D83, la question porte `fact_vc` : la ligne d'avant, mot pour mot.
 export function factorLines(outil) {
-  const line = (what, factor) => `${what} ${factor < 1 ? 'réduite' : 'augmentée'} × ${factor}`;
+  const line = (what, factor, text = factor) => `${what} ${factor < 1 ? 'réduite' : 'augmentée'} × ${text}`;
   return [
-    ...(outil.fact_vc === 1 ? [] : [line('Vitesse', outil.fact_vc)]),
+    ...speedFactorLines(outil, line),
     ...(outil.fact_av === 1 ? [] : [line('Avance', outil.fact_av)]),
   ];
+}
+
+function speedFactorLines(outil, line) {
+  const factor = outil.facteur_vitesse;
+  if (!factor) return outil.fact_vc === 1 ? [] : [line('Vitesse', outil.fact_vc)];
+  if (factor.etat === 'force') return [`Facteur propre à cet outil : × ${factor.texte} — ${factor.raison}`];
+  return factor.etat === 'donne' && factor.valeur !== 1 ? [line('Vitesse', factor.valeur, factor.texte)] : [];
 }
 
 // Outil à deux diamètres (barre à aléser, barre à rainurer : D25) : le panneau de l'outil nomme chacun,
@@ -103,10 +116,24 @@ export function questionIsMetric(question, data) {
 // Le rappel d'une dimension métrique (D70), pour les aides de N et de fz quand le Ø sert.
 const INCHES_REMINDER = ' Le Ø se met en pouces : mm / 25.4.';
 
+// Ce que l'aide de N dit du facteur de vitesse (D83) : { formula, after, table }.
+//   - à trouver : la méthode seulement, jamais la valeur — « × le facteur de l'opération (feuille Facteurs de
+//     vitesse) » dans la formule —, et le bouton ouvre la feuille des facteurs ;
+//   - forcé : le facteur de l'outil, dit tel quel (il est affiché dans le panneau de l'outil, avec sa raison) ;
+//   - donné, ou version d'avant D83 : « , × 1/4 pour cet outil » après la phrase, comme avant ; rien à 1.
+function speedFactorHelp(outil) {
+  const factor = outil.facteur_vitesse;
+  if (!factor) return { formula: '', after: outil.fact_vc === 1 ? '' : `, × ${outil.fact_vc} pour cet outil`, table: null };
+  if (factor.etat === 'a_trouver') return { formula: " × le facteur de l'opération (feuille Facteurs de vitesse)", after: '', table: 'facteurs' };
+  if (factor.etat === 'force') return { formula: ` × ${factor.texte} (le facteur propre à cet outil, pas celui de la feuille)`, after: '', table: null };
+  return { formula: '', after: factor.valeur === 1 ? '' : `, × ${factor.texte} pour cet outil`, table: null };
+}
+
 // Retourne { parts, table } :
 //   parts : le texte, en morceaux — { text, accent } où accent vaut 'material' ou 'tool' pour les
 //           mots à colorer comme le panneau correspondant, ou undefined
-//   table : la feuille que le bouton « Ouvrir la table » ouvre ('vc' ou 'avances'), ou null
+//   table : la feuille que le bouton « Ouvrir la table » ouvre ('vc', 'avances' ou, pour N quand le facteur de
+//           vitesse est à trouver, 'facteurs'), ou null
 //   metric : la dimension tirée est métrique (questionIsMetric) — le rappel « mm / 25.4 », seulement alors (D70)
 export function helpLine(field, question, family, metric = false) {
   const plain = (text, table = null) => ({ parts: [{ text }], table });
@@ -134,9 +161,9 @@ export function helpLine(field, question, family, metric = false) {
     return plain(`Avance par dent → table des avances, à l'opération de l'outil.${byFamily[family]}`, 'avances');
   }
   if (field === 'rpm') {
-    const factor = question.outil.fact_vc === 1 ? '' : `, × ${question.outil.fact_vc} pour cet outil`;
+    const factor = speedFactorHelp(question.outil);
     const which = question.outil.barre ? 'Ø usiné (le trou, pas la barre)' : 'Ø';
-    return plain(`Vitesse de rotation → N = Vc × 4 / ${which}, plafonnée à la vitesse de rotation max de la machine${factor}.${metric ? INCHES_REMINDER : ''}`);
+    return plain(`Vitesse de rotation → N = Vc × 4 / ${which}${factor.formula}, plafonnée à la vitesse de rotation max de la machine${factor.after}.${metric ? INCHES_REMINDER : ''}`, factor.table);
   }
   if (field === 'feedPerRev') return plain('Avance totale par révolution → f = fz × nombre de dents.');
   return plain("Vitesse d'avance → Vf = N × f.");
