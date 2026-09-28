@@ -5,7 +5,7 @@ Chaque jalon est découpé en tâches assez petites pour une session Claude Code
 
 ## Jalon 0 — Dépôt en place
 - [x] Dépôt GitHub créé, squelette commité
-- [ ] Publication sur Cloudflare en place (décision D20 ; `DEMARRAGE.md`, étape 4) : compte, sous-domaine `workers.dev`, deux secrets GitHub, GitHub Pages désactivé
+- [x] Publication sur Cloudflare en place (décision D20 ; `DEMARRAGE.md`, étape 4) : compte, sous-domaine `workers.dev`, deux secrets GitHub, GitHub Pages désactivé
 - [x] VS Code + extension Claude Code opérationnels ; `CLAUDE.md` lu par Claude Code
 - [x] `npm test` (tests vides) passe
 
@@ -52,7 +52,7 @@ Le moteur (jalons 1 et 1b) passe derrière l'API ; les règles d'une séance son
 - [x] Client : `api.js` sur le vrai serveur ; identification et reprise fonctionnelles ; écran Question en gabarit **fonctionnel** (outil, matériau, cinq champs, Vérifier, résultat, progression) ; écran minimal « Exercice réussi »
 - [x] Tests : `npm test` (vrai Worker sur SQLite en mémoire, horloge réglable) ; `npm run test:api` (HTTP sur `wrangler dev` et une vraie D1 locale) ; cycle complet vérifié dans Chrome à 1280 px et 390 px, reprise dans un second navigateur
 - [x] Secrets du serveur : `CLE_SECRETE`, `CLE_ADMIN` par `wrangler secret put` ; `.dev.vars` en local ; mode d'emploi dans `DEMARRAGE.md`, étape 5
-- [ ] **À faire par Thierry avant de pousser** : donner le droit **D1 : Edit** au jeton d'API de GitHub (`DEMARRAGE.md`, étape 5.5), sinon les migrations échouent et rien n'est publié
+- [x] **À faire par Thierry avant de pousser** : donner le droit **D1 : Edit** au jeton d'API de GitHub (`DEMARRAGE.md`, étape 5.5), sinon les migrations échouent et rien n'est publié
 
 ## Jalon 4 — Identification en deux temps (D23), écran Question et tables de référence selon UI.md
 - [x] D23 : consultation, création, reprise (le serveur ne devine plus), « Corriger mon identité » avec NIP exigé, séance déplacée jamais copiée, corrections d'identité journalisées (migration `0002`) ; écrans 1 / 2 et 2 / 2
@@ -188,7 +188,8 @@ Rapport de session : `docs/rapports/accueil-et-libelles.md`.
 - [x] **Page de description** d'un exercice (`?exercice=<id>`) : « ← Tous les exercices » (sans toucher à aucune séance), « Copier le lien », questions posées, outils questionnés, matériaux usinés ; le jeton gardé nomme son exercice
 - [x] **Doublon de titre** signalé à la publication, sans bloquer
 - [x] ~~Worker renommé `quiz` (D72)~~ — le renommage est introuvable dans le tableau de bord : **le Worker garde son nom**, seul le sous-domaine change (D73) ; aucune adresse dans le code, sel HKDF inchangé ; procédure courte dans `DEMARRAGE.md` §4
-- [ ] **Thierry, dans l'ordre** (`DEMARRAGE.md` §4) : fusionner la branche, vérifier, changer le sous-domaine en `tgm-tmi` dans le tableau de bord Cloudflare, vérifier sur `quiz-parametres-coupe.tgm-tmi.workers.dev`, remplacer les liens de Léa
+- [x] **Thierry, dans l'ordre** (`DEMARRAGE.md` §4) : fusionner la branche, vérifier, changer le sous-domaine en `tgm-tmi` dans le tableau de bord Cloudflare, vérifier sur `quiz-parametres-coupe.tgm-tmi.workers.dev`, remplacer les liens de Léa
+- [ ] **Thierry** : rediffuser le lien du site sur Léa (« Copier le lien »)
 - [ ] **Thierry, dans la Gestion du contenu** : mettre le cours « M10 » aux deux M10 et les publier ; renommer « M10 — Tournage : Vc et RPM » (le titre est une donnée de production)
 
 ## Chantier « gestion du contenu » — trois retouches de la page `/prof/editeur` (décision D74)
@@ -254,8 +255,9 @@ Rapport de session : `docs/rapports/e5-4-historique-banque.md`.
 - [x] Tests (historique, rétablissement, 409, journal, contenu devenu invalide, images, Sauvegarde, import, avertissement) ; `test:api` ; passe dans Chrome
 - [x] Documents : D79 ; SPEC §7, §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE ; bilan du chantier E5 dans le rapport
 - [x] **Thierry** : trancher les points douteux du rapport (fait : les cinq acceptés, consignés à la fin de D79) ; **retouche** des documents : ses quatre exigences inscrites mot pour mot dans D75, et le bilan du chantier (rapport, §7) rattaché à elles, dans leur ordre
-- [ ] **Thierry** : fusionner
+- [x] **Thierry** : fusionner (fait : fusionné et déployé le 2026-09-28)
 
 ## Finition
 - [ ] Graphique de progression par opération
-- [ ] Décision D7 (dépôt) close — D6 (sécurité) est fermée par D19
+- [x] Décision D7 (dépôt) close (D80 : dépôt dédié ; D3 et D4 confirmées) — D6 (sécurité) est fermée par D19 ; rapport `docs/rapports/finition-d7-depot.md`
+- [ ] **Thierry** : dépublier GitHub Pages de `tgm-fab` (D80 ; marche à suivre dans le rapport)
