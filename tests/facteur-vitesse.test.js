@@ -7,7 +7,7 @@ import { assembleData, toolErrors, validateTables } from '../site/js/data.js';
 import { draftErrors, draftFromExercise, engineExercise, validateExercise } from '../site/js/exercice.js';
 import {
   PAPER_FACTORS, PASSAGE_REASON, REASON_MAX, adoptSpeedFactor, adoptSpeedFactors, carriesSpeedFactors, factorGiven, factorText, forcedFactorLine, hasSpeedFactor,
-  ownFactorLabel, paperFactor, parseFactor, prefillSpeedFactors, questionFactor, settleSpeedFactor, speedFactorOf, speedFactorState, tableFactorLine,
+  ownFactorLabel, paperFactor, parseFactor, prefillSpeedFactors, questionFactor, settleSpeedFactor, settleSpeedFactors, speedFactorOf, speedFactorState, tableFactorLine,
 } from '../site/js/facteur-vitesse.js';
 import { generateQuestion } from '../site/js/question.js';
 import { tablesDiff } from '../site/js/tables.js';
@@ -153,6 +153,10 @@ test('adoptSpeedFactor : sans effet sur des tables sans facteurs, une opération
   const force = adoptSpeedFactor(outil('nine9_90_degres'), ops.get('Chanfreinage'));
   assert.equal(adoptSpeedFactor(force, ops.get('Chanfreinage')), force);
   assert.equal(alesoir.fact_vc, 0.25, 'l’outil reçu n’est pas modifié');
+  // Une raison présente mais vide n'est pas un ancien outil : c'est un forçage incomplet, laissé à la validation.
+  const incomplet = { ...outil('nine9_90_degres'), fact_vc_raison: '' };
+  assert.equal(adoptSpeedFactor(incomplet, ops.get('Chanfreinage')), incomplet);
+  assert.match(toolErrors(incomplet, ops, groupes)[0].message, /Un facteur forcé exige une raison courte/);
   // Un outil hérité suit sa table ; un outil forcé garde sa valeur.
   const autre = { ...ops.get('Chanfreinage'), facteur_vitesse: 0.5 };
   const fraise = adoptSpeedFactor(outil('fraise_82_degres'), ops.get('Chanfreinage'));
@@ -183,6 +187,18 @@ test('settleSpeedFactor : une copie ajoutée à un exercice prend le facteur que
   assert.deepEqual(settleSpeedFactor(herite, sans.get("Alésage à l'alésoir"), avec.get("Alésage à l'alésoir")), outil('alesoir'));
   assert.deepEqual(settleSpeedFactor(force, sans.get("Alésage à l'alésoir"), avec.get("Alésage à l'alésoir")), { ...outil('alesoir'), fact_vc: 1 });
   assert.deepEqual(toolErrors(settleSpeedFactor(herite, sans.get("Alésage à l'alésoir"), avec.get("Alésage à l'alésoir")), sans, groupes), []);
+  assert.equal(settleSpeedFactor(outil('alesoir'), sans.get("Alésage à l'alésoir"), avec.get("Alésage à l'alésoir")).fact_vc, 0.25); // déjà à son format : tel quel
+});
+
+test('settleSpeedFactors : un contenu d’exercice qui change de tables, dans les deux sens, retrouve ses facteurs', async () => {
+  const brouillon = draftFromExercise(await lireFichier('exercices/test-complet.json'), banque);
+  const passe = settleSpeedFactors(brouillon, AVEC, SANS);
+  assert.deepEqual(passe, adoptSpeedFactors(brouillon, AVEC));
+  // Le retour : chaque copie retrouve son facteur propre — celui de sa table pour un outil hérité, le sien pour un
+  // outil forcé —, sans raison ; le contenu est celui du départ.
+  assert.deepEqual(settleSpeedFactors(passe, SANS, AVEC), brouillon);
+  assert.equal(settleSpeedFactors(brouillon, SANS, SANS), brouillon);
+  assert.equal(settleSpeedFactors(passe, AVEC, AVEC), passe);
 });
 
 test('toolErrors : le facteur est exigé de l’outil sans facteurs dans les tables, facultatif sinon ; forcer exige la valeur et la raison', () => {

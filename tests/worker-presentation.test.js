@@ -406,7 +406,7 @@ test('retouches de présentation en attente dans le brouillon (faites avant ce j
   serveur.db.sqlite.prepare('UPDATE brouillon_tables SET contenu = ?').run(JSON.stringify(brouillon));
   const page = (await serveur.editeur('GET', 'tables')).corps;
   assert.deepEqual(page.presentation_en_attente.lignes, ["Classe P — légende de l'image : Chaleur → Zone chaude"]);
-  assert.equal(page.modifie, false); // les valeurs sont celles de A2026_r0
+  assert.equal(page.modifie, true); // D83 : les valeurs de A2026_r0, et les facteurs de vitesse préremplis, à publier
   const reprise = page.presentation_en_attente.contenu;
   const applique = await serveur.editeur('POST', 'presentation/appliquer', { revision: (await presentationDe(serveur)).revision, presentation: reprise });
   assert.equal(applique.status, 200, JSON.stringify(applique.corps));

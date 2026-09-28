@@ -11,6 +11,7 @@ import { ANSWER_FIELDS, coherentFeedPerTooth, gradeAnswers, parseAnswer, toleran
 import { pitchFormula } from '../site/js/data.js';
 import { fieldsToGrade, maskedFields } from '../site/js/exercice.js';
 import { EXPRESSION_MAX_LENGTH, computedText, expressionText, isExpression } from '../site/js/expression.js';
+import { factorText, questionFactor, speedFactorState } from '../site/js/facteur-vitesse.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools, isComplete, recordResult } from '../site/js/progression.js';
 import { generateQuestion } from '../site/js/question.js';
@@ -148,8 +149,12 @@ export const NIP_CLEARED = { essais_nip: 0, essais_nip_debut: null, verrou_nip_j
 // dans la table, c'est l'exercice.
 //   testMode : mode test (D26) — et alors seulement, les valeurs attendues des champs évalués
 //              accompagnent la question (reponses_test), pour le bouton « Remplir »
+// Le facteur de vitesse (D83) : avec des tables d'avant D83, `outil.fact_vc`, comme avant. Avec des tables qui portent
+// les facteurs, `outil.facteur_vitesse` (questionFactor) — forcé, avec sa raison ; donné par l'exercice ; ou à trouver
+// dans la feuille des facteurs, et alors ni sa valeur ni son texte ne partent au navigateur.
 export function questionView(question, exercise, data, { testMode = false } = {}) {
   const tool = data.outils.find((entry) => entry.id === question.tool.id);
+  const factor = questionFactor(tool, data.operationByName.get(tool.operation), exercise);
   const graded = fieldsToGrade(exercise);
   const masked = maskedFields(exercise); // D52 : ni valeur, ni saisie — « — » à l'écran
   const displayed = formatParameters(computeParameters(question, data));
@@ -165,7 +170,7 @@ export function questionView(question, exercise, data, { testMode = false } = {}
       dents: question.teeth,
       materiau: question.toolMaterial.label,
       limite_rpm: tool.limite_rpm,
-      fact_vc: tool.fact_vc,
+      ...(factor === null ? { fact_vc: tool.fact_vc } : { facteur_vitesse: factor }),
       fact_av: tool.fact_av,
       barre: question.bar?.label ?? null, // outil à deux diamètres (D25) : le Ø de la barre ; sinon null
     },
@@ -189,9 +194,15 @@ function calculationLine(field, question, expected, shown, tool, operation) {
   // Outil à deux diamètres (D25) : on nomme celui qui sert — le Ø usiné (le trou) pour N, le Ø de la barre pour l'avance.
   const twoDiameters = Boolean(question.bar);
   if (field === 'rpm') {
-    const factor = tool.fact_vc === 1 ? '' : ` × ${tool.fact_vc}`;
     const capped = expected.rpmCapped ? ` → plafonné à ${tool.limite_rpm}` : '';
-    return `N = Vc × 4 / Ø${twoDiameters ? ' usiné' : ''} = ${shown.vc} × 4 / ${diameter}${factor}${capped}`;
+    const which = `Ø${twoDiameters ? ' usiné' : ''}`;
+    // Avant D83 (tables sans facteurs) : le facteur de l'outil, en décimal, comme il s'est toujours écrit.
+    const state = speedFactorState(tool, operation);
+    if (state.mode === 'own') return `N = Vc × 4 / ${which} = ${shown.vc} × 4 / ${diameter}${tool.fact_vc === 1 ? '' : ` × ${tool.fact_vc}`}${capped}`;
+    // Depuis D83 : le facteur en fraction ; un facteur hérité de 1 ne s'écrit pas, un facteur forcé s'écrit toujours.
+    // ❓ D83 : la formule le nomme aussi (« N = Vc × 4 / Ø × facteur = … »), comme la feuille des facteurs — à confirmer.
+    if (state.mode === 'inherited' && state.value === 1) return `N = Vc × 4 / ${which} = ${shown.vc} × 4 / ${diameter}${capped}`;
+    return `N = Vc × 4 / ${which} × facteur = ${shown.vc} × 4 / ${diameter} × ${factorText(state.value)}${state.mode === 'forced' ? ' (propre à cet outil)' : ''}${capped}`;
   }
   // Filetage : la conversion du pas de la question, jamais la saisie (D70) — « fz = pas = 4.5 mm / 25.4 = 0.17717 ».
   if (field === 'feedPerTooth' && expected.feedType === 'thread') {

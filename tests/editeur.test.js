@@ -266,7 +266,9 @@ test('cascadeCandidates et cascadePlan (D77 et sa retouche) : une liste de tous 
   const plan = cascadePlan(candidates, rows, ['a', 'c', 'd', 'e', 'f', 'g', 'inconnu', 'a']);
   assert.deepEqual(plan.versions.map((v) => [v.exercice_id, v.numero]), [['a', 3], ['d', 5], ['e', 2], ['g', 2]]);
   assert.deepEqual(plan.versions[0].contenu, contenu('A'));
-  assert.deepEqual(plan.brouillons, [{ id: 'a', depuis: 'r1' }, { id: 'c', depuis: 'r1' }, { id: 'd', depuis: 'r0' }, { id: 'e', depuis: 'r0' }, { id: 'g', depuis: null }]);
+  assert.deepEqual(plan.brouillons.map(({ id, depuis }) => ({ id, depuis })), [{ id: 'a', depuis: 'r1' }, { id: 'c', depuis: 'r1' }, { id: 'd', depuis: 'r0' }, { id: 'e', depuis: 'r0' }, { id: 'g', depuis: null }]);
+  // Le brouillon qui passe est écrit avec sa révision lue (D83) : ici sans tables d'arrivée, tel quel.
+  assert.deepEqual(plan.brouillons.map((b) => b.brouillon), ['a', 'c', 'd', 'e', 'g'].map((id) => rows.find((r) => r.id === id).brouillon));
   assert.deepEqual(plan.laisses, [{ id: 'f', titre: 'F en erreur', erreurs: ['outils.0.operation : opération inconnue'] }]);
   assert.deepEqual(plan.ignores, ['inconnu']);
   assert.deepEqual(cascadePlan(candidates, rows, undefined).versions, []); // sans liste cochée (un navigateur d'avant) : aucune cascade

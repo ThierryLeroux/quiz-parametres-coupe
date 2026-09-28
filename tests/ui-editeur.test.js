@@ -72,9 +72,22 @@ test('versionDiff et diffLines : première publication ; réglages, outils ajout
     'Outil ajouté : MCLNR bis (mclnr_2), 2 réussites de suite',
     'Outil retiré : MCLNR (mclnr)',
   ]);
-  assert.match(lines[3], /^MVLNR \(mvlnr\) — fact_vc : « 1 » → « 0.5 »$/);
+  assert.match(lines[3], /^MVLNR \(mvlnr\) — fact_vc : « × 1 » → « × 1\/2 »$/); // D83 : le facteur en clair, en fraction
   assert.match(lines[4], /^MVLNR \(mvlnr\) — dimensions : « 1\.000", .* » → « 1\.000", 1\.500" »$/);
   assert.equal(lines.length, 6);
+  // Le facteur de vitesse et sa raison (D83) se disent ensemble : hérité, forcé ; et le réglage de l'exercice.
+  const facteurs = brouillon();
+  delete facteurs.outils[1].fact_vc;
+  Object.assign(facteurs.outils[2], { fact_vc: 1, fact_vc_raison: 'lame au carbure' });
+  facteurs.facteur_vitesse_donne = true;
+  assert.deepEqual(diffLines(versionDiff(avant, facteurs)), [
+    "Facteur de vitesse : « à trouver dans la feuille des facteurs » → « donné à l'étudiant »",
+    "MVLNR (mvlnr) — fact_vc : « × 1 » → « hérité de l'opération »",
+    'Lame à tronçonner (lame_a_tronconner) — fact_vc : « × 1/8 » → « forcé × 1 (lame au carbure) »',
+  ]);
+  const raison = structuredClone(facteurs);
+  raison.outils[2].fact_vc_raison = 'autre raison';
+  assert.deepEqual(diffLines(versionDiff(facteurs, raison)), ['Lame à tronçonner (lame_a_tronconner) — fact_vc : « forcé × 1 (lame au carbure) » → « forcé × 1 (autre raison) »']);
   // Seule la présentation change : aucune différence à publier.
   const retouche = brouillon();
   Object.assign(retouche, { titre: 'Autre titre', cours: 'M20', liste: false });

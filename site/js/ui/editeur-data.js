@@ -5,6 +5,7 @@
 // editeur.js ne fait que les mettre à l'écran.
 
 import { TEMPLATE_TOKENS, TOOL_KEYS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
+import { carriesSpeedFactors, factorText, forcedFactorLine, ownFactorLabel, speedFactorState } from '../facteur-vitesse.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
 import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey, sameTitleExercises, titleKey } from '../exercice.js';
 import { COPY_PRESENTATION_FIELDS } from '../presentation-exercice.js';
@@ -168,11 +169,15 @@ const text = (value) => {
   return String(value);
 };
 
+// Le réglage « Donner le facteur de vitesse à l'étudiant » d'un exercice (D83), en clair.
+export const givenFactorText = (draft) => (draft.facteur_vitesse_donne === true ? "donné à l'étudiant" : 'à trouver dans la feuille des facteurs');
+
 // Les réglages généraux comparés : [{ champ, avant, apres }] en texte. Le titre, le cours et « À l'accueil » n'y sont
 // plus : ils sont de la présentation en direct (D78), et une version publiée prend ceux en vigueur.
 function settingsDiff(before, after) {
   const compare = [
     ['champs_evalues', 'Grandeurs', (d) => fieldStatesText(d)],
+    ['facteur_vitesse_donne', 'Facteur de vitesse', (d) => givenFactorText(d)],
     ['materiaux_outil', "Matières d'outil permises", (d) => listText(d.materiaux_outil)],
     ['groupes', 'Groupes de matériaux permis', (d) => listText(d.groupes)],
   ];
@@ -180,10 +185,13 @@ function settingsDiff(before, after) {
 }
 
 // Les champs d'une copie comparés (sans « origine », ni la photo et la note, de la présentation en direct : D78) :
-// dimensions et listes en texte.
-const NOT_COMPARED = ['origine', ...COPY_PRESENTATION_FIELDS];
+// dimensions et listes en texte. Le facteur de vitesse et sa raison (D83) se disent ensemble, en clair : « × 1/4 »,
+// « hérité de l'opération », « forcé × 1 (raison) ».
+const NOT_COMPARED = ['origine', 'fact_vc_raison', ...COPY_PRESENTATION_FIELDS];
+const sameFactor = (before, after) => same(before?.fact_vc, after?.fact_vc) && same(before?.fact_vc_raison, after?.fact_vc_raison);
 function copyDiff(before, after) {
-  return COPY_KEYS.filter((key) => !NOT_COMPARED.includes(key) && !same(before[key], after[key])).map((champ) => ({ champ, avant: text(before[champ]), apres: text(after[champ]) }));
+  return COPY_KEYS.filter((key) => !NOT_COMPARED.includes(key) && (key === 'fact_vc' ? !sameFactor(before, after) : !same(before[key], after[key])))
+    .map((champ) => (champ === 'fact_vc' ? { champ, avant: ownFactorLabel(before), apres: ownFactorLabel(after) } : { champ, avant: text(before[champ]), apres: text(after[champ]) }));
 }
 
 // Les différences entre la dernière version publiée et le brouillon : ce que la confirmation résume. Sans les champs de
@@ -259,8 +267,9 @@ export function tablesUsageLabel({ versions_exercice: versions, brouillons }) {
 // Ce qu'un changement de version de tables change POUR CET EXERCICE (D62) : les erreurs qui
 // apparaîtraient (matière, groupe ou opération que la nouvelle version n'a plus), les Vc qui changent
 // dans les groupes et matières que ses outils tirent, les avances des opérations de ses outils, les
-// matériaux ajoutés ou retirés dans ses groupes. Le pictogramme n'y est plus : il est de la présentation en
-// direct, la même pour toutes les versions (D76). Retourne { erreurs, lignes }.
+// matériaux ajoutés ou retirés dans ses groupes, et le facteur de vitesse de ses outils (D83 : speedFactorImpact).
+// Le pictogramme n'y est plus : il est de la présentation en direct, la même pour toutes les versions (D76).
+// Retourne { erreurs, lignes }.
 //   draft : le brouillon de l'exercice ; before, after : les deux versions de tables (complétées ou non)
 //   draftErrorsOf : (draft, tables) → [{ champ, message }] (draftErrors d'exercice.js, injectée : pas de cycle d'import)
 export function exerciseTablesImpact(draft, before, after, draftErrorsOf) {
@@ -306,7 +315,43 @@ export function exerciseTablesImpact(draft, before, after, draftErrorsOf) {
       if (JSON.stringify(old[field] ?? null) !== JSON.stringify(now[field] ?? null)) lignes.push(`Opération « ${name} » — ${label} : ${text(old[field])} → ${text(now[field])}`);
     }
   }
+  lignes.push(...speedFactorImpact(draft, a.operations.operations, b.operations.operations));
   return { erreurs, lignes };
+}
+
+// Ce qu'un changement de tables change au facteur de vitesse des outils d'un exercice (D83, points 5 et 6), en lignes :
+//   - les tables d'arrivée ne portent pas les facteurs : rien (un outil sans facteur propre y est une erreur, déjà dite) ;
+//   - celles de départ ne les portaient pas — le passage : combien d'outils héritent désormais du facteur de leur
+//     opération, sans changement de valeur ; chaque outil FORCÉ, nommé, avec sa valeur, celle de la table et sa raison ;
+//     et ce que devient l'affichage pour l'étudiant (le facteur à trouver dans la feuille, ou donné par l'exercice) ;
+//   - les deux les portent : chaque outil dont le facteur qui sert change (un outil hérité suit sa table), et chaque
+//     outil qui devient forcé.
+//   operationsBefore, operationsAfter : les opérations des deux versions de tables
+export function speedFactorImpact(draft, operationsBefore, operationsAfter) {
+  if (!carriesSpeedFactors(operationsAfter)) return [];
+  const before = new Map(operationsBefore.map((op) => [op.operation, op]));
+  const after = new Map(operationsAfter.map((op) => [op.operation, op]));
+  const passage = !carriesSpeedFactors(operationsBefore);
+  const lines = [];
+  let inherited = 0;
+  for (const tool of Array.isArray(draft.outils) ? draft.outils : []) {
+    const operation = after.get(tool.operation);
+    if (!operation) continue; // opération absente : une erreur, déjà dite
+    const was = speedFactorState(tool, before.get(tool.operation));
+    const now = speedFactorState(tool, operation);
+    if (now.mode === 'forced' && (passage || was.mode !== 'forced')) lines.push(forcedFactorLine(tool, operation));
+    else if (passage) inherited += 1;
+    else if (was.value !== now.value) lines.push(`${tool.nom} (${tool.id}) — facteur de vitesse : × ${factorText(was.value)} → × ${factorText(now.value)} (${operation.operation})`);
+  }
+  if (!passage) return lines;
+  const shown = draft.facteur_vitesse_donne === true
+    ? "Le facteur de vitesse reste donné à l'étudiant, en fraction (réglage « Donner le facteur de vitesse à l'étudiant », coché)."
+    : "Le facteur de vitesse n'est plus donné à l'étudiant : il le trouve dans la feuille « Facteurs de vitesse », comme la Vc (pour le donner, coche « Donner le facteur de vitesse à l'étudiant » dans l'exercice, puis publie).";
+  return [
+    `Facteur de vitesse : ces tables le portent. ${inherited} outil${inherited > 1 ? 's héritent' : ' hérite'} de celui de ${inherited > 1 ? 'leur' : 'son'} opération, sans changement de valeur${lines.length > 0 ? ` ; ${lines.length} ${lines.length > 1 ? 'sont forcés' : 'est forcé'}, à vérifier` : ''}.`,
+    ...lines,
+    shown,
+  ];
 }
 
 // Les tables complétées, sans dépendre de tables.js pour les tests de cet écran (la même règle : valeurs par défaut).
@@ -429,6 +474,12 @@ function dimensionsDiff(label, before, after) {
 export function bankToolDiff(before, after) {
   const lines = [];
   for (const key of TOOL_KEYS) {
+    // Le facteur de vitesse et sa raison (D83), ensemble : « Facteur de vitesse : « × 1 » → « hérité de l'opération » ».
+    if (key === 'fact_vc_raison') continue;
+    if (key === 'fact_vc') {
+      if (!sameFactor(before, after)) lines.push(`${TOOL_FIELD_LABELS.fact_vc} : « ${ownFactorLabel(before)} » → « ${ownFactorLabel(after)} »`);
+      continue;
+    }
     if (key === 'id' || same(before?.[key], after?.[key])) continue;
     const label = TOOL_FIELD_LABELS[key] ?? key;
     if (key === 'dimensions' || key === 'dimensions_barre') lines.push(...dimensionsDiff(label, before?.[key], after?.[key]));

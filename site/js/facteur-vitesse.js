@@ -132,9 +132,10 @@ function withFactorKeys(tool, keys) {
 // Le passage d'un ancien outil (D83, point 5), quand il rencontre des tables qui portent les facteurs : un `fact_vc`
 // sans raison égal au facteur de son opération disparaît (l'outil hérite, et suivra la table) ; différent, il reçoit
 // PASSAGE_REASON (l'outil est forcé, et signalé). Un outil déjà hérité ou déjà forcé, des tables sans facteurs, une
-// opération inconnue : l'outil est rendu tel quel. Ne modifie pas l'objet reçu.
+// opération inconnue : l'outil est rendu tel quel — comme un outil dont la raison est présente mais vide : ce n'est pas
+// un ancien outil, c'est un forçage incomplet, que la validation refuse. Ne modifie pas l'objet reçu.
 export function adoptSpeedFactor(tool, operation) {
-  if (!isObject(tool) || tool.fact_vc === undefined || isText(tool.fact_vc_raison)) return tool;
+  if (!isObject(tool) || tool.fact_vc === undefined || tool.fact_vc_raison !== undefined) return tool;
   const state = speedFactorState(tool, operation);
   if (state.mode === 'inherited') return withFactorKeys(tool, {});
   if (state.mode === 'forced') return withFactorKeys(tool, { fact_vc: tool.fact_vc, fact_vc_raison: PASSAGE_REASON });
@@ -157,8 +158,20 @@ export function adoptSpeedFactors(content, tables) {
 //     tables d'où il vient (`sourceOperation`) —, sans raison.
 export function settleSpeedFactor(copy, operation, sourceOperation) {
   if (hasSpeedFactor(operation)) return adoptSpeedFactor(copy, operation);
+  if (copy.fact_vc !== undefined && copy.fact_vc_raison === undefined) return copy;
   const own = copy.fact_vc ?? sourceOperation?.facteur_vitesse;
   return withFactorKeys(copy, own === undefined ? {} : { fact_vc: own });
+}
+
+// Le contenu d'un exercice qui change de tables (« Passer à … », D62) : chaque copie prend le facteur que les tables
+// d'arrivée veulent (settleSpeedFactor), d'après celles qu'il quitte. Vers des tables qui portent les facteurs, c'est
+// le passage (adoptSpeedFactors) ; vers des tables qui ne les portent pas, chaque copie retrouve son `fact_vc`.
+export function settleSpeedFactors(content, tables, sourceTables) {
+  if (!isObject(content) || !Array.isArray(content.outils)) return content;
+  const target = operationsByName(tables);
+  const source = operationsByName(sourceTables);
+  const outils = content.outils.map((copy) => (isObject(copy) ? settleSpeedFactor(copy, target.get(copy.operation), source.get(copy.operation)) : copy));
+  return outils.every((copy, i) => copy === content.outils[i]) ? content : { ...content, outils };
 }
 
 const operationsByName = (tables) => new Map((Array.isArray(tables?.operations?.operations) ? tables.operations.operations : []).filter(isObject).map((op) => [op.operation, op]));

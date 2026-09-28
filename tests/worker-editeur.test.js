@@ -542,10 +542,12 @@ test('import qui ferait disparaître des outils de la banque (D50) : la validati
 
 // --- Les tables pour la Gestion du contenu -----------------------------------------------------------------------------
 
-test('GET /api/prof/editeur/tables : le brouillon des tables (semé depuis A2026_r0, complété), sans erreur ni différence, la version publiée et la révision suggérée', async () => {
+test('GET /api/prof/editeur/tables : le brouillon des tables (semé depuis A2026_r0, complété, prérempli des facteurs de vitesse : D83), sans erreur, la version publiée et la révision suggérée', async () => {
   const serveur = await editeurDeTest();
   const { corps } = await serveur.editeur('GET', 'tables');
-  assert.deepEqual([corps.brouillon.revision, corps.brouillon.base_id, corps.modifie, corps.erreurs, corps.derniere, corps.suggestion], [1, 'A2026_r0', false, [], 'A2026_r0', 'A2026_r1']);
+  // « Modifié » : les facteurs de vitesse préremplis d'après la table papier sont à publier (D83) ; rien d'autre ne diffère.
+  assert.deepEqual([corps.brouillon.revision, corps.brouillon.base_id, corps.modifie, corps.erreurs, corps.derniere, corps.suggestion], [1, 'A2026_r0', true, [], 'A2026_r0', 'A2026_r1']);
+  assert.deepEqual(corps.brouillon.contenu.operations.operations.filter((op) => op.facteur_vitesse !== 1).map((op) => [op.operation, op.facteur_vitesse]), [['Chanfreinage / ébavurage', 0.25], ['Chanfreinage', 0.25], ["Alésage à l'alésoir", 0.25], ['Tronçonnage', 0.125], ['Rainurage externe', 0.25], ['Rainurage interne', 0.25]]);
   assert.deepEqual([corps.brouillon.contenu.materiaux.revision, corps.brouillon.contenu.operations.revision, corps.brouillon.contenu.materiaux.materiaux.length, corps.brouillon.contenu.operations.operations.length], ['A2026_r0', 'A2026_r0', 47, 19]);
   assert.deepEqual(corps.brouillon.contenu.materiaux.classes_iso.map((c) => c.code).join(''), 'PMKNSHO'); // complété : les couleurs par défaut (D61)
   assert.deepEqual(corps.brouillon.contenu.materiaux.materiaux_outil.map((m) => m.nom), ['Acier rapide', 'Carbure de tungstène solide', 'Insert de carbure de tungstène']);

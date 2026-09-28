@@ -96,9 +96,9 @@ test('publier les tables (D61) : révision saisie, suggérée et unique ; refus�
   const serveur = await editeurDeTest();
   const page = await brouillonTables(serveur);
   assert.equal(page.suggestion, 'A2026_r1');
-  // Sans différence avec A2026_r0 : refusé.
-  const identique = await serveur.editeur('POST', 'tables/publier', { revision: 1, id: 'A2026_r1' });
-  assert.deepEqual([identique.status, identique.corps.erreur], [400, 'Aucune différence à publier : le brouillon est identique à la version A2026_r0.']);
+  // Depuis D83, le brouillon parti de A2026_r0 se lit prérempli des facteurs de vitesse : il a de quoi publier. Le refus
+  // « sans différence » se vérifie plus bas, une fois A2026_r1 publiée.
+  assert.equal(page.modifie, true);
   // Une révision périmée, un identifiant mal formé.
   assert.equal((await serveur.editeur('POST', 'tables/publier', { revision: 7, id: 'A2026_r1' })).status, 409);
   assert.equal((await serveur.editeur('POST', 'tables/publier', { revision: 1, id: 'A2026 r1' })).status, 400);
@@ -122,10 +122,11 @@ test('publier les tables (D61) : révision saisie, suggérée et unique ; refus�
   assert.equal(version.corps.tables.materiaux.materiaux[0].vc_pi_min.carbure_solide, page.brouillon.contenu.materiaux.materiaux[0].vc_pi_min.carbure_solide * 2);
   assert.equal((await serveur.editeur('GET', 'tables/version?id=inconnue')).status, 404);
   // Publier de nouveau : sans changement, refusé ; avec un changement mais sous une révision prise, refusé.
-  assert.equal((await serveur.editeur('POST', 'tables/publier', { revision: 4, id: 'A2026_r2' })).status, 400);
+  const identique = await serveur.editeur('POST', 'tables/publier', { revision: 4, id: 'A2026_r2' });
+  assert.deepEqual([identique.status, identique.corps.erreur], [400, 'Aucune différence à publier : le brouillon est identique à la version A2026_r1.']);
   const prise = await publierTables(serveur, carbureDouble(apres.brouillon.contenu), 'A2026_r0');
   assert.deepEqual([prise.status, prise.corps.erreur], [409, 'La révision « A2026_r0 » existe déjà : une version publiée ne se remplace pas.']);
-  assert.deepEqual(serveur.journalEnseignant().filter((l) => l.action === 'editeur_tables_publication').map((l) => l.details), ['tables A2026_r1 · depuis A2026_r0 · cascade sur 2 exercice(s) proposé(s) : 0 version(s) publiée(s), 0 brouillon(s) passé(s), 0 en erreur laissé(s) tel(s) quel(s)']);
+  assert.deepEqual(serveur.journalEnseignant().filter((l) => l.action === 'editeur_tables_publication').map((l) => l.details), ["tables A2026_r1 · depuis A2026_r0 · cascade sur 2 exercice(s) proposé(s) : 0 version(s) publiée(s), 0 brouillon(s) passé(s), 0 en erreur laissé(s) tel(s) quel(s) · banque d'outils, passage aux facteurs de vitesse : 27 outil(s) hérité(s), 2 forcé(s) (nine9_90_degres, outil_a_chambrer)"]);
   // Publique : GET /api/tables?version=… rend la version complétée ; inconnue → 404.
   const publique = await serveur.appel('GET', '/api/tables?version=A2026_r0');
   assert.deepEqual([publique.status, publique.corps.tables.id, publique.corps.tables.materiaux.classes_iso[0].code, publique.corps.tables.materiaux.materiaux_outil.length], [200, 'A2026_r0', 'P', 3]);
@@ -291,7 +292,11 @@ test('export et import : les versions des tables, le brouillon des tables et la 
   assert.equal((await cible.editeur('GET', `exercice?id=${M10}`)).corps.exercice.tables_id, 'A2026_r1');
   const { corps: reexporte } = await cible.editeur('GET', 'export');
   const sansDates = ({ exporte_le, ...rest }) => rest;
-  assert.deepEqual(sansDates(reexporte), sansDates(exporte));
+  // D83 : la banque de la source a fait son passage aux facteurs de vitesse (A2026_r1 les porte), pas celle de la cible,
+  // neuve : l'import y remplace les 29 outils et met leur contenu d'avant dans l'historique (« import », D79). Le reste
+  // est identique.
+  assert.equal(reexporte.historique_banque.filter((h) => h.action === 'import').length, 29);
+  assert.deepEqual(sansDates({ ...reexporte, historique_banque: reexporte.historique_banque.filter((h) => h.action !== 'import') }), sansDates(exporte));
   // Un export d'avant la partie B : sans brouillon_tables ni tables_id → importé, les exercices sur la version la plus récente.
   const ancien = structuredClone(exporte);
   delete ancien.brouillon_tables;
@@ -406,14 +411,15 @@ test('caractéristiques des classes ISO (D65) : servies avec l’exercice et la 
   const exercice = await serveur.appel('GET', `/api/exercice?exercice=${M10}`);
   assert.deepEqual(exercice.corps.tables.materiaux.classes_iso[1].caracteristiques.map((l) => l.libelle), ['Effort', 'Chaleur', 'Copeaux', 'Problème typique']);
   assert.equal((await serveur.appel('GET', '/api/tables?version=A2026_r0')).corps.tables.materiaux.classes_iso[0].caracteristiques[3].solution, 'respecter la Vc de la table, nuance revêtue');
+  // A2026_r1 d'abord (depuis D83, le brouillon parti de A2026_r0 a toujours ses facteurs de vitesse à publier), puis la retouche.
   const page = await brouillonTables(serveur);
-  const retouche = structuredClone(page.brouillon.contenu);
-  retouche.materiaux.classes_iso[1].caracteristiques[3].solution = 'avance suffisante, arête vive';
-  const refus = await publierTables(serveur, retouche, 'A2026_r1');
-  assert.equal(refus.status, 400, JSON.stringify(refus.corps));
-  assert.match(refus.corps.erreur, /Aucune différence à publier/);
   const publie = await publierTables(serveur, carbureDouble(page.brouillon.contenu), 'A2026_r1');
   assert.equal(publie.status, 200, JSON.stringify(publie.corps));
+  const retouche = structuredClone((await brouillonTables(serveur)).brouillon.contenu);
+  retouche.materiaux.classes_iso[1].caracteristiques[3].solution = 'avance suffisante, arête vive';
+  const refus = await publierTables(serveur, retouche, 'A2026_r2');
+  assert.equal(refus.status, 400, JSON.stringify(refus.corps));
+  assert.match(refus.corps.erreur, /Aucune différence à publier/);
   const exporte = (await serveur.editeur('GET', 'export')).corps;
   assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].caracteristiques[3].solution, 'ne pas frotter, garder avance et profondeur suffisantes');
 });
@@ -422,14 +428,15 @@ test('légende de l’image des classes ISO (D68) : « Chaleur » servie avec l�
   const serveur = await editeurDeTest();
   assert.ok((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.tables.materiaux.classes_iso.every((c) => c.legende_image === 'Chaleur'));
   assert.equal((await serveur.appel('GET', '/api/tables?version=A2026_r0')).corps.tables.materiaux.classes_iso[0].legende_image, 'Chaleur');
+  // A2026_r1 d'abord (D83 : les facteurs de vitesse préremplis), puis la retouche de la légende seule.
   const page = await brouillonTables(serveur);
-  const retouche = structuredClone(page.brouillon.contenu);
+  assert.equal((await publierTables(serveur, carbureDouble(page.brouillon.contenu), 'A2026_r1')).status, 200);
+  const retouche = structuredClone((await brouillonTables(serveur)).brouillon.contenu);
   retouche.materiaux.classes_iso[0].legende_image = 'Où la chaleur se concentre';
   retouche.materiaux.classes_iso[1].legende_image = '';
-  const refus = await publierTables(serveur, retouche, 'A2026_r1');
+  const refus = await publierTables(serveur, retouche, 'A2026_r2');
   assert.equal(refus.status, 400, JSON.stringify(refus.corps));
   assert.match(refus.corps.erreur, /Aucune différence à publier/);
-  assert.equal((await publierTables(serveur, carbureDouble(page.brouillon.contenu), 'A2026_r1')).status, 200);
   const exporte = (await serveur.editeur('GET', 'export')).corps;
   assert.equal(exporte.tables_reference.find((t) => t.id === 'A2026_r1').materiaux.classes_iso[1].legende_image, 'Chaleur');
 });

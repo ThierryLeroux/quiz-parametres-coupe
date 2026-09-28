@@ -12,6 +12,7 @@
 import pkg from '../package.json' with { type: 'json' };
 import { validateData, validateTables } from '../site/js/data.js';
 import { draftErrors, liveTitleRefusal, maskedFields, sameTitleExercises, sameTitleRefusal, titleKey } from '../site/js/exercice.js';
+import { adoptSpeedFactor, adoptSpeedFactors, prefillSpeedFactors, settleSpeedFactors } from '../site/js/facteur-vitesse.js';
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
   ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PURGE_WORD, anonymizedDetails, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader,
@@ -22,7 +23,7 @@ import * as base from './base.js';
 import { assembleDraft, loadExercisePresentation, loadLatest, loadPresentation, loadVersion, tablesOf } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
-  EXPORT_FORMAT, bankImageCheck, cascadeCandidates, cascadePlan, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
+  EXPORT_FORMAT, bankImageCheck, bankPassage, bankPassageSummary, cascadeCandidates, cascadePlan, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
 } from './editeur.js';
 import { bankToolDiff, exerciseTablesImpact } from '../site/js/ui/editeur-data.js';
 import { isTablesId, nextRevision, tablesContent } from '../site/js/tables.js';
@@ -765,7 +766,9 @@ async function editeurExercice(request, env, { now }) {
 }
 
 // POST /api/prof/editeur/exercice/tables — { id, revision, tables_id } : le brouillon passe à cette version des
-// tables (D62), avec le contrôle optimiste ; les erreurs du brouillon contre ces tables sont rendues.
+// tables (D62), avec le contrôle optimiste ; les erreurs du brouillon contre ces tables sont rendues. Si elles portent
+// les facteurs de vitesse, ses copies d'outils font leur passage (D83, point 5 : hérité, ou forcé « à vérifier ») ; si
+// elles ne les portent pas, chaque copie retrouve son facteur propre, celui qu'elle avait avec les tables qu'elle quitte.
 async function editeurExerciceTables(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
@@ -773,9 +776,10 @@ async function editeurExerciceTables(request, env, { now }) {
   if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision du brouillon est requise.');
   const row = isTablesId(body.tables_id) ? await base.findTables(env.DB, body.tables_id) : null;
   if (row === null) throw new HttpError(404, "Cette version des tables de référence n'existe pas.");
-  const saved = await base.setExerciseTables(env.DB, record.id, body.revision, row.id, now.toISOString(), logEntry(teacher, now, 'editeur_tables_exercice', `${record.id} · tables ${record.tables_id ?? '—'} → ${row.id}`));
+  const brouillon = settleSpeedFactors(record.brouillon, tablesOf(row), await exerciseTables(env, record));
+  const saved = await base.replaceDraft(env.DB, record.id, body.revision, brouillon, row.id, now.toISOString(), logEntry(teacher, now, 'editeur_tables_exercice', `${record.id} · tables ${record.tables_id ?? '—'} → ${row.id}`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
-  return json({ change: true, tables_id: row.id, revision: body.revision + 1, erreurs: draftErrors(record.brouillon, tablesOf(row)) });
+  return json({ change: true, tables_id: row.id, revision: body.revision + 1, erreurs: draftErrors(brouillon, tablesOf(row)) });
 }
 
 // POST /api/prof/editeur/exercice/creer — { id, titre } ou { id, depuis: <id d'un exercice> } (dupliquer).
@@ -790,7 +794,8 @@ async function editeurCreer(request, env, { now }) {
     // Une copie d'un exercice publié part de sa présentation en vigueur (D78) : titre, cours, photos et notes.
     const sourceLatest = await base.findLatestVersion(env.DB, source.id);
     const live = sourceLatest === null ? null : (await loadExercisePresentation(env.DB, source.id, sourceLatest.contenu)).contenu;
-    brouillon = structuredClone(applyExercisePresentation(source.brouillon, live));
+    // D83 : jamais d'ancien outil dans un brouillon dont les tables portent les facteurs de vitesse.
+    brouillon = structuredClone(adoptSpeedFactors(applyExercisePresentation(source.brouillon, live), await exerciseTables(env, source)));
     brouillon.titre = typeof body.titre === 'string' && body.titre.trim() !== '' ? body.titre.trim() : `${brouillon.titre} (copie)`;
     details = `${body.id} · dupliqué de ${body.depuis}`;
   } else {
@@ -811,9 +816,12 @@ async function editeurEnregistrer(request, env, { now }) {
   const body = await readBody(request, EDITOR_BODY_MAX);
   const record = await editorExercise(env, body.id);
   if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision du brouillon est requise.');
-  const brouillon = cleanDraft(body.brouillon);
-  if (!Array.isArray(brouillon.outils) || !Array.isArray(brouillon.champs_evalues)) throw new HttpError(400, 'Le brouillon est mal formé.');
+  const received = cleanDraft(body.brouillon);
+  if (!Array.isArray(received.outils) || !Array.isArray(received.champs_evalues)) throw new HttpError(400, 'Le brouillon est mal formé.');
   const tables = await exerciseTables(env, record);
+  // Un ancien outil (un facteur de vitesse sans raison) fait son passage avec les tables du brouillon (D83, point 5) ;
+  // le formulaire d'outil écrit déjà le nouveau format : rien ne change alors.
+  const brouillon = adoptSpeedFactors(received, tables);
   const erreurs = draftErrors(brouillon, tables);
   const saved = await base.saveDraft(env.DB, record.id, body.revision, brouillon, now.toISOString(), logEntry(teacher, now, 'editeur_enregistrement', `${record.id} · révision ${body.revision + 1}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s)` : ''}`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
@@ -952,6 +960,10 @@ async function editeurBanque(request, env, { now }) {
 
 // --- Les tables de référence versionnées (D61, D63) : un brouillon, des versions immuables -------------------------
 
+// Le brouillon des tables tel qu'on le lit (D83, point 2) : complété, et prérempli — une opération sans facteur de vitesse
+// reçoit celui de la table papier. Jamais pour une version publiée : une version d'avant D83 reste sans facteurs.
+const draftTablesOf = (contenu) => prefillSpeedFactors(tablesOf(contenu));
+
 // Les erreurs d'un brouillon de tables : celles des deux tables (validateTables), sans outils ; avec les
 // fiches des images, une image de classe inconnue ou archivée est une erreur (D64) — sauf celle que la présentation en
 // vigueur a déjà pour cette classe : elle n'est pas choisie, et ne bloque ni le brouillon ni la publication (D76, retouche).
@@ -967,7 +979,7 @@ async function editeurTables(request, env, { now }) {
   const draft = await base.findTablesDraft(env.DB);
   const versions = await base.listTablesVersions(env.DB);
   const presentation = await loadPresentation(env.DB);
-  const contenu = tablesOf(draft.contenu);
+  const contenu = draftTablesOf(draft.contenu);
   const base_ = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
   return json({
     brouillon: { contenu, revision: draft.revision, modifie_le: draft.modifie_le, base_id: draft.base_id },
@@ -998,7 +1010,7 @@ async function editeurTablesEnregistrer(request, env, { now }) {
   const contenu = cleanTables(body.contenu);
   if (contenu === null) throw new HttpError(400, 'Le brouillon des tables est mal formé : « materiaux » et « operations » sont attendus.');
   const presentation = (await loadPresentation(env.DB)).contenu;
-  const erreurs = tablesErrors(applyPresentation(contenu, presentation), await base.listImages(env.DB), presentation);
+  const erreurs = tablesErrors(applyPresentation(draftTablesOf(contenu), presentation), await base.listImages(env.DB), presentation);
   const saved = await base.saveTablesDraft(env.DB, body.revision, contenu, now.toISOString(), logEntry(teacher, now, 'editeur_tables_enregistrement', `révision ${body.revision + 1}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s)` : ''}`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findTablesDraft(env.DB)).revision });
   return json({ enregistre: true, revision: body.revision + 1, erreurs });
@@ -1016,7 +1028,7 @@ async function editeurTablesPublier(request, env, { now }) {
   if (body.revision !== draft.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: draft.revision });
   if (!isTablesId(body.id)) throw new HttpError(400, 'La révision des tables doit être faite de lettres, de chiffres, de « _ », « . » ou « - » (ex. « A2026_r1 »).');
   const presentation = (await loadPresentation(env.DB)).contenu;
-  const contenu = applyPresentation(tablesOf(draft.contenu), presentation);
+  const contenu = applyPresentation(draftTablesOf(draft.contenu), presentation);
   contenu.materiaux = { ...contenu.materiaux, revision: body.id };
   contenu.operations = { ...contenu.operations, revision: body.id };
   const erreurs = tablesErrors(contenu, await base.listImages(env.DB), presentation); // une image archivée déjà en vigueur passe, instantané compris
@@ -1025,17 +1037,20 @@ async function editeurTablesPublier(request, env, { now }) {
   if (previous !== null && sameContent(tablesContent(contenu), tablesContent(tablesOf(previous)))) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${previous.id}.`);
   if ((await base.findTables(env.DB, body.id)) !== null) throw new HttpError(409, `La révision « ${body.id} » existe déjà : une version publiée ne se remplace pas.`);
   // La cascade (D77) : les exercices cochés, recalculés ici (jamais crus du navigateur). Chaque version qu'elle publie prend
-  // la présentation en vigueur de son exercice (D78 : un instantané, comme toute version publiée).
-  const { rows, candidates, presentations } = await cascadeFor(env, draft.base_id, contenu);
-  const plan = cascadePlan(candidates, rows, body.cascade);
+  // la présentation en vigueur de son exercice (D78 : un instantané, comme toute version publiée). Avec des tables qui
+  // portent les facteurs de vitesse, les copies d'outils font leur passage (D83 : cascadePlan), et la banque aussi.
+  const { rows, candidates, presentations, bank } = await cascadeFor(env, draft.base_id, contenu);
+  const plan = cascadePlan(candidates, rows, body.cascade, contenu);
   const mention = `cascade de la publication des tables ${body.id}`;
   const cascade = {
     versions: plan.versions.map((v) => ({ ...v, contenu: applyExercisePresentation(v.contenu, presentations.get(v.exercice_id) ?? null), entry: logEntry(teacher, now, 'editeur_publication', `${v.exercice_id} · version ${v.numero} · tables ${body.id} · ${mention}`) })),
-    brouillons: plan.brouillons.map((b) => ({ id: b.id, depuis: b.depuis, entry: logEntry(teacher, now, 'editeur_tables_exercice', `${b.id} · tables ${b.depuis ?? '—'} → ${body.id} · ${mention}`) })),
+    brouillons: plan.brouillons.map((b) => ({ ...b, entry: logEntry(teacher, now, 'editeur_tables_exercice', `${b.id} · tables ${b.depuis ?? '—'} → ${body.id} · ${mention}`) })),
   };
   const summary = candidates.length === 0 ? '' : ` · cascade sur ${candidates.length} exercice(s) proposé(s) : ${plan.versions.length} version(s) publiée(s), ${plan.brouillons.length} brouillon(s) passé(s), ${plan.laisses.length} en erreur laissé(s) tel(s) quel(s)`;
-  const outcome = await base.publishTables(env.DB, { id: body.id, revision: draft.revision, contenu, now: now.toISOString(), cascade, baseBefore: draft.base_id },
-    logEntry(teacher, now, 'editeur_tables_publication', `tables ${body.id}${draft.base_id === null ? '' : ` · depuis ${draft.base_id}`}${summary}`));
+  const passage = bankPassageSummary(bank);
+  const bankSummary = bank.length === 0 ? '' : ` · banque d'outils, passage aux facteurs de vitesse : ${passage.herites.length} outil(s) hérité(s), ${passage.forces.length} forcé(s)${passage.forces.length > 0 ? ` (${passage.forces.map((t) => t.id).join(', ')})` : ''}`;
+  const outcome = await base.publishTables(env.DB, { id: body.id, revision: draft.revision, contenu, now: now.toISOString(), cascade, banque: bank.map((t) => ({ ...t, enseignant: teacher })), baseBefore: draft.base_id },
+    logEntry(teacher, now, 'editeur_tables_publication', `tables ${body.id}${draft.base_id === null ? '' : ` · depuis ${draft.base_id}`}${summary}${bankSummary}`));
   if (outcome === 'revision') throw new HttpError(409, CONFLICT);
   if (outcome === 'id') throw new HttpError(409, `La révision « ${body.id} » existe déjà : une version publiée ne se remplace pas.`);
   if (outcome === 'exercice') throw new HttpError(409, "Un exercice de la cascade vient d'être publié ailleurs : rien n'a été publié. Recharge la page, puis recommence.");
@@ -1044,12 +1059,14 @@ async function editeurTablesPublier(request, env, { now }) {
     id: body.id,
     publiee_le: now.toISOString(),
     cascade: { publies: plan.versions.map((v) => ({ id: v.exercice_id, numero: v.numero })), brouillons: plan.brouillons.map((b) => b.id), laisses: plan.laisses, ignores: plan.ignores },
+    banque: passage,
   });
 }
 
 // Les exercices que la cascade propose (D77, cascadeCandidates) : tous, puisqu'aucun n'est encore sur les nouvelles tables
 // `next` ; cochés par défaut ceux qui sont sur la version remplacée ; ce que ça change pour chacun depuis sa propre version.
-// Chaque exercice publié y est nommé par son titre en vigueur (D78) ; `presentations` : les présentations en vigueur.
+// Chaque exercice publié y est nommé par son titre en vigueur (D78) ; `presentations` : les présentations en vigueur ;
+// `bank` : les outils de la banque qui feraient leur passage aux facteurs de vitesse de ces tables (D83, bankPassage).
 async function cascadeFor(env, replacedId, next) {
   const versions = await base.listTables(env.DB);
   const tablesById = new Map(versions.map((row) => [row.id, tablesOf(row)]));
@@ -1057,7 +1074,7 @@ async function cascadeFor(env, replacedId, next) {
   const presentations = await livePresentations(env, listed);
   const rows = listed.map((row) => (presentations.has(row.id) ? { ...row, titre_en_vigueur: presentations.get(row.id).titre } : row));
   const candidates = cascadeCandidates(rows, { replacedId, tablesById, latestId: versions.at(-1)?.id ?? null, next }, { draftErrorsOf: draftErrors, impactOf: exerciseTablesImpact });
-  return { rows, candidates, presentations };
+  return { rows, candidates, presentations, bank: bankPassage(await base.listBankTools(env.DB), next) };
 }
 
 // GET /api/prof/editeur/tables/cascade — ce que la publication du brouillon des tables (tel qu'enregistré) proposerait en
@@ -1067,9 +1084,9 @@ async function cascadeFor(env, replacedId, next) {
 async function editeurTablesCascade(request, env, { now }) {
   await requireAdmin(request, env, now);
   const draft = await base.findTablesDraft(env.DB);
-  const next = applyPresentation(tablesOf(draft.contenu), (await loadPresentation(env.DB)).contenu);
-  const { candidates } = await cascadeFor(env, draft.base_id, next);
-  return json({ remplacee: draft.base_id, candidats: candidates });
+  const next = applyPresentation(draftTablesOf(draft.contenu), (await loadPresentation(env.DB)).contenu);
+  const { candidates, bank } = await cascadeFor(env, draft.base_id, next);
+  return json({ remplacee: draft.base_id, candidats: candidates, banque: bankPassageSummary(bank) });
 }
 
 // --- Reprendre une version, annuler les modifications (D75, point 6 ; D77) ---------------------------------------------
@@ -1077,9 +1094,10 @@ async function editeurTablesCascade(request, env, { now }) {
 // Le brouillon des tables qui reprend les VALEURS d'une version : la présentation n'est pas reprise — pour une clé que la
 // présentation en vigueur connaît, le brouillon prend la sienne (applyPresentation), si bien que l'encadré des retouches
 // en attente ne s'allume pas à tort ; elle se rétablit par son propre historique.
+// Une version d'avant D83, sans facteurs de vitesse, donne un brouillon prérempli d'après la table papier (D83, point 2).
 async function tablesDraftFrom(env, row) {
   const presentation = (await loadPresentation(env.DB)).contenu;
-  const { materiaux, operations } = applyPresentation(tablesOf(row), presentation);
+  const { materiaux, operations } = applyPresentation(draftTablesOf(row), presentation);
   return { materiaux, operations };
 }
 
@@ -1109,7 +1127,8 @@ async function editeurTablesAnnuler(request, env, { now }) {
   const draft = await base.findTablesDraft(env.DB);
   if (body.revision !== draft.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: draft.revision });
   const latest = await base.findLatestTables(env.DB);
-  if (sameContent(tablesContent(tablesOf(draft.contenu)), tablesContent(tablesOf(latest)))) return json({ annule: false, id: latest.id, revision: draft.revision });
+  // Le brouillon se lit prérempli (D83) : il est « à jour » quand il ne diffère de la dernière version que par là.
+  if (sameContent(tablesContent(draftTablesOf(draft.contenu)), tablesContent(draftTablesOf(latest)))) return json({ annule: false, id: latest.id, revision: draft.revision });
   const saved = await base.replaceTablesDraft(env.DB, draft.revision, await tablesDraftFrom(env, latest), latest.id, now.toISOString(), logEntry(teacher, now, 'editeur_tables_annulation', `brouillon ramené à ${latest.id}`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findTablesDraft(env.DB)).revision });
   return json({ annule: true, id: latest.id, revision: draft.revision + 1 });
@@ -1126,7 +1145,8 @@ async function editeurReprendre(request, env, { now }) {
   const version = Number.isInteger(body.numero) ? await base.findVersion(env.DB, record.id, body.numero) : null;
   if (version === null) throw new HttpError(404, "Cette version de l'exercice n'existe pas.");
   const tables = await exerciseTables(env, record);
-  const brouillon = cleanDraft(structuredClone(version.contenu));
+  // Le contenu d'une version d'avant D83, repris sur des tables qui portent les facteurs : ses copies font leur passage (D83).
+  const brouillon = adoptSpeedFactors(cleanDraft(structuredClone(version.contenu)), tables);
   const saved = await base.replaceDraft(env.DB, record.id, record.revision, brouillon, tables.id, now.toISOString(), logEntry(teacher, now, 'editeur_reprise', `${record.id} · version ${version.numero} reprise dans le brouillon · tables ${tables.id} gardées`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
   return json({ repris: true, numero: version.numero, revision: record.revision + 1, tables_id: tables.id, erreurs: draftErrors(brouillon, tables) });
@@ -1158,7 +1178,7 @@ async function editeurTablesApercu(request, env, { now, random }) {
   const contenu = cleanTables(body.contenu);
   if (contenu === null) throw new HttpError(400, 'Le brouillon des tables est mal formé.');
   const presentation = (await loadPresentation(env.DB)).contenu;
-  const tables = applyPresentation(tablesOf(contenu), presentation); // ce que la publication prendrait (D76)
+  const tables = applyPresentation(draftTablesOf(contenu), presentation); // ce que la publication prendrait (D76, D83)
   const erreursTables = tablesErrors(tables, await base.listImages(env.DB), presentation);
   if (erreursTables.length > 0) throw new HttpError(400, "Le brouillon des tables a des erreurs : corrige-les avant l'aperçu.", { erreurs: erreursTables });
   const erreurs = draftErrors(record.brouillon, tables);
@@ -1451,10 +1471,12 @@ async function editeurBanqueEnregistrer(request, env, { now }) {
   const record = await bankTool(env, body.id);
   if (!Number.isInteger(body.revision)) throw new HttpError(400, "La révision de l'outil est requise.");
   if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
-  const outil = { ...cleanTool(body.outil), id: record.id };
+  const tables = await latestTables(env);
+  // Un ancien outil (un facteur de vitesse sans raison) fait son passage avec les tables d'aujourd'hui (D83, point 5).
+  const outil = adoptSpeedFactor({ ...cleanTool(body.outil), id: record.id }, tables.operations.operations.find((op) => op.operation === body.outil?.operation));
   const photo = bankImageCheck(outil, record.outil, await base.listImages(env.DB));
   if (photo.erreurs.length > 0) throw new HttpError(400, `${photo.erreurs.join(' ')} Rien n'a été enregistré.`, { erreurs: photo.erreurs.map((message) => ({ champ: 'image', message })) });
-  const erreurs = bankToolErrors(outil, await latestTables(env));
+  const erreurs = bankToolErrors(outil, tables);
   if (sameContent(outil, record.outil)) return json({ enregistre: false, inchange: true, revision: record.revision, erreurs, lignes: [], avertissements: photo.avertissements });
   const lignes = bankToolDiff(record.outil, outil);
   await replaceBankTool(env, record, { revision: body.revision, outil, action: 'enregistrement', teacher, now, journal: 'editeur_banque_enregistrement',
@@ -1657,7 +1679,7 @@ async function planImport(env, received) {
   const overlay = exported !== null && typeof exported === 'object' && !Array.isArray(exported) ? currentPresentation(exported, current.latest) : current.contenu;
   return importPlan(received, existing, {
     tablesErrors: (t) => validateTables({ materiaux: t.materiaux, operations: t.operations }),
-    draftTablesErrors: (t) => validateTables(applyPresentation({ materiaux: t.materiaux, operations: t.operations }, overlay), { images: [...images.values()], presentation: overlay }),
+    draftTablesErrors: (t) => validateTables(applyPresentation(draftTablesOf(t), overlay), { images: [...images.values()], presentation: overlay }),
     draftErrorsOf: (contenu, tables) => draftErrors(contenu, tablesOf(tables)),
     latestTablesId: (await base.findLatestTables(env.DB)).id,
     // La présentation de l'export et son historique (D76) : la forme et la liste blanche, et des images qui existeront ;

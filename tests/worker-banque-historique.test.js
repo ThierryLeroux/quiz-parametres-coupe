@@ -129,8 +129,13 @@ test('contenu ancien devenu invalide : une matière d’outil renommée dans les
   assert.equal((await serveur.editeur('POST', 'tables/publier', { revision: enregistre.corps.revision, id: 'A2026_r1', cascade: [] })).status, 200);
   const page = await outil(serveur, 'foret_fractionnaire');
   assert.deepEqual(page.erreurs, []);
-  assert.ok(page.historique[0].erreurs.length > 0 && page.historique[0].erreurs.every((m) => /Acier rapide/.test(m)), page.historique[0].erreurs.join('\n'));
-  const retabli = await serveur.editeur('POST', 'banque/retablir', { id: 'foret_fractionnaire', revision: page.outil.revision, historique: page.historique[0].id });
+  // Le contenu de départ est le plus ancien de l'historique : depuis D83, la publication de tables qui portent les
+  // facteurs de vitesse y a ajouté le contenu d'avant le passage de l'outil (il hérite désormais de son opération).
+  assert.equal(page.historique.length, 2);
+  assert.deepEqual([page.historique[0].action, page.historique[0].lignes, page.historique[0].erreurs], ['enregistrement', ["Facteur de vitesse : « hérité de l'opération » → « × 1 »"], []]);
+  const depart = page.historique.at(-1);
+  assert.ok(depart.erreurs.length > 0 && depart.erreurs.every((m) => /Acier rapide/.test(m)), depart.erreurs.join('\n'));
+  const retabli = await serveur.editeur('POST', 'banque/retablir', { id: 'foret_fractionnaire', revision: page.outil.revision, historique: depart.id });
   assert.equal(retabli.status, 200, JSON.stringify(retabli.corps));
   assert.ok(retabli.corps.erreurs.length > 0 && retabli.corps.erreurs.every((e) => /Acier rapide/.test(e.message)));
   const apres = await outil(serveur, 'foret_fractionnaire');

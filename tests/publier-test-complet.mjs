@@ -20,6 +20,7 @@ import * as base from '../worker/base.js';
 import { tablesOf } from '../worker/catalogue.js';
 import { sameContent } from '../worker/editeur.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
+import { adoptSpeedFactors } from '../site/js/facteur-vitesse.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const ID = 'test-complet';
@@ -31,7 +32,8 @@ const JOURNAL = 'script local (npm run publier:test-complet)';
 export async function publishTestComplet(db, fichier, now) {
   const row = await base.findLatestTables(db);
   const tables = { id: row.id, ...tablesOf(row) };
-  const brouillon = draftFromExercise(fichier, (await base.listBankTools(db)).map((tool) => tool.outil));
+  // Avec des tables qui portent les facteurs de vitesse, les copies font leur passage (D83), comme dans la Gestion du contenu.
+  const brouillon = adoptSpeedFactors(draftFromExercise(fichier, (await base.listBankTools(db)).map((tool) => tool.outil)), tables);
   const erreurs = draftErrors(brouillon, tables);
   if (erreurs.length > 0) throw new Error(`test-complet a ${erreurs.length} erreur(s) avec la banque et les tables « ${tables.id} » de la base locale :\n${erreurs.map((e) => `  ${e.champ} : ${e.message}`).join('\n')}`);
 

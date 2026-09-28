@@ -5,6 +5,7 @@
 
 import { computeParameters } from '../site/js/calcul.js';
 import { TOOL_KEYS } from '../site/js/data.js';
+import { adoptSpeedFactor, adoptSpeedFactors, forcedFactorLine } from '../site/js/facteur-vitesse.js';
 import { DRAFT_KEYS, draftErrors, fieldsToGrade, maskedFields } from '../site/js/exercice.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools } from '../site/js/progression.js';
@@ -143,22 +144,58 @@ export function cascadeCandidates(rows, { replacedId, tablesById, latestId, next
 }
 
 // Ce que la cascade fait des exercices cochés (D77) : { versions: [{ exercice_id, numero, contenu }], brouillons: [{ id,
-// depuis }], laisses, ignores }. Pour chaque coché, son contenu publié passe aux nouvelles tables (une version suivante),
-// et son brouillon aussi, chacun de son côté ; un exercice en erreur est laissé tel quel, coché ou non (laisses les nomme
-// tous, avec leurs erreurs) ; un identifiant inconnu est ignoré ; un exercice décoché n'est pas touché, brouillon compris.
+// depuis, revision, brouillon }], laisses, ignores }. Pour chaque coché, son contenu publié passe aux nouvelles tables
+// (une version suivante), et son brouillon aussi, chacun de son côté ; un exercice en erreur est laissé tel quel, coché
+// ou non (laisses les nomme tous, avec leurs erreurs) ; un identifiant inconnu est ignoré ; un exercice décoché n'est
+// pas touché, brouillon compris. Avec des tables qui portent les facteurs de vitesse (D83, point 5), chaque copie
+// d'outil fait son passage, dans le contenu publié comme dans le brouillon (adoptSpeedFactors) : un facteur égal à
+// celui de son opération devient hérité, un facteur différent devient forcé — rien d'autre ne change.
 //   candidates : cascadeCandidates ; rows : les mêmes lignes (le contenu publié) ; checked : les identifiants cochés
-export function cascadePlan(candidates, rows, checked) {
+//   next : les nouvelles tables (sans elles, aucun passage : les contenus sont rendus tels quels)
+export function cascadePlan(candidates, rows, checked, next = null) {
   const byId = new Map(candidates.map((c) => [c.id, c]));
   const plan = { versions: [], brouillons: [], laisses: candidates.filter((c) => c.en_erreur).map(({ id, titre, erreurs }) => ({ id, titre, erreurs })), ignores: [] };
   for (const id of [...new Set(Array.isArray(checked) ? checked : [])]) {
     const c = byId.get(id);
     if (c === undefined) { plan.ignores.push(id); continue; }
     if (c.en_erreur) continue;
-    if (c.publication !== null) plan.versions.push({ exercice_id: id, numero: c.publication.numero, contenu: rows.find((row) => row.id === id).contenu_publie });
-    plan.brouillons.push({ id, depuis: c.brouillon.depuis });
+    const row = rows.find((entry) => entry.id === id);
+    if (c.publication !== null) plan.versions.push({ exercice_id: id, numero: c.publication.numero, contenu: adoptSpeedFactors(row.contenu_publie, next) });
+    plan.brouillons.push({ id, depuis: c.brouillon.depuis, revision: row.revision, brouillon: adoptSpeedFactors(row.brouillon, next) });
   }
   return plan;
 }
+
+// --- Le passage de la banque d'outils (D83, point 5) ------------------------------------------------------------------
+// La banque n'a pas de version : elle se lit avec les tables les plus récentes. Quand des tables qui portent les
+// facteurs de vitesse sont publiées, chaque ancien outil de la banque (un `fact_vc` sans raison) fait son passage, une
+// fois pour toutes : hérité s'il est égal au facteur de son opération — il suivra ensuite sa table —, forcé sinon, avec
+// la raison « à vérifier ». Retourne les outils qui changent : [{ id, nom, revision, outil, avant, force, ligne }] —
+// `avant` : le contenu remplacé, pour l'historique (D79) ; `ligne` : un outil forcé, nommé (null pour un outil hérité).
+//   rows : base.listBankTools (archivés compris : ils peuvent être rétablis) ; next : les nouvelles tables
+export function bankPassage(rows, next) {
+  const byName = new Map((Array.isArray(next?.operations?.operations) ? next.operations.operations : []).filter(isObject).map((op) => [op.operation, op]));
+  const changed = [];
+  for (const row of rows) {
+    const operation = byName.get(row.outil?.operation);
+    const outil = adoptSpeedFactor(row.outil, operation);
+    if (outil === row.outil) continue;
+    const force = outil.fact_vc !== undefined;
+    changed.push({
+      id: row.id, nom: outil.nom, revision: row.revision, outil, force,
+      avant: { contenu: row.outil, enregistre_le: row.modifie_le ?? null, enregistre_par: row.modifie_par ?? null },
+      ligne: force ? forcedFactorLine(outil, operation) : null,
+    });
+  }
+  return changed;
+}
+
+// Le passage de la banque, en résumé : ce que la confirmation de publication des tables annonce, et ce que sa réponse
+// rend — { herites: [identifiants], forces: [{ id, nom, ligne }] }.
+export const bankPassageSummary = (changed) => ({
+  herites: changed.filter((c) => !c.force).map((c) => c.id),
+  forces: changed.filter((c) => c.force).map(({ id, nom, ligne }) => ({ id, nom, ligne })),
+});
 
 // --- Import par fusion (D49) ----------------------------------------------------------------------------------
 // Un export est relu et comparé à ce que la base contient. Règle : rien n'est jamais supprimé, et
@@ -238,7 +275,10 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
     if (!isObject(b) || !isToolId(b.id) || !isObject(b.outil) || b.outil.id !== b.id) return erreurs.push(`Banque, entrée ${i + 1} : identifiant ou outil illisible.`);
     if (bankIds.has(b.id)) return erreurs.push(`Banque : l'outil « ${b.id} » est en double.`);
     bankIds.add(b.id);
-    plan.banque.push({ id: b.id, outil: cleanTool(b.outil), rang: Number.isInteger(b.rang) ? b.rang : i + 1, archive_le: typeof b.archive_le === 'string' ? b.archive_le : null });
+    // Un outil d'un export d'avant D83 fait son passage avec les tables les plus récentes (D83, point 5) : restaurer une
+    // vieille sauvegarde ne ramène pas d'anciens outils dans une banque qui a fait le sien.
+    const outil = adoptSpeedFactor(cleanTool(b.outil), operationOf(tablesById.get(newestTablesId), b.outil.operation));
+    plan.banque.push({ id: b.id, outil, rang: Number.isInteger(b.rang) ? b.rang : i + 1, archive_le: typeof b.archive_le === 'string' ? b.archive_le : null });
   });
   // Ce que l'import fait de chaque outil (D79) : un outil inchangé garde sa ligne ; un outil modifié ou retiré met son contenu
   // actuel dans l'historique (« import »), pour qu'une restauration se défasse outil par outil.
@@ -268,7 +308,6 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
   const existingById = new Map(existing.exercices.map((e) => [e.id, e]));
   for (const e of exercices) {
     if (!isObject(e) || !isExerciseId(e.id)) { erreurs.push('Exercices : une entrée sans identifiant valide.'); continue; }
-    const brouillon = cleanDraft(e.brouillon);
     const known = existingById.get(e.id);
     const versions = Array.isArray(e.versions) ? e.versions : [];
     for (const v of versions) {
@@ -287,6 +326,8 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
       if (isText(e.tables_id) && tablesById.has(e.tables_id)) tablesId = e.tables_id;
       else erreurs.push(`Exercice « ${e.id} » : tables de référence « ${e.tables_id} » inconnues.`);
     }
+    // Le brouillon fait son passage avec ses tables (D83, point 5) ; une version publiée, immuable, n'est pas touchée.
+    const brouillon = adoptSpeedFactors(cleanDraft(e.brouillon), tablesById.get(tablesId) ?? null);
     const entry = { id: e.id, brouillon, tables_id: tablesId, archive_le: typeof e.archive_le === 'string' ? e.archive_le : null, cree_le: typeof e.cree_le === 'string' ? e.cree_le : null, publie_le: typeof e.publie_le === 'string' ? e.publie_le : null };
     if (known === undefined) plan.exercices_ajoutes.push(entry);
     else plan.exercices_remplaces.push(entry);
@@ -323,6 +364,9 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
   };
   return { erreurs, plan, resume };
 }
+
+// L'opération d'un nom dans une version de tables ({ operations: { operations } }), ou undefined.
+const operationOf = (tables, name) => (Array.isArray(tables?.operations?.operations) ? tables.operations.operations : []).find((op) => isObject(op) && op.operation === name);
 
 // Ce qui a remplacé un contenu de l'historique de la banque (migration 0012).
 const BANK_HISTORY_ACTIONS = ['enregistrement', 'retablissement', 'import'];
