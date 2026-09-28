@@ -2246,7 +2246,7 @@ publiée, sinon à la main.
    publication normale, avec le résumé.
 8. **« Annuler les modifications »** ramène un brouillon à sa dernière version publiée : pour un exercice, son contenu
    **et** sa version de tables ; pour les tables, la dernière version publiée (présentation comme au point 6). **Inactif
-   quand le brouillon est à jour** (le serveur refuse aussi, 400) ; un exercice jamais publié n'a rien à annuler.
+   quand le brouillon est à jour** ; si le brouillon enregistré l'est déjà (l'écran n'avait que des modifications non enregistrées), le serveur n'écrit ni ne journalise rien et l'écran se recharge. Un exercice jamais publié n'a rien à annuler (400).
 9. **Pour les points 6 à 8** : si le brouillon a des modifications non publiées — enregistrées ou seulement à l'écran —,
    **une confirmation les liste et dit qu'elles seront perdues** (pour « Reprendre » un exercice, son contenu seulement,
    puisque sa version de tables est gardée ; pour les tables, les différences de valeurs et les retouches de
