@@ -317,12 +317,21 @@ suite, pour tous les étudiants** (séances en cours comprises, dès que leur pa
 ni les valeurs, ni la correction, ni les attestations ne bougent). Chaque contenu remplacé va à
 l'**Historique**, et **Rétablir** le remet en un clic. Dessous, **Valeurs — brouillon à publier** :
 les vitesses de coupe, les avances, les matériaux, les opérations, les noms des matières d'outil
-— un seul brouillon, qu'on **publie** sous une révision (« A2026_r1 » est suggérée). Publier une version des tables **ne change aucun exercice** : chaque
-exercice a sa version de tables, et sa page dit quand une plus récente existe
-(**Passer à A2026_r1…** montre d'abord ce que ça change pour lui, puis c'est sa
-prochaine publication qui prend ces tables). Les séances commencées gardent les valeurs
-de leurs tables jusqu'à la fin (la présentation, elle, est toujours celle en vigueur). « Feuilles imprimables », dans la liste des versions, ouvre les
-trois feuilles d'une version (`/tables?version=A2026_r1`), prêtes pour l'atelier.
+— un seul brouillon, qu'on **publie** sous une révision (« A2026_r1 » est suggérée). **Publier
+propose la cascade** (D77), dans la même confirmation, sous le résumé des différences (relis-le :
+une faute de frappe partirait partout) : chaque exercice sur la version remplacée, coché par défaut,
+avec ce que ça change pour lui, reçoit une version suivante — son dernier contenu publié avec les
+nouvelles tables, jamais son brouillon, qui suit sans rien perdre. Décoche un exercice pour le laisser
+tel quel ; un exercice en erreur avec les nouvelles tables est nommé et laissé tel quel. Une correction
+de Vc ne coûte donc qu'un geste. La page d'un exercice dit toujours quand une version plus récente
+existe (**Passer à A2026_r1…**, pour un exercice qu'on a laissé de côté). Les séances commencées
+gardent les valeurs de leurs tables jusqu'à la fin (la présentation, elle, est toujours celle en
+vigueur). « Feuilles imprimables », dans la liste des versions, ouvre les trois feuilles d'une version
+(`/tables?version=A2026_r1`), prêtes pour l'atelier. **Revenir en arrière** (D77) : **Reprendre cette
+version**, dans la liste des versions des tables ou d'un exercice, remet une version publiée dans le
+brouillon (les valeurs pour des tables ; le contenu, avec ses tables actuelles, pour un exercice) —
+il reste à la publier ; **Annuler les modifications** ramène un brouillon à sa dernière version
+publiée. Ce qui serait perdu est listé d'abord.
 
 Les **images** (onglet **Images**, décision D56) : les photos d'outils et les pictogrammes
 d'opérations sont dans la base, et c'est là qu'on en ajoute — depuis le formulaire d'un
