@@ -225,7 +225,8 @@ Rapport de session : `docs/rapports/e5-2-cascade-retour.md`.
 - [x] Les images nommées par le brouillon des tables comptent comme utilisées
 - [x] Tests (cascade, brouillons, décochés, erreurs, archivés, jamais publiés, titres en double, journal, séance en cours, reprendre, annuler, images, 409) ; `test:api` ; passe dans Chrome
 - [x] Documents : D77 ; SPEC §7, §10 ; UI §3.9 ; DEMARRAGE ; CLAUDE.md
-- [ ] **Thierry** : trancher les points du rapport ; fusionner
+- [x] Points du rapport tranchés par Thierry ; **retouche** (D77) : une seule liste de tout ce qui n'est pas à jour (cochés par défaut ceux sur la version remplacée, décochés ceux sur une plus ancienne, impact depuis leur propre version) ; pour un coché, contenu publié et brouillon passent chacun de son côté ; les laissés en erreur nommés avec leurs erreurs ; tests et Chrome
+- [ ] **Thierry** : fusionner
 
 ### Jalon E5-3 — la présentation des exercices en direct
 - [ ] Titre, cours, « À l'accueil », photo et note des copies d'outils en direct ; l'attestation inscrit le titre affiché à la réussite ; la règle du titre en double (D74) suit le titre

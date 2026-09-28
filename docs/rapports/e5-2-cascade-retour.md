@@ -145,10 +145,11 @@ exemple, de l'image d'une classe nouvelle, pas encore publiée.
 
 1. **Seuls les exercices sur la version remplacée sont proposés.** Un exercice resté sur une version plus ancienne (par
    exemple, sur A2026_r0 quand tu publies A2026_r2 depuis A2026_r1) n'est pas proposé ; sa page garde l'avis « Passer à
-   … ». Faut-il proposer tous les exercices qui ne sont pas sur la dernière version ?
+   … ». Faut-il proposer tous les exercices qui ne sont pas sur la dernière version ? *Tranché : oui, décochés par
+   défaut (§8).*
 2. **Publié sur la version remplacée, brouillon ailleurs** (ou l'inverse) : la cascade publie sans toucher au
    brouillon, ou fait passer le brouillon sans publier. Un cas rare (un brouillon passé à la main sur d'autres
-   tables). D'accord ?
+   tables). D'accord ? *Tranché : les deux passent, chacun de son côté (§8).*
 3. **Un exercice en erreur est laissé entièrement tel quel**, brouillon compris ; il faut le corriger, puis y passer
    depuis sa page. L'autre voie : faire quand même passer son brouillon, pour que ses erreurs s'affichent sur sa page.
 4. **Un brouillon qui passe peut gagner des erreurs** (un exercice jamais publié, ou un brouillon modifié qui nomme ce
@@ -162,8 +163,7 @@ exemple, de l'image d'une classe nouvelle, pas encore publiée.
 ## 6. Observations en passant
 
 - **Un exercice dont le brouillon n'a pas de version de tables** ne peut venir que d'une base d'avant la migration
-  `0008` ou d'un test ; il suit la plus récente. La cascade peut le publier, mais ne « fait pas passer » son brouillon
-  (il n'est sur aucune version).
+  `0008` ou d'un test ; il suit la plus récente. *Depuis la retouche, la cascade fait aussi passer son brouillon.*
 - **La publication des tables écrivait le brouillon avant le lot.** Si le lot échouait (révision déjà prise, conflit),
   le brouillon restait sans version de départ. Il la retrouve désormais.
 
@@ -172,3 +172,67 @@ exemple, de l'image d'une classe nouvelle, pas encore publiée.
 - **E5-3** : la présentation des exercices en direct (titre, cours, « À l'accueil », photo et note des copies) ;
   l'attestation inscrira le titre affiché à la réussite.
 - **E5-4** : l'historique de la banque d'outils.
+
+## 8. Retouche (réponses au rapport, même branche)
+
+> **Correction des séances en cours : toujours aucun changement.** La retouche ne touche que ce que la cascade
+> propose et fait, dans la Gestion du contenu.
+
+**Tes réponses.** Les points 3 à 6 sont acceptés tels quels :
+
+- un exercice en erreur reste entièrement tel quel ;
+- un brouillon qui passe peut gagner des erreurs, dites en rouge ;
+- « Annuler » les tables ramène à la dernière version publiée ;
+- « Reprendre cette version » est offert partout.
+
+Les points 1 et 2 deviennent la retouche. Tout est consigné à la fin de **D77**, dont les points 2 et 3 y renvoient.
+
+**Une seule liste de tout ce qui n'est pas à jour.** La confirmation propose désormais **tous les exercices** : aucun
+n'est encore sur la version qu'on publie. Elle les répartit en deux groupes :
+
+- **« Sur A2026_r1, la version remplacée — cochés par défaut »** ;
+- **« Sur une version plus ancienne — décochés par défaut : ils ont pu être laissés de côté exprès »**. Chaque exercice
+  de ce groupe porte l'étiquette « sur A2026_r0 ».
+
+Un exercice est « sur » la version de sa dernière version publiée ; pour un exercice jamais publié, sur celle de son
+brouillon. **Ce que ça change pour lui** se calcule **depuis sa propre version**. Par exemple, pour une Vc corrigée deux
+fois, le M10 (sur A2026_r1) montre « 410 → 420 » et « Vc et RPM » (resté sur A2026_r0) montre « 400 → 420 ». Un
+exercice laissé de côté une fois reste donc dans la vue aux publications suivantes. Un exercice en erreur aussi :
+décoché, puisqu'il est désormais sur une version plus ancienne, et toujours nommé avec ses erreurs.
+
+**Pour un exercice coché, chacun de son côté.** Son **contenu publié** passe aux nouvelles tables : une version suivante,
+faite de son dernier contenu publié. Son **brouillon** passe aussi, d'où qu'il parte. Le cas « publié sur une version,
+brouillon sur une autre » est réglé : les deux passent. La ligne du journal dit d'où part le brouillon : « tables
+A2026_r0 → A2026_r2 ». Un brouillon sans version de tables passe aussi (« tables — → A2026_r1 »).
+
+**Le message** qui suit la publication nomme les exercices laissés en erreur **avec leurs erreurs**, et rappelle qu'ils
+restent proposés aux cascades suivantes.
+
+**Un défaut trouvé dans Chrome, corrigé.** En passant aux deux groupes, les lignes de la liste étaient construites au
+moment d'afficher, après le calcul du libellé du bouton et après les écouteurs des cases. Le bouton disait donc
+« Publier A2026_r1 » sans le nombre d'exercices, et ne suivait plus les cases. L'envoi, lui, était juste : il lit les
+cases au clic. Les lignes sont maintenant construites avant.
+
+**Tests (ton point 7).**
+
+- **`npm test` : 649 réussis, 0 échec** (648 avant). Ajoutés ou réécrits :
+  - **un exercice resté sur une version plus ancienne est proposé décoché, avec son impact depuis sa version** ;
+  - **coché, son contenu publié et son brouillon passent** ;
+  - **publié sur une version et brouillon sur une autre, les deux passent** (journal compris) ;
+  - **le message nomme les exercices laissés en erreur**, avec leurs erreurs ; un exercice en erreur reste proposé
+    à la cascade suivante ;
+  - la règle pure (`cascadeCandidates`, `cascadePlan`), sur sept cas, et les textes de l'écran.
+- **`npm run test:api`** : 33 étapes réussies. L'étape de la cascade vérifie aussi que « Vc et RPM », resté sur
+  A2026_r0, est proposé décoché.
+- **Chrome** : 22 vérifications réussies ; aucune exception, aucune requête externe, seul le 401 attendu avant
+  connexion.
+  - À la première publication, « Vc et RPM » est décoché : le bouton passe à « (1 exercice) », et seul le M10 est
+    publié.
+  - À la republication, les deux groupes s'affichent : le M10 coché, « Vc et RPM » décoché, étiqueté « sur
+    A2026_r0 », avec son impact depuis A2026_r0.
+  - Coché, « Vc et RPM » est publié en version 2 sur A2026_r2 avec le M10.
+  - Le reste de la passe est inchangé : les Vc lues par les séances, l'annulation et la reprise d'un exercice.
+
+  Les captures sont dans `captures/e5-2-cascade-retour-retouche/` (hors dépôt).
+
+**Plus rien à trancher pour E5-2.**

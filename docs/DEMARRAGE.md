@@ -319,12 +319,14 @@ l'**Historique**, et **Rétablir** le remet en un clic. Dessous, **Valeurs — b
 les vitesses de coupe, les avances, les matériaux, les opérations, les noms des matières d'outil
 — un seul brouillon, qu'on **publie** sous une révision (« A2026_r1 » est suggérée). **Publier
 propose la cascade** (D77), dans la même confirmation, sous le résumé des différences (relis-le :
-une faute de frappe partirait partout) : chaque exercice sur la version remplacée, coché par défaut,
-avec ce que ça change pour lui, reçoit une version suivante — son dernier contenu publié avec les
-nouvelles tables, jamais son brouillon, qui suit sans rien perdre. Décoche un exercice pour le laisser
-tel quel ; un exercice en erreur avec les nouvelles tables est nommé et laissé tel quel. Une correction
-de Vc ne coûte donc qu'un geste. La page d'un exercice dit toujours quand une version plus récente
-existe (**Passer à A2026_r1…**, pour un exercice qu'on a laissé de côté). Les séances commencées
+une faute de frappe partirait partout) : une seule liste de tout ce qui n'est pas à jour, avec ce que
+ça change pour chaque exercice depuis sa version — cochés par défaut ceux qui sont sur la version
+remplacée, décochés ceux qu'on a laissés sur une version plus ancienne. Chaque coché reçoit une version
+suivante — son dernier contenu publié avec les nouvelles tables, jamais son brouillon, qui suit sans
+rien perdre. Décoche un exercice pour le laisser tel quel : il reste dans la liste aux publications
+suivantes. Un exercice en erreur avec les nouvelles tables est nommé, avec ses erreurs, et laissé tel
+quel. Une correction de Vc ne coûte donc qu'un geste. La page d'un exercice dit toujours quand une
+version plus récente existe (**Passer à A2026_r1…**). Les séances commencées
 gardent les valeurs de leurs tables jusqu'à la fin (la présentation, elle, est toujours celle en
 vigueur). « Feuilles imprimables », dans la liste des versions, ouvre les trois feuilles d'une version
 (`/tables?version=A2026_r1`), prêtes pour l'atelier. **Revenir en arrière** (D77) : **Reprendre cette

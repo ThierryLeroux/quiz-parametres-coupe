@@ -2205,7 +2205,7 @@ présentation dans une version publiée (point 8). Et une retouche, qui précise
   (`avertissements`). Une classe **nouvelle** du brouillon qui nomme une image archivée la choisit : c'est une erreur.
   La galerie ne propose pas les images archivées (seule celle déjà en place y reste, marquée).
 
-## D77 — E5-2 : la cascade des tables et le retour en arrière des versions (2026-09-27, décidée)
+## D77 — E5-2 : la cascade des tables et le retour en arrière des versions (2026-09-27, décidée ; points 2 et 3 précisés par sa retouche, en fin d'entrée)
 
 **Contexte.** D75, point 6 : une correction de valeurs (une Vc, une avance) coûtait une publication des tables, puis, pour
 chaque exercice, un passage aux nouvelles tables et une publication. Et rien ne permettait de revenir à une version
@@ -2221,6 +2221,7 @@ publiée, sinon à la main.
    elle, et ceux dont le brouillon y est —, **archivés et jamais publiés compris**, **cochés par défaut**, chacun
    décochable, avec ce que la cascade fera pour lui et **ce que ça change pour lui** (`exerciseTablesImpact` de son
    contenu publié, ou de son brouillon s'il n'a jamais été publié ; les erreurs qui apparaîtraient dans son brouillon).
+   *Précisé par la retouche : la liste montre aussi, décochés, les exercices sur une version plus ancienne.*
 3. **Pour chaque exercice coché** :
    - **sa version suivante est son dernier contenu publié avec les nouvelles tables, jamais son brouillon** ; la règle du
      titre en double (D74) ne s'y applique pas : la cascade ne change aucun titre ;
@@ -2230,9 +2231,10 @@ publiée, sinon à la main.
 
    **Un exercice en erreur** avec les nouvelles tables (son contenu publié ne se republierait pas) est **nommé, ne se
    coche pas, et reste tel quel**, brouillon compris. **Un exercice décoché n'est pas touché**, brouillon compris.
+   *Précisé par la retouche : son contenu publié et son brouillon passent chacun de son côté, d'où qu'ils partent.*
 4. **Tout passe ensemble, ou rien** : la version des tables, les versions d'exercice de la cascade, les brouillons qui
    passent et les lignes du journal vont dans **un seul lot**. Le serveur recalcule la liste (il ne croit pas celle du
-   navigateur) : un exercice coché qui n'est plus sur la version remplacée est ignoré, et le résultat le dit.
+   navigateur) : un identifiant coché qu'il ne connaît plus est ignoré, et le résultat le dit.
 5. **Journal** : chaque version de la cascade est une publication ordinaire (`editeur_publication`, « … · cascade de la
    publication des tables A2026_r2 ») ; chaque brouillon qui passe, un passage de tables (`editeur_tables_exercice`,
    même mention) ; la publication des tables résume la cascade (proposés, publiés, brouillons, laissés).
@@ -2269,3 +2271,22 @@ le même lot), `replaceTablesDraft`, `replaceDraft`, `listExercises` (`tables_pu
 cascade de `POST …/tables/publier` (`worker/index.js`) ; `worker/images.js` ; l'onglet Tables et la page d'un exercice
 (`site/js/ui/editeur.js`, `editeur-data.js`) ; SPEC §7, §10 ; UI §3.9 ; PLAN. Rapport :
 `docs/rapports/e5-2-cascade-retour.md`.
+
+**Réponses de Thierry au rapport, et retouche (2026-09-28).** Les points 3 à 6 du rapport sont acceptés : un exercice en
+erreur est laissé entièrement tel quel, brouillon compris ; un brouillon qui passe peut gagner des erreurs (elles sont
+dites en rouge dans la confirmation) ; « Annuler » les tables ramène à la dernière version publiée ; « Reprendre cette
+version » est offert sur toutes les versions, la dernière comprise. Les points 1 et 2 deviennent une retouche, qui précise
+les points 2 et 3 de cette décision :
+
+- **Une seule liste de tout ce qui n'est pas à jour.** La cascade propose aussi les exercices sur une version des tables
+  **plus ancienne** que la version remplacée, mais **décochés par défaut** (ils ont pu être laissés de côté exprès, ou
+  être en erreur), avec **ce que ça change pour chacun depuis sa propre version**. Ceux qui sont sur la version remplacée
+  restent cochés par défaut. Un exercice laissé de côté une fois ne disparaît pas de la vue. « Sur » une version se lit à
+  sa dernière version publiée ; pour un exercice jamais publié, à son brouillon. La confirmation les montre en deux
+  groupes : « Sur A2026_r1, la version remplacée — cochés par défaut » et « Sur une version plus ancienne — décochés par
+  défaut », chaque exercice de celui-ci étiqueté « sur A2026_r0 ».
+- **Pour un exercice coché, chacun de son côté** : son **contenu publié** passe aux nouvelles tables s'il n'y est pas déjà
+  (une version suivante, faite de son dernier contenu publié), et son **brouillon** aussi, d'où qu'il parte — ce qui règle
+  le cas « publié sur une version, brouillon sur une autre ».
+- **Un exercice en erreur** est nommé **avec ses erreurs** dans le message qui suit la publication ; il reste proposé aux
+  cascades suivantes (décoché, puisqu'il est désormais sur une version plus ancienne).
