@@ -638,6 +638,36 @@ try {
     assert.deepEqual(exporte.corps.exercices.find((e) => e.id === M10).presentation.historique.map((h) => h.action), ['application', 'retablissement']);
   });
 
+  // --- Chantier E5, jalon E5-4 : l'historique de la banque et les titres en double (D79), sur la vraie D1 -------------
+
+  await etape('historique de la banque (D79) : un enregistrement garde le contenu remplacé ; 409 ; « Rétablir » le remet ; l’export porte l’historique ; deux titres identiques signalés, plus après un renommage', async () => {
+    const page = await appel('GET', '/api/prof/editeur/banque/outil?id=alesoir', { cookie });
+    assert.deepEqual([page.status, page.corps.historique], [200, []], JSON.stringify(page.corps));
+    const revision = page.corps.outil.revision;
+    const enregistre = await appel('POST', '/api/prof/editeur/banque/enregistrer', { corps: { id: 'alesoir', revision, outil: { ...page.corps.outil.outil, nom: 'Alésoir retouché' } }, cookie });
+    assert.deepEqual([enregistre.status, enregistre.corps.lignes], [200, ['Nom : « Alésoir » → « Alésoir retouché »']], JSON.stringify(enregistre.corps));
+    const historique = (await appel('GET', '/api/prof/editeur/banque/outil?id=alesoir', { cookie })).corps.historique;
+    assert.deepEqual(historique.map((h) => [h.action, h.remplace_par, h.lignes]), [['enregistrement', 'admin', ['Nom : « Alésoir retouché » → « Alésoir »']]]);
+    assert.equal((await appel('POST', '/api/prof/editeur/banque/retablir', { corps: { id: 'alesoir', revision, historique: historique[0].id }, cookie })).status, 409);
+    const retabli = await appel('POST', '/api/prof/editeur/banque/retablir', { corps: { id: 'alesoir', revision: enregistre.corps.revision, historique: historique[0].id }, cookie });
+    assert.equal(retabli.status, 200, JSON.stringify(retabli.corps));
+    const apres = (await appel('GET', '/api/prof/editeur/banque/outil?id=alesoir', { cookie })).corps;
+    assert.deepEqual([apres.outil.outil.nom, apres.historique.map((h) => h.action)], ['Alésoir', ['retablissement', 'enregistrement']]);
+    const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
+    assert.deepEqual(exporte.corps.historique_banque.filter((h) => h.outil_id === 'alesoir').map((h) => h.action), ['enregistrement', 'retablissement']);
+    // Deux titres identiques (un exercice archivé dont un autre prend le titre, puis rétabli) : signalés, sans rien bloquer.
+    const titreRpm = (await appel('GET', `/api/exercice?exercice=${VC_RPM}`)).corps.exercice.titre;
+    const titreM10 = (await appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.titre;
+    assert.equal((await appel('POST', '/api/prof/editeur/exercice/archiver', { corps: { id: VC_RPM, archive: true }, cookie })).status, 200);
+    assert.equal((await appel('POST', '/api/prof/editeur/exercice/renommer', { corps: { id: M10, titre: titreRpm }, cookie })).status, 200);
+    assert.equal((await appel('POST', '/api/prof/editeur/exercice/archiver', { corps: { id: VC_RPM, archive: false }, cookie })).status, 200);
+    const doublons = async () => Object.fromEntries((await appel('GET', '/api/prof/editeur/exercices', { cookie })).corps.exercices.map((e) => [e.id, e.doublons.map((d) => d.id)]));
+    assert.deepEqual(await doublons(), { [M10]: [VC_RPM], [VC_RPM]: [M10] });
+    assert.deepEqual((await appel('GET', `/api/prof/editeur/exercice/presentation?id=${M10}`, { cookie })).corps.doublons.map((d) => d.id), [VC_RPM]);
+    assert.equal((await appel('POST', '/api/prof/editeur/exercice/renommer', { corps: { id: M10, titre: titreM10 }, cookie })).status, 200);
+    assert.deepEqual(await doublons(), { [M10]: [], [VC_RPM]: [] });
+  });
+
   await etape('déconnexion professeur : le cookie est effacé', async () => {
     const deconnexion = await appel('POST', '/api/prof/deconnexion', { cookie });
     assert.deepEqual(deconnexion.corps, { deconnecte: true });
