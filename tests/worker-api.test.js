@@ -212,7 +212,7 @@ test('grandeurs masquées (D52) : « — » sans valeur dans la question, la cor
   const juste = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: 'essai-masque', saisies: { vc: attendues.vc, feedRate: attendues.feedRate } } });
   assert.equal(juste.status, 200, JSON.stringify(juste.corps));
   assert.equal(juste.corps.correction.reussie, true);
-  assert.deepEqual(juste.corps.correction.champs[2], { champ: 'rpm', evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null });
+  assert.deepEqual(juste.corps.correction.champs[2], { champ: 'rpm', evalue: false, masque: true, ok: true, saisie: '', expression: null, attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null });
   assert.deepEqual(fuite(juste.corps), []);
   // Une Vf fausse : le calcul en une ligne cache N et f (« — »), et rien ne fuit.
   serveur.avancer(11 * SECONDE);
@@ -486,7 +486,7 @@ test('correction juste : compteur de l’outil, total, journal, question suivant
   assert.equal(status, 200);
   assert.equal(corps.correction.reussie, true);
   assert.deepEqual(corps.correction.outil, { id: outil, nom: seance.question.outil.nom, avant: 0, apres: 1 });
-  assert.deepEqual(corps.correction.champs[0], { champ: 'vc', evalue: true, ok: true, saisie: bonnes.vc, attendu: bonnes.vc, tolerance: 'exacte', ecart_pct: 0, calcul: null, coherence: null });
+  assert.deepEqual(corps.correction.champs[0], { champ: 'vc', evalue: true, ok: true, saisie: bonnes.vc, expression: null, attendu: bonnes.vc, tolerance: 'exacte', ecart_pct: 0, calcul: null, coherence: null });
   assert.equal(corps.seance.progression.outils.find((o) => o.id === outil).reussites, 1);
   assert.equal(corps.seance.progression.total_reussies, 1);
   assert.notEqual(corps.seance.question, null); // la suivante est déjà tirée et mémorisée
@@ -530,6 +530,48 @@ test('la correction porte sur la question mémorisée, jamais sur ce qu’envoie
   assert.equal(corps.correction.reussie, false);
   assert.equal(corps.seance.progression.total_reussies, 0);
   assert.equal(serveur.journal()[0].question, enBase);
+});
+
+// --- Calculs dans les saisies (D82) ------------------------------------------------------------------------------------
+
+test('POST /api/correction (D82) : des expressions, jugées sur leur nombre ; la correction montre l’expression, le journal garde le texte envoyé, l’attestation la valeur', async () => {
+  const serveur = serveurAvecEssai();
+  const { jeton } = await commencer(serveur, { ...CAMILLE, exercice: ESSAI.id });
+  const bonnes = serveur.bonnesReponses('2412345', ESSAI.id);
+  const { vc, feedPerTooth: fz, feedPerRev: f } = bonnes;
+
+  // Foret Ø 1/4 po, 2 lèvres : N = Vc × 4 / 0.25, f = fz × 2, Vf = N × f, tapées en formules ; fz tapée en nombre.
+  const saisies = { vc, feedPerTooth: fz, rpm: `${vc}*4/0,25`, feedPerRev: `${fz}x2`, feedRate: `(${vc}*4/0.25) × ${f}` };
+  serveur.avancer(11 * SECONDE);
+  const premiere = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: ESSAI.id, saisies } });
+  assert.equal(premiere.status, 200, JSON.stringify(premiere.corps));
+  assert.equal(premiere.corps.correction.reussie, true);
+  const champs = Object.fromEntries(premiere.corps.correction.champs.map((champ) => [champ.champ, champ]));
+  assert.deepEqual(champs.rpm.expression, { texte: `${vc} × 4 / 0.25`, valeur: bonnes.rpm, arrondie: false });
+  assert.deepEqual([champs.rpm.saisie, champs.rpm.ecart_pct], [saisies.rpm, 0]);
+  assert.deepEqual(champs.feedPerRev.expression, { texte: `${fz} × 2`, valeur: String(Number(f)), arrondie: false });
+  assert.equal(champs.feedRate.expression.texte, `(${vc} × 4 / 0.25) × ${f}`);
+  assert.equal(champs.feedPerTooth.expression, null); // un nombre
+  assert.equal(JSON.parse(serveur.journal()[0].reponses).rpm, `${vc}*4/0,25`); // le journal garde le texte envoyé
+
+  // La question suivante (un autre matériau, peut-être) : N avec 12 / π, 4.5 % sous 4 / Ø, dans la tolérance ;
+  // affichée arrondie dans la case (« 1527.8875 » pour Vc 100).
+  const suivantes = serveur.bonnesReponses('2412345', ESSAI.id);
+  const avecPi = { ...suivantes, rpm: `${suivantes.vc}*12/(pi*0.25)`, feedRate: `${suivantes.vc}*12/(pi*0.25)*${suivantes.feedPerRev}` };
+  serveur.avancer(11 * SECONDE);
+  const seconde = await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: ESSAI.id, saisies: avecPi } });
+  assert.equal(seconde.corps.correction.reussie, true, JSON.stringify(seconde.corps.correction.champs));
+  const rpm = seconde.corps.correction.champs[2];
+  const n = Number(suivantes.vc) * 12 / (Math.PI * 0.25);
+  assert.deepEqual([rpm.expression.texte, rpm.expression.arrondie, Number(rpm.expression.valeur).toFixed(2)], [`${suivantes.vc} × 12 / (π × 0.25)`, true, n.toFixed(2)]);
+  assert.ok(rpm.expression.valeur.length <= 9);
+  assert.notEqual(seconde.corps.seance.reussite_le, null); // deux réussites exigées : l'exercice est réussi
+
+  // L'attestation montre la valeur, jamais l'expression.
+  const { corps } = await serveur.appel('GET', `/api/attestation?exercice=${ESSAI.id}`, { jeton });
+  const reponses = corps.attestation.questions.map((question) => question.reponses);
+  assert.deepEqual(reponses.map((r) => r.rpm), [bonnes.rpm, String(Math.round(n))]);
+  assert.ok(reponses.every((r) => Object.values(r).every((valeur) => /^\d+(\.\d+)?$/.test(valeur))), JSON.stringify(reponses));
 });
 
 test('cadence : moins de 10 s après la correction précédente → 429, sans effet sur les compteurs ni sur la question', async () => {

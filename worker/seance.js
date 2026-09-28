@@ -10,6 +10,7 @@ import { computeParameters } from '../site/js/calcul.js';
 import { ANSWER_FIELDS, coherentFeedPerTooth, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
 import { pitchFormula } from '../site/js/data.js';
 import { fieldsToGrade, maskedFields } from '../site/js/exercice.js';
+import { EXPRESSION_MAX_LENGTH, computedText, expressionText, isExpression } from '../site/js/expression.js';
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools, isComplete, recordResult } from '../site/js/progression.js';
 import { generateQuestion } from '../site/js/question.js';
@@ -80,10 +81,19 @@ export function drawQuestion(counters, exercise, data, random) {
 // --- Correction ----------------------------------------------------------------------------------------
 
 // Ne garde des saisies reçues que les cinq champs, en texte court : le reste n'entre ni dans la
-// correction ni dans le journal.
+// correction ni dans le journal. Une saisie de plus de 60 caractères (EXPRESSION_MAX_LENGTH : la case n'en accepte
+// pas davantage) garde ses 60 premiers, suivis de « … » : elle est illisible, et le journal montre ce qui a été envoyé.
+// Avant D82, elle était coupée à 32 caractères sans le dire, ce qui pouvait changer un nombre — et changerait une
+// expression. Les caractères ne sont pas filtrés ici : parseAnswer refuse tout ce qui n'est ni un nombre ni une
+// expression permise (une seule liste, celle d'expression.js).
 export function cleanAnswers(answers) {
   const source = answers !== null && typeof answers === 'object' ? answers : {};
-  return Object.fromEntries(ANSWER_FIELDS.map((field) => [field, typeof source[field] === 'string' ? source[field].trim().slice(0, 32) : '']));
+  const clean = (value) => {
+    if (typeof value !== 'string') return '';
+    const text = value.trim();
+    return text.length > EXPRESSION_MAX_LENGTH ? `${text.slice(0, EXPRESSION_MAX_LENGTH)}…` : text;
+  };
+  return Object.fromEntries(ANSWER_FIELDS.map((field) => [field, clean(source[field])]));
 }
 
 // Corrige la question mémorisée avec les saisies de l'étudiant.
@@ -200,8 +210,16 @@ function calculationLine(field, question, expected, shown, tool, operation) {
   return null;
 }
 
-// La correction, prête à afficher (UI §3.4). Pour chaque champ : juste ou faux, la saisie, la valeur
-// attendue, et — pour un champ évalué — la tolérance en clair, l'écart en % et le calcul en une ligne.
+// Une saisie qui est une expression, pour la correction (D82) : « 4*350/0,75 » → { texte: '4 × 350 / 0.75',
+// valeur: '1866.6667', arrondie: true } — valeur et arrondie comme la case les a montrés (computedText).
+function expressionView(text, value) {
+  const { text: valeur, rounded } = computedText(value);
+  return { texte: expressionText(text), valeur, arrondie: rounded };
+}
+
+// La correction, prête à afficher (UI §3.4). Pour chaque champ : juste ou faux, la saisie (et son expression, D82 ;
+// null si c'est un nombre), la valeur attendue, et — pour un champ évalué — la tolérance en clair, l'écart en % et le
+// calcul en une ligne.
 // Pour Vf, la valeur attendue est N × f AVEC les N et f saisis (cohérence interne, D15), pas la
 // valeur théorique : c'est sur elle que Vf a été jugée. De même pour f, à partir de deux dents, fz × dents — fz
 // saisi et lu, ou fz affiché quand il est fourni (D69, D70) ; sinon la valeur théorique.
@@ -223,7 +241,12 @@ export function correctionView(question, answers, result, before, counters, data
     feedRate: evaluated('feedRate') ? (typed.rpm ?? expected.rpm) * (typed.feedPerRev ?? expected.feedPerRev) : expected.feedRate,
   };
   const displayed = formatParameters(reference);
-  const shown = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, masked.includes(field) ? '—' : (typed[field] === null ? displayed[field] : answers[field].replace(',', '.'))]));
+  // Une saisie lue qui est une expression (D82) : { texte, valeur, arrondie } — l'expression écrite proprement, et le
+  // nombre qu'elle donne tel que la case l'a affiché. Partout où la saisie sert de nombre (ligne de calcul, bandeau),
+  // c'est ce nombre qui s'écrit, jamais le texte de l'expression ; un nombre tapé s'écrit tel quel, virgule en point.
+  const expressions = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, typed[field] !== null && isExpression(answers[field]) ? expressionView(answers[field], typed[field]) : null]));
+  const typedText = (field) => expressions[field]?.valeur ?? answers[field].replace(',', '.');
+  const shown = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, masked.includes(field) ? '—' : (typed[field] === null ? displayed[field] : typedText(field))]));
   // La ligne de f reprend le fz sur lequel f a été jugée : à une dent, ou fz vide, la valeur théorique (D70).
   if (coherentFz === null && !masked.includes('feedPerTooth')) shown.feedPerTooth = displayed.feedPerTooth;
   // Les saisies dont la valeur attendue est faite, quand elle vient de la cohérence (D70, complément) : l'écran
@@ -239,7 +262,7 @@ export function correctionView(question, answers, result, before, counters, data
     reussie: result.success,
     outil: { id: question.tool.id, nom: question.tool.name, avant: before, apres: counters.reussites[question.tool.id] ?? 0 },
     champs: ANSWER_FIELDS.map((field) => {
-      if (masked.includes(field)) return { champ: field, evalue: false, masque: true, ok: true, saisie: '', attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null };
+      if (masked.includes(field)) return { champ: field, evalue: false, masque: true, ok: true, saisie: '', expression: null, attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null };
       const graded = evaluated(field);
       const gap = graded && typed[field] !== null && reference[field] !== 0 ? (typed[field] - reference[field]) / reference[field] : null;
       return {
@@ -247,6 +270,7 @@ export function correctionView(question, answers, result, before, counters, data
         evalue: graded,
         ok: result.fields[field].ok,
         saisie: answers[field],
+        expression: expressions[field],
         attendu: displayed[field],
         tolerance: graded ? toleranceLabel(expected.feedType, field, { coherence: field === 'feedPerRev' && coherentFz !== null, teeth: question.teeth }) : null,
         ecart_pct: gap === null ? null : Number((gap * 100).toFixed(1)),

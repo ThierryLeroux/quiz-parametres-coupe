@@ -61,9 +61,9 @@ export function canonical(value) {
 // dimension, barre et dents quand le gabarit les porte), la matière de l'outil, le matériau usiné,
 // les réponses de l'étudiant aux grandeurs évaluées — normalisées (D43) : le nombre lu dans la
 // saisie, écrit comme le site l'affiche (D10, D14 : point décimal, décimales de la grandeur) ; la
-// frappe brute (« 400,0 », « 1 600 ») n'a pas de valeur —, l'heure. Liste dans l'ordre chronologique,
-// numérotée de 1 à n (D43 : le rang dans la séance laisserait deviner les échecs, que l'écran ne
-// montre jamais ; l'heure suffit à la chronologie).
+// frappe brute (« 400,0 », « 1 600 ») n'a pas de valeur, et d'une expression (D82) seul son nombre
+// compte —, l'heure. Liste dans l'ordre chronologique, numérotée de 1 à n (D43 : le rang dans la
+// séance laisserait deviner les échecs, que l'écran ne montre jamais ; l'heure suffit à la chronologie).
 //   corrections : le journal de la séance, dans l'ordre (base.js listCorrections)
 //   outils      : les outils de l'attestation, avec leurs `reussites`
 export function successfulQuestions(corrections, outils) {
@@ -81,9 +81,10 @@ export function successfulQuestions(corrections, outils) {
 }
 
 // Les réponses de l'étudiant aux champs évalués — ceux que la correction a bornés (`min` non nul) ;
-// les autres étaient fournis —, normalisées : le nombre lu (point ou virgule, espaces ignorés),
-// mis en forme comme le site l'affiche pour cette grandeur (format.js, avec les 5 décimales du
-// filetage). Une saisie illisible, impossible sur une question réussie, resterait telle quelle.
+// les autres étaient fournis —, normalisées : le nombre lu (point ou virgule, espaces ignorés ; le
+// nombre d'une expression, D82), mis en forme comme le site l'affiche pour cette grandeur (format.js,
+// avec les 5 décimales du filetage). Une saisie illisible, impossible sur une question réussie,
+// resterait telle quelle.
 export function normalizedAnswers(reponses, resultat) {
   const typed = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, parseAnswer(reponses[field]) ?? 0]));
   const displayed = formatParameters({ ...typed, feedType: resultat.attendu?.feedType });

@@ -6,6 +6,7 @@ import {
   gradeQuestion, isExerciseComplete, isNipLocked, isQuestionValid, isTestMode, later, questionView, sessionView,
 } from '../worker/seance.js';
 import { computeParameters } from '../site/js/calcul.js';
+import { parseAnswer } from '../site/js/correction.js';
 import { formatParameters } from '../site/js/format.js';
 import { loadExercise, maskedFields, validateExercise } from '../site/js/exercice.js';
 import { aleaAGraine, data, lireFichier, questionPour } from './aide.js';
@@ -93,9 +94,25 @@ test('cycle complet du M10 : 15 bonnes réponses, les compteurs passant par du J
 
 test('cleanAnswers : seulement les cinq champs, en texte court', () => {
   assert.deepEqual(cleanAnswers({ vc: ' 400 ', rpm: 1600, autre: 'x', feedRate: '9'.repeat(100) }), {
-    vc: '400', feedPerTooth: '', rpm: '', feedPerRev: '', feedRate: '9'.repeat(32),
+    vc: '400', feedPerTooth: '', rpm: '', feedPerRev: '', feedRate: `${'9'.repeat(60)}…`,
   });
   for (const saisies of [null, undefined, 'texte', 42, []]) assert.deepEqual(Object.values(cleanAnswers(saisies)), ['', '', '', '', '']);
+});
+
+test('cleanAnswers (D82) : une expression de 60 caractères passe entière ; au-delà, coupée, « … », illisible', () => {
+  const soixante = `1${'+1'.repeat(29)} `; // 60 caractères, l'espace de fin compris ; il est retiré
+  assert.equal(cleanAnswers({ rpm: soixante }).rpm, soixante.trim());
+  assert.equal(parseAnswer(cleanAnswers({ rpm: soixante }).rpm), 30);
+  const exacte = `${'1+'.repeat(29)}10`; // 60 caractères
+  assert.equal(cleanAnswers({ rpm: exacte }).rpm, exacte);
+  // Avant D82, 32 caractères : « 1+1+…+1+1 » serait devenu une autre expression, lisible. Maintenant : illisible.
+  const trop = `${exacte}0`;
+  assert.equal(cleanAnswers({ rpm: trop }).rpm, `${exacte}…`);
+  assert.equal(parseAnswer(cleanAnswers({ rpm: trop }).rpm), null);
+  assert.equal(parseAnswer(cleanAnswers({ rpm: '9'.repeat(61) }).rpm), null); // un nombre trop long aussi
+  // Aucun caractère n'est filtré : c'est parseAnswer qui refuse.
+  assert.equal(cleanAnswers({ vc: '<b>1</b>' }).vc, '<b>1</b>');
+  assert.equal(parseAnswer('<b>1</b>'), null);
 });
 
 // --- Exercice modifié en cours de session (D21) ----------------------------------------------------------
@@ -264,7 +281,7 @@ test('correctionView : juste ou faux, saisie et valeur attendue de chaque champ,
   assert.equal(vue.reussie, false);
   assert.deepEqual(vue.outil, { id: 'foret_fractionnaire', nom: 'Foret fractionnaire', avant: 1, apres: 0 });
   const vc = Number(bonnesReponses(question).vc);
-  assert.deepEqual(vue.champs[0], { champ: 'vc', evalue: true, ok: false, saisie: '1', attendu: String(vc), tolerance: 'exacte', ecart_pct: Number((((1 - vc) / vc) * 100).toFixed(1)), calcul: null, coherence: null });
+  assert.deepEqual(vue.champs[0], { champ: 'vc', evalue: true, ok: false, saisie: '1', expression: null, attendu: String(vc), tolerance: 'exacte', ecart_pct: Number((((1 - vc) / vc) * 100).toFixed(1)), calcul: null, coherence: null });
   assert.deepEqual(vue.champs.slice(1).map((champ) => champ.ok), [true, true, true, true]);
 
   const m10Question = drawQuestion(emptyCounters(), m10, data, aleaAGraine(1));
@@ -289,6 +306,36 @@ test('correctionView : tolérance en clair, écart en %, calcul en une ligne (UI
   // Vf est jugée sur le N et le f SAISIS (D15) : attendu = 1650 × 0.0030 = 4.950, et non les 4.800 théoriques.
   assert.deepEqual([champs.feedRate.ok, champs.feedRate.attendu, champs.feedRate.tolerance, champs.feedRate.ecart_pct], [false, '4.950', '±0.5 % de N × f', 5.1]);
   assert.equal(champs.feedRate.calcul, 'Vf = N × f = 1650 × 0.0030');
+});
+
+test('correctionView (D82) : une saisie en expression — son texte propre et son nombre ; le nombre dans l’écart, les calculs et la cohérence', () => {
+  // Foret Ø 1/4 po, 2 lèvres : N = 100 × 4 / 0.25 = 1600, fz = 0.0015, f = 0.0030. N tapée sans le Ø : 100 × 4 = 400.
+  const question = questionPour({ outil: 'foret_fractionnaire', dimension: 'Ø 1/4 po', dents: 2, materiauOutil: 'Acier rapide', groupeMateriau: 1 });
+  const reponses = cleanAnswers({ vc: '100', feedPerTooth: '0,006*0,25', rpm: '100*4', feedPerRev: '0.0015 x 2', feedRate: '4*350/0,75' });
+  const { result, counters } = gradeQuestion(question, reponses, emptyCounters(), CINQ_CHAMPS, data);
+  const champs = Object.fromEntries(correctionView(question, reponses, result, 0, counters, data).champs.map((champ) => [champ.champ, champ]));
+
+  assert.equal(champs.vc.expression, null); // un nombre
+  assert.deepEqual(champs.feedPerTooth.expression, { texte: '0.006 × 0.25', valeur: '0.0015', arrondie: false });
+  assert.equal(champs.feedPerTooth.ok, true);
+  assert.deepEqual(champs.rpm.expression, { texte: '100 × 4', valeur: '400', arrondie: false });
+  assert.equal(champs.rpm.saisie, '100*4'); // le texte reçu, tel quel
+  assert.deepEqual([champs.rpm.ok, champs.rpm.ecart_pct], [false, -75]); // (400 − 1600) / 1600, avec le nombre évalué
+  // f : cohérence avec le fz évalué (0.0015 × 2), la ligne de calcul avec ce nombre.
+  assert.deepEqual([champs.feedPerRev.ok, champs.feedPerRev.attendu, champs.feedPerRev.calcul], [true, '0.0030', 'f = fz × dents = 0.0015 × 2']);
+  assert.deepEqual(champs.feedPerRev.coherence, { saisies: ['fz'], dents: 2 });
+  // Vf : jugée sur N × f évalués (400 × 0.003 = 1.2), et sa ligne de calcul les écrit en nombres, jamais en formules.
+  assert.deepEqual(champs.feedRate.expression, { texte: '4 × 350 / 0.75', valeur: '1866.6667', arrondie: true });
+  assert.deepEqual([champs.feedRate.ok, champs.feedRate.attendu, champs.feedRate.calcul], [false, '1.200', 'Vf = N × f = 400 × 0.003']);
+  assert.deepEqual(champs.feedRate.coherence, { saisies: ['n', 'f'] });
+
+  // Une expression illisible : ni expression, ni écart ; le calcul reprend la valeur théorique, comme pour « abc ».
+  const illisibles = cleanAnswers({ vc: '100', feedPerTooth: '0.0015', rpm: '2(3)', feedPerRev: '1/0', feedRate: '4.8' });
+  const corrige = gradeQuestion(question, illisibles, emptyCounters(), CINQ_CHAMPS, data);
+  const vus = Object.fromEntries(correctionView(question, illisibles, corrige.result, 0, corrige.counters, data).champs.map((champ) => [champ.champ, champ]));
+  assert.deepEqual([vus.rpm.ok, vus.rpm.saisie, vus.rpm.expression, vus.rpm.ecart_pct], [false, '2(3)', null, null]);
+  assert.deepEqual([vus.feedPerRev.ok, vus.feedPerRev.expression], [false, null]);
+  assert.equal(vus.feedRate.calcul, 'Vf = N × f = 1600 × 0.0030');
 });
 
 test('correctionView (D69) : f attendue = fz saisi × dents, « ±0.1 % de fz × dents » ; fz masquée → tolérance de fz reportée', () => {
