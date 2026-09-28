@@ -339,6 +339,37 @@ export function presentationHistoryLabel(h) {
   return `${origin}, remplacée le ${formatDateStamp(h.remplacee_le)}${who(h.remplacee_par)} (${REPLACED_BY[h.action] ?? h.action})`;
 }
 
+// --- La cascade des tables et le retour en arrière (D77) ------------------------------------------------------------
+
+// Ce que la cascade fera pour un exercice proposé (GET /api/prof/editeur/tables/cascade, candidats), en une phrase.
+export function cascadeAction(c) {
+  if (c.en_erreur) return 'En erreur avec ces tables : il ne sera pas publié et reste tel quel, brouillon compris.';
+  const draft = c.brouillon === null ? '' : c.brouillon.modifie ? ' ; son brouillon passe aussi à ces tables, avec ses modifications non publiées' : ' ; son brouillon passe aussi à ces tables';
+  if (c.publication !== null) return `Version ${c.publication.numero} publiée avec ces tables : le contenu de sa version ${c.publication.depuis}, pas son brouillon${draft}.`;
+  return c.jamais_publie ? 'Jamais publié : seul son brouillon passe à ces tables.' : "Sa dernière version est sur d'autres tables : seul son brouillon passe à ces tables.";
+}
+
+// Le bouton de la confirmation : « Publier A2026_r2 », « Publier A2026_r2 et la cascade (3 exercices) ».
+export const publishTablesLabel = (id, checked) => `Publier ${id || 'cette version'}${checked > 0 ? ` et la cascade (${checked} exercice${checked > 1 ? 's' : ''})` : ''}`;
+
+// Le message après la publication des tables : la version, puis ce que la cascade a fait, exercice par exercice.
+//   result : la réponse de POST /api/prof/editeur/tables/publier ; titles : Map id → titre (pour les nommer)
+export function cascadeResultText(result, titles = new Map()) {
+  const name = (id) => `« ${titles.get(id) ?? id} »`;
+  const c = result.cascade ?? { publies: [], brouillons: [], laisses: [], ignores: [] };
+  const parts = [`Version ${result.id} des tables publiée le ${formatDateStamp(result.publiee_le)}.`];
+  if (c.publies.length > 0) parts.push(`Publiés en cascade : ${c.publies.map((p) => `${name(p.id)} (version ${p.numero})`).join(', ')}.`);
+  const draftsOnly = c.brouillons.filter((id) => !c.publies.some((p) => p.id === id));
+  if (draftsOnly.length > 0) parts.push(`Brouillons seuls passés à ${result.id} : ${draftsOnly.map(name).join(', ')}.`);
+  if (c.laisses.length > 0) parts.push(`Laissés tels quels, en erreur avec ${result.id} : ${c.laisses.map((l) => `« ${l.titre} »`).join(', ')}.`);
+  if (c.ignores.length > 0) parts.push(`Ignorés (plus sur la version remplacée) : ${c.ignores.map(name).join(', ')}.`);
+  parts.push('Les séances en cours gardent leur version.');
+  return parts.join(' ');
+}
+
+// Le titre de la confirmation d'un retour en arrière qui ferait perdre des modifications non publiées (D77).
+export const lostChangesTitle = (count) => `Le brouillon a ${count} modification${count > 1 ? 's' : ''} non publiée${count > 1 ? 's' : ''} : ${count > 1 ? 'elles seront perdues' : 'elle sera perdue'}.`;
+
 // Le nom d'une version de tables sur la page d'un exercice, et l'avis quand une plus récente existe.
 export const tablesNotice = (current, latest) => (current === latest ? null : `Une version plus récente des tables de référence existe : ${latest}. Cet exercice est sur ${current}.`);
 

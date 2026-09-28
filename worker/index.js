@@ -1014,15 +1014,16 @@ async function editeurTablesReprendre(request, env, { now }) {
   return json({ repris: true, id: row.id, revision: draft.revision + 1, base_id: latest.id, modifie: !sameContent(tablesContent(tablesOf(contenu)), tablesContent(tablesOf(latest))) });
 }
 
-// POST /api/prof/editeur/tables/annuler — { revision } : le brouillon des tables revient à la dernière version publiée ;
-// 400 s'il en a déjà les valeurs. Contrôle optimiste ; journalisé.
+// POST /api/prof/editeur/tables/annuler — { revision } : le brouillon des tables revient à la dernière version publiée.
+// S'il en a déjà les valeurs, rien n'est écrit ni journalisé (annule: false) : l'écran n'avait que des modifications
+// non enregistrées, qu'il abandonne en se rechargeant. Contrôle optimiste ; journalisé.
 async function editeurTablesAnnuler(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
   const draft = await base.findTablesDraft(env.DB);
   if (body.revision !== draft.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: draft.revision });
   const latest = await base.findLatestTables(env.DB);
-  if (sameContent(tablesContent(tablesOf(draft.contenu)), tablesContent(tablesOf(latest)))) throw new HttpError(400, `Le brouillon des tables a déjà les valeurs de la dernière version publiée (${latest.id}) : rien à annuler.`);
+  if (sameContent(tablesContent(tablesOf(draft.contenu)), tablesContent(tablesOf(latest)))) return json({ annule: false, id: latest.id, revision: draft.revision });
   const saved = await base.replaceTablesDraft(env.DB, draft.revision, await tablesDraftFrom(env, latest), latest.id, now.toISOString(), logEntry(teacher, now, 'editeur_tables_annulation', `brouillon ramené à ${latest.id}`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findTablesDraft(env.DB)).revision });
   return json({ annule: true, id: latest.id, revision: draft.revision + 1 });
@@ -1046,7 +1047,8 @@ async function editeurReprendre(request, env, { now }) {
 }
 
 // POST /api/prof/editeur/exercice/annuler — { id, revision } : le brouillon revient à la dernière version publiée, son
-// contenu ET sa version de tables ; 400 jamais publié ou déjà à jour. Contrôle optimiste ; journalisé.
+// contenu ET sa version de tables ; 400 jamais publié. Déjà à jour : rien n'est écrit ni journalisé (annule: false) —
+// l'écran n'avait que des modifications non enregistrées, qu'il abandonne en se rechargeant. Contrôle optimiste ; journalisé.
 async function editeurAnnuler(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
@@ -1054,7 +1056,7 @@ async function editeurAnnuler(request, env, { now }) {
   if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
   const latest = await base.findLatestVersion(env.DB, record.id);
   if (latest === null) throw new HttpError(400, "Cet exercice n'a jamais été publié : il n'y a pas de version à laquelle revenir.");
-  if (sameContent(record.brouillon, latest.contenu) && record.tables_id === latest.tables_id) throw new HttpError(400, `Le brouillon est déjà celui de la version ${latest.numero} : rien à annuler.`);
+  if (sameContent(record.brouillon, latest.contenu) && record.tables_id === latest.tables_id) return json({ annule: false, numero: latest.numero, revision: record.revision, tables_id: latest.tables_id });
   const saved = await base.replaceDraft(env.DB, record.id, record.revision, cleanDraft(structuredClone(latest.contenu)), latest.tables_id, now.toISOString(), logEntry(teacher, now, 'editeur_annulation', `${record.id} · brouillon ramené à la version ${latest.numero} (tables ${latest.tables_id})`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
   return json({ annule: true, numero: latest.numero, revision: record.revision + 1, tables_id: latest.tables_id });

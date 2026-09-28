@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
-  characteristicFrom, courseSpelling, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, lostChangesTitle, publishTablesLabel, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
@@ -419,4 +419,21 @@ test('présentation en direct (D76) : le bouton « Appliquer… » dit les erreu
   assert.equal(presentationHistoryLabel({ posee_le: heure(13, 5), posee_par: 'admin', remplacee_le: heure(14, 10), remplacee_par: 'admin', action: 'retablissement' }),
     'Présentation appliquée le 2026-09-27 13:05 par admin, remplacée le 2026-09-27 14:10 par admin (un rétablissement)');
   assert.equal(presentationHistoryLabel({ posee_le: heure(13, 5), posee_par: null, remplacee_le: heure(14, 10), remplacee_par: null, action: 'import' }), 'Présentation appliquée le 2026-09-27 13:05, remplacée le 2026-09-27 14:10 (un import)');
+});
+
+test('cascade et retour en arrière (D77) : ce que la cascade fera pour un exercice, le bouton de la confirmation, le message après la publication, la confirmation d’une perte', () => {
+  const base = { en_erreur: false, jamais_publie: false, publication: { depuis: 2, numero: 3 }, brouillon: null };
+  assert.equal(cascadeAction(base), 'Version 3 publiée avec ces tables : le contenu de sa version 2, pas son brouillon.');
+  assert.equal(cascadeAction({ ...base, brouillon: { modifie: false, erreurs: [] } }), 'Version 3 publiée avec ces tables : le contenu de sa version 2, pas son brouillon ; son brouillon passe aussi à ces tables.');
+  assert.equal(cascadeAction({ ...base, brouillon: { modifie: true, erreurs: [] } }), 'Version 3 publiée avec ces tables : le contenu de sa version 2, pas son brouillon ; son brouillon passe aussi à ces tables, avec ses modifications non publiées.');
+  assert.equal(cascadeAction({ ...base, publication: null, jamais_publie: true, brouillon: { modifie: true, erreurs: [] } }), 'Jamais publié : seul son brouillon passe à ces tables.');
+  assert.equal(cascadeAction({ ...base, publication: null, brouillon: { modifie: false, erreurs: [] } }), "Sa dernière version est sur d'autres tables : seul son brouillon passe à ces tables.");
+  assert.equal(cascadeAction({ ...base, en_erreur: true }), 'En erreur avec ces tables : il ne sera pas publié et reste tel quel, brouillon compris.');
+  assert.deepEqual([publishTablesLabel('A2026_r2', 0), publishTablesLabel('A2026_r2', 1), publishTablesLabel('', 3)], ['Publier A2026_r2', 'Publier A2026_r2 et la cascade (1 exercice)', 'Publier cette version et la cascade (3 exercices)']);
+  const publiee = new Date(2026, 8, 27, 14, 10).toISOString();
+  const titres = new Map([['m10', 'M10 — Vc'], ['rpm', 'M10 — Vc et tr/min'], ['neuf', 'Neuf']]);
+  assert.equal(cascadeResultText({ id: 'A2026_r2', publiee_le: publiee, cascade: { publies: [{ id: 'm10', numero: 3 }], brouillons: ['m10', 'neuf'], laisses: [{ id: 'rpm', titre: 'M10 — Vc et tr/min', erreurs: [] }], ignores: [] } }, titres),
+    'Version A2026_r2 des tables publiée le 2026-09-27 14:10. Publiés en cascade : « M10 — Vc » (version 3). Brouillons seuls passés à A2026_r2 : « Neuf ». Laissés tels quels, en erreur avec A2026_r2 : « M10 — Vc et tr/min ». Les séances en cours gardent leur version.');
+  assert.equal(cascadeResultText({ id: 'A2026_r2', publiee_le: publiee }), 'Version A2026_r2 des tables publiée le 2026-09-27 14:10. Les séances en cours gardent leur version.');
+  assert.deepEqual([lostChangesTitle(1), lostChangesTitle(3)], ['Le brouillon a 1 modification non publiée : elle sera perdue.', 'Le brouillon a 3 modifications non publiées : elles seront perdues.']);
 });

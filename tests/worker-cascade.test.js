@@ -223,7 +223,7 @@ test('reprendre une version d’un exercice : son contenu entre dans le brouillo
   assert.equal((await serveur.editeur('POST', 'exercice/reprendre', { id: M10, revision: 1, numero: 1 })).status, 409);
 });
 
-test('annuler les modifications : le brouillon d’un exercice revient à sa dernière version publiée (contenu et tables), celui des tables à la dernière version ; refusé quand il est à jour, jamais publié, ou périmé ; journalisé', async () => {
+test('annuler les modifications : le brouillon d’un exercice revient à sa dernière version publiée (contenu et tables), celui des tables à la dernière version ; sans effet quand il est à jour ; refusé jamais publié ou périmé ; journalisé', async () => {
   const serveur = await editeurDeTest();
   // Un exercice : titre modifié, et passé à des tables plus récentes (non publiées pour lui).
   const page = await brouillonTables(serveur);
@@ -235,7 +235,10 @@ test('annuler les modifications : le brouillon d’un exercice revient à sa der
   assert.equal(annule.status, 200, JSON.stringify(annule.corps));
   const apres = await exercice(serveur, VC_RPM);
   assert.deepEqual([apres.exercice.brouillon, apres.exercice.tables_id], [versions(serveur, VC_RPM)[0].contenu, 'A2026_r0']);
-  assert.equal((await serveur.editeur('POST', 'exercice/annuler', { id: VC_RPM, revision: apres.exercice.revision })).status, 400); // à jour
+  // Déjà à jour (l'écran n'avait que des modifications non enregistrées) : rien n'est écrit ni journalisé.
+  const lignesAvant = serveur.journalEnseignant().length;
+  const aJour = await serveur.editeur('POST', 'exercice/annuler', { id: VC_RPM, revision: apres.exercice.revision });
+  assert.deepEqual([aJour.status, aJour.corps.annule, aJour.corps.revision, serveur.journalEnseignant().length], [200, false, apres.exercice.revision, lignesAvant]);
   assert.equal((await serveur.editeur('POST', 'exercice/annuler', { id: VC_RPM, revision: 1 })).status, 409);
   assert.equal((await serveur.editeur('POST', 'exercice/creer', { id: 'jamais', titre: 'Jamais publié' })).status, 200);
   const jamais = await serveur.editeur('POST', 'exercice/annuler', { id: 'jamais', revision: 1 });
@@ -250,7 +253,8 @@ test('annuler les modifications : le brouillon d’un exercice revient à sa der
   assert.equal(annuleTables.status, 200, JSON.stringify(annuleTables.corps));
   const revenu = await brouillonTables(serveur);
   assert.deepEqual([revenu.modifie, revenu.brouillon.base_id, revenu.brouillon.contenu.materiaux.materiaux[0].vc_pi_min.acier_rapide], [false, 'A2026_r1', materiaux.materiaux[0].vc_pi_min.acier_rapide]);
-  assert.equal((await serveur.editeur('POST', 'tables/annuler', { revision: revenu.brouillon.revision })).status, 400);
+  const tablesAJour = await serveur.editeur('POST', 'tables/annuler', { revision: revenu.brouillon.revision });
+  assert.deepEqual([tablesAJour.status, tablesAJour.corps.annule, (await brouillonTables(serveur)).brouillon.revision], [200, false, revenu.brouillon.revision]);
   assert.equal((await serveur.editeur('POST', 'tables/annuler', { revision: 1 })).status, 409);
   const journal = serveur.journalEnseignant();
   assert.equal(journal.filter((l) => l.action === 'editeur_annulation').at(-1).details, `${VC_RPM} · brouillon ramené à la version 1 (tables A2026_r0)`);

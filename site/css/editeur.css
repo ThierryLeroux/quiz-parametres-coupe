@@ -222,6 +222,19 @@
 .presentation-historique { margin-top: var(--space-5); }
 .presentation-historique > summary { color: var(--color-correct); font-weight: 600; cursor: pointer; }
 .historique-liste li { justify-content: space-between; padding: var(--space-2) 0; }
+/* La cascade de la publication des tables (D77) : sous le résumé des différences, qui reste en tête et bien visible,
+   un exercice par ligne — case à cocher, titre, étiquettes, ce que la cascade fera, ce que ça change pour lui. */
+.editeur-diff--en-tete { padding: var(--space-2) var(--space-3) var(--space-2) calc(1.4em + var(--space-3)); border-left: 3px solid var(--color-gold); background: color-mix(in srgb, var(--color-gold) 8%, transparent); font-size: var(--text-md); }
+.cascade-entete { margin: var(--space-5) 0 var(--space-2); color: var(--color-gold); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.cascade-liste { margin: var(--space-3) 0 0; padding: 0; list-style: none; }
+.cascade-liste > li { padding: var(--space-2) 0; border-bottom: 1px solid color-mix(in srgb, var(--color-text-muted) 30%, transparent); }
+.cascade-liste p { margin: 4px 0 0; }
+.cascade-liste .editeur-diff, .cascade-liste .editeur-erreurs { margin-top: 4px; }
+.cascade-titre { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); cursor: pointer; }
+.cascade-titre input { width: 18px; height: 18px; accent-color: var(--color-gold); }
+.cascade-etiquette { padding: 0 8px; border: 1px solid var(--color-text-muted); color: var(--color-text-muted); font-size: var(--text-xs); }
+.cascade-erreur .cascade-titre { cursor: default; color: var(--color-wrong); }
+
 /* Une classe ou une opération nouvelle du brouillon reçoit sa présentation de départ sur sa ligne (D76, point 9). */
 .tables-edit tr.ligne-nouvelle td:first-child { box-shadow: inset 3px 0 0 var(--color-gold); }
 

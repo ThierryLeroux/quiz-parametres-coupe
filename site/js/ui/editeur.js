@@ -15,7 +15,7 @@
 import {
   editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankSave, editorCreateExercise, editorDeleteExercise, editorExport,
   editorExerciseTables, editorGetExercise, editorImageArchive, editorImageDelete, editorImageImport, editorImageRename, editorImageUpload, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft,
-  editorPresentation, editorPresentationApply, editorPresentationRestore, editorTables, editorTablesPreview, editorTablesPublish, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
+  editorCancel, editorPresentation, editorPresentationApply, editorPresentationRestore, editorResume, editorTables, editorTablesCancel, editorTablesCascade, editorTablesPreview, editorTablesPublish, editorTablesResume, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
@@ -23,7 +23,7 @@ import { applyPresentation, archivedWarnings, presentationDiff, presentationErro
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  archiveConfirmation, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -450,6 +450,23 @@ function previewTable(response, classesIso = []) {
   ]));
 }
 
+// Un retour en arrière (D77 : « Reprendre cette version », « Annuler les modifications ») : sans modification non publiée,
+// il se fait tout de suite ; sinon, une confirmation les liste et dit qu'elles seront perdues.
+//   slot : où poser la confirmation ; heading : la question ; lines : les modifications perdues ; label : le bouton ; act : async, le geste
+function confirmLoss(slot, { heading, lines, label, act }) {
+  if (lines.length === 0) return act();
+  const go = el('button', { class: 'button button--wrong', type: 'button', onclick: async () => { go.disabled = true; await act(); go.disabled = false; } }, label);
+  slot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
+    el('div', { class: 'eyebrow' }, 'Confirmation'),
+    el('h2', {}, heading),
+    el('p', { class: 'small avis-doublon' }, lostChangesTitle(lines.length)),
+    el('ul', { class: 'editeur-diff' }, lines.map((line) => el('li', {}, line))),
+    el('div', { class: 'form-actions' }, [go, el('button', { class: 'button-link', type: 'button', onclick: () => slot.replaceChildren() }, 'Garder le brouillon')]),
+  ]));
+  slot.scrollIntoView({ block: 'nearest' });
+  return undefined;
+}
+
 // --- Page d'un exercice (B3, B5, B6, B7) ---------------------------------------------------------------------------------
 
 async function showExercise(id, notice = '') {
@@ -512,6 +529,8 @@ async function showExercise(id, notice = '') {
 
   const publishButton = el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
   const saveButton = el('button', { class: 'button', type: 'button' }, 'Enregistrer le brouillon');
+  // Ramène le brouillon à la dernière version publiée, contenu et tables (D77) ; inactif quand il est à jour.
+  const cancelDraftButton = el('button', { class: 'button-outline', type: 'button' }, 'Annuler les modifications');
 
   // Validation continue (B5) : les erreurs sous leurs champs, le reste dans la liste générale, Publier désactivé s'il en reste.
   function validate() {
@@ -542,9 +561,11 @@ async function showExercise(id, notice = '') {
       `Même cours que « ${spelling} », écrit autrement dans un autre exercice. `,
       el('button', { class: 'button-link', type: 'button', onclick: () => { cours.value = spelling; cours.dispatchEvent(new Event('input', { bubbles: true })); } }, `Écrire « ${spelling} »`),
     ]));
-    const ps = publishState(errors, versionDiff(page.derniere_version?.contenu ?? null, current, { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id }));
+    const diff = versionDiff(page.derniere_version?.contenu ?? null, current, { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id });
+    const ps = publishState(errors, diff);
     publishButton.disabled = !ps.enabled;
     publishButton.textContent = ps.label;
+    cancelDraftButton.disabled = page.derniere_version === null || lostDraftChanges(true).length === 0;
     return { current, errors };
   }
 
@@ -700,6 +721,40 @@ async function showExercise(id, notice = '') {
     dialogSlot.scrollIntoView({ block: 'nearest' });
   });
 
+  // Revenir en arrière (D77). Ce qui serait perdu : les différences du brouillon (tel qu'à l'écran) avec la dernière version
+  // publiée — sa version de tables comprise pour « Annuler », pas pour « Reprendre », qui la garde.
+  function lostDraftChanges(withTables) {
+    if (page.derniere_version === null) return [];
+    const lines = diffLines(versionDiff(page.derniere_version.contenu, readDraft(), withTables ? { avant: page.derniere_version.tables_id, apres: page.exercice.tables_id } : null));
+    return lines[0] === 'Aucune différence avec la version précédente.' ? [] : lines;
+  }
+  cancelDraftButton.addEventListener('click', () => confirmLoss(dialogSlot, {
+    heading: `Ramener le brouillon à la version ${page.derniere_version.numero} ?`,
+    lines: lostDraftChanges(true),
+    label: 'Annuler les modifications',
+    act: async () => {
+      try {
+        const result = await guarded(() => editorCancel(id, revision));
+        if (result === null) return;
+        state.dirty = false;
+        showExercise(id, result.annule ? `Brouillon ramené à la version ${result.numero} (tables ${result.tables_id}) : ses modifications sont annulées.` : `Brouillon ramené à la version ${result.numero} : ses modifications non enregistrées sont abandonnées.`);
+      } catch (error) { dialogSlot.replaceChildren(); status.textContent = serverErrorMessage(error); }
+    },
+  }));
+  const resumeVersion = (numero) => confirmLoss(dialogSlot, {
+    heading: `Reprendre la version ${numero} dans le brouillon ?`,
+    lines: lostDraftChanges(false),
+    label: `Reprendre la version ${numero}`,
+    act: async () => {
+      try {
+        const result = await guarded(() => editorResume(id, revision, numero));
+        if (result === null) return;
+        state.dirty = false;
+        showExercise(id, `Version ${result.numero} reprise dans le brouillon, qui garde ses tables (${result.tables_id})${result.erreurs.length > 0 ? ` — ${result.erreurs.length} erreur(s) à corriger avec ces tables` : ''} : vérifie, puis « Publier… ».`);
+      } catch (error) { dialogSlot.replaceChildren(); status.textContent = serverErrorMessage(error); }
+    },
+  });
+
   // Aperçu (B7) : dix questions du brouillon tel qu'il est à l'écran, ou d'une version.
   async function preview(body, label) {
     try {
@@ -755,6 +810,7 @@ async function showExercise(id, notice = '') {
   const versionsList = el('ul', { class: 'versions-liste' }, page.versions.length === 0 ? [el('li', {}, 'Aucune version publiée : les étudiants ne voient pas encore cet exercice.')] : page.versions.map((v) => el('li', {}, [
     el('strong', {}, `Version ${v.numero}`), el('span', { class: 'muted' }, `publiée le ${formatDateStamp(v.publiee_le)} · tables ${v.tables_id} · ${v.seances} séance${v.seances > 1 ? 's' : ''}`),
     el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => preview({ version: v.numero }, `de la version ${v.numero}`) }, 'Aperçu'),
+    el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => resumeVersion(v.numero) }, 'Reprendre cette version'),
   ])));
 
   const screen = el('div', { class: 'screen screen--wide prof editeur', oninput: () => { touch(); validate(); }, onchange: () => { touch(); validate(); } }, [
@@ -771,6 +827,7 @@ async function showExercise(id, notice = '') {
         el('div', { class: 'editeur-bar-actions' }, [
           el('button', { class: 'button-link', type: 'button', onclick: () => leave(showList) }, '← Exercices'),
           el('button', { class: 'button-outline', type: 'button', onclick: () => preview({ brouillon: readDraft() }, 'du brouillon') }, 'Aperçu du brouillon'),
+          cancelDraftButton,
           saveButton,
           publishButton,
         ]),
@@ -1095,6 +1152,8 @@ async function showTables(notice = '') {
   let { revision } = page.brouillon;
   const draft = page.brouillon.contenu;
   let pending = page.presentation_en_attente;
+  // La dernière version publiée des tables : ce à quoi « Annuler les modifications » ramène le brouillon (D77).
+  const latestTables = page.derniere === null ? null : (await guarded(() => editorTablesVersion(page.derniere)))?.tables ?? null;
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const errorsList = el('ul', { class: 'editeur-erreurs' });
   const dialogSlot = el('div');
@@ -1401,6 +1460,7 @@ async function showTables(notice = '') {
 
   const saveButton = el('button', { class: 'button', type: 'button' }, 'Enregistrer le brouillon');
   const publishButton = el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
+  const cancelButton = el('button', { class: 'button-outline', type: 'button' }, 'Annuler les modifications'); // D77 ; inactif quand le brouillon est à jour
   function validate() {
     const current = readTables();
     // Une image de classe inconnue ou archivée est une erreur, sauf celle que la présentation en vigueur a déjà (D76, retouche).
@@ -1408,6 +1468,7 @@ async function showTables(notice = '') {
     errorsList.replaceChildren(...errors.map((message) => el('li', {}, message)));
     publishButton.disabled = errors.length > 0;
     publishButton.textContent = errors.length > 0 ? `Publier (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` : 'Publier…';
+    cancelButton.disabled = latestTables === null || tablesDiff(latestTables, current).length === 0;
     return { current, errors };
   }
 
@@ -1432,37 +1493,109 @@ async function showTables(notice = '') {
   }
   saveButton.addEventListener('click', save);
 
-  // Publier : enregistrer, montrer les différences de valeurs avec la version dont le brouillon est parti, saisir la révision, confirmer.
+  // Publier (D61, D77) : enregistrer, puis UNE confirmation — en tête, les différences de valeurs avec la version dont le
+  // brouillon est parti (la protection contre une faute de frappe) ; la révision ; puis la cascade : les exercices sur la
+  // version remplacée, cochés par défaut, chacun avec ce que ça change pour lui ; un exercice en erreur est nommé, pas cochable.
   publishButton.addEventListener('click', async () => {
     if (!(await save())) return;
     try {
       const previous = page.brouillon.base_id === null ? null : (await guarded(() => editorTablesVersion(page.brouillon.base_id)))?.tables;
+      const proposal = await guarded(() => editorTablesCascade());
+      if (proposal === null) return;
       const lines = previous ? tablesDiff(previous, readTables()) : ['Première version des tables.'];
       const idInput = el('input', { id: 'tables-revision', type: 'text', autocomplete: 'off', spellcheck: 'false', value: page.suggestion, class: 'mono' });
+      const checks = new Map();
+      const cascadeItems = proposal.candidats.map((c) => {
+        const box = el('input', { id: `cascade-${c.id}`, type: 'checkbox', checked: !c.en_erreur, disabled: c.en_erreur });
+        if (!c.en_erreur) checks.set(c.id, box);
+        const tags = [c.archive_le !== null ? 'archivé' : null, c.jamais_publie ? 'jamais publié' : null].filter(Boolean);
+        return el('li', { class: c.en_erreur ? 'cascade-erreur' : null }, [
+          el('label', { for: box.id, class: 'cascade-titre' }, [box, el('strong', {}, c.titre), el('span', { class: 'muted mono smaller' }, c.id), ...tags.map((tag) => el('span', { class: 'cascade-etiquette' }, tag))]),
+          el('p', { class: 'small' }, cascadeAction(c)),
+          c.en_erreur
+            ? el('ul', { class: 'editeur-erreurs' }, c.erreurs.map((line) => el('li', {}, line)))
+            : el('ul', { class: 'editeur-diff' }, (c.lignes.length === 0 ? ['Rien ne change pour lui : ses outils tirent les mêmes valeurs.'] : c.lignes).map((line) => el('li', {}, line))),
+          c.brouillon !== null && c.brouillon.erreurs.length > 0 ? el('p', { class: 'small avis-doublon' }, `Son brouillon aura ${c.brouillon.erreurs.length} erreur${c.brouillon.erreurs.length > 1 ? 's' : ''} avec ces tables, à corriger avant sa prochaine publication : ${c.brouillon.erreurs.join(' ; ')}`) : '',
+        ]);
+      });
+      const checkedIds = () => [...checks].filter(([, box]) => box.checked).map(([id]) => id);
       const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
         if (presentationDirty && !window.confirm("Les modifications du panneau « Présentation » ne sont pas appliquées : elles seront perdues au rechargement de l'onglet. Publier quand même ?")) return;
         confirm.disabled = true;
         try {
-          const result = await guarded(() => editorTablesPublish(revision, idInput.value.trim()));
+          const result = await guarded(() => editorTablesPublish(revision, idInput.value.trim(), checkedIds()));
           if (result === null) return;
           state.dirty = false;
-          showTables(`Version ${result.id} des tables publiée le ${formatDateStamp(result.publiee_le)}, avec la présentation en vigueur : les exercices y passent un à un, depuis leur page ; les séances en cours gardent leurs valeurs.`);
+          showTables(cascadeResultText(result, new Map(proposal.candidats.map((c) => [c.id, c.titre]))));
         } catch (error) {
           confirm.disabled = false;
           status.textContent = serverErrorMessage(error);
         }
-      } }, 'Publier cette version');
+      } });
+      const relabel = () => { confirm.textContent = publishTablesLabel(idInput.value.trim(), checkedIds().length); };
+      idInput.addEventListener('input', (event) => { event.stopPropagation(); relabel(); });
+      for (const box of checks.values()) box.addEventListener('change', (event) => { event.stopPropagation(); relabel(); });
+      const setAll = (value) => { for (const box of checks.values()) box.checked = value; relabel(); };
+      relabel();
       dialogSlot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
         el('div', { class: 'eyebrow' }, 'Confirmation'),
         el('h2', {}, previous ? `Publier une nouvelle version des tables, depuis ${previous.id} ?` : 'Publier la première version des tables ?'),
-        el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence de valeurs avec la version précédente : rien à publier.' : `Différences de valeurs avec ${previous?.id ?? '—'} (${lines.length}) :`),
-        el('ul', { class: 'editeur-diff' }, lines.map((line) => el('li', {}, line))),
+        el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence de valeurs avec la version précédente : rien à publier.' : `Différences de valeurs avec ${previous?.id ?? '—'} (${lines.length}) — relis-les : une faute de frappe partirait chez tous les exercices cochés ci-dessous.`),
+        el('ul', { class: 'editeur-diff editeur-diff--en-tete' }, lines.map((line) => el('li', {}, line))),
         el('div', { class: 'field field--half' }, [el('label', { for: 'tables-revision' }, 'Révision de cette version'), idInput, el('div', { class: 'field-note' }, `Suggérée : ${page.suggestion}. Unique ; inscrite au pied des feuilles et sur les attestations. Lettres, chiffres, « _ », « . », « - ».`)]),
-        el('p', { class: 'muted smaller' }, "Une version publiée ne se modifie plus ; elle prend la présentation en vigueur (panneau « Présentation »), qui reste modifiable en direct. Aucun exercice ne change de tables tout seul : chaque exercice y passe depuis sa page, et ses séances en cours gardent les valeurs des leurs."),
+        el('h3', { class: 'cascade-entete' }, proposal.remplacee === null ? 'Cascade' : `Cascade : les exercices sur ${proposal.remplacee}`),
+        proposal.candidats.length === 0
+          ? el('p', { class: 'muted small' }, "Aucun exercice n'est sur la version remplacée : rien à publier en cascade.")
+          : el('div', {}, [
+            el('p', { class: 'small' }, `Chaque exercice coché reçoit une version suivante : son dernier contenu publié avec ces tables, jamais son brouillon ; son brouillon passe aussi à ces tables s'il était sur ${proposal.remplacee}, ses modifications gardées. Un exercice décoché n'est pas touché. Les séances en cours gardent leur version ; seules les nouvelles séances prennent celle de la cascade.`),
+            el('div', { class: 'outil-actions' }, [
+              el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => setAll(true) }, 'Tout cocher'),
+              el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => setAll(false) }, 'Tout décocher'),
+            ]),
+            el('ul', { class: 'cascade-liste' }, cascadeItems),
+          ]),
+        el('p', { class: 'muted smaller' }, 'Une version publiée ne se modifie plus ; elle prend la présentation en vigueur (panneau « Présentation »). Tout se publie ensemble, ou rien.'),
         el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
       ]));
       dialogSlot.scrollIntoView({ block: 'nearest' });
     } catch (error) { status.textContent = serverErrorMessage(error); }
+  });
+
+  // Revenir en arrière (D77) : « Annuler les modifications » ramène le brouillon à la dernière version publiée ; « Reprendre
+  // cette version » y met les valeurs d'une version publiée (la présentation en vigueur est gardée). Ce qui serait perdu —
+  // les différences de valeurs avec la dernière version, et les retouches de présentation en attente — est listé d'abord.
+  const lostTablesChanges = () => [
+    ...(latestTables === null ? [] : tablesDiff(latestTables, readTables())),
+    ...pending.lignes.map((line) => `Retouche de présentation en attente — ${line}`),
+  ];
+  const leavePresentation = () => !presentationDirty || window.confirm("Les modifications du panneau « Présentation » ne sont pas appliquées : elles seront perdues au rechargement de l'onglet. Continuer ?");
+  cancelButton.addEventListener('click', () => confirmLoss(dialogSlot, {
+    heading: `Ramener le brouillon des tables à ${page.derniere} ?`,
+    lines: lostTablesChanges(),
+    label: 'Annuler les modifications',
+    act: async () => {
+      if (!leavePresentation()) return;
+      try {
+        const result = await guarded(() => editorTablesCancel(revision));
+        if (result === null) return;
+        state.dirty = false;
+        showTables(result.annule ? `Brouillon des tables ramené à ${result.id} : ses modifications sont annulées.` : `Brouillon des tables ramené à ${result.id} : ses modifications non enregistrées sont abandonnées.`);
+      } catch (error) { status.textContent = serverErrorMessage(error); }
+    },
+  }));
+  const resumeTables = (id) => confirmLoss(dialogSlot, {
+    heading: `Reprendre les valeurs de ${id} dans le brouillon des tables ?`,
+    lines: lostTablesChanges(),
+    label: `Reprendre ${id}`,
+    act: async () => {
+      if (!leavePresentation()) return;
+      try {
+        const result = await guarded(() => editorTablesResume(revision, id));
+        if (result === null) return;
+        state.dirty = false;
+        showTables(`Valeurs de ${result.id} reprises dans le brouillon, qui repart de ${result.base_id} : vérifie les différences, puis « Publier… » — la cascade proposera les exercices sur ${result.base_id}. La présentation en vigueur est gardée.`);
+      } catch (error) { status.textContent = serverErrorMessage(error); }
+    },
   });
 
   // Aperçu : dix questions d'un exercice avec les tables telles qu'à l'écran (D63), et la présentation en vigueur.
@@ -1489,6 +1622,7 @@ async function showTables(notice = '') {
   const versionsList = el('ul', { class: 'versions-liste' }, page.versions.map((v) => el('li', {}, [
     el('strong', {}, v.id), el('span', { class: 'muted' }, `publiée le ${formatDateStamp(v.creee_le)} · ${tablesUsageLabel(v.utilisations)}`),
     el('a', { class: 'button-small button-small--neutral', href: `/tables?version=${encodeURIComponent(v.id)}`, target: '_blank', rel: 'noopener' }, 'Feuilles imprimables'),
+    el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => resumeTables(v.id) }, 'Reprendre cette version'),
   ])));
 
   const table = (headers, body, className = '') => el('div', { class: 'table-wrap' }, el('table', { class: `prof-table tables-edit ${className}`.trim() }, [el('thead', {}, el('tr', {}, [...headers, 'Actions'].map((h) => el('th', {}, h)))), body]));
@@ -1513,6 +1647,7 @@ async function showTables(notice = '') {
         el('div', { class: 'editeur-bar-actions' }, [
           el('label', { for: 'apercu-exercice', class: 'muted small' }, 'Aperçu avec :'), previewSelect,
           el('button', { class: 'button-outline', type: 'button', onclick: preview }, 'Dix questions'),
+          cancelButton,
           saveButton,
           publishButton,
         ]),

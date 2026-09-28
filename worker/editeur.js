@@ -102,7 +102,7 @@ export function previewQuestions(exercise, data, random, count = 10) {
 //     CONTENU PUBLIÉ avec les nouvelles tables, jamais son brouillon ; sans titre vérifié (D74 : la cascade n'en change aucun) ;
 //   - brouillon : son brouillon est sur la version remplacée → il passe aux nouvelles tables, ses modifications gardées ;
 //   - en_erreur : le contenu à republier a des erreurs avec les nouvelles tables → nommé, et laissé tel quel (brouillon compris).
-// Retourne [{ id, titre, archive_le, publication: { depuis, numero } | null, brouillon: { modifie, erreurs } | null,
+// Retourne [{ id, titre, archive_le, jamais_publie, publication: { depuis, numero } | null, brouillon: { modifie, erreurs } | null,
 // en_erreur, erreurs, lignes }] dans l'ordre des rangs — lignes : ce que ça change pour lui (exerciseTablesImpact de son
 // contenu publié, ou de son brouillon s'il n'en a pas) ; brouillon.erreurs : les erreurs qui apparaîtraient dans son brouillon.
 //   rows : base.listExercises (id, brouillon, tables_id, archive_le, contenu_publie, derniere_version, tables_publiees)
@@ -119,6 +119,7 @@ export function cascadeCandidates(rows, { replacedId, replaced, next }, { draftE
       id: row.id,
       titre: (row.contenu_publie ?? row.brouillon).titre,
       archive_le: row.archive_le,
+      jamais_publie: row.contenu_publie === null,
       publication: published === null ? null : { depuis: row.derniere_version, numero: row.derniere_version + 1 },
       brouillon: moves ? { modifie: row.contenu_publie === null || !sameContent(row.brouillon, row.contenu_publie), erreurs: draftImpact.erreurs } : null,
       en_erreur: erreurs.length > 0,

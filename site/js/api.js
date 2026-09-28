@@ -199,6 +199,11 @@ export const editorDeleteExercise = (id, request) => editor('POST', 'exercice/su
 // Publier le brouillon : { publie: true, numero, publiee_le }. Erreurs : 400 erreurs de validation ; 409 révision périmée.
 export const editorPublish = (id, revision, request) => editor('POST', 'exercice/publier', { id, revision }, request);
 
+// Reprendre une version publiée d'un exercice dans le brouillon, qui garde sa version de tables : { repris, numero, revision,
+// tables_id, erreurs } ; annuler les modifications du brouillon : { annule, numero, revision, tables_id } (D77) ; 400, 404, 409.
+export const editorResume = (id, revision, numero, request) => editor('POST', 'exercice/reprendre', { id, revision, numero }, request);
+export const editorCancel = (id, revision, request) => editor('POST', 'exercice/annuler', { id, revision }, request);
+
 // Aperçu : { questions, champs_evalues } — du brouillon donné, ou d'une version ({ version: n }).
 export const editorPreview = (body, request) => editor('POST', 'apercu', body, request);
 
@@ -214,7 +219,14 @@ export const editorBankArchive = (id, archive, request) => editor('POST', 'banqu
 export const editorTables = (request) => editor('GET', 'tables', undefined, request);
 export const editorTablesVersion = (id, request) => editor('GET', `tables/version?id=${encodeURIComponent(id)}`, undefined, request);
 export const editorTablesSave = (revision, contenu, request) => editor('POST', 'tables/enregistrer', { revision, contenu }, request);
-export const editorTablesPublish = (revision, id, request) => editor('POST', 'tables/publier', { revision, id }, request);
+// Publier, avec la cascade (D77) : `cascade`, les identifiants des exercices cochés ; { publie, id, publiee_le, cascade:
+// { publies, brouillons, laisses, ignores } }.
+export const editorTablesPublish = (revision, id, cascade, request) => editor('POST', 'tables/publier', { revision, id, cascade }, request);
+// La cascade que la publication proposerait (D77) : { remplacee, candidats: [{ id, titre, archive_le, publication, brouillon, en_erreur, erreurs, lignes }] }.
+export const editorTablesCascade = (request) => editor('GET', 'tables/cascade', undefined, request);
+// Reprendre une version des tables (ses valeurs) ; annuler les modifications du brouillon des tables (D77) ; 400, 404, 409.
+export const editorTablesResume = (revision, id, request) => editor('POST', 'tables/reprendre', { revision, id }, request);
+export const editorTablesCancel = (revision, request) => editor('POST', 'tables/annuler', { revision }, request);
 export const editorTablesPreview = (contenu, exercice, request) => editor('POST', 'tables/apercu', { contenu, exercice }, request);
 export const editorExerciseTables = (id, revision, tablesId, request) => editor('POST', 'exercice/tables', { id, revision, tables_id: tablesId }, request);
 

@@ -236,9 +236,9 @@ test('cascadeCandidates et cascadePlan (D77) : les exercices sur la version remp
   const candidates = cascadeCandidates(rows, { replacedId: 'r0', replaced: {}, next: {} }, { draftErrorsOf, impactOf });
   assert.deepEqual(candidates.map((c) => c.id), ['a', 'b', 'c', 'd', 'f']); // « e » est ailleurs
   const by = (id) => candidates.find((c) => c.id === id);
-  assert.deepEqual(by('a'), { id: 'a', titre: 'A', archive_le: null, publication: { depuis: 2, numero: 3 }, brouillon: { modifie: false, erreurs: [] }, en_erreur: false, erreurs: [], lignes: ['impact de A'] });
+  assert.deepEqual(by('a'), { id: 'a', titre: 'A', archive_le: null, jamais_publie: false, publication: { depuis: 2, numero: 3 }, brouillon: { modifie: false, erreurs: [] }, en_erreur: false, erreurs: [], lignes: ['impact de A'] });
   assert.deepEqual([by('b').brouillon.modifie, by('b').archive_le !== null, by('b').titre, by('b').lignes], [true, true, 'B', ['impact de B']]); // le contenu publié, pas le brouillon
-  assert.deepEqual([by('c').publication, by('c').brouillon, by('c').lignes], [null, { modifie: true, erreurs: ['outils : x'] }, ['impact de C']]); // jamais publié : son brouillon
+  assert.deepEqual([by('c').jamais_publie, by('c').publication, by('c').brouillon, by('c').lignes], [true, null, { modifie: true, erreurs: ['outils : x'] }, ['impact de C']]); // jamais publié : son brouillon
   assert.deepEqual([by('d').publication, by('d').brouillon], [{ depuis: 4, numero: 5 }, null]); // publié sur r0, brouillon ailleurs : il ne passe pas
   assert.deepEqual([by('f').en_erreur, by('f').erreurs], [true, ['outils.0.operation : opération inconnue']]);
   assert.deepEqual(cascadeCandidates(rows, { replacedId: null, replaced: null, next: {} }, { draftErrorsOf, impactOf }), []);
