@@ -2581,7 +2581,7 @@ proposés ; rien ne change dans le code :
 5. pendant le corrigé d'une réussite, l'outil n'est plus surligné « en cours » : le vert de la barre, le point qui se
    remplit et le bandeau disent où la question a compté.
 
-## D82 — Les calculs dans les cases de réponse : une expression se calcule dans la case, le serveur la juge (2026-09-28, décidée ; réponses de Thierry au rapport, et retouche, en fin d'entrée)
+## D82 — Les calculs dans les cases de réponse : une expression se calcule dans la case, le serveur la juge (2026-09-28, décidée ; réponses de Thierry au rapport, et retouche, puis retouche après l'essai sur téléphone, en fin d'entrée)
 
 **Contexte.** Une case de réponse de l'écran Question ne lit qu'un nombre : point ou virgule décimale (D10), espaces
 ignorés (« 1 600 »), et la virgule devient un point à la sortie du champ (D71). L'étudiant calcule N = Vc × 4 / Ø ou
@@ -2690,3 +2690,29 @@ les attestations déjà émises ne changent pas. Rapport : `docs/rapports/finiti
    resterait seule au bas de l'écran. Son emplacement, juste au-dessus du clavier virtuel, est gardé.
 5. **Essai sur un vrai téléphone** avant la fusion : le serveur local ouvert au Wi-Fi (procédure dans le rapport,
    « Suite ») ; Thierry fusionne lui-même, hors des périodes de labo.
+
+**Retouche après l'essai sur téléphone (Thierry, Android, 2026-09-28).** Une décision et deux bogues.
+
+1. **Sur écran tactile, aucune case ne reçoit le focus à l'affichage d'une question** (même critère que la rangée de
+   boutons : `pointer: coarse`). À l'usage, le clavier s'ouvrait et cachait la moitié de l'écran, alors que
+   l'étudiant doit d'abord lire les données du problème. Le focus va au titre, comme `showScreen` le fait par défaut,
+   et la page s'affiche depuis le haut. Sur ordinateur, rien ne change : la première case à saisir reçoit le focus.
+2. **La rangée de boutons suit simplement le focus des cases** (remplace le point 4 des réponses au rapport) : elle se
+   montre quand une case prend le focus — un toucher, ou Vérifier qui donne le focus à une case illisible — et se
+   cache quand le focus quitte les cases. Bogue corrigé : à l'affichage, le curseur était déjà dans la première case,
+   mais la rangée n'apparaissait pas, même en touchant cette case ; il fallait toucher ailleurs, puis y revenir. Avec
+   le point 1, ce cas disparaît ; l'état « case touchée » est retiré.
+3. **La page ne défile jamais d'elle-même pendant que l'étudiant fait défiler.** Bogue corrigé : clavier ouvert, on
+   remonte relire le diamètre de l'outil, puis on redescend un peu, et la page sautait pour ramener la case de
+   réponse. Cause, l'hypothèse de Thierry, vérifiée dans Chrome : la rangée se replaçait à chaque défilement et à
+   chaque changement de hauteur de la zone visible, et la page remontait dès que la case était sous la rangée ; or la
+   barre d'adresse du navigateur, qui paraît ou disparaît selon le sens du défilement, change cette hauteur.
+   Désormais, au défilement et au changement de hauteur, la rangée se replace seulement. **La seule remontée
+   automatique** : quand une case prend le focus et que le clavier s'ouvre, si la rangée couvre alors la case. Elle est
+   permise de la prise de focus jusqu'au premier geste de défilement de l'étudiant, jamais après.
+4. **L'essai sur téléphone passe par le tunnel intégré de wrangler** (`npx wrangler dev`, touche `t`, l'adresse
+   `https://…trycloudflare.com` sur le téléphone ; `t` ou Ctrl+C pour fermer), et non plus par le serveur local
+   ouvert au Wi-Fi. Sous PowerShell, `npm run dev -- --ip 0.0.0.0` retire le `--`, et wrangler reçoit `0.0.0.0`
+   comme fichier d'entrée. Sous Windows 11, la fenêtre du pare-feu pour `workerd.exe` autorise d'un coup les réseaux
+   publics et privés, sans case à cocher. **Aucune information sur le réseau de Thierry** (nom du Wi-Fi, adresse IP)
+   ne va dans un rapport : le dépôt est public.

@@ -302,62 +302,27 @@ La vraie épreuve reste un téléphone : voir le point 2.
 
 ### Essayer sur ton téléphone
 
-Le poste et le téléphone sur **le même Wi-Fi**. Le 2026-09-28, le Wi-Fi du poste (réseau « ORICOM30617 ») avait
-l'adresse **192.168.68.56**. Elle est donnée par le routeur et peut changer : `ipconfig` dans un terminal, rubrique
-« Carte réseau sans fil Wi-Fi », ligne « Adresse IPv4 ».
+*Procédure corrigée après ton essai.* Elle passait par le serveur local ouvert au Wi-Fi, ce qui a deux défauts :
+- sous PowerShell, `npm run dev -- --ip 0.0.0.0` perd son `--` ;
+- sous Windows 11, le pare-feu ouvre `workerd.exe` d'un coup aux réseaux publics et privés.
 
-1. **Lancer le serveur local, ouvert au Wi-Fi.** Dans le dossier du projet :
+Elle passe maintenant par le **tunnel intégré de wrangler**. La liste des choses à essayer est à la section 8.
 
-   ```
-   npm run dev -- --ip 0.0.0.0
-   ```
+1. Dans le dossier du projet, lance `npx wrangler dev`. Tu peux aussi lancer `npm run dev`, qui applique d'abord les
+   migrations locales ; cette branche n'en ajoute aucune.
+2. Quand le serveur est prêt, appuie sur **t** (« start tunnel »). Wrangler affiche une adresse
+   **`https://…trycloudflare.com`**, tirée au hasard et différente à chaque fois. La première fois, il peut d'abord
+   télécharger `cloudflared` et te demander de confirmer.
+3. **Sur le téléphone**, ouvre cette adresse, en Wi-Fi comme en données cellulaires. Il n'y a **aucun pare-feu à
+   ouvrir** : le tunnel part du poste, et rien n'y entre directement.
+4. Le tunnel se ferme de lui-même au bout d'une heure ; **a** le prolonge d'une heure.
+5. Pour fermer, appuie sur **t** de nouveau (le tunnel seul) ou sur **Ctrl+C** (le tunnel et le serveur).
 
-   C'est `npm run dev` (migrations locales, puis `wrangler dev`), avec le serveur à l'écoute sur toutes les cartes
-   réseau au lieu du seul poste.
-2. **Sur le téléphone**, taper l'adresse en entier, avec `http://` : **`http://192.168.68.56:8787`**, puis choisir un
-   exercice.
-3. **Le pare-feu Windows.**
-   - Windows range ce Wi-Fi dans les réseaux **publics**. D'abord, le passer en **privé** (c'est ton réseau à la
-     maison) : Paramètres → Réseau et Internet → Wi-Fi → « ORICOM30617 » → Type de profil réseau : **Réseau privé**.
-   - Au premier lancement, Windows peut demander d'autoriser l'accès pour `workerd.exe` ou `node.exe`. Coche
-     **Réseaux privés** seulement, décoche Réseaux publics, puis « Autoriser ».
-   - Si rien n'est demandé et que le téléphone n'arrive pas à ouvrir la page (délai dépassé), ouvre une règle pour le
-     port 8787, sur les réseaux privés seulement. Dans un PowerShell **en administrateur** :
-
-     ```
-     New-NetFirewallRule -DisplayName "Quiz - wrangler dev 8787" -Direction Inbound -Protocol TCP -LocalPort 8787 -Action Allow -Profile Private
-     ```
-
-     Pour la retirer après l'essai :
-
-     ```
-     Remove-NetFirewallRule -DisplayName "Quiz - wrangler dev 8787"
-     ```
-   - Si ça ne passe toujours pas : le téléphone est-il bien sur le Wi-Fi, pas sur le réseau cellulaire ? Un réseau
-     « invité » isole souvent les appareils les uns des autres.
-4. **Pas de mode test sur le téléphone** : le serveur ne l'accorde qu'à `localhost` (D26). Il n'y a donc pas de bouton
-   « Remplir », et la cadence de 10 s s'applique entre deux corrections. C'est voulu.
-5. **À la fin**, Ctrl+C dans le terminal. `npm run dev` sans `--ip` redonne un serveur que seul le poste voit.
-
-**À essayer** (sur iPhone, et sur Android si tu en as un sous la main) :
-
-- [ ] À l'affichage d'une question, **pas de rangée**. Toucher la case Vc : le clavier s'ouvre, et la rangée apparaît
-  **juste au-dessus du clavier**.
-- [ ] Taper `3`, toucher **×**, taper `2` : **le clavier reste ouvert** à chaque toucher d'un bouton, et le curseur
-  reste dans la case.
-- [ ] Toucher **=** : la case affiche 6, et la note « = 3 × 2 » apparaît dessous.
-- [ ] **La rangée suit le clavier** : fais défiler la page, passe d'une case à l'autre (flèches du clavier de
-  l'iPhone). La rangée reste collée au-dessus du clavier.
-- [ ] **Fermer le clavier.** Sur iPhone, « OK » quitte la case : la rangée disparaît avec le clavier. Sur Android, la
-  touche retour ferme le clavier **sans quitter la case** : la rangée reste alors au bas de l'écran jusqu'à ce que tu
-  touches ailleurs. C'est la règle « tant qu'une case a le focus » ; dis-moi si ça te gêne.
-- [ ] **La case active n'est jamais cachée** par la rangée, même la case N, plus bas.
-- [ ] Taper `2(3)` et toucher **Vérifier** : **rien ne part**, la case est rouge, « Illisible : expression mal
-  formée », et elle a le focus. Efface-la, tape la bonne valeur, Vérifier : la correction arrive.
-- [ ] En passant : `pi` tapé avec la majuscule automatique (« Pi×2 ») est lu.
-
-Dis-moi ce qui ne va pas, avec le modèle du téléphone. La place de la rangée ne se règle qu'à partir de ce qu'on voit
-sur un vrai appareil.
+À savoir :
+- **Tant que le tunnel est ouvert, quiconque a l'adresse joint ton serveur local**, y compris la Gestion du contenu,
+  protégée par les clés de `.dev.vars`. Ferme-le après l'essai.
+- **Pas de mode test sur le téléphone** : le serveur ne l'accorde qu'à `localhost` (D26). Il n'y a donc pas de bouton
+  « Remplir », et la cadence de 10 s s'applique entre deux corrections. C'est voulu.
 
 ### Commits de la suite
 
@@ -366,3 +331,97 @@ sur un vrai appareil.
 10. Une expression illisible ne part jamais (`unreadableCase`, `enterComputes`, écran), avec ses tests.
 11. La rangée après un toucher ; vu dans Chrome.
 12. Documents (SPEC §6, §7 ; UI §3.3, §7), cette section et le PLAN coché.
+
+## 8. Retouche après l'essai sur téléphone (même branche)
+
+> **Correction des séances en cours : rien de plus que ce qu'annonce la tête du rapport.** Cette retouche ne touche que
+> l'écran Question sur écran tactile, dans le navigateur.
+
+**Ton essai** (Android) : une décision et deux bogues, consignés à la fin de **D82** (« Retouche après l'essai sur
+téléphone »).
+
+### Ce qui a changé
+
+1. **Sur écran tactile, aucune case ne reçoit le focus à l'affichage d'une question.**
+   - Le focus va au titre, et la page part du haut. Le clavier ne s'ouvre que quand l'étudiant touche une case.
+   - Le critère est celui de la rangée : `pointer: coarse`.
+   - La règle est `initialFocus`, pure et testée (`rules.js`).
+   - Sur ordinateur, rien ne change : la première case à saisir reçoit le focus. C'est vérifié à 1280 px.
+2. **La rangée suit simplement le focus des cases.**
+   - Elle se montre quand une case prend le focus : un toucher, ou Vérifier qui donne le focus à une case illisible.
+   - Elle se cache quand le focus quitte les cases.
+   - L'état « case touchée » et `touchCase` sont retirés.
+   - **Ton bogue 1** (la rangée absente en touchant la case déjà focalisée) : je ne l'ai pas reproduit dans Chrome
+     émulé, où toucher cette case montrait la rangée. Sa cause sur ton téléphone n'est donc pas établie. Ce cas n'existe
+     plus : sur écran tactile, aucune case n'a le focus à l'affichage, et la rangée n'a plus de condition en plus du
+     focus.
+3. **La page ne défile jamais d'elle-même pendant que l'étudiant fait défiler.**
+   - **Ton hypothèse est confirmée** dans Chrome, à 390 px, écran tactile émulé, avant la correction :
+     - clavier ouvert, un défilement au doigt vers le haut met la page à 235 px, la case Vc sortie par le bas ;
+     - la zone visible passe de 844 à 790 px, comme une barre d'adresse qui paraît ;
+     - `place()`, appelée par l'événement `resize`, fait `scrollBy` : la page saute à 639 px et ramène la case juste
+       au-dessus de la rangée.
+   - **Maintenant**, au défilement et quand la zone visible change de hauteur, `place()` ne fait que replacer la
+     rangée. Après la correction, dans le même essai, la page reste à 238 px.
+   - La seule remontée automatique reste celle-ci : quand une case prend le focus et que le clavier s'ouvre, si la
+     rangée couvre alors la case. Elle s'arme à la prise de focus, et **se désarme au premier geste de défilement** de
+     l'étudiant (`touchmove`, `wheel`).
+4. **La procédure d'essai passe par le tunnel de wrangler** (section 7, corrigée), et le rapport ne dit plus rien de ton
+   réseau.
+
+### Deux points à savoir
+
+1. **« Une fois »**, dans ta règle, est codé ainsi : la remontée est permise de la prise de focus jusqu'au premier geste
+   de défilement, pas limitée à un seul `scrollBy`.
+   - Pourquoi : l'ouverture du clavier peut changer la zone visible plus d'une fois, et Chrome fait lui-même défiler la
+     case au-dessus du clavier. Une remontée unique, faite trop tôt (le clavier pas encore ouvert), laisserait la case
+     sous la rangée.
+   - En pratique, c'est une remontée, à l'ouverture du clavier, et jamais pendant que tu fais défiler.
+   - Dis-moi si tu veux la limiter à un seul mouvement.
+2. **Ton réseau reste dans l'historique Git.** Le nom du Wi-Fi et l'adresse du poste sont retirés du rapport, mais ils
+   restent dans l'historique de la branche, déjà poussée (commit `217c33d`). C'est une adresse privée, qui ne sert qu'à
+   l'intérieur de ton réseau. Pour les effacer de l'historique, il faudrait réécrire la branche et la pousser de force :
+   je ne l'ai pas fait. Dis-moi si tu le veux.
+
+### Vérifié
+
+- `npm test` : **726** tests, `fail 0`. Nouveau : `initialFocus`.
+- `npm run test:api` : **35 étapes** réussies.
+- **Chrome, scénario téléphone** (390 px, écran tactile émulé, vrais événements tactiles) : **11 vérifications,
+  aucun échec** sur le code corrigé ; sur le code d'avant, 5 échecs, ceux attendus. Les vérifications :
+  - à l'affichage, le titre a le focus, aucune case, la page est en haut, pas de rangée ;
+  - toucher la case montre la rangée ;
+  - défiler au doigt vers le haut jusqu'à ce que la case sorte par le bas ;
+  - changer la hauteur de la zone visible (844 → 790 px) : la page ne bouge pas ;
+  - un petit défilement vers le bas : la page avance de ce défilement, et la case ne revient pas ;
+  - la zone visible reprend 844 px : toujours rien, et la rangée reste au bas de la zone visible ;
+  - une case couverte par la rangée, qui prend le focus au toucher, remonte au-dessus d'elle ;
+  - à 1280 px, la première case a le focus.
+
+  Deux limites de ce scénario :
+  - `Input.synthesizeScrollGesture` ne fait pas défiler dans Chrome sans interface. Les défilements sont donc des
+    suites de `touchStart`, `touchMove` et `touchEnd`, qui envoient les mêmes `touchmove` qu'un doigt.
+  - La barre d'adresse est simulée en changeant la hauteur de la fenêtre.
+- **Chrome, scénario complet**, mis à jour pour le nouveau focus : `m10-tournage-vc-rpm` et `test-complet`, à 1280 et
+  390 px. **189 vérifications, aucun échec**, aucune erreur console, aucune requête hors du site. Il vérifie aussi :
+  - à chaque question, sur téléphone, le titre a le focus et la page part du haut ;
+  - la rangée apparaît quand Vérifier donne le focus à une case illisible.
+- Captures (non versionnées) : `captures/finition-calcul-saisie-telephone/` et `captures/finition-calcul-saisie/`.
+
+### À essayer de nouveau sur ton téléphone (avec le tunnel, section 7)
+
+- [ ] À l'affichage d'une question : la page part du haut, le clavier reste fermé, pas de rangée.
+- [ ] Toucher la case Vc : le clavier s'ouvre, et la rangée apparaît juste au-dessus.
+- [ ] Clavier ouvert, remonter relire le diamètre de l'outil, redescendre un peu, remonter, plusieurs fois : **la page
+  ne saute plus**.
+- [ ] Toucher une case basse, près du clavier : elle remonte **une fois** au-dessus de la rangée.
+- [ ] Taper `3`, toucher ×, taper `2`, toucher = : le clavier reste ouvert, et la case affiche 6.
+- [ ] Taper `2(3)`, toucher Vérifier : rien ne part, la case rouge a le focus, et la rangée est là.
+- [ ] Sur Android, la touche retour ferme le clavier sans quitter la case : la rangée reste alors au bas de l'écran
+  jusqu'à ce que tu touches ailleurs. C'est le comportement prévu ; dis-moi s'il te gêne.
+
+### Commits de cette retouche
+
+13. Focus à l'affichage sur écran tactile (`initialFocus`) ; la rangée suit le focus.
+14. La page ne défile jamais d'elle-même.
+15. Documents (D82, UI §3.3, §7), la procédure du tunnel, cette section et le PLAN.

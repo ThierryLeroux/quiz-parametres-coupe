@@ -290,4 +290,8 @@ Rapport de session : `docs/rapports/finition-calcul-saisie.md`. **Change la corr
 - [x] Retouche : la rangée de boutons seulement après un toucher dans une case, pas au focus automatique de la première
 - [x] Vérification : `npm test`, `test:api`, Chrome à 1280 et 390 px — Vérifier sur une expression illisible (rien ne part, la case rouge a le focus), « Pi*2 », « 2X3 », « 4–1 » ; procédure d'essai sur un vrai téléphone dans le rapport
 - [x] Documents : SPEC §6 ; UI §3.3, §7 ; section « Suite » du rapport
-- [ ] **Thierry** : essayer sur son téléphone, puis fusionner — hors période de labo : la correction change au déploiement
+- [x] **Thierry** : premier essai sur son téléphone (Android) — une décision et deux bogues, consignés à la fin de D82
+- [x] Retouche après l'essai : sur écran tactile, aucune case n'a le focus à l'affichage d'une question (`initialFocus`) ; la rangée suit simplement le focus des cases (l'état « case touchée » retiré)
+- [x] Retouche après l'essai : la page ne défile jamais d'elle-même pendant que l'étudiant fait défiler — une seule remontée, à la prise de focus, désarmée au premier geste de défilement
+- [x] Vérification : `npm test`, `test:api`, Chrome à 390 px écran tactile émulé (focus à l'affichage, défilement sans retour à la case) et à 1280 px ; documents (D82, UI §3.3, §7) ; procédure d'essai par le tunnel de wrangler, sans information sur le réseau
+- [ ] **Thierry** : refaire l'essai sur son téléphone avec le tunnel, puis fusionner — hors période de labo : la correction change au déploiement
