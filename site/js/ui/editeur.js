@@ -14,7 +14,7 @@
 // part, une par requête).
 
 import {
-  editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankSave, editorCreateExercise, editorDeleteExercise, editorExport,
+  editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankRestore, editorBankSave, editorBankTool, editorCreateExercise, editorDeleteExercise, editorExport,
   editorExerciseTables, editorGetExercise, editorImageArchive, editorImageDelete, editorImageImport, editorImageRename, editorImageUpload, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft,
   editorCancel, editorExercisePresentation, editorExercisePresentationApply, editorExercisePresentationRestore, editorPresentation, editorPresentationApply, editorPresentationRestore, editorResume, editorTables, editorTablesCancel, editorTablesCascade, editorTablesPreview, editorTablesPublish, editorTablesResume, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
 } from '../api.js';
@@ -26,7 +26,7 @@ import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tab
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
   archiveConfirmation, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseHistoryLabel, exerciseState, exerciseTablesImpact, exportFileName,
-  liveTitleConflicts, presentationPreview, renameDone, renamePrompt, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  liveTitleConflicts, presentationPreview, renameDone, renamePrompt, bankHistoryLabel, twinTitlesNote, twinTitlesWarning, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -171,9 +171,11 @@ async function showList(notice = '') {
         try { await navigator.clipboard.writeText(link); event.currentTarget.textContent = 'Lien copié'; } catch { window.prompt('Lien à donner sur Léa :', link); }
       } }, 'Copier le lien étudiant'),
     ];
+    // Un titre en double (D79) : une note dorée sous le titre, qui nomme l'autre exercice ; elle ne bloque rien.
+    const twins = twinTitlesNote(row.doublons ?? []);
     return el('tr', {}, [
       el('td', { class: 'num' }, String(row.rang)),
-      el('td', {}, el('button', { class: 'button-link', type: 'button', onclick: open }, row.titre)),
+      el('td', {}, [el('button', { class: 'button-link', type: 'button', onclick: open }, row.titre), ...(twins === null ? [] : [el('div', { class: 'avertissement-ligne' }, twins)])]),
       el('td', {}, row.cours ?? '—'),
       el('td', { class: 'mono' }, row.id),
       el('td', { class: row.archive_le !== null ? 'state--running' : (row.modifie ? '' : 'state--done') }, exerciseState(row)),
@@ -886,6 +888,9 @@ async function showExercise(id, notice = '') {
     const panelErrors = el('ul', { class: 'editeur-erreurs' });
     const panelWarnings = el('ul', { class: 'avertissements' }); // une photo archivée en vigueur : dite, jamais bloquante
     const twinNotice = el('p', { class: 'small avis-doublon', role: 'alert', hidden: true });
+    // Un autre exercice publié porte déjà le titre en vigueur (D79) : un avertissement doré, qui ne bloque rien.
+    const twinsInForce = twinTitlesWarning(shown.doublons ?? []);
+    const twinWarning = twinsInForce === null ? '' : el('ul', { class: 'avertissements' }, el('li', {}, twinsInForce));
     const dialog = el('div');
     const names = copyNamesOf();
     const onEdit = () => { presentationDirty = true; syncDirty(); check(); };
@@ -1022,6 +1027,7 @@ async function showExercise(id, notice = '') {
       panelStatus,
       panelErrors,
       twinNotice,
+      twinWarning,
       panelWarnings,
       pendingBox,
       dialog,
@@ -1143,13 +1149,18 @@ async function showBank(notice = '') {
 }
 
 async function showBankTool(id, notice = '') {
-  const bank = await guarded(() => editorBank());
-  if (bank === null) return;
-  const row = bank.outils.find((r) => r.id === id);
-  if (!row) { showBank(`L'outil « ${id} » n'existe pas.`); return; }
+  let page;
+  try {
+    page = await guarded(() => editorBankTool(id));
+  } catch (error) {
+    if (error.status === 404) { showBank(`L'outil « ${id} » n'existe pas.`); return; }
+    throw error;
+  }
+  if (page === null) return;
+  const row = page.outil;
   const images = await loadImages('outil');
   if (images === null) return;
-  const { tables } = bank;
+  const { tables } = page;
   const opsByName = new Map(tables.operations.operations.map((op) => [op.operation, op]));
   let { revision } = row;
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
@@ -1168,32 +1179,76 @@ async function showBankTool(id, notice = '') {
     return tool;
   }
 
+  // Un refus du serveur, en clair : 409 (enregistré ailleurs) avec « Recharger la page », sinon son message.
+  const failure = (error) => (error.status === 409
+    ? [el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { state.dirty = false; showBankTool(id); } }, 'Recharger la page')]
+    : [error.status === 400 || error.status === 404 ? error.message : serverErrorMessage(error)]);
+  const time = () => formatDateStamp(new Date().toISOString()).slice(11);
+  const errorsText = (erreurs) => (erreurs.length > 0 ? ` Avec les tables d'aujourd'hui, ${erreurs.length} erreur${erreurs.length > 1 ? 's' : ''} : cet outil ne pourra pas être ajouté à un exercice sans erreur tant qu'elles restent (elles sont sous les champs).` : '');
+  const warningsText = (avertissements) => (avertissements.length > 0 ? ` Attention : ${avertissements.join(' ')}` : '');
+
+  // Enregistrer : le contenu remplacé va à l'historique (D79) ; sans changement, rien n'est écrit.
   const saveButton = el('button', { class: 'button', type: 'button', onclick: async () => {
     const tool = validate();
     saveButton.disabled = true;
     try {
       const result = await guarded(() => editorBankSave(id, revision, tool));
       if (result === null) return;
-      revision = result.revision;
       state.dirty = false;
-      status.textContent = `Outil enregistré (révision ${revision})${result.erreurs.length > 0 ? ` — ${result.erreurs.length} erreur(s) : cet outil ne pourra pas être ajouté à un exercice tant qu'elles restent` : ''}.`;
+      if (result.inchange) { status.textContent = "Aucun changement : rien n'a été enregistré."; return; }
+      showBankTool(id, `Outil enregistré à ${time()} (révision ${result.revision}) : ${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''} ; le contenu remplacé est dans l'historique.${errorsText(result.erreurs)}${warningsText(result.avertissements)}`);
     } catch (error) {
-      if (error.status === 409) status.replaceChildren(el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { state.dirty = false; showBankTool(id); } }, 'Recharger la page'));
-      else status.textContent = serverErrorMessage(error);
+      status.replaceChildren(...failure(error));
     } finally {
       saveButton.disabled = false;
     }
   } }, "Enregistrer l'outil");
 
+  // L'historique (D79), replié : chaque contenu remplacé, ce que le rétablir changerait, ses erreurs et avertissements avec
+  // les tables d'aujourd'hui, et « Rétablir » — un clic, sans confirmation, sauf si la page a des modifications non enregistrées.
+  async function restore(entry) {
+    if (state.dirty && !window.confirm("Les modifications de la page ne sont pas enregistrées : elles seront perdues. Rétablir quand même ?")) return;
+    try {
+      const result = await guarded(() => editorBankRestore(id, revision, entry.id));
+      if (result === null) return;
+      state.dirty = false;
+      showBankTool(id, `Contenu rétabli à ${time()} (${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}) ; celui qu'il remplace est dans l'historique.${errorsText(result.erreurs)}${warningsText(result.avertissements)}`);
+    } catch (error) {
+      status.replaceChildren(...failure(error));
+    }
+  }
+  const history = el('details', { class: 'presentation-historique banque-historique' }, [
+    el('summary', {}, `Historique (${page.historique.length})`),
+    page.historique.length === 0
+      ? el('p', { class: 'muted small' }, "Vide : chaque enregistrement y mettra le contenu qu'il remplace.")
+      : el('ul', { class: 'versions-liste historique-liste' }, page.historique.map((h) => el('li', {}, [
+        el('div', {}, [
+          el('div', { class: 'small' }, bankHistoryLabel(h)),
+          h.lignes.length === 0
+            ? el('div', { class: 'muted smaller' }, 'Identique au contenu actuel.')
+            : el('details', {}, [el('summary', { class: 'muted smaller' }, `Rétablir changerait ${h.lignes.length} valeur${h.lignes.length > 1 ? 's' : ''}`), el('ul', { class: 'editeur-diff' }, h.lignes.map((line) => el('li', {}, line)))]),
+          ...(h.erreurs.length === 0 ? [] : [
+            el('p', { class: 'small historique-erreurs' }, `Avec les tables d'aujourd'hui, ce contenu a ${h.erreurs.length} erreur${h.erreurs.length > 1 ? 's' : ''} ; il se rétablit quand même, et elle${h.erreurs.length > 1 ? 's' : ''} ser${h.erreurs.length > 1 ? 'ont' : 'a'} à corriger :`),
+            el('ul', { class: 'editeur-erreurs' }, h.erreurs.map((message) => el('li', {}, message))),
+          ]),
+          el('ul', { class: 'avertissements' }, h.avertissements.map((message) => el('li', {}, message))),
+        ]),
+        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir'),
+      ]))),
+  ]);
+
+  const saved = row.modifie_le ? ` · contenu enregistré le ${formatDateStamp(row.modifie_le)}${row.modifie_par ? ` par ${row.modifie_par}` : ''}` : '';
   const screen = el('div', { class: 'screen screen--wide prof editeur', oninput: () => { state.dirty = true; validate(); }, onchange: () => { state.dirty = true; validate(); } }, el('section', { class: 'panel' }, [
     panelHead(`banque · ${id}`, 'banque'),
     el('h1', { tabindex: '-1' }, row.outil.nom),
     el('div', { class: 'editeur-bar' }, [
-      el('div', { class: 'muted small' }, `Identifiant ${id} · ${row.exercices.length === 0 ? "copié dans aucun exercice" : `copié dans : ${row.exercices.join(', ')}`} (les copies ne suivent pas)${row.archive_le === null ? '' : ' · archivé'}`),
+      el('div', { class: 'muted small' }, `Identifiant ${id} · révision ${revision}${saved} · ${row.exercices.length === 0 ? "copié dans aucun exercice" : `copié dans : ${row.exercices.join(', ')}`} (les copies ne suivent pas)${row.archive_le === null ? '' : ' · archivé'}`),
       el('div', { class: 'editeur-bar-actions' }, [el('button', { class: 'button-link', type: 'button', onclick: () => leave(showBank) }, '← Banque'), saveButton]),
     ]),
     status,
     generalErrors,
+    el('ul', { class: 'avertissements' }, page.avertissements.map((message) => el('li', {}, message))),
+    history,
     form.element,
   ]));
   validate();

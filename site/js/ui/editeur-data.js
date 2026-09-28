@@ -670,6 +670,9 @@ export function imageUsageLabel(utilisations) {
   if (live > 0) parts.push(live === 1 ? "présentation d'un exercice" : `présentation de ${live} exercices`);
   const past = exercises.length - live;
   if (past > 0) parts.push(past === 1 ? "historique de la présentation d'un exercice" : `historique de la présentation des exercices (${past} contenus)`);
+  // L'historique de la banque (D79) : « Rétablir » remettrait la photo.
+  const bank = (utilisations.banque_historique ?? []).length;
+  if (bank > 0) parts.push(bank === 1 ? 'historique de la banque' : `historique de la banque (${bank} contenus)`);
   return parts.length === 0 ? 'jamais utilisée' : parts.join(' · ');
 }
 

@@ -212,8 +212,15 @@ export const editorPreview = (body, request) => editor('POST', 'apercu', body, r
 // La banque : { outils: [{ id, outil, revision, rang, archive_le, exercices }], tables }.
 export const editorBank = (request) => editor('GET', 'banque', undefined, request);
 export const editorBankCreate = (body, request) => editor('POST', 'banque/creer', body, request);
+// Enregistrer un outil : { enregistre, revision, erreurs, lignes, avertissements } — `inchange` sans changement (rien d'écrit) ;
+// le contenu remplacé va à l'historique (D79). Erreurs : 400 photo choisie inconnue ou archivée ; 409 enregistré ailleurs.
 export const editorBankSave = (id, revision, outil, request) => editor('POST', 'banque/enregistrer', { id, revision, outil }, request);
 export const editorBankArchive = (id, archive, request) => editor('POST', 'banque/archiver', { id, archive }, request);
+// La page d'un outil (D79) : { outil: { id, outil, revision, …, modifie_le, modifie_par, exercices }, tables, erreurs,
+// avertissements, historique: [{ id, enregistre_le, enregistre_par, remplace_le, remplace_par, action, lignes, erreurs, avertissements }] }.
+export const editorBankTool = (id, request) => editor('GET', `banque/outil?id=${encodeURIComponent(id)}`, undefined, request);
+// Rétablir un contenu de l'historique d'un outil : { retabli, revision, lignes, erreurs, avertissements } ; 400 rien à changer ; 404, 409.
+export const editorBankRestore = (id, revision, historique, request) => editor('POST', 'banque/retablir', { id, revision, historique }, request);
 
 // Tables de référence versionnées (D61 à D63) : la page du brouillon ({ brouillon, modifie, erreurs, versions, derniere, suggestion }),
 // une version ({ tables }), enregistrer ({ enregistre, revision, erreurs } ; 409 conflit), publier ({ publie, id } ; 400 erreurs

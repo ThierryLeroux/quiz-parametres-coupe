@@ -347,6 +347,9 @@ test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agr
   assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: [], presentation_exercices: ['m10', 'm10 · historique n° 3', 'autre · historique n° 4'] }), "présentation d'un exercice · historique de la présentation des exercices (2 contenus)");
   assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: [], presentation_exercices: ['m10', 'autre'] }), 'présentation de 2 exercices');
   assert.equal(canDeleteImage({ versions: [], brouillons: [], banque: [], tables: [], presentation: [], presentation_exercices: ['m10 · historique n° 3'] }), false);
+  // L'historique de la banque (D79) : utilisée, donc pas supprimable.
+  assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: [], banque_historique: ['alesoir · historique n° 4', 'alesoir · historique n° 7'] }), 'historique de la banque (2 contenus)');
+  assert.equal(canDeleteImage({ versions: [], brouillons: [], banque: [], tables: [], presentation: [], banque_historique: ['alesoir · historique n° 4'] }), false);
   assert.match(imageDeleteConfirmation({ id: 'img-abc', nom: 'Fraise' }), /^Supprimer l'image « Fraise » \(img-abc\)/);
   assert.match(imageArchiveConfirmation({ id: 'mvlnr', nom: 'MVLNR' }), /toujours/);
   assert.deepEqual(Object.keys(USAGE_LABELS), ['outil', 'operation', 'classe']);

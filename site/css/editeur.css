@@ -110,6 +110,11 @@
 .avertissements:empty { display: none; }
 .avertissements li { margin: var(--space-1) 0; }
 .avertissements li::marker { content: '⚠ '; }
+/* Un titre en double (D79) : une note dorée sous le titre, dans la liste des exercices ; les erreurs d'un contenu de
+   l'historique de la banque, avec les tables d'aujourd'hui. */
+.avertissement-ligne { margin-top: 2px; color: var(--color-gold); font-size: var(--text-xs); }
+.avertissement-ligne::before { content: '⚠ '; }
+.historique-erreurs { margin: var(--space-1) 0 0; color: var(--color-wrong); }
 
 /* Un outil de l'exercice : une ligne (case, vignette, nom, erreurs, boutons) et son formulaire replié dessous. */
 .outil-ligne { margin-top: var(--space-3); border: 1px solid color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
