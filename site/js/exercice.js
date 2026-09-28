@@ -67,6 +67,15 @@ export function sameTitleRefusal(twins) {
     : `Publication refusée : un autre exercice publié porte déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : change le titre de l'un des deux, puis publie.`;
 }
 
+// Le refus d'un titre qui entre en vigueur en direct (D78, point 6 : « Appliquer », « Renommer », « Rétablir »), le même
+// dans la réponse du serveur et à l'écran.
+export function liveTitleRefusal(twins) {
+  const others = twins.map((t) => `« ${t.titre} » (${t.id})`).join(', ');
+  return twins.length > 1
+    ? `Titre refusé : d'autres exercices publiés portent déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : choisis-en un autre (ou change ceux des autres).`
+    : `Titre refusé : un autre exercice publié porte déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : choisis-en un autre (ou change celui de l'autre).`;
+}
+
 // Une clé inconnue est une erreur : « dimension » pour « dimensions » lèverait sinon la
 // restriction en silence. Les clés qui commencent par « _ » sont des commentaires.
 function checkKeys(object, allowed, where, errors) {
