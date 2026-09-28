@@ -1268,7 +1268,7 @@ immuables. Brouillon et version ont la même forme :
 2. ~~Réussites consécutives ou cumulées (§7).~~ Tranché : consécutives (D12).
 3. ~~Vérification du code : Moodle seul ou aussi QR (§8).~~ Tranché : plus de Moodle ; rapport PDF remis sur Léa, QR pour l'enseignant (D16).
 4. ~~Sécurité du payload QR (§8 / D6).~~ Tranché : attestation signée par le serveur de correction (D19).
-5. Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ? (D7)
+5. ~~Nouveau code dans le dépôt `tgm-fab` (à côté de `index.htm`) ou dépôt dédié ? (D7)~~ Tranché : dépôt dédié (D80).
 6. ~~Serveur de correction : cinq points du §7.~~ Tranchés : D21.
 7. ~~Un N calculé avec 12/π puis arrondi à l'entier (§5).~~ Tranché : tolérance de N élargie de ±1 tr/min (D13, complément).
 8. ~~Barres de la barre à aléser et rapport 0,75 (§3, D25).~~ Confirmés (D30).

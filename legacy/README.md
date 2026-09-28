@@ -7,6 +7,6 @@
   - `modRapport.bas` — rapport, payload du QR (`qrCode`), URL de vérification ;
   - `modSubFct.bas` — utilitaires, encodage du payload (`EncryptString`) ;
   - `mdQRCodegen.bas` — générateur de QR code (bibliothèque tierce portée en VBA).
-- `index.htm` — page de vérification actuellement publiée sur `thierryleroux.github.io/tgm-fab/` : décode `?data=` et affiche le rapport.
+- `index.htm` — l'ancienne page de vérification du classeur, publiée sur `thierryleroux.github.io/tgm-fab/` jusqu'à sa dépublication (D80) : elle décodait `?data=` et affichait le rapport. Le quiz web ne s'en sert pas : ses attestations se vérifient sur sa propre page `/verifier` (D33).
 
 Rien ici n'est destiné à évoluer ; c'est la référence pour `docs/SPEC.md`.

@@ -26,7 +26,7 @@ cas particulier.
 **Conséquences.** Le moteur est générique dès le départ ; on livre par jalons
 (voir `PLAN.md`) mais sans architecture jetable.
 
-## D3 — Pile technique : HTML/CSS/JS sans compilation, JSON (2026-09-19, proposée)
+## D3 — Pile technique : HTML/CSS/JS sans compilation, JSON (2026-09-19, proposée ; confirmée par D80)
 
 **Contexte.** Le projet doit rester maintenable par un enseignant seul, pendant
 des années, avec un minimum d'outillage.
@@ -41,7 +41,7 @@ pour développer, jamais pour publier.
 **Conséquences.** Pas de React/Vue/TypeScript ; on accepte un peu plus de code à
 la main contre une dette d'outillage nulle.
 
-## D4 — Conventions de langue (2026-09-19, provisoire)
+## D4 — Conventions de langue (2026-09-19, provisoire ; confirmée par D80)
 
 - Interface, documentation, commentaires, messages de commit : **français**.
 - Clés des fichiers JSON de données : **français**, `snake_case`, sans accents
@@ -61,7 +61,7 @@ l'exécution. Une modification pédagogique = éditer un JSON + commit.
 `_unites` dans chaque fichier) et une validation automatique des JSON dans les
 tests.
 
-## D6 — Sécurité du code de réussite et du QR (ouverte)
+## D6 — Sécurité du code de réussite et du QR (ouverte ; fermée par D19)
 
 **Contexte.** Le payload du QR est un encodage réversible ; le code Moodle est
 une formule connue de l'étudiant qui lit le JS. Un site statique ne peut pas
@@ -73,7 +73,7 @@ détenu par l'enseignant et vérifier hors ligne ; (c) autre chose.
 
 **À décider avec Thierry après la v1 fonctionnelle.**
 
-## D7 — Emplacement du dépôt (ouverte)
+## D7 — Emplacement du dépôt (ouverte ; fermée par D80)
 
 Le rapport actuel est publié sur `thierryleroux.github.io/tgm-fab/`. Reste à
 décider : nouveau code dans `tgm-fab` (sous-dossier, une seule URL Pages) ou
@@ -2480,3 +2480,47 @@ DEMARRAGE ; PLAN. Rapport : `docs/rapports/e5-4-historique-banque.md`.
 
 Et une retouche des documents : les quatre exigences de Thierry, posées au début du chantier, sont inscrites mot pour
 mot dans D75, et le bilan du chantier (rapport d'E5-4, §7) les reprend dans leur ordre, a) à d).
+
+## D80 — Le dépôt dédié et Cloudflare : D7 fermée ; D3 et D4 confirmées, D6 marquée fermée (2026-09-28, décidée)
+
+**Contexte.** Quatre entrées du début du journal gardent un statut que les faits ont dépassé. D7 hésitait entre le
+dépôt `tgm-fab` (un sous-dossier, une seule adresse GitHub Pages) et un dépôt dédié, en gardant `tgm-fab` pour la page
+de vérification si l'adresse du QR devait rester stable. D3 (pile technique) était « proposée », à confirmer par
+Thierry ; D4 (conventions de langue), « provisoire ». D6 (sécurité du QR) est fermée par D19, mais son en-tête dit
+encore « ouverte ». Thierry constate l'état des lieux (2026-09-28) : le projet vit dans son propre dépôt depuis le
+jalon 0 ; `tgm-fab` ne contient plus que l'ancienne page de rapport du classeur (`index.htm`, le même contenu que
+`legacy/index.htm` aux fins de ligne près) et le logo ; le QR des nouvelles attestations n'y renvoie jamais (D33), et
+il ne reste plus aucun rapport du classeur à vérifier.
+
+**Décision.**
+
+1. **D7 est fermée : dépôt dédié**, `ThierryLeroux/quiz-parametres-coupe`, **public** — aucun secret n'y vit (D22 :
+   les secrets sont posés sur le Worker et dans les secrets de GitHub ; `.dev.vars` est ignoré par git). Le site et
+   l'API sont servis par **un seul Worker Cloudflare** (D20), déployé par GitHub Actions après les tests ; GitHub Pages
+   de ce dépôt est dépublié ; l'adresse est celle de D73, `https://quiz-parametres-coupe.tgm-tmi.workers.dev`. La page
+   de vérification n'a pas eu à rester dans `tgm-fab` : c'est `/verifier`, sur le même Worker (D33), et l'adresse du
+   QR suit celle du site.
+2. **`tgm-fab` n'a plus de rôle pour le quiz.** Thierry dépublie lui-même son GitHub Pages (la marche à suivre de
+   `DEMARRAGE.md`, étape 4, point 6, appliquée à `tgm-fab` ; rapport `docs/rapports/finition-d7-depot.md`) ; rien à
+   faire dans ce dépôt-ci, sinon le dire. `legacy/index.htm` en garde la copie, en lecture seule : c'est **l'ancienne
+   page de vérification du classeur**, publiée sur `thierryleroux.github.io/tgm-fab` jusqu'à sa dépublication. Après
+   elle, un ancien QR du classeur (`…/tgm-fab/?data=…`) ne s'ouvre plus ; il n'en reste aucun à vérifier.
+3. **D3 est confirmée**, telle que D19 et D20 l'ont changée. **Ce qui tient** : JavaScript natif en modules ES, sans
+   framework ni étape de construction (`site/` est publié tel quel) ; les tests par `node --test` (le moteur, et le
+   serveur sur `node:sqlite`, D22) ; une seule dépendance d'exécution, épinglée et vendorisée : la bibliothèque QR
+   (`qrcode-generator`, `site/vendor/`, D33). **Ce que D19 et D20 ont changé** : le site ne fonctionne plus sans son
+   **serveur de correction**, qui tire, corrige et signe (D19) ; il est hébergé par **Cloudflare** — un Worker, une
+   base D1 — et non plus par GitHub Pages (D20) ; **`wrangler`**, seule `devDependency`, épinglée, sert à développer
+   (`npm run dev`) et à publier (`deploy.yml`). Node sert donc aux tests et à `wrangler`, jamais au site publié.
+4. **D4 est confirmée, et ses conventions s'appliquent partout** : site, serveur (`worker/`), tests, migrations,
+   scripts de `reference/`, documents, messages de commit. Interface, documentation, commentaires et commits en
+   français ; clés des données en français, `snake_case`, sans accents — les JSON du dépôt comme les tables et les
+   colonnes de D1 ; identifiants de code en anglais, `camelCase`, fichiers JS en `kebab-case` (CLAUDE.md).
+5. **D6 est marquée fermée** : D19 l'a fermée (le QR porte une attestation signée par HMAC, vérifiée par le serveur) ;
+   son en-tête le dit maintenant.
+6. Les anciennes entrées ne sont pas réécrites : seuls leurs en-têtes sont annotés, comme celui de D64.
+
+**Conséquences.** En-têtes de D3, D4, D6 et D7 ; SPEC §11 (question 5 barrée) ; `README.md` et `legacy/README.md`
+(`legacy/index.htm`, l'ancienne page de vérification du classeur) ; `DEMARRAGE.md`, étapes 2 et 4 ; PLAN (jalon 0,
+jalon 3, chantier « accueil et libellés », E5-4, Finition). Aucun code, aucune migration ; rien ne touche la correction
+ni les attestations. Rapport : `docs/rapports/finition-d7-depot.md`.

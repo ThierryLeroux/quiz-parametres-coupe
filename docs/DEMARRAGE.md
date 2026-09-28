@@ -29,8 +29,9 @@ git config --global user.email "adresse@utilisée-sur-github"
 
 ## 2. Créer le dépôt sur GitHub
 
-Sur https://github.com/new : nom `quiz-parametres-coupe` (ou selon D7),
-**privé ou public au choix**, **sans** README/.gitignore/licence (le squelette
+Sur https://github.com/new : nom `quiz-parametres-coupe` (un dépôt dédié, D80),
+**privé ou public au choix** (celui du projet est public : aucun secret n'y
+vit, D22), **sans** README/.gitignore/licence (le squelette
 les contient déjà). Noter l'URL, de la forme
 `https://github.com/thierryleroux/quiz-parametres-coupe.git`.
 
@@ -86,7 +87,9 @@ lance `npm test`, applique les migrations de la base (étape 5), puis
    - `CLOUDFLARE_ACCOUNT_ID` : l'identifiant de l'étape 3.
 6. **Désactiver GitHub Pages**, qui servait l'ancienne version statique : dépôt
    → *Settings* → *Pages* → bouton **Unpublish site**. Le fichier `pages.yml`
-   a déjà été retiré du dépôt.
+   a déjà été retiré du dépôt. Fait pour ce dépôt-ci ; le dépôt `tgm-fab`, qui
+   ne publiait plus que l'ancienne page de vérification du classeur, se
+   dépublie de la même façon (D80).
 7. **Premier déploiement.** Pousser sur `main`. Le déroulement se suit dans
    l'onglet *Actions* du dépôt (flux « deploy ») ; l'adresse publiée figure à la
    fin du journal de l'étape *wrangler-action*. Vérifier que

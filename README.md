@@ -23,7 +23,7 @@ worker/          le Worker Cloudflare : API /api/ du serveur de correction
 migrations/      schéma de la base D1 (séances, journal des corrections)
 wrangler.jsonc   configuration du Worker
 tests/           tests unitaires — `npm test`
-legacy/          classeur d'origine, VBA exporté, page de vérification actuelle
+legacy/          classeur d'origine, VBA exporté, ancienne page de vérification du classeur (publiée sur thierryleroux.github.io/tgm-fab jusqu'à sa dépublication, D80)
 ```
 
 ## Développer
