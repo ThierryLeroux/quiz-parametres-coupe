@@ -5,6 +5,8 @@
 // la Gestion du contenu posent à partir de la version en usage, la révision suivante et les différences entre
 // deux versions, valeur par valeur. Fonctions PURES, partagées par le serveur et le navigateur.
 
+import { factorText } from './facteur-vitesse.js';
+
 // Les classes ISO 513 du classeur, avec les couleurs des feuilles (UI §1 ; tokens.css avant le 7b) :
 // la couleur vive (lettre, panneau du matériau), celle du texte posé dessus, la teinte de ligne —
 // et, depuis D64, l'image de chaleur de la classe (l'identifiant de la semence de la migration 0009,
@@ -189,7 +191,9 @@ const text = (v) => (v === undefined || v === null || v === '' ? '—' : String(
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 const MATERIAL_FIELDS = [['iso', 'classe'], ['materiau', 'matériau'], ['composition', 'composition'], ['etat', 'état'], ['durete', 'dureté'], ['exemple', 'exemple'], ['debut_famille', 'début de famille']];
-const OPERATION_FIELDS = [['machine', 'machine-outil'], ['direction_avance', 'direction d\'avance'], ['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø']];
+const OPERATION_FIELDS = [['machine', 'machine-outil'], ['direction_avance', 'direction d\'avance'], ['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø'], ['facteur_vitesse', 'facteur de vitesse']];
+// Le facteur de vitesse s'écrit en fraction, comme sur la feuille (D83) : « — → 1/4 », « 1/4 → 1/8 ».
+const operationValue = (key, value, bool) => (key === 'facteur_vitesse' && Number.isFinite(value) ? factorText(value) : bool(value));
 
 export function tablesDiff(before, after) {
   const a = completeTables(before);
@@ -244,7 +248,7 @@ export function tablesDiff(before, after) {
     const old = opsA.get(name);
     if (!old) { lines.push(`Opération ajoutée : ${name}`); continue; }
     for (const [key, fieldLabel] of OPERATION_FIELDS) {
-      if (!same(old[key], op[key])) lines.push(`Opération « ${name} » — ${fieldLabel} : ${bool(old[key])} → ${bool(op[key])}`);
+      if (!same(old[key], op[key])) lines.push(`Opération « ${name} » — ${fieldLabel} : ${operationValue(key, old[key], bool)} → ${operationValue(key, op[key], bool)}`);
     }
   }
   for (const name of opsA.keys()) if (!opsB.has(name)) lines.push(`Opération retirée : ${name}`);

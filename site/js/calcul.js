@@ -3,12 +3,14 @@
 // AUCUN arrondi ici : les tolérances de correction (SPEC §6) absorbent les
 // arrondis de l'étudiant, et l'affichage arrondit de son côté (format.js).
 
+import { speedFactorOf } from './facteur-vitesse.js';
+
 // Calcule les paramètres de coupe théoriques d'une question.
 //   question : objet produit par generateQuestion (question.js)
 //   data     : résultat de loadData (data.js) ; l'outil y est retrouvé par question.tool.id
 //
 // Retourne un objet simple, sérialisable en JSON :
-//   vc                 vitesse de coupe (pi/min), lue dans la table — sans fact_vc
+//   vc                 vitesse de coupe (pi/min), lue dans la table — sans le facteur de vitesse
 //   rpmRaw             N calculé, avant plafond (tr/min)
 //   rpm                N retenu = min(rpmRaw, limite_rpm de l'outil)
 //   rpmCapped          true si le plafond limite_rpm a été appliqué
@@ -27,8 +29,10 @@ export function computeParameters(question, data) {
   const diameter = question.dimension.diameter;
 
   // Formule pédagogique du cours : N = Vc × 4 / D (et non 3,82). Ne pas « corriger ».
+  // Le facteur de vitesse (D83) : celui de l'outil s'il en a un (toujours, avant D83 ; forcé, depuis), sinon celui de
+  // son opération, dans les tables de la version.
   const vc = question.material.vc_pi_min[question.toolMaterial.key];
-  const rpmRaw = (vc * 4 / diameter) * tool.fact_vc;
+  const rpmRaw = (vc * 4 / diameter) * speedFactorOf(tool, operation);
   const rpmCapped = rpmRaw > tool.limite_rpm;
   const rpm = rpmCapped ? tool.limite_rpm : rpmRaw;
 

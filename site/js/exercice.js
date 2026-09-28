@@ -16,7 +16,7 @@ export const GRADED_FIELD_KEYS = {
 };
 
 const EXERCISE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/; // minuscules, chiffres et tirets : c'est aussi le nom du fichier
-const EXERCISE_KEYS = ['id', 'titre', 'cours', 'version', 'champs_evalues', 'champs_masques', 'outils', 'liste', 'materiaux_outil', 'groupes'];
+const EXERCISE_KEYS = ['id', 'titre', 'cours', 'version', 'champs_evalues', 'champs_masques', 'facteur_vitesse_donne', 'outils', 'liste', 'materiaux_outil', 'groupes'];
 const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes'];
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -146,6 +146,7 @@ export function validateExercise(exercise, data) {
   });
   // Grandeurs masquées (D52) : ni saisies ni montrées ; jamais évaluées en même temps.
   for (const message of maskedFieldErrors(exercise.champs_masques, fields)) errors.push(`${where} : ${message}`);
+  for (const message of givenFactorErrors(exercise.facteur_vitesse_donne)) errors.push(`${where} : ${message}`);
 
   const entries = Array.isArray(exercise.outils) ? exercise.outils : [];
   if (entries.length === 0) errors.push(`${where} : « outils » doit être une liste non vide`);
@@ -184,13 +185,13 @@ export function validateExercise(exercise, data) {
 // Depuis le jalon 7, un exercice ne référence plus les outils du catalogue : il porte ses propres
 // COPIES, indépendantes de la banque d'outils. Modifier la banque ne change aucun exercice.
 // Le brouillon d'un exercice et chacune de ses versions publiées ont cette forme :
-//   { titre, cours?, champs_evalues, materiaux_outil?, groupes?, liste?, outils: [copie, …] }
+//   { titre, cours?, champs_evalues, champs_masques?, facteur_vitesse_donne?, materiaux_outil?, groupes?, liste?, outils: [copie, …] }
 // où une copie est un outil au format d'outils.json (TOOL_KEYS), plus `reussites_requises` et,
 // à titre d'information, `origine` (l'id de l'outil de la banque dont elle vient).
 // Ses dimensions, ses matières et ses groupes SONT ce que l'exercice permet : plus de restrictions
 // par outil (elles s'appliquent en retirant de la copie), seules restent celles de tout l'exercice.
 
-export const DRAFT_KEYS = ['titre', 'cours', 'champs_evalues', 'champs_masques', 'materiaux_outil', 'groupes', 'liste', 'outils'];
+export const DRAFT_KEYS = ['titre', 'cours', 'champs_evalues', 'champs_masques', 'facteur_vitesse_donne', 'materiaux_outil', 'groupes', 'liste', 'outils'];
 export const COPY_KEYS = [...TOOL_KEYS, 'reussites_requises', 'origine'];
 
 // La copie d'un outil du catalogue pour un exercice, avec les restrictions d'une entrée
@@ -217,6 +218,7 @@ export function draftFromExercise(exercise, tools) {
   const draft = { titre: exercise.titre, champs_evalues: [...exercise.champs_evalues] };
   if (exercise.cours !== undefined) draft.cours = exercise.cours;
   if (exercise.champs_masques) draft.champs_masques = [...exercise.champs_masques];
+  if (exercise.facteur_vitesse_donne === true) draft.facteur_vitesse_donne = true;
   if (exercise.materiaux_outil) draft.materiaux_outil = [...exercise.materiaux_outil];
   if (exercise.groupes) draft.groupes = [...exercise.groupes];
   if (exercise.liste === false) draft.liste = false;
@@ -237,6 +239,7 @@ export function engineExercise(id, version, draft) {
   const exercise = { id, titre: draft.titre, version: String(version), champs_evalues: draft.champs_evalues, outils: draft.outils.map((copy) => ({ id: copy.id, reussites_requises: copy.reussites_requises })) };
   if (draft.cours !== undefined) exercise.cours = draft.cours;
   if (draft.champs_masques) exercise.champs_masques = draft.champs_masques;
+  if (draft.facteur_vitesse_donne === true) exercise.facteur_vitesse_donne = true;
   if (draft.materiaux_outil) exercise.materiaux_outil = draft.materiaux_outil;
   if (draft.groupes) exercise.groupes = draft.groupes;
   if (draft.liste === false) exercise.liste = false;
@@ -268,6 +271,7 @@ export function draftErrors(draft, tables) {
     else if (fields.indexOf(field) !== i) error('champs_evalues', `grandeur en double : « ${field} »`);
   });
   for (const message of maskedFieldErrors(draft.champs_masques, fields)) error('champs_masques', message);
+  for (const message of givenFactorErrors(draft.facteur_vitesse_donne)) error('facteur_vitesse_donne', message);
   const listErrors = (list, key, available, label) => {
     if (list === undefined) return;
     if (!Array.isArray(list) || list.length === 0) return error(key, `${label} : la liste doit être non vide, ou absente (aucune restriction).`);
@@ -313,6 +317,13 @@ function maskedFieldErrors(masked, graded) {
     else if (graded.includes(field)) errors.push(`« ${field} » ne peut pas être à la fois évalué et masqué`);
   });
   return errors;
+}
+
+// Les erreurs de « facteur_vitesse_donne » (D83) : true — l'exercice donne le facteur de vitesse à l'étudiant (exercice
+// pour débutants) —, false, ou absent : il le trouve dans la feuille des facteurs. Sans effet avec des tables qui ne
+// portent pas les facteurs (factorGiven, facteur-vitesse.js) : le facteur de l'outil s'affiche alors comme avant.
+function givenFactorErrors(given) {
+  return given === undefined || typeof given === 'boolean' ? [] : ['« facteur_vitesse_donne » doit être true ou false (ou absent : le facteur est à trouver)'];
 }
 
 // Charge et valide l'exercice `id`. Lève une erreur qui énumère tous les problèmes s'il est invalide.

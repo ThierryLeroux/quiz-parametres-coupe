@@ -2,6 +2,7 @@
 // Tout ce qui interprète le contenu brut des JSON (libellés, filetages,
 // conversions mm → po) vit ici ; le reste du moteur ne voit que des pouces.
 
+import { carriesSpeedFactors, hasSpeedFactor, speedFactorErrors } from './facteur-vitesse.js';
 import { CLASS_IMAGE_KEYS, LEGENDE_IMAGE_MAX, TOOL_MATERIAL_CLES, characteristicsErrors, completeTables, isColor, isoClassesOf, toolMaterialKeyMap, toolMaterialsOf } from './tables.js';
 
 const MM_PER_INCH = 25.4;
@@ -229,6 +230,8 @@ function validateOperations(ops, errors) {
     if (op.pictogramme !== undefined && op.pictogramme !== null && !isImageRef(op.pictogramme)) {
       errors.push(`${where} : « pictogramme » doit être l'identifiant d'une image (ou absent)`);
     }
+    // Le facteur de vitesse (D83) : N = Vc × 4 / Ø × facteur. Facultatif — une version d'avant D83 n'en a aucun.
+    if (hasSpeedFactor(op) && !isPositive(op.facteur_vitesse)) errors.push(`${where} : « facteur_vitesse » doit être un nombre > 0 (1 : aucune réduction ; « 1/4 » s'écrit 0.25)`);
 
     if (op.avance_egale_pas_filetage === true) {
       // Filetage : l'avance est le pas, tiré de la dimension de l'outil.
@@ -241,6 +244,12 @@ function validateOperations(ops, errors) {
     }
   });
   checkUnique(ops.filter(isObject).map((op) => op.operation), 'operations.json : opération', errors);
+  // Toutes les opérations portent leur facteur de vitesse, ou aucune (D83) : la feuille des facteurs et l'héritage des
+  // outils n'existent que pour des tables qui les portent toutes.
+  const without = ops.filter((op) => isObject(op) && !hasSpeedFactor(op));
+  if (without.length > 0 && without.length < ops.filter(isObject).length) {
+    errors.push(`operations.json : « facteur_vitesse » manque pour ${without.map((op) => `« ${op.operation} »`).join(', ')} — il se donne pour toutes les opérations, ou pour aucune`);
+  }
 }
 
 function validateTools(tools, ops, groups, toolMaterials, errors) {
@@ -256,9 +265,11 @@ function validateTools(tools, ops, groups, toolMaterials, errors) {
 
 // Les clés d'un outil, au format d'outils.json — celles que la Gestion du contenu (jalon 7) montre et enregistre.
 // « colonne_excel » est la provenance (classeur) ; « limite_avance » est obsolète (D69, SPEC §3) : gardée dans
-// les données, ni lue par le moteur ni montrée par la Gestion du contenu.
+// les données, ni lue par le moteur ni montrée par la Gestion du contenu. « fact_vc » est le facteur de vitesse PROPRE à
+// l'outil, et « fact_vc_raison » la raison de le forcer (D83) : avec des tables qui portent les facteurs, un outil
+// sans « fact_vc » hérite de celui de son opération (facteur-vitesse.js).
 export const TOOL_KEYS = [
-  'id', 'colonne_excel', 'nom', 'format_identifiant', 'commentaire', 'operation', 'fact_vc', 'fact_av', 'limite_rpm', 'limite_avance',
+  'id', 'colonne_excel', 'nom', 'format_identifiant', 'commentaire', 'operation', 'fact_vc', 'fact_vc_raison', 'fact_av', 'limite_rpm', 'limite_avance',
   'nb_dents_min', 'nb_dents_max', 'materiaux_outil', 'groupes_materiaux_usinables', 'image', 'dimensions', 'dimensions_barre', 'rapport_barre_max',
 ];
 
@@ -278,7 +289,11 @@ export function toolErrors(tool, opsByName, groups, toolMaterialsOfTables = Obje
   for (const key of ['id', 'nom', 'format_identifiant']) {
     if (!isText(tool[key])) error(key, `« ${key} » est vide`);
   }
-  for (const key of ['fact_vc', 'fact_av', 'limite_rpm']) {
+  // Le facteur de vitesse (D83) : exigé de l'outil avec des tables sans facteurs, comme avant ; facultatif sinon
+  // (absent : l'outil hérite de son opération), et forcé avec sa raison.
+  const op = opsByName.get(tool.operation);
+  for (const { champ, message } of speedFactorErrors(tool, op)) error(champ, message);
+  for (const key of ['fact_av', 'limite_rpm']) {
     if (!isPositive(tool[key])) error(key, `« ${key} » doit être un nombre > 0`);
   }
   // « limite_avance » est obsolète (D69) : ce n'est pas un plafond, le moteur l'ignore et la Gestion du contenu ne la montre
@@ -304,7 +319,6 @@ export function toolErrors(tool, opsByName, groups, toolMaterialsOfTables = Obje
   }
   for (const dup of duplicates(toolGroups)) error('groupes_materiaux_usinables', `groupe de matériaux en double : « ${dup} »`);
 
-  const op = opsByName.get(tool.operation);
   if (!op) error('operation', `opération inconnue : « ${tool.operation} »`);
 
   // fact_av ne sert qu'aux avances proportionnelles au Ø (SPEC §5). Ailleurs, le moteur
@@ -429,7 +443,8 @@ export function assembleTables(tables) {
 }
 
 // Les index communs : opérations par nom, matériaux par groupe, révisions, et (D61) les classes ISO
-// avec leurs couleurs, les matières d'outil avec les leurs, et le passage du nom d'une matière à sa clé.
+// avec leurs couleurs, les matières d'outil avec les leurs, et le passage du nom d'une matière à sa clé ;
+// hasSpeedFactors (D83) : ces tables portent les facteurs de vitesse — la feuille des facteurs existe.
 function indexTables(tables) {
   const { materiaux, operations } = completeTables(tables);
   const operationByName = new Map(operations.operations.map((op) => [op.operation, op]));
@@ -444,5 +459,6 @@ function indexTables(tables) {
     classesIso: materiaux.classes_iso,
     toolMaterials: materiaux.materiaux_outil,
     toolMaterialKeys: toolMaterialKeyMap(materiaux),
+    hasSpeedFactors: carriesSpeedFactors(operations.operations),
   };
 }
