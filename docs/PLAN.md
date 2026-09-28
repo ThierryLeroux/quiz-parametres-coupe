@@ -214,7 +214,8 @@ Rapport de session : `docs/rapports/e5-1-presentation-tables.md`.
 - [x] Pictogramme de l'opération sur la page Question : celui des tables
 - [x] Tests (liste blanche, séance épinglée à une vieille version, attestation identique octet pour octet, rétablissement, validation, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
 - [x] Documents : SPEC §3, §7, §10 ; UI §1, §3.9 ; CLAUDE.md ; DEMARRAGE
-- [ ] **Thierry** : trancher les points du rapport ; après la fusion, ouvrir l'onglet Tables de référence (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a) et vérifier la présentation de départ
+- [x] Points du rapport tranchés par Thierry (les sept acceptés) ; **retouche** (D76) : « image existante et non archivée » ne vaut que pour une image choisie ; une image archivée déjà en vigueur n'est qu'un avertissement, qui ne bloque ni « Appliquer » ni la publication des tables ; tests et Chrome
+- [ ] **Thierry** : fusionner ; après la fusion, ouvrir l'onglet Tables de référence (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a ; les avertissements dorés, les images archivées en vigueur) et vérifier la présentation de départ
 
 ### Jalon E5-2 — la cascade des tables et le retour en arrière des versions
 - [ ] Publier des tables propose tous les exercices sur la version remplacée (archivés compris), chacun décochable, avec `exerciseTablesImpact` ; republie leur dernier contenu publié, jamais le brouillon ; fait passer le brouillon s'il était sur la version remplacée ; un exercice en erreur est nommé et laissé tel quel

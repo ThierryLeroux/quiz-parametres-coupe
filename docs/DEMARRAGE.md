@@ -332,7 +332,8 @@ détourée avec de la transparence reste en PNG) : inutile de la retoucher. Un S
 L'**image de chaleur** d'une classe ISO et ses **caractéristiques** (décisions D64 à D66) se règlent
 dans le panneau **Présentation** de l'onglet **Tables de référence** (colonnes **Image de chaleur**
 et **Caractéristiques** du tableau des classes ; l'usage de l'image dans l'onglet Images est « image
-de classe ISO ») : une image archivée y devient une erreur à corriger avant d'appliquer ; les
+de classe ISO ») : on ne peut pas y **choisir** une image archivée ; une image archivée alors qu'elle était
+déjà en place n'est qu'un avertissement (doré), qui ne bloque ni « Appliquer » ni la publication des tables ; les
 caractéristiques s'ajoutent, se retirent et se réordonnent ligne par ligne (libellé, texte,
 solution facultative).
 Une image utilisée par une version publiée ne se supprime pas : on l'**archive** (elle n'est plus

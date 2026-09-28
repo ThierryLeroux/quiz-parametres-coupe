@@ -2108,7 +2108,7 @@ jalons du chantier E5.
 **Conséquences.** Les jalons E5-1 à E5-4 dans `PLAN.md` ; les choix propres à chaque jalon sont des décisions à
 part (D76 pour E5-1).
 
-## D76 — E5-1 : la présentation des tables en direct — stockage, point de départ, publication des tables, nouvelles clés, rétablissement (2026-09-27, décidée)
+## D76 — E5-1 : la présentation des tables en direct — stockage, point de départ, publication des tables, nouvelles clés, rétablissement (2026-09-27, décidée ; points 6 et 7 précisés par sa retouche, en fin d'entrée)
 
 **Contexte.** Le premier jalon de D75 laissait à trancher le stockage, le point de départ au déploiement, ce que
 devient la présentation dans le brouillon et dans une version publiée des tables, la présentation d'une clé
@@ -2147,11 +2147,13 @@ nouvelle, et « Rétablir » quand une image a été archivée entre-temps.
 6. **Validation** : celle d'aujourd'hui (nom non vide, couleurs « #rrggbb », légende de 40 caractères au plus, 6
    caractéristiques au plus avec leurs longueurs, image existante et non archivée), et, nouveau, **le pictogramme
    d'une opération doit aussi être une image existante et non archivée** (il n'était vérifié que dans sa forme).
+   *Précisé par la retouche : seulement pour une image choisie.*
 7. **« Rétablir » une présentation dont une image a été archivée depuis** : **permis**, avec un avertissement (une
    image archivée est toujours servie : les étudiants retrouvent exactement ce qu'ils voyaient). Le panneau la
    signale ensuite comme erreur : il faut en choisir une autre, ou la rétablir dans l'onglet Images, avant
    d'appliquer autre chose. Une image nommée par la présentation, **actuelle ou dans l'historique**, compte comme
-   utilisée : elle ne se supprime pas, elle s'archive.
+   utilisée : elle ne se supprime pas, elle s'archive. *Précisé par la retouche : en vigueur, elle n'est plus qu'un
+   avertissement et ne bloque rien.*
 8. **Le brouillon et la publication des tables** : les champs de la liste blanche **quittent le brouillon** pour
    toute clé que la présentation en vigueur connaît (ils y restent, cachés, sans effet). **Une version publiée prend
    la présentation en vigueur** (un instantané, pour les clés qu'elle connaît) : elle reste lisible seule, et
@@ -2182,3 +2184,23 @@ utilisations d'une image) ; `worker/base.js`, `worker/catalogue.js`, `worker/ind
 `worker/editeur.js` (import) ; `site/js/api.js`, `site/js/ui/editeur.js`, `site/css/editeur.css` ;
 `site/js/ui/question-screen.js` (pictogramme) ; SPEC §3, §7, §10 ; UI §3.9 ; CLAUDE.md ; PLAN. Rapport :
 `docs/rapports/e5-1-presentation-tables.md`.
+
+**Réponses de Thierry au rapport, et retouche (2026-09-27).** Les sept points à trancher du rapport sont acceptés tels
+que proposés : la présentation de départ d'une clé nouvelle dans sa ligne du brouillon, avec le liseré doré (point 9) ;
+« Rétablir » permis avec une image archivée depuis, avec l'avertissement (point 7) ; le pictogramme vérifié comme
+l'image de chaleur (point 6) ; « Rétablir » sans confirmation, sauf s'il y a des modifications non appliquées ; l'aperçu
+tiré de la dernière version publiée de l'exercice ; l'import qui remplace la présentation avec effet immédiat, **tel
+quel** — la présentation remplacée va à l'historique et se rétablit en un clic, pas de mot à part ; l'instantané de la
+présentation dans une version publiée (point 8). Et une retouche, qui précise les points 6 et 7 :
+
+- **« Image existante et non archivée » ne vaut que pour une image qu'on CHOISIT**, c'est-à-dire différente de celle
+  que la présentation en vigueur a déjà pour ce champ (la même classe ou la même opération, le même champ).
+- **Une image archivée déjà en vigueur** (après un « Rétablir », ou un pictogramme déjà archivé en production) **reste
+  un avertissement** : elle ne bloque **ni « Appliquer »** d'un autre changement, **ni le brouillon ni la publication
+  des tables**, instantané compris. Sinon, corriger une légende ou une Vc serait bloqué par une image qui n'a rien à
+  voir, contre l'exigence de quelques secondes.
+- En pratique : `presentationErrors(…, { inForce })` et `validateTables(…, { presentation })` n'appliquent le contrôle
+  d'existence et d'archivage qu'aux images choisies ; `archivedWarnings` dit les images archivées en vigueur. Le
+  panneau les montre en doré, sous les erreurs ; `GET …/presentation`, `…/appliquer` et `…/retablir` les rendent
+  (`avertissements`). Une classe **nouvelle** du brouillon qui nomme une image archivée la choisit : c'est une erreur.
+  La galerie ne propose pas les images archivées (seule celle déjà en place y reste, marquée).

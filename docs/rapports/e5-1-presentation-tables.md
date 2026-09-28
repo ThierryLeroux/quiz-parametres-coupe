@@ -99,7 +99,8 @@ pas garde la valeur de sa version.
   - Le panneau la signale ensuite en erreur. Pour appliquer autre chose, il faut en choisir une autre, ou la
     rétablir dans l'onglet Images. Pour une image de chaleur, la publication des tables est bloquée aussi d'ici là,
     puisque la version en prendrait un instantané : c'était déjà la règle pour une image archivée dans le
-    brouillon (D64).
+    brouillon (D64). *Remplacé par la retouche (§8) : en vigueur, elle n'est plus qu'un avertissement et ne bloque
+    rien.*
   - Comme une image utilisée ne se supprime jamais, « Rétablir » ne peut pas tomber sur une image manquante.
 
 ### 2.5 L'onglet Tables (ton point 4)
@@ -235,7 +236,7 @@ choisi dans le panneau apparaît sur la page Question.
 3. **Le pictogramme doit maintenant exister et ne pas être archivé**, comme l'image de chaleur. Avant, seule sa forme
    était vérifiée. J'ai lu « image existante et non archivée » comme valant pour les deux. Un pictogramme archivé
    aujourd'hui en production deviendrait une erreur du panneau et bloquerait « Appliquer » jusqu'à ce qu'il soit
-   remplacé.
+   remplacé. *Remplacé par la retouche (§8) : il ne serait plus qu'un avertissement.*
 4. **« Rétablir » sans confirmation** (un clic, comme demandé), sauf si le panneau a des modifications non
    appliquées. D'accord ?
 5. **L'aperçu du panneau** tire ses dix questions de la **dernière version publiée** de l'exercice choisi (celle
@@ -262,3 +263,66 @@ choisi dans le panneau apparaît sur la page Question.
   de D75 : la cascade n'a plus à se soucier de la présentation.
 - **E5-3** : la présentation des exercices (titre, cours, « À l'accueil », photo et note des copies).
 - **E5-4** : l'historique de la banque.
+
+## 8. Retouche (réponses au rapport, même branche)
+
+> **Correction des séances en cours : toujours aucun changement.** La retouche ne touche que la validation des images
+> dans la Gestion du contenu.
+
+**Tes réponses.** Les sept points sont acceptés tels que je les proposais :
+
+1. la présentation de départ d'une clé nouvelle dans sa ligne du brouillon, avec le liseré doré ;
+2. « Rétablir » permis avec une image archivée depuis, avec l'avertissement — et ensuite, elle ne bloque plus rien ;
+3. le pictogramme vérifié comme l'image de chaleur — seulement quand on le choisit ;
+4. « Rétablir » sans confirmation, sauf s'il y a des modifications non appliquées ;
+5. l'aperçu tiré de la dernière version publiée de l'exercice ;
+6. l'import qui remplace la présentation avec effet immédiat, **tel quel** (elle va à l'historique et se rétablit en
+   un clic) ;
+7. l'instantané de la présentation dans une version publiée.
+
+Tout est consigné à la fin de **D76** (« Réponses de Thierry au rapport, et retouche »), qui renvoie aussi, dans ses
+points 6 et 7, à la retouche.
+
+**La retouche (ton point 8).** « Image existante et non archivée » ne vaut plus que pour une image **choisie** :
+différente de celle que la présentation en vigueur a déjà pour le même champ de la même classe ou opération.
+
+- **Une image archivée déjà en vigueur** (après un « Rétablir », ou un pictogramme déjà archivé en production) n'est
+  plus qu'un **avertissement**, en doré dans le panneau, sous les erreurs : « Classe M — image de chaleur : l'image
+  « copeaux-m-chaleur » est archivée ; elle reste affichée et ne bloque rien (pour la remplacer, choisis-en une
+  autre, ou rétablis-la dans l'onglet Images). »
+- Elle ne bloque **ni « Appliquer »** d'un autre changement, **ni le brouillon des tables, ni leur aperçu, ni leur
+  publication** (la version en prend l'instantané, image archivée comprise).
+- **Choisir une image archivée reste refusé**, pour une autre classe ou opération, ou pour la même une fois qu'elle a
+  changé. La galerie ne la propose d'ailleurs plus.
+- **Une classe nouvelle** du brouillon qui nomme une image archivée la choisit : c'est toujours une erreur.
+- `GET …/presentation`, `…/appliquer` et `…/retablir` rendent les `avertissements`. L'import suit la même règle pour
+  le brouillon d'une sauvegarde.
+
+Dans le code : `presentationErrors(…, { inForce })`, `imageInForce` et `archivedWarnings` (`site/js/presentation.js`),
+`validateTables(…, { presentation })` (`site/js/data.js`), le serveur (`worker/index.js`) et le panneau
+(`site/js/ui/editeur.js`) ; SPEC §3 et §7, UI §3.9, DEMARRAGE, PLAN.
+
+**Tests (ton point 9).**
+
+- **`npm test` : 638 réussis, 0 échec** (636 avant la retouche). Ce qui a été ajouté ou réécrit :
+  - **appliquer une légende pendant qu'une image archivée est en vigueur réussit, avec l'avertissement** : pour une
+    image de chaleur (après un « Rétablir ») et pour un pictogramme archivé ;
+  - **choisir une image archivée est refusé** : image de chaleur pour une autre classe, ou pour la même après un
+    changement ; pictogramme pour une autre opération ;
+  - **publier des tables réussit avec une image de chaleur archivée en vigueur** (test D64 réécrit) : le brouillon
+    n'est pas en erreur, l'aperçu passe, la version prend l'image archivée dans son instantané ;
+  - la règle pure, dans la présentation et dans `validateTables`.
+- **`npm run test:api`** : 32 étapes réussies, inchangé.
+- **Chrome** (7 vérifications, aucune exception, aucune requête externe) : l'image de chaleur de M, en vigueur, est
+  archivée.
+  - Le panneau ne montre aucune erreur et un avertissement doré.
+  - Le brouillon n'a aucune erreur, et « Publier… » reste actif.
+  - La légende de P s'applique (« Appliquer… (1 changement) » actif), puis l'avertissement demeure.
+  - La galerie de K ne propose pas l'image archivée, et le serveur refuse qu'on la choisisse.
+
+  Captures : `retouche-avertissement-1280.png` et `retouche-appliquee-1280.png` dans
+  `captures/e5-1-presentation-tables/`.
+
+**Plus rien à trancher pour E5-1.** Après la fusion, ouvre l'onglet Tables de référence. L'encadré doré y liste les
+retouches de présentation restées dans le brouillon, s'il y en a ; les avertissements dorés, les images archivées en
+vigueur.
