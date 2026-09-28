@@ -5,10 +5,14 @@
 // Tout ce qui est affiché vient du serveur (SPEC §7) ; ce qu'on montre et quand est décidé par
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
+import { EXPRESSION_MAX_LENGTH } from '../expression.js';
 import { el, pointDecimalComma, showScreen } from './dom.js';
-import { checkButtonLabel, diameterLines, factorLines, feedFamily, gapExplanation, helpLine, materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
+import {
+  CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, gapExplanation, helpLine, insertInCase,
+  materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak,
+} from './rules.js';
 import { classFeatures, classImages, heatImageMaxWidth, operationPictoOf, toolPhotoUrl } from './sheets-data.js';
-import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
+import { FIELD_PARTS, correctionBanner, expressionLine, fieldResultNote, studentLine } from './text.js';
 
 // Pictogramme d'une grandeur (UI §5) : le fichier SVG sert de masque, la couleur est celle du texte.
 function picto(name) {
@@ -35,6 +39,53 @@ const header = (seance, actions) => ({
 // Sur téléphone (la progression est sous le formulaire), les opérations terminées sont repliées (UI §3.3, D81).
 // La mise en page de question.css passe en deux colonnes à 1000 px.
 const isPhone = () => window.matchMedia('(max-width: 999px)').matches;
+
+// Écran tactile (D82, point 6) : le pointeur principal est un doigt. Là seulement, une rangée de boutons de calcul ;
+// pas sur ordinateur, même à écran tactile, où la souris et le clavier restent le pointeur principal.
+const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
+
+// La rangée de boutons de calcul (D82, point 6 ; UI §3.3) : le clavier numérique n'a ni parenthèses ni opérateurs, ni
+// touche Entrée sur iPhone. Elle se tient en bas de la zone visible, juste au-dessus du clavier virtuel, tant qu'une
+// case à saisir a le focus. Le clavier ne réduit que la zone visible (window.visualViewport), pas la page : la rangée
+// suit le bas de cette zone. Un bouton ne prend jamais le focus (pointerdown et mousedown sans effet par défaut) : la
+// case le garde, et le clavier reste ouvert.
+//   onKey(key) : un bouton pressé, une entrée de CALC_KEYS
+//   active()   : la case qui a le focus, pour que la rangée ne la couvre pas
+function calcBar(onKey, active) {
+  const keep = (event) => event.preventDefault();
+  const bar = el('div', { class: 'calc-bar', role: 'toolbar', 'aria-label': 'Calcul', hidden: true }, CALC_KEYS.map((key) => el('button', {
+    class: key.compute ? 'calc-key calc-key--equals' : 'calc-key', type: 'button', tabindex: '-1', 'aria-label': key.name, onpointerdown: keep, onmousedown: keep, onclick: () => onKey(key),
+  }, key.label)));
+  const viewport = window.visualViewport;
+  // Au bas de la zone visible ; puis, si la rangée couvre la case, la page remonte d'autant (et 8 px d'air).
+  function place() {
+    if (viewport) {
+      bar.style.width = `${viewport.width}px`;
+      bar.style.transform = `translate(${viewport.offsetLeft}px, ${viewport.offsetTop + viewport.height - bar.offsetHeight}px)`;
+    } else bar.classList.add('calc-bar--bottom'); // navigateur sans visualViewport : au bas de la fenêtre
+    const input = active();
+    const covered = input ? input.getBoundingClientRect().bottom + 8 - bar.getBoundingClientRect().top : 0;
+    if (covered > 0) window.scrollBy(0, covered);
+  }
+  return {
+    element: bar,
+    // Ouverte, la rangée réserve sa hauteur au bas de l'écran (calc-bar-open) : elle ne cache jamais la fin de la page.
+    show() {
+      if (!bar.hidden) return;
+      bar.hidden = false;
+      bar.parentElement?.classList.add('calc-bar-open');
+      viewport?.addEventListener('resize', place);
+      viewport?.addEventListener('scroll', place);
+      place();
+    },
+    hide() {
+      bar.hidden = true;
+      bar.parentElement?.classList.remove('calc-bar-open');
+      viewport?.removeEventListener('resize', place);
+      viewport?.removeEventListener('scroll', place);
+    },
+  };
+}
 
 // Progression (UI §3.3, D81) : barre « n / m outils », puis les outils regroupés par opération (operationProgress) —
 // un en-tête par opération (son pictogramme, celui des tables de la séance ; son nom ; « n / m » ; sa barre), ses
@@ -142,6 +193,76 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   const notes = {};
   const boxes = {};
 
+  // Calculs dans les cases (D82 ; règles dans rules.js). Pour chaque case calculée, `kept` garde { value, expression } :
+  // la case montre `value`, et c'est `expression` qui part au serveur tant qu'elle la montre. `tried` garde le texte
+  // d'une expression illisible déjà essayée : le deuxième Entrée vérifie.
+  const kept = {};
+  const tried = {};
+
+  // Calcule une case : Entrée, sortie de la case, Vérifier, bouton « = ». La virgule devient un point au même moment
+  // (D71). Une expression illisible garde son texte, en rouge, avec la note qui dit pourquoi.
+  function compute(champ) {
+    const input = inputs[champ];
+    if (!input || input.readOnly) return;
+    pointDecimalComma(input);
+    const result = computeCase(input.value);
+    if (result === null) return;
+    if (result.error !== undefined) {
+      tried[champ] = input.value;
+      input.setAttribute('aria-invalid', 'true');
+      notes[champ].textContent = result.error;
+      return;
+    }
+    input.value = result.value;
+    kept[champ] = result;
+    notes[champ].textContent = result.note;
+  }
+
+  // La case a changé (frappe, bouton de la rangée, « Remplir ») : une expression gardée est oubliée dès que la case ne
+  // montre plus son résultat ; la note d'une expression illisible s'efface.
+  function edited(champ) {
+    const input = inputs[champ];
+    if (kept[champ] && input.value !== kept[champ].value) {
+      delete kept[champ];
+      notes[champ].textContent = '';
+    }
+    if (input.hasAttribute('aria-invalid')) {
+      input.removeAttribute('aria-invalid');
+      delete tried[champ];
+      notes[champ].textContent = '';
+    }
+  }
+
+  // Entrée dans une case : calcule une expression qu'on n'a pas encore essayée, et on reste dans la case ; sinon,
+  // rien ici — le formulaire est envoyé, Entrée vérifie comme avant (UI §7).
+  function enter(event, champ) {
+    if (event.key !== 'Enter' || event.isComposing || !enterComputes(inputs[champ].value, tried[champ] ?? null)) return;
+    event.preventDefault();
+    compute(champ);
+  }
+
+  // La rangée de boutons de calcul, sur écran tactile seulement (D82, point 6) : un bouton insère son caractère au
+  // curseur de la case qui a le focus ; « = » la calcule.
+  const activeCase = () => Object.entries(inputs).find(([, input]) => input === document.activeElement && !input.readOnly)?.[0] ?? null;
+  const bar = isTouch() ? calcBar(pressKey, () => inputs[activeCase()] ?? null) : null;
+  function pressKey(key) {
+    const champ = activeCase();
+    if (champ === null) return;
+    if (key.compute) {
+      compute(champ);
+      return;
+    }
+    const input = inputs[champ];
+    const next = insertInCase(input.value, input.selectionStart ?? input.value.length, input.selectionEnd ?? input.value.length, key.insert, EXPRESSION_MAX_LENGTH);
+    if (next === null) return;
+    input.value = next.value;
+    input.setSelectionRange(next.caret, next.caret);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  // La rangée se montre quand une case à saisir prend le focus, se cache quand le focus quitte les cases.
+  const showBar = () => bar?.show();
+  const hideBar = (event) => { if (bar && !Object.values(inputs).includes(event.relatedTarget)) bar.hide(); };
+
   // Aide contextuelle, au clic seulement : la méthode, jamais la valeur (rules.js).
   const help = el('div', { class: 'help-line', hidden: true, 'aria-live': 'polite' });
   function showHelp(field) {
@@ -176,9 +297,14 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
       placeholder: evalue ? '?' : null,
       value: texte,
       readonly: !evalue,
+      maxlength: evalue ? String(EXPRESSION_MAX_LENGTH) : null, // une expression de 60 caractères au plus (D82)
       tabindex: evalue ? null : '-1', // Tab saute les champs fournis (UI §7)
       'aria-describedby': `${champ}-note`,
-      onfocus: evalue ? () => showHelp(champ) : () => {},
+      onfocus: evalue ? () => { showHelp(champ); if (!inputs[champ].readOnly) showBar(); } : () => {},
+      // Calculs dans les cases (D82) : Entrée calcule, quitter la case calcule, toute retouche oublie l'expression.
+      onkeydown: evalue ? (event) => enter(event, champ) : () => {},
+      oninput: evalue ? () => edited(champ) : () => {},
+      onfocusout: evalue ? (event) => { compute(champ); hideBar(event); } : () => {},
     });
     notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, evalue ? '' : "fourni par l'exercice");
     boxes[champ] = el('div', { class: evalue ? 'field field--number' : 'field field--number field--provided' }, [
@@ -213,13 +339,20 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   // Mode test (D26) : seulement si le SERVEUR a joint les réponses attendues à la question. Les cases
   // se remplissent d'elles-mêmes et restent modifiables (pour simuler une erreur) ; « Remplir » les remet.
   const expected = testAnswers(question);
-  const fill = () => { for (const [champ, texte] of Object.entries(expected)) if (inputs[champ]) inputs[champ].value = texte; };
+  const fill = () => {
+    for (const [champ, texte] of Object.entries(expected)) {
+      if (!inputs[champ]) continue;
+      inputs[champ].value = texte;
+      edited(champ);
+    }
+  };
   const testBanner = expected === null ? '' : el('div', { class: 'banner banner--test' }, [
     el('p', {}, [el('strong', {}, 'Mode test'), ' — le serveur local a joint les réponses attendues. Modifie une case pour simuler une erreur.']),
     el('button', { class: 'button-outline', type: 'button', onclick: fill }, 'Remplir'),
   ]);
   if (expected !== null) fill();
-  const reminder = el('p', { class: 'muted smaller form-reminder' }, `Point décimal (une virgule devient un point), sans séparateur de milliers : 2496 · 0.005  ·  ${toolStreak(seance.progression, question.outil.id)}`);
+  // ❓ D82 : « un calcul se tape tel quel » ajouté au rappel, pour que l'étudiant sache qu'il peut calculer dans la case.
+  const reminder = el('p', { class: 'muted smaller form-reminder' }, `Point décimal (une virgule devient un point), sans séparateur de milliers : 2496 · 0.005  ·  un calcul se tape tel quel : (3-1)*2  ·  ${toolStreak(seance.progression, question.outil.id)}`);
   // Rappel et message du serveur à gauche, « Vérifier » à droite, sur la même ligne (maquette 03).
   const actionsRow = el('div', { class: 'form-actions' }, [el('div', { class: 'form-notes' }, [reminder, status]), checkButton]);
   const progressSlot = el('div', { class: 'question-side' }, progressPanel(seance.progression, labels, { currentId: question.outil.id }, data));
@@ -229,9 +362,13 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     for (const champ of correction.champs) {
       if (!inputs[champ.champ]) continue; // grandeur masquée : rien à corriger ni à montrer
       inputs[champ.champ].readOnly = true;
-      notes[champ.champ].replaceChildren(fieldResultNote(champ), champ.evalue && !champ.ok && champ.calcul ? el('div', {}, champ.calcul) : '');
+      inputs[champ.champ].removeAttribute('aria-invalid'); // « Juste » ou « Faux » remplace la note d'une expression illisible
+      // Sous la case : juste ou faux ; la saisie avec son expression (D82) ; le calcul en une ligne d'un champ faux.
+      const line = expressionLine(champ);
+      notes[champ.champ].replaceChildren(fieldResultNote(champ), line ? el('div', {}, line) : '', champ.evalue && !champ.ok && champ.calcul ? el('div', {}, champ.calcul) : '');
       if (champ.evalue) boxes[champ.champ].classList.add(champ.ok ? 'field--correct' : 'field--wrong');
     }
+    bar?.hide();
     const requises = seance.progression.outils.find((outil) => outil.id === correction.outil.id)?.requises ?? correction.outil.apres;
     const [headline, ...rest] = correctionBanner(correction, requises, labels.get(correction.outil.id)).split(' — ');
     const banner = el('div', { class: correction.reussie ? 'banner banner--correct' : 'banner banner--wrong', role: 'alert' }, [
@@ -257,9 +394,11 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     if (checkButton.disabled) return; // un seul clic : le serveur ne corrige une question qu'une fois
     checkButton.disabled = true;
     status.textContent = '';
-    // Entrée ne quitte pas la case : la virgule devient un point ici aussi, à l'écran, avant l'envoi (D71).
+    // Toutes les cases se calculent avant l'envoi (D82), et la virgule devient un point ici aussi, à l'écran (D71) :
+    // Entrée ne quitte pas la case. Une case calculée envoie son expression, que le serveur juge (answerOf).
+    Object.keys(inputs).forEach(compute);
     Object.values(inputs).forEach(pointDecimalComma);
-    const answers = Object.fromEntries(question.champs.filter((champ) => champ.evalue).map(({ champ }) => [champ, inputs[champ].value]));
+    const answers = Object.fromEntries(question.champs.filter((champ) => champ.evalue).map(({ champ }) => [champ, answerOf(inputs[champ].value, kept[champ])]));
     const result = await actions.onCheck(answers);
     if (result === null) return;
     if (result.message !== undefined) {
@@ -286,6 +425,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
       ]),
     ]),
     progressSlot,
+    bar?.element ?? '', // hors des panneaux : leur filtre (le halo) ferait de la rangée un élément de panneau, pas de la fenêtre
   ]);
 
   // Le premier champ à saisir reçoit le focus à chaque nouvelle question.

@@ -247,6 +247,45 @@
 
 .form-notes { flex: 1 1 260px; }
 
+/* Rangée de boutons de calcul (D82) : écran tactile seulement, tant qu'une case à saisir a le focus. Fixée en haut de
+   la fenêtre, puis descendue par question-screen.js au bas de la zone visible, juste au-dessus du clavier virtuel
+   (window.visualViewport) ; sans visualViewport, au bas de la fenêtre. Huit boutons de 44 px de haut sur toute la
+   largeur ; aucun ne prend le focus : la case le garde, et le clavier reste ouvert. */
+.calc-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 5; /* sous les tables de référence (10), qui s'ouvrent par-dessus l'écran */
+  display: flex;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-1);
+  border-top: 1px solid var(--color-accent);
+  background: var(--color-bg-header);
+}
+
+.calc-bar[hidden] { display: none; }
+.calc-bar--bottom { top: auto; bottom: 0; }
+
+.calc-key {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-input-bg);
+  color: var(--color-accent-light);
+  font-family: var(--font-number);
+  font-size: var(--text-lg);
+  touch-action: manipulation; /* pas de zoom au double toucher */
+  cursor: pointer;
+}
+
+.calc-key:active { background: color-mix(in srgb, var(--color-accent) 30%, var(--color-input-bg)); }
+.calc-key--equals { border-color: var(--color-accent-light); background: color-mix(in srgb, var(--color-accent) 22%, var(--color-input-bg)); color: var(--color-text); }
+
+/* La rangée ouverte réserve sa hauteur au bas de l'écran : elle ne cache jamais la fin de la page. */
+.calc-bar-open { padding-bottom: 60px; }
+
 /* Bandeau après « Vérifier » : « Question ratée » à gauche, l'explication à droite. La couleur est
    doublée par le texte. */
 .banner {
