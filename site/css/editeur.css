@@ -300,3 +300,19 @@
   .editeur-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .editeur-grid .field--half { grid-column: span 2; }
 }
+
+/* Le facteur de vitesse d'un outil (D83) : la ligne de la table, en lecture seule ; « Forcer pour cet outil » ; la valeur
+   et la raison qu'elle ouvre ; le badge doré « facteur forcé », dans la liste de la banque et celle des outils d'un exercice. */
+.facteur-vitesse { align-content: start; }
+.facteur-table { margin: 0; padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-accent); background: var(--color-input-provided-bg); font-family: var(--font-number); }
+.facteur-forcer { display: flex; align-items: center; gap: var(--space-2); min-height: 40px; margin-top: var(--space-2); font-size: var(--text-sm); font-weight: 400; cursor: pointer; }
+.facteur-forcer input { width: 18px; height: 18px; accent-color: var(--color-gold); }
+.facteur-force { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-3); margin-top: var(--space-1); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-gold); }
+.facteur-force[hidden] { display: none; }
+.facteur-force input { width: 100%; }
+.badge-force { padding: 1px 8px; border: 1px solid var(--color-gold); color: var(--color-gold); font-size: var(--text-xs); font-weight: 600; white-space: nowrap; }
+.badge-force[hidden] { display: none; }
+
+@media (max-width: 600px) {
+  .facteur-force { grid-template-columns: minmax(0, 1fr); }
+}

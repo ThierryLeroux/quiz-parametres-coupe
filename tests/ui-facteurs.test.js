@@ -4,7 +4,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { assembleData, assembleTables } from '../site/js/data.js';
-import { PASSAGE_REASON, prefillSpeedFactors } from '../site/js/facteur-vitesse.js';
+import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
+import { PASSAGE_REASON, adoptSpeedFactors, prefillSpeedFactors } from '../site/js/facteur-vitesse.js';
+import { bankPassageLines, cascadeResultText, deducibleWarnings, exerciseTablesImpact, factorSource, forcedBadge, givenFactorText } from '../site/js/ui/editeur-data.js';
 import { factorLines, helpLine } from '../site/js/ui/rules.js';
 import { FACTOR_FORMULA, FACTOR_SHEET_TITLE, feedSheet, sheetTabs, speedFactorSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
@@ -115,4 +117,83 @@ test('aide de N : le facteur donné, comme avant, en fraction ; forcé, celui de
   assert.equal(texte(force), 'Vitesse de rotation → N = Vc × 4 / Ø × 1 (le facteur propre à cet outil, pas celui de la feuille), plafonnée à la vitesse de rotation max de la machine.');
   assert.equal(force.table, null);
   assert.equal(texte(helpLine('rpm', { outil: { fact_vc: 0.25, fact_av: 1 } }, 'fixed')), 'Vitesse de rotation → N = Vc × 4 / Ø, plafonnée à la vitesse de rotation max de la machine, × 0.25 pour cet outil.');
+});
+
+// --- La Gestion du contenu -----------------------------------------------------------------------------------------------------
+
+const operationDe = (tables, nom) => tables.operations.operations.find((op) => op.operation === nom);
+const outilDe = (id) => structuredClone(banque.find((outil) => outil.id === id));
+
+test('forcedBadge : « facteur forcé » pour un outil qui ne suit pas sa table, avec sa valeur, celle de la table et sa raison ; rien pour un outil hérité, ni avec des tables d’avant', () => {
+  const chanfreinage = operationDe(AVEC, 'Chanfreinage');
+  assert.deepEqual(forcedBadge(outilDe('nine9_90_degres'), chanfreinage), { label: 'facteur forcé', title: "× 1 au lieu de × 1/4 (Chanfreinage) — Valeur reprise de l'ancien outil — à vérifier" });
+  assert.deepEqual(forcedBadge({ ...outilDe('fraise_82_degres'), fact_vc: 0.5, fact_vc_raison: 'fraise au carbure' }, chanfreinage), { label: 'facteur forcé', title: '× 1/2 au lieu de × 1/4 (Chanfreinage) — fraise au carbure' });
+  assert.equal(forcedBadge(outilDe('fraise_82_degres'), chanfreinage), null); // un ancien outil, égal à sa table : hérité
+  const { fact_vc: _f, ...herite } = outilDe('fraise_82_degres');
+  assert.equal(forcedBadge(herite, chanfreinage), null);
+  assert.equal(forcedBadge(outilDe('nine9_90_degres'), operationDe(SANS, 'Chanfreinage')), null);
+  assert.equal(forcedBadge(outilDe('nine9_90_degres'), undefined), null);
+});
+
+test('factorSource et deducibleWarnings : avec des tables d’avant, les phrases d’avant ; le facteur donné, « facteur de vitesse » ; à trouver, la phrase dit où il se relève', () => {
+  const vc = { champs_evalues: ['vc'] };
+  assert.deepEqual([factorSource(vc, SANS.operations.operations), factorSource(vc, AVEC.operations.operations), factorSource({ ...vc, facteur_vitesse_donne: true }, AVEC.operations.operations), factorSource({ ...vc, facteur_vitesse_donne: true }, SANS.operations.operations)], ['outil', 'a_trouver', 'donne', 'outil']);
+  assert.deepEqual(deducibleWarnings(vc), deducibleWarnings(vc, { factor: 'outil' }));
+  assert.deepEqual(deducibleWarnings(vc, { factor: 'donne' }), ['Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur de vitesse), sauf si N est plafonné par la vitesse de rotation max de la machine.']);
+  assert.deepEqual(deducibleWarnings(vc, { factor: 'a_trouver' }), ['Vc se déduit de N fourni et du facteur de vitesse, à relever dans la feuille des facteurs : Vc = N × Ø / (4 × facteur de vitesse), sauf si N est plafonné par la vitesse de rotation max de la machine.']);
+  const n = { champs_evalues: ['n'] };
+  assert.deepEqual(deducibleWarnings(n, { factor: 'a_trouver' }), [
+    'N se déduit de Vc fournie et du facteur de vitesse, à relever dans la feuille des facteurs : N = Vc × 4 / Ø × facteur de vitesse, plafonné à la vitesse de rotation max de la machine.',
+    'N se déduit de f et Vf fournies : N = Vf / f.',
+  ]);
+  assert.deepEqual(deducibleWarnings(n, { factor: 'donne' })[0], 'N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur de vitesse, plafonné à la vitesse de rotation max de la machine.');
+  // Les relations sans facteur ne changent pas.
+  assert.deepEqual(deducibleWarnings({ champs_evalues: ['fz'] }, { factor: 'a_trouver' }), ['fz se déduit de f fournie : fz = f / dents.']);
+  assert.deepEqual([givenFactorText({}), givenFactorText({ facteur_vitesse_donne: true }), givenFactorText({ facteur_vitesse_donne: false })], ['à trouver dans la feuille des facteurs', "donné à l'étudiant", 'à trouver dans la feuille des facteurs']);
+});
+
+test('exerciseTablesImpact : le passage aux tables qui portent les facteurs — les outils hérités comptés, les outils forcés nommés, ce que devient l’affichage ; puis un facteur qui change, outil par outil', async () => {
+  const brouillon = draftFromExercise(await lireFichier('exercices/test-complet.json'), banque);
+  const passage = exerciseTablesImpact(brouillon, SANS, AVEC, draftErrors);
+  assert.deepEqual(passage, { erreurs: [], lignes: [
+    'Facteur de vitesse : ces tables le portent. 27 outils héritent de celui de leur opération, sans changement de valeur ; 2 sont forcés, à vérifier.',
+    "Nine9 90 degrés (nine9_90_degres) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « Valeur reprise de l'ancien outil — à vérifier »",
+    "Outil à chambrer (outil_a_chambrer) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « Valeur reprise de l'ancien outil — à vérifier »",
+    "Le facteur de vitesse n'est plus donné à l'étudiant : il le trouve dans la feuille « Facteurs de vitesse », comme la Vc (pour le donner, coche « Donner le facteur de vitesse à l'étudiant » dans l'exercice, puis publie).",
+  ] });
+  // Un seul outil, hérité, et le réglage coché.
+  const seul = { ...brouillon, facteur_vitesse_donne: true, outils: brouillon.outils.filter((c) => c.id === 'alesoir') };
+  assert.deepEqual(exerciseTablesImpact(seul, SANS, AVEC, draftErrors).lignes, [
+    'Facteur de vitesse : ces tables le portent. 1 outil hérite de celui de son opération, sans changement de valeur.',
+    "Le facteur de vitesse reste donné à l'étudiant, en fraction (réglage « Donner le facteur de vitesse à l'étudiant », coché).",
+  ]);
+  // D'une version qui porte les facteurs à une autre : un outil hérité suit sa table, et c'est dit ; un outil forcé ne change pas.
+  const passe = adoptSpeedFactors(brouillon, AVEC);
+  const autre = structuredClone(AVEC);
+  operationDe(autre, 'Chanfreinage').facteur_vitesse = 0.5;
+  operationDe(autre, 'Tronçonnage').facteur_vitesse = 0.25;
+  assert.deepEqual(exerciseTablesImpact(passe, AVEC, autre, draftErrors).lignes, [
+    'Lame à tronçonner (lame_a_tronconner) — facteur de vitesse : × 1/8 → × 1/4 (Tronçonnage)',
+    'Fraise 82 degrés (fraise_82_degres) — facteur de vitesse : × 1/4 → × 1/2 (Chanfreinage)',
+  ]);
+  assert.deepEqual(exerciseTablesImpact(passe, AVEC, AVEC, draftErrors), { erreurs: [], lignes: [] });
+  // Vers des tables qui ne les portent pas, sans le passage inverse (que « Passer à … » fait, settleSpeedFactors) : les
+  // 27 outils sans facteur propre y seraient en erreur, et la raison des 2 outils forcés y serait sans objet — nommément.
+  const retour = exerciseTablesImpact(passe, AVEC, SANS, draftErrors);
+  assert.equal(retour.erreurs.length, 29);
+  assert.equal(retour.erreurs[0], 'outils.0.fact_vc : « fact_vc » doit être un nombre > 0');
+  assert.equal(retour.erreurs.filter((e) => /fact_vc_raison : « fact_vc_raison » n'a de sens qu'avec des tables qui portent les facteurs/.test(e)).length, 2);
+  assert.deepEqual(retour.lignes, []);
+});
+
+test('bankPassageLines et cascadeResultText : le passage de la banque, annoncé avant la publication des tables et résumé après', () => {
+  const passage = { herites: Array.from({ length: 27 }, (_, i) => `outil_${i}`), forces: [{ id: 'nine9_90_degres', nom: 'Nine9 90 degrés', ligne: 'Nine9 90 degrés (nine9_90_degres) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « à vérifier »' }] };
+  assert.deepEqual(bankPassageLines(passage), ['27 outils héritent désormais du facteur de leur opération, sans changement de valeur.', passage.forces[0].ligne]);
+  assert.deepEqual(bankPassageLines({ herites: ['alesoir'], forces: [] }), ['1 outil hérite désormais du facteur de son opération, sans changement de valeur.']);
+  assert.deepEqual(bankPassageLines({ herites: [], forces: [] }), []);
+  assert.deepEqual(bankPassageLines(undefined), []);
+  const resultat = { id: 'A2026_r1', publiee_le: '2026-09-28T17:00:00.000Z', cascade: { publies: [], brouillons: [], laisses: [], ignores: [] }, banque: passage };
+  assert.match(cascadeResultText(resultat), / Banque d'outils : 27 outils héritent du facteur de leur opération ; 1 forcé, à vérifier : Nine9 90 degrés \(nine9_90_degres\)\. Les séances en cours gardent leur version\.$/);
+  assert.doesNotMatch(cascadeResultText({ ...resultat, banque: { herites: [], forces: [] } }), /Banque/);
+  assert.doesNotMatch(cascadeResultText({ ...resultat, banque: undefined }), /Banque/); // une réponse d'avant
 });

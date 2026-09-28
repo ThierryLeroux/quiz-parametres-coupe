@@ -526,19 +526,25 @@ try {
 
   // --- Jalon 7b, partie B : les tables de référence versionnées (D61 à D63), sur la vraie D1 ---------------------
 
-  await etape('tables versionnées (D61) : le brouillon semé, une Vc changée, publication de A2026_r1 avec sa révision ; /api/tables la sert ; A2026_r0 est intacte', async () => {
+  await etape('tables versionnées (D61) : le brouillon semé, prérempli des facteurs de vitesse (D83), une Vc changée, publication de A2026_r1 avec sa révision ; /api/tables la sert ; la banque fait son passage ; A2026_r0 est intacte', async () => {
     const page = await appel('GET', '/api/prof/editeur/tables', { cookie });
-    assert.deepEqual([page.status, page.corps.brouillon.base_id, page.corps.suggestion, page.corps.modifie, page.corps.erreurs], [200, 'A2026_r0', 'A2026_r1', false, []]);
+    // « Modifié » : les facteurs de vitesse préremplis d'après la table papier sont à publier (D83).
+    assert.deepEqual([page.status, page.corps.brouillon.base_id, page.corps.suggestion, page.corps.modifie, page.corps.erreurs], [200, 'A2026_r0', 'A2026_r1', true, []]);
+    assert.deepEqual(page.corps.brouillon.contenu.operations.operations.filter((op) => op.facteur_vitesse !== 1).map((op) => op.facteur_vitesse), [0.25, 0.25, 0.25, 0.125, 0.25, 0.25]);
     const contenu = structuredClone(page.corps.brouillon.contenu);
     contenu.materiaux.materiaux[0].vc_pi_min.insert_carbure = 999;
     const enregistre = await appel('POST', '/api/prof/editeur/tables/enregistrer', { corps: { revision: page.corps.brouillon.revision, contenu }, cookie });
     assert.deepEqual([enregistre.status, enregistre.corps.erreurs], [200, []], JSON.stringify(enregistre.corps));
     const publie = await appel('POST', '/api/prof/editeur/tables/publier', { corps: { revision: enregistre.corps.revision, id: 'A2026_r1' }, cookie });
     assert.deepEqual([publie.status, publie.corps.id], [200, 'A2026_r1'], JSON.stringify(publie.corps));
+    // La banque a fait son passage, dans le même lot (D83) : 27 outils héritent, 2 sont forcés, à vérifier.
+    assert.deepEqual([publie.corps.banque.herites.length, publie.corps.banque.forces.map((t) => t.id)], [27, ['nine9_90_degres', 'outil_a_chambrer']], JSON.stringify(publie.corps.banque));
     const r1 = await appel('GET', '/api/tables?version=A2026_r1');
     assert.deepEqual([r1.status, r1.corps.tables.materiaux.revision, r1.corps.tables.materiaux.materiaux[0].vc_pi_min.insert_carbure, r1.corps.tables.materiaux.classes_iso.length], [200, 'A2026_r1', 999, 7]);
+    assert.equal(r1.corps.tables.operations.operations.find((op) => op.operation === 'Tronçonnage').facteur_vitesse, 0.125);
     const r0 = await appel('GET', '/api/tables?version=A2026_r0');
     assert.equal(r0.corps.tables.materiaux.materiaux[0].vc_pi_min.insert_carbure, data.materiaux[0].vc_pi_min.insert_carbure);
+    assert.equal(r0.corps.tables.operations.operations.some((op) => 'facteur_vitesse' in op), false); // une version d'avant n'en reçoit aucun
     assert.equal((await appel('POST', '/api/prof/editeur/tables/publier', { corps: { revision: enregistre.corps.revision + 1, id: 'A2026_r2' }, cookie })).status, 400); // sans différence
   });
 
@@ -555,6 +561,12 @@ try {
     assert.deepEqual([reprise.corps.seance.exercice.version], ['1']);
     const nouvelle = await appel('POST', '/api/creation', { corps: { ...CAMILLE, prenom: 'Léa', nom: 'Côté', matricule: '2488888', nip: '2468' } });
     assert.equal(nouvelle.corps.seance.exercice.version, '3');
+    // Le facteur de vitesse (D83) : sur A2026_r1, qui porte les facteurs, il est à trouver — rien n'en part ; la séance
+    // de Camille, sur la version 1, garde le « fact_vc » de son outil.
+    const outilDeLea = (await appel('POST', '/api/question', { jeton: nouvelle.corps.jeton, corps: { exercice: M10 } })).corps.seance.question.outil;
+    assert.deepEqual([outilDeLea.facteur_vitesse, 'fact_vc' in outilDeLea], [{ etat: 'a_trouver', texte: null, valeur: null, raison: null }, false]);
+    const outilDeCamille = (await appel('POST', '/api/question', { jeton: reprise.corps.jeton, corps: { exercice: M10 } })).corps.seance.question.outil;
+    assert.deepEqual([typeof outilDeCamille.fact_vc, 'facteur_vitesse' in outilDeCamille], ['number', false]);
     const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
     assert.deepEqual([exporte.corps.tables_reference.map((t) => t.id), exporte.corps.brouillon_tables.base_id, exporte.corps.exercices.find((e) => e.id === M10).tables_id], [['A2026_r0', 'A2026_r1'], 'A2026_r1', 'A2026_r1']);
   });
@@ -647,19 +659,20 @@ try {
 
   await etape('historique de la banque (D79) : un enregistrement garde le contenu remplacé ; 409 ; « Rétablir » le remet ; l’export porte l’historique ; deux titres identiques signalés, plus après un renommage', async () => {
     const page = await appel('GET', '/api/prof/editeur/banque/outil?id=alesoir', { cookie });
-    assert.deepEqual([page.status, page.corps.historique], [200, []], JSON.stringify(page.corps));
+    // Un contenu déjà : celui d'avant le passage de la banque aux facteurs de vitesse, à la publication de A2026_r1 (D83).
+    assert.deepEqual([page.status, page.corps.historique.map((h) => [h.action, h.lignes])], [200, [['enregistrement', ["Facteur de vitesse : « hérité de l'opération » → « × 1/4 »"]]]], JSON.stringify(page.corps));
     const revision = page.corps.outil.revision;
     const enregistre = await appel('POST', '/api/prof/editeur/banque/enregistrer', { corps: { id: 'alesoir', revision, outil: { ...page.corps.outil.outil, nom: 'Alésoir retouché' } }, cookie });
     assert.deepEqual([enregistre.status, enregistre.corps.lignes], [200, ['Nom : « Alésoir » → « Alésoir retouché »']], JSON.stringify(enregistre.corps));
     const historique = (await appel('GET', '/api/prof/editeur/banque/outil?id=alesoir', { cookie })).corps.historique;
-    assert.deepEqual(historique.map((h) => [h.action, h.remplace_par, h.lignes]), [['enregistrement', 'admin', ['Nom : « Alésoir retouché » → « Alésoir »']]]);
+    assert.deepEqual(historique.slice(0, 1).map((h) => [h.action, h.remplace_par, h.lignes]), [['enregistrement', 'admin', ['Nom : « Alésoir retouché » → « Alésoir »']]]);
     assert.equal((await appel('POST', '/api/prof/editeur/banque/retablir', { corps: { id: 'alesoir', revision, historique: historique[0].id }, cookie })).status, 409);
     const retabli = await appel('POST', '/api/prof/editeur/banque/retablir', { corps: { id: 'alesoir', revision: enregistre.corps.revision, historique: historique[0].id }, cookie });
     assert.equal(retabli.status, 200, JSON.stringify(retabli.corps));
     const apres = (await appel('GET', '/api/prof/editeur/banque/outil?id=alesoir', { cookie })).corps;
-    assert.deepEqual([apres.outil.outil.nom, apres.historique.map((h) => h.action)], ['Alésoir', ['retablissement', 'enregistrement']]);
+    assert.deepEqual([apres.outil.outil.nom, apres.historique.map((h) => h.action)], ['Alésoir', ['retablissement', 'enregistrement', 'enregistrement']]);
     const exporte = await appel('GET', '/api/prof/editeur/export', { cookie });
-    assert.deepEqual(exporte.corps.historique_banque.filter((h) => h.outil_id === 'alesoir').map((h) => h.action), ['enregistrement', 'retablissement']);
+    assert.deepEqual(exporte.corps.historique_banque.filter((h) => h.outil_id === 'alesoir').map((h) => h.action), ['enregistrement', 'enregistrement', 'retablissement']);
     // Deux titres identiques (un exercice archivé dont un autre prend le titre, puis rétabli) : signalés, sans rien bloquer.
     const titreRpm = (await appel('GET', `/api/exercice?exercice=${VC_RPM}`)).corps.exercice.titre;
     const titreM10 = (await appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.titre;

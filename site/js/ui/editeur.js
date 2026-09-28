@@ -20,12 +20,13 @@ import {
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors, liveTitleRefusal, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
+import { REASON_MAX, carriesSpeedFactors, factorText, parseFactor, prefillSpeedFactors, settleSpeedFactor, speedFactorState, tableFactorLine } from '../facteur-vitesse.js';
 import { applyPresentation, archivedWarnings, presentationDiff, presentationErrors, presentationKeys } from '../presentation.js';
 import { applyCopyPresentation, applyExercisePresentation, exerciseArchivedWarnings, exercisePresentationDiff, exercisePresentationErrors, knownCopies } from '../presentation-exercice.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
-  archiveConfirmation, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseHistoryLabel, exerciseState, exerciseTablesImpact, exportFileName,
+  archiveConfirmation, bankPassageLines, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseHistoryLabel, exerciseState, exerciseTablesImpact, exportFileName, factorSource, forcedBadge,
   liveTitleConflicts, presentationPreview, renameDone, renamePrompt, bankHistoryLabel, twinTitlesNote, twinTitlesWarning, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
@@ -230,6 +231,26 @@ const readNumber = (input) => {
   return text === '' ? Number.NaN : Number(text);
 };
 
+// Une case de facteur de vitesse (D83) : elle accepte « 1/4 » comme « 0.25 » (parseFactor : l'évaluateur des cases de
+// réponse), et récrit en fraction, à la sortie de la case, ce qu'elle a su lire. Pas de clavier décimal : il n'a pas de « / ».
+//   value : le facteur (un nombre), ou ce qui a été tapé et n'en est pas un
+function factorInput(id, value, attrs = {}) {
+  const input = el('input', { id, type: 'text', autocomplete: 'off', spellcheck: 'false', class: 'input-court mono', value: Number.isFinite(value) ? factorText(value) : (value ?? ''), ...attrs });
+  input.addEventListener('focusout', () => {
+    const read = parseFactor(input.value);
+    if (read !== null && input.value !== factorText(read)) input.value = factorText(read);
+  });
+  return input;
+}
+// Ce qu'une case de facteur envoie : le nombre lu ; vide, `empty` ; illisible, le texte tapé (la validation le dira).
+const readFactor = (input, empty = null) => parseFactor(input.value) ?? (input.value.trim() === '' ? empty : input.value.trim());
+
+// Le badge « facteur forcé » d'un outil (D83), dans la liste de la banque et dans celle des outils d'un exercice.
+const forcedBadgeOf = (tool, opsByName) => {
+  const badge = forcedBadge(tool, opsByName.get(tool.operation));
+  return el('span', { class: 'badge-force', hidden: badge === null, title: badge?.title ?? null }, badge?.label ?? '');
+};
+
 // Une liste de cases à cocher : retourne { element, read() → les valeurs cochées dans l'ordre des choix }.
 //   swatchOf : (clé) → { background, text, letter } — la pastille de couleur devant le libellé (matières, groupes)
 //   buttons  : « Tout cocher » / « Tout décocher » sous la liste
@@ -260,6 +281,23 @@ function toolForm(tool, ctx) {
   const groups = ctx.tables.materiaux.groupes_iso;
   const operationSelect = el('select', { id: `${p}-operation` }, ops.map((op) => el('option', { value: op.operation, selected: op.operation === tool.operation }, op.operation)));
   const isThread = () => ctx.opsByName.get(operationSelect.value)?.avance_egale_pas_filetage === true;
+  // Le facteur de vitesse (D83). Avec des tables qui portent les facteurs, l'outil hérite de celui de son opération :
+  // une ligne en lecture seule, « Selon la table : 1/4 (Chanfreinage) » ; « Forcer pour cet outil » ouvre la valeur et
+  // la raison, toutes deux obligatoires. Un ancien outil s'y montre hérité, ou forcé « à vérifier » (speedFactorState).
+  // Avec des tables d'avant, le champ d'avant : le facteur propre à l'outil.
+  const inherits = carriesSpeedFactors(ops);
+  const factor = speedFactorState(tool, ctx.opsByName.get(operationSelect.value));
+  const tableLine = el('p', { class: 'facteur-table', id: `${p}-fact-table` }, '');
+  const forceBox = el('input', { id: `${p}-fact-force`, type: 'checkbox', checked: factor.mode === 'forced', 'aria-describedby': `${p}-fact-table` });
+  const forcedValue = factorInput(`${p}-fact-vc`, factor.mode === 'forced' ? tool.fact_vc : '', { 'aria-label': 'Facteur de vitesse forcé' });
+  const forcedReason = el('input', { id: `${p}-fact-raison`, type: 'text', autocomplete: 'off', maxlength: String(REASON_MAX), value: factor.mode === 'forced' ? (tool.fact_vc_raison ?? factor.reason) : '' });
+  const forcedFields = el('div', { class: 'facteur-force' });
+  const refreshFactor = () => {
+    const operation = ctx.opsByName.get(operationSelect.value);
+    tableLine.textContent = operation ? tableFactorLine(operation) : '';
+    forcedFields.hidden = !forceBox.checked;
+  };
+  forceBox.addEventListener('change', refreshFactor);
   // La photo (D56) : la galerie des images « outil » de la base, avec téléversement sur place ; un
   // changement dans la galerie vaut un changement du formulaire (validation, brouillon modifié). Une copie que la
   // présentation en vigueur connaît (ctx.live, D78) n'a ni photo ni note ici : elles sont en direct, dans le panneau ;
@@ -318,7 +356,12 @@ function toolForm(tool, ctx) {
     rapport_barre_max: field('rapport_barre_max', 'Rapport Ø barre / Ø usiné maximal', numberInput(`${p}-rapport`, tool.rapport_barre_max), 'Ex. 0.75 : une barre entre si Ø barre ≤ 0.75 × Ø usiné.'),
     nb_dents_min: field('nb_dents_min', 'Dents, minimum', numberInput(`${p}-dents-min`, tool.nb_dents_min), 'Le nombre de dents est tiré entre les deux.'),
     nb_dents_max: field('nb_dents_max', 'Dents, maximum', numberInput(`${p}-dents-max`, tool.nb_dents_max), ''),
-    fact_vc: field('fact_vc', 'Facteur de vitesse (× Vc)', numberInput(`${p}-fact-vc`, tool.fact_vc), '1 = aucun ; 0.25 pour un alésoir.'),
+    ...(inherits ? {
+      fact_vc: field('fact_vc', 'Valeur forcée', forcedValue, '« 1/4 » ou « 0.25 » ; 1 = aucune réduction.'),
+      fact_vc_raison: field('fact_vc_raison', 'Raison, montrée à l’étudiant', forcedReason, `Courte (${REASON_MAX} caractères au plus) : « fraise à inserts de carbure ».`),
+    } : {
+      fact_vc: field('fact_vc', 'Facteur de vitesse (× Vc)', numberInput(`${p}-fact-vc`, tool.fact_vc), '1 = aucun ; 0.25 pour un alésoir.'),
+    }),
     fact_av: field('fact_av', "Facteur d'avance (× avance)", numberInput(`${p}-fact-av`, tool.fact_av), '1 sauf sur une avance proportionnelle au Ø.'),
     limite_rpm: field('limite_rpm', 'Vitesse de rotation max de la machine', numberInput(`${p}-limite-rpm`, tool.limite_rpm), 'tr/min'),
     materiaux_outil: field('materiaux_outil', "Matières d'outil possibles", materials.element, '', 'field--wide'),
@@ -328,12 +371,21 @@ function toolForm(tool, ctx) {
 
   // Les champs, regroupés par thème (UI §3.9) : un intertitre par groupe ; la même disposition pour la banque.
   const liveNote = el('div', { class: 'field field--wide' }, [el('span', { class: 'field-label-text' }, 'Photo et note'), el('p', { class: 'muted small' }, 'En direct, dans le panneau « Présentation » en tête de la page : elles changent tout de suite, sans publication.')]);
+  // Le facteur de vitesse hérité : la ligne de la table, la case « Forcer », et les deux champs qu'elle ouvre.
+  forcedFields.append(...(inherits ? [fields.fact_vc.element, fields.fact_vc_raison.element] : []));
+  const factorBlock = inherits ? el('div', { class: 'field field--half facteur-vitesse', 'data-champ': 'facteur_vitesse' }, [
+    el('span', { class: 'field-label-text' }, 'Facteur de vitesse'),
+    tableLine,
+    el('label', { class: 'facteur-forcer', for: forceBox.id }, [forceBox, 'Forcer pour cet outil']),
+    forcedFields,
+    el('div', { class: 'field-note' }, "L'outil hérite du facteur de son opération, dans les tables. Forcé, il garde sa valeur quoi que dise la table, et l'étudiant le voit toujours, avec sa raison."),
+  ]) : fields.fact_vc.element;
   const sections = [
     ['Identification', ctx.live ? [fields.nom.element, fields.operation.element, fields.id.element, liveNote] : [fields.nom.element, fields.operation.element, fields.commentaire.element, fields.id.element, fields.image.element]],
     ['Nomenclature', [fields.format_identifiant.element]],
     ['Dimensions', [fields.dimensions.element, el('div', { class: 'field' }, [el('span', { class: 'field-label-text' }, 'Lecture par le moteur'), readings]), fields.dimensions_barre.element, fields.rapport_barre_max.element]],
     ['Dents', [fields.nb_dents_min.element, fields.nb_dents_max.element]],
-    ['Facteurs', [fields.fact_vc.element, fields.fact_av.element]],
+    ['Facteurs', [factorBlock, fields.fact_av.element]],
     ['Limites', [fields.limite_rpm.element]],
     ['Matières et groupes permis', [fields.materiaux_outil.element, fields.groupes_materiaux_usinables.element]],
     ...(ctx.copy ? [['Exercice', [fields.reussites_requises.element]]] : []),
@@ -349,7 +401,10 @@ function toolForm(tool, ctx) {
       // null = pas de note, comme dans le catalogue ; une copie en direct garde celle qui dort dans le brouillon (D78)
       commentaire: ctx.live ? (tool.commentaire ?? null) : (fields.commentaire.control.value.trim() === '' ? null : fields.commentaire.control.value.trim()),
       operation: operationSelect.value,
-      fact_vc: readNumber(fields.fact_vc.control),
+      // D83 : hérité, l'outil n'a pas de facteur propre ; forcé, sa valeur et sa raison ; avec des tables d'avant, son facteur.
+      ...(inherits
+        ? (forceBox.checked ? { fact_vc: readFactor(forcedValue, Number.NaN), fact_vc_raison: forcedReason.value.trim() } : {})
+        : { fact_vc: readNumber(fields.fact_vc.control) }),
       fact_av: readNumber(fields.fact_av.control),
       limite_rpm: readNumber(fields.limite_rpm.control),
       ...(tool.limite_avance !== undefined ? { limite_avance: tool.limite_avance } : {}), // obsolète (D69) : gardée telle quelle, hors du formulaire
@@ -384,7 +439,9 @@ function toolForm(tool, ctx) {
   fields.format_identifiant.element.insertBefore(tokenBar, fields.format_identifiant.noteEl);
   fields.format_identifiant.element.append(exampleLine);
   operationSelect.addEventListener('change', refreshReadings);
+  operationSelect.addEventListener('change', refreshFactor);
   refreshReadings();
+  refreshFactor();
   refreshExample();
   return { element, read, setErrors, fields, refreshExample, picker };
 }
@@ -528,6 +585,11 @@ async function showExercise(id, notice = '') {
   const materialsChoice = checkboxes('matiere', toolMaterials.map((key) => ({ key, label: key })), draft.materiaux_outil ?? toolMaterials, { inline: true, swatchOf: (label) => materialSwatch(label, tables.materiaux), buttons: true });
   const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: (group) => groupSwatch(group, tables.materiaux), buttons: true });
   const listed = el('input', { id: 'liste', type: 'checkbox', checked: draft.liste !== false });
+  // « Donner le facteur de vitesse à l'étudiant » (D83, point 6) : versionné avec l'exercice, décoché par défaut —
+  // l'étudiant le trouve dans la feuille des facteurs. Sans effet avec des tables qui ne portent pas les facteurs : le
+  // réglage n'y est pas offert, et le brouillon garde le sien.
+  const inherits = carriesSpeedFactors(tables.operations.operations);
+  const givenFactor = el('input', { id: 'facteur-donne', type: 'checkbox', checked: draft.facteur_vitesse_donne === true });
   // Jamais publié : le titre, le cours et « À l'accueil » sont ici, et entrent en vigueur à la première publication.
   const settings = {
     ...(live ? {} : {
@@ -535,6 +597,10 @@ async function showExercise(id, notice = '') {
       cours: field('cours', 'Cours', cours, "Ex. M10 : l'accueil regroupe les exercices par cours ; vide, sous « Autres exercices ». En vigueur à la première publication."),
     }),
     champs_evalues: field('champs_evalues', 'Grandeurs : évaluée (à saisir), fournie (valeur montrée) ou masquée (« — », sans valeur)', el('div', {}, [fieldsChoice.element, warningsList]), 'Au moins une grandeur évaluée. Une grandeur masquée compte comme fournie pour la cohérence de Vf.', 'field--wide'),
+    ...(inherits ? {
+      facteur_vitesse_donne: field('facteur_vitesse_donne', 'Facteur de vitesse', el('label', { class: 'choices', for: 'facteur-donne' }, el('li', {}, el('label', { for: 'facteur-donne' }, [givenFactor, "Donner le facteur de vitesse à l'étudiant"]))),
+        "Décoché : l'étudiant le trouve dans la feuille « Facteurs de vitesse », comme la Vc. Coché (exercices pour débutants) : la question l'affiche — « Vitesse réduite × 1/4 ». Un facteur forcé est toujours affiché, avec sa raison.", 'field--wide'),
+    } : {}),
     materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice", materialsChoice.element, 'Tout coché = aucune restriction ; se croise avec les matières de chaque outil.', 'field--wide'),
     groupes: field('groupes', 'Groupes de matériaux usinés permis pour tout l\'exercice', groupsChoice.element, 'Tout coché = aucune restriction ; se croise avec les groupes de chaque outil.', 'field--wide'),
     ...(live ? {} : { liste: field('liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'liste' }, el('li', {}, el('label', { for: 'liste' }, [listed, 'oui (sinon, joignable seulement par son lien)']))), '') }),
@@ -558,6 +624,7 @@ async function showExercise(id, notice = '') {
     const groups = groupsChoice.read();
     if (groups.length !== tables.materiaux.groupes_iso.length) out.groupes = groups;
     if (live ? draft.liste === false : !listed.checked) out.liste = false;
+    if (inherits ? givenFactor.checked : draft.facteur_vitesse_donne === true) out.facteur_vitesse_donne = true;
     for (const key of Object.keys(draft)) if (key.startsWith('_')) out[key] = draft[key];
     return out;
   }
@@ -587,11 +654,12 @@ async function showExercise(id, notice = '') {
       form.row.setAttribute('data-erreur', count > 0 ? 'true' : 'false');
       form.summaryErrors.textContent = count > 0 ? `${count} erreur${count > 1 ? 's' : ''}` : '';
       form.summaryName.textContent = `${form.fields.nom.control.value.trim() || '(sans nom)'} · ${form.fields.reussites_requises.control.value || '?'} réussite(s) de suite`;
+      form.badge.replaceWith(form.badge = forcedBadgeOf(form.read(), opsByName)); // « facteur forcé » (D83), tel que le formulaire le dit
       // La vignette : la photo du brouillon, ou, pour une copie en direct, celle en vigueur (D78).
       form.thumbnail.src = imageUrl((form.picker ? form.picker.read() : liveImageOf(form.read().id)) ?? form.read().id);
     });
     generalErrors.replaceChildren(...(map.get('') ?? []).map((message) => el('li', {}, message)));
-    warningsList.replaceChildren(...deducibleWarnings(current).map((line) => el('li', {}, line)));
+    warningsList.replaceChildren(...deducibleWarnings(current, { factor: factorSource(current, tables.operations.operations) }).map((line) => el('li', {}, line)));
     if (!live) courseAdvice.replaceChildren(...courseAdviceFor(cours));
     const diff = versionDiff(page.derniere_version?.contenu ?? null, current, { avant: page.derniere_version?.tables_id ?? null, apres: page.exercice.tables_id });
     const ps = publishState(errors, diff);
@@ -635,6 +703,7 @@ async function showExercise(id, notice = '') {
       const known = knownIds.has(copy.id);
       const form = toolForm(copy, { tables, opsByName, images, copy: true, prefix: `o${i}`, live: known });
       form.summaryName = el('span', { class: 'muted' }, '');
+      form.badge = forcedBadgeOf(copy, opsByName);
       form.summaryErrors = el('span', { class: 'outil-erreurs' }, '');
       form.thumbnail = el('img', { class: 'outil-vignette', src: imageUrl((known ? liveImageOf(copy.id) : copy.image) ?? copy.id), alt: '', onerror: () => { form.thumbnail.style.visibility = 'hidden'; } });
       form.checkbox = el('input', { type: 'checkbox', 'aria-label': `Sélectionner ${copy.id}`, checked: selected.has(copy.id), onchange: () => { if (form.checkbox.checked) selected.add(copy.id); else selected.delete(copy.id); refreshSelection(); } });
@@ -654,7 +723,7 @@ async function showExercise(id, notice = '') {
       } }, [el('strong', {}, `${i + 1}. ${copy.id}`)]);
       const fresh = live && !known;
       form.row = el('div', { class: `outil-ligne${fresh ? ' ligne-nouvelle' : ''}` }, [
-        el('div', { class: 'outil-entete' }, [form.checkbox, form.thumbnail, toggle, form.summaryName, form.summaryErrors, buttons]),
+        el('div', { class: 'outil-entete' }, [form.checkbox, form.thumbnail, toggle, form.summaryName, form.badge, form.summaryErrors, buttons]),
         ...(fresh ? [el('p', { class: 'muted smaller outil-nouvelle' }, "Copie nouvelle : sa photo et sa note de départ se saisissent dans son formulaire ; publiée, elles passeront dans le panneau « Présentation », en direct.")] : []),
         body,
       ]);
@@ -675,11 +744,14 @@ async function showExercise(id, notice = '') {
   if (bank === null) return;
   const available = bank.outils.filter((row) => row.archive_le === null);
   const bankSelect = el('select', { id: 'ajout-banque' }, available.map((row) => el('option', { value: row.id }, `${row.outil.nom} (${row.id})`)));
+  // Une copie ajoutée prend le facteur de vitesse que les tables de CET exercice veulent (D83, settleSpeedFactor) : la
+  // banque se lit avec les tables les plus récentes, un autre exercice avec les siennes.
+  const settled = (copy, source) => settleSpeedFactor(copy, opsByName.get(copy.operation), source.operations.operations.find((op) => op.operation === copy.operation));
   const addFromBank = el('button', { class: 'button-outline', type: 'button', onclick: () => {
     const row = available.find((r) => r.id === bankSelect.value);
     if (!row) return;
     copies = forms.map((f) => f.read());
-    const copy = copyOfTool(row.outil, { id: freeId(row.id, copies.map((c) => c.id)) });
+    const copy = settled(copyOfTool(row.outil, { id: freeId(row.id, copies.map((c) => c.id)) }), bank.tables);
     copies.push(copy);
     openIds.add(copy.id);
     touch();
@@ -690,17 +762,19 @@ async function showExercise(id, notice = '') {
   const otherSelect = el('select', { id: 'ajout-exercice' }, [el('option', { value: '' }, '(choisir un exercice)'), ...others.map((row) => el('option', { value: row.id }, row.titre))]);
   const otherToolSelect = el('select', { id: 'ajout-exercice-outil' }, [el('option', { value: '' }, '—')]);
   let otherCopies = [];
+  let otherTables = tables;
   // Un exercice publié : ses copies avec leur photo et leur note en vigueur (D78), pas celles qui dorment dans son brouillon.
   otherSelect.addEventListener('change', async () => {
     const other = otherSelect.value === '' ? null : await guarded(() => editorGetExercise(otherSelect.value));
     otherCopies = other ? applyExercisePresentation(other.exercice.brouillon, other.presentation?.presentation ?? null).outils : [];
+    otherTables = other?.tables ?? tables;
     otherToolSelect.replaceChildren(...(otherCopies.length === 0 ? [el('option', { value: '' }, '—')] : otherCopies.map((c) => el('option', { value: c.id }, `${c.nom} (${c.id}), ${c.reussites_requises} réussite(s)`))));
   });
   const addFromOther = el('button', { class: 'button-outline', type: 'button', onclick: () => {
     const source = otherCopies.find((c) => c.id === otherToolSelect.value);
     if (!source) return;
     copies = forms.map((f) => f.read());
-    const copy = copyOfTool(source, { id: freeId(source.id, copies.map((c) => c.id)), reussites_requises: source.reussites_requises });
+    const copy = settled(copyOfTool(source, { id: freeId(source.id, copies.map((c) => c.id)), reussites_requises: source.reussites_requises }), otherTables);
     copies.push(copy);
     openIds.add(copy.id);
     touch();
@@ -764,7 +838,7 @@ async function showExercise(id, notice = '') {
       el('ul', { class: 'editeur-diff' }, diffLines(diff).map((line) => el('li', {}, line))),
       ...(deducibleWarnings(readDraft()).length > 0 ? [
         el('p', { class: 'small' }, "Avertissement, sans effet sur la publication : une grandeur à trouver se déduit des grandeurs fournies."),
-        el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft()).map((line) => el('li', {}, line))),
+        el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft(), { factor: factorSource(readDraft(), tables.operations.operations) }).map((line) => el('li', {}, line))),
       ] : []),
       el('p', { class: 'muted smaller' }, `Cette version sera sur les tables de référence ${page.exercice.tables_id}. Les séances déjà commencées gardent leur version ; seules les nouvelles séances prennent celle-ci. Une version publiée ne se modifie plus.${live ? " Elle prend la présentation en vigueur (titre, cours, « À l'accueil », photos et notes : un instantané) ; celle-ci continue de se modifier en direct." : ''}`),
       el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
@@ -1110,8 +1184,10 @@ async function showBank(notice = '') {
   const act = async (action, success) => {
     try { await guarded(action); await showBank(success); } catch (error) { status.textContent = serverErrorMessage(error); }
   };
+  // Le badge « facteur forcé » (D83) : l'outil ne suit pas le facteur de son opération, dans les tables les plus récentes.
+  const bankOps = new Map(bank.tables.operations.operations.map((op) => [op.operation, op]));
   const rows = bank.outils.map((row) => el('tr', {}, [
-    el('td', {}, el('button', { class: 'button-link', type: 'button', onclick: () => leave(showBankTool, row.id) }, row.outil.nom)),
+    el('td', {}, [el('button', { class: 'button-link', type: 'button', onclick: () => leave(showBankTool, row.id) }, row.outil.nom), ' ', forcedBadgeOf(row.outil, bankOps)]),
     el('td', { class: 'mono' }, row.id),
     el('td', {}, row.outil.operation),
     el('td', { class: 'num' }, String(row.outil.dimensions.length)),
@@ -1129,7 +1205,8 @@ async function showBank(notice = '') {
     ])),
   ]));
   const idInput = el('input', { id: 'nouvel-outil', type: 'text', autocomplete: 'off', placeholder: 'fraise_a_rainurer' });
-  const blank = { nom: 'Nouvel outil', format_identifiant: '[NomOutil] [IdDia]', commentaire: '', operation: bank.tables.operations.operations[0].operation, fact_vc: 1, fact_av: 1, limite_rpm: 10000, nb_dents_min: 1, nb_dents_max: 1, materiaux_outil: ['Acier rapide'], groupes_materiaux_usinables: [bank.tables.materiaux.groupes_iso[0]], image: null, dimensions: [{ libelle: 'Ø 1/4 po', valeur: 0.25 }] };
+  // Un outil neuf hérite du facteur de vitesse de son opération (D83) ; avec des tables d'avant, il porte le sien : 1.
+  const blank = { nom: 'Nouvel outil', format_identifiant: '[NomOutil] [IdDia]', commentaire: '', operation: bank.tables.operations.operations[0].operation, ...(carriesSpeedFactors(bank.tables.operations.operations) ? {} : { fact_vc: 1 }), fact_av: 1, limite_rpm: 10000, nb_dents_min: 1, nb_dents_max: 1, materiaux_outil: ['Acier rapide'], groupes_materiaux_usinables: [bank.tables.materiaux.groupes_iso[0]], image: null, dimensions: [{ libelle: 'Ø 1/4 po', valeur: 0.25 }] };
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead("banque d'outils", 'banque'),
     el('h1', { tabindex: '-1' }, "Banque d'outils"),
@@ -1440,6 +1517,9 @@ async function showTables(notice = '') {
   let pending = page.presentation_en_attente;
   // La dernière version publiée des tables : ce à quoi « Annuler les modifications » ramène le brouillon (D77).
   const latestTables = page.derniere === null ? null : (await guarded(() => editorTablesVersion(page.derniere)))?.tables ?? null;
+  // Le brouillon se lit prérempli des facteurs de vitesse (D83) : revenir à une version d'avant, c'est revenir à elle,
+  // préremplie de même — « Annuler » n'a rien à annuler quand le brouillon n'en diffère que par là.
+  const cancelTarget = latestTables === null ? null : prefillSpeedFactors(latestTables);
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const errorsList = el('ul', { class: 'editeur-erreurs' });
   const dialogSlot = el('div');
@@ -1714,23 +1794,25 @@ async function showTables(notice = '') {
     const famille = el('select', { id: `op-${i}-famille` }, FEED_FAMILIES.map((f) => el('option', { value: f.key, selected: f.key === feedFamilyOf(op) }, f.label)));
     const avance = textInput(`op-${i}-avance`, op.avance_po_rev, { inputmode: 'decimal', class: 'input-court mono' });
     const avanceMax = textInput(`op-${i}-avance-max`, op.avance_max_po_rev, { inputmode: 'decimal', class: 'input-court mono' });
+    // Le facteur de vitesse de l'opération (D83) : « 1/4 » comme « 0.25 » ; versionné, comme les avances.
+    const facteur = factorInput(`op-${i}-facteur`, op.facteur_vitesse, { 'aria-label': `Facteur de vitesse de ${op.operation || 'cette opération'}` });
     const refreshFeeds = () => { const thread = famille.value === 'filetage'; avance.disabled = thread; avanceMax.disabled = thread; };
     famille.addEventListener('change', refreshFeeds);
     refreshFeeds();
     const live = known.operations.has(op.operation);
     const picker = live ? null : imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: () => { touch(); validate(); }, idPrefix: `op-${i}-picto`, compact: true });
     return {
-      tr: el('tr', { class: live ? null : 'ligne-nouvelle' }, [cell(nom), cell(machine), cell(direction), cell(famille), cell(avance, 'num'), cell(avanceMax, 'num'), cell(live ? el('span', { class: 'muted small' }, 'en direct, dans le panneau « Présentation »') : picker.element, 'picto-cell')]),
+      tr: el('tr', { class: live ? null : 'ligne-nouvelle' }, [cell(nom), cell(machine), cell(direction), cell(famille), cell(avance, 'num'), cell(avanceMax, 'num'), cell(facteur, 'num'), cell(live ? el('span', { class: 'muted small' }, 'en direct, dans le panneau « Présentation »') : picker.element, 'picto-cell')]),
       read: () => {
         const flags = feedFamilyFlags(famille.value);
-        const out = { operation: nom.value.trim(), machine: machine.value.trim(), direction_avance: direction.value.trim(), avance_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avance), avance_max_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avanceMax), ...flags };
+        const out = { operation: nom.value.trim(), machine: machine.value.trim(), direction_avance: direction.value.trim(), avance_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avance), avance_max_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avanceMax), ...flags, facteur_vitesse: readFactor(facteur) };
         const picto = live ? op.pictogramme ?? null : picker.read();
         if (picto !== null) out.pictogramme = picto;
         for (const key of Object.keys(op)) if (!(key in out) && key !== 'pictogramme') out[key] = op[key];
         return out;
       },
     };
-  }, (previous) => ({ operation: '', machine: previous?.machine ?? 'Tour', direction_avance: previous?.direction_avance ?? 'Avance longitudinale', avance_po_rev: 0.005, avance_max_po_rev: 0.005, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false }), () => { touch(); validate(); });
+  }, (previous) => ({ operation: '', machine: previous?.machine ?? 'Tour', direction_avance: previous?.direction_avance ?? 'Avance longitudinale', avance_po_rev: 0.005, avance_max_po_rev: 0.005, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false, facteur_vitesse: 1 }), () => { touch(); validate(); });
 
   // Le brouillon tel qu'à l'écran : les groupes ISO sont dérivés des lignes ; les commentaires « _… » et la révision sont gardés.
   function readTables() {
@@ -1754,7 +1836,7 @@ async function showTables(notice = '') {
     errorsList.replaceChildren(...errors.map((message) => el('li', {}, message)));
     publishButton.disabled = errors.length > 0;
     publishButton.textContent = errors.length > 0 ? `Publier (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` : 'Publier…';
-    cancelButton.disabled = latestTables === null || tablesDiff(latestTables, current).length === 0;
+    cancelButton.disabled = cancelTarget === null || tablesDiff(cancelTarget, current).length === 0;
     return { current, errors };
   }
 
@@ -1835,6 +1917,12 @@ async function showTables(notice = '') {
         el('h2', {}, previous ? `Publier une nouvelle version des tables, depuis ${previous.id} ?` : 'Publier la première version des tables ?'),
         el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence de valeurs avec la version précédente : rien à publier.' : `Différences de valeurs avec ${previous?.id ?? '—'} (${lines.length}) — relis-les : une faute de frappe partirait chez tous les exercices cochés ci-dessous.`),
         el('ul', { class: 'editeur-diff editeur-diff--en-tete' }, lines.map((line) => el('li', {}, line))),
+        // Le passage de la banque aux facteurs de vitesse (D83, point 5), quand ces tables sont les premières à les porter.
+        ...(bankPassageLines(proposal.banque).length === 0 ? [] : [
+          el('h3', { class: 'cascade-entete' }, "Banque d'outils : le facteur de vitesse passe aux tables"),
+          el('p', { class: 'small' }, "Avec cette publication, chaque outil de la banque hérite du facteur de son opération s'il avait la même valeur ; sinon il garde la sienne, « forcée », avec la raison « à vérifier » — à trancher ensuite dans la fiche de l'outil. Le contenu d'avant de chaque outil va à son historique."),
+          el('ul', { class: 'editeur-diff' }, bankPassageLines(proposal.banque).map((line) => el('li', {}, line))),
+        ]),
         el('div', { class: 'field field--half' }, [el('label', { for: 'tables-revision' }, 'Révision de cette version'), idInput, el('div', { class: 'field-note' }, `Suggérée : ${page.suggestion}. Unique ; inscrite au pied des feuilles et sur les attestations. Lettres, chiffres, « _ », « . », « - ».`)]),
         el('h3', { class: 'cascade-entete' }, 'Cascade : les exercices qui ne sont pas à jour'),
         proposal.candidats.length === 0
@@ -1861,7 +1949,7 @@ async function showTables(notice = '') {
   // cette version » y met les valeurs d'une version publiée (la présentation en vigueur est gardée). Ce qui serait perdu —
   // les différences de valeurs avec la dernière version, et les retouches de présentation en attente — est listé d'abord.
   const lostTablesChanges = () => [
-    ...(latestTables === null ? [] : tablesDiff(latestTables, readTables())),
+    ...(cancelTarget === null ? [] : tablesDiff(cancelTarget, readTables())),
     ...pending.lignes.map((line) => `Retouche de présentation en attente — ${line}`),
   ];
   const leavePresentation = () => !presentationDirty || window.confirm("Les modifications du panneau « Présentation » ne sont pas appliquées : elles seront perdues au rechargement de l'onglet. Continuer ?");
@@ -1971,8 +2059,8 @@ async function showTables(notice = '') {
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Brouillon · Opérations'),
-      el('p', { class: 'muted small' }, "Une ligne par opération, dans l'ordre de la feuille des avances : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces ; sans objet en filetage). Le pictogramme est en direct, dans le panneau « Présentation » ; une opération ajoutée ici reçoit le sien sur sa ligne."),
-      table(['Opération', 'Machine-outil', "Direction d'avance", 'Famille', 'Avance', 'Avance max', 'Pictogramme'], operations.body, 'tables-edit--operations'),
+      el('p', { class: 'muted small' }, "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces ; sans objet en filetage), et le facteur de vitesse — N = Vc × 4 / Ø × facteur : « 1 » sans réduction, « 1/4 » ou « 0.25 », « 1/8 »… Les outils en héritent. Le pictogramme est en direct, dans le panneau « Présentation » ; une opération ajoutée ici reçoit le sien sur sa ligne."),
+      table(['Opération', 'Machine-outil', "Direction d'avance", 'Famille', 'Avance', 'Avance max', 'Facteur de vitesse', 'Pictogramme'], operations.body, 'tables-edit--operations'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => operations.add() }, 'Ajouter une opération')),
     ]),
     el('section', { class: 'panel' }, [

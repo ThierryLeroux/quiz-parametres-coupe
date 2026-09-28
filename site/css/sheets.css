@@ -248,19 +248,19 @@ body.sheets-open { overflow: hidden; }
 
 .factor-grid {
   display: grid;
-  grid-template-columns: 78px 190px 62px minmax(0, 1fr);
+  grid-template-columns: 78px 150px 84px 62px minmax(0, 1fr);
   grid-auto-rows: 41px;
   font-size: 11px;
 }
 
-.factor-formula { font-family: var(--font-number); font-size: 11px; }
+.sheet-caption .factor-formula { font-family: var(--font-number); font-size: 12px; font-weight: 500; }
 .factor-machine { border-right: 2.5px solid #000; }
-.factor-head { padding-left: 26px; }
-.factor-band { background: linear-gradient(to right, #fff 0%, var(--color-part-rotation) 30%, var(--color-part-rotation) 62%, #fff 100%); }
+.factor-head { padding-left: 8px; }
+.factor-band { background: linear-gradient(to right, #fff 0%, var(--color-part-rotation) 22%, var(--color-part-rotation) 48%, #fff 100%); }
 
 .factor-value {
   gap: 6px;
-  padding-left: 26px;
+  padding-left: 8px;
   color: var(--color-page-muted);
   font-family: var(--font-number);
   font-size: 13px;
@@ -299,7 +299,7 @@ body.sheets-open { overflow: hidden; }
 .picto--sheet { width: 32px; height: 32px; background: #1b1b1b; }
 .formula-name { font-size: 12px; }
 .formula-math { font-family: var(--font-number); font-size: 14px; white-space: nowrap; }
-.formula-math small { display: block; margin-top: 4px; color: var(--color-page-muted); font-size: 10.5px; }
+.formula-math small { display: block; margin-top: 4px; color: var(--color-page-muted); font-size: 10.5px; white-space: normal; }
 .formula-miniature { width: 112px; height: auto; }
 /* La miniature de la feuille des facteurs, sous la formule de N (D83). */
 .formula-miniature--under { display: block; margin-top: 6px; }

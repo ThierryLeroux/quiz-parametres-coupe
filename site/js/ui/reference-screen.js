@@ -104,18 +104,20 @@ function factorPage(data) {
   return page([
     el('div', { class: 'sheet-caption' }, [el('strong', {}, title), el('span', { class: 'factor-formula' }, formula)]),
     el('div', { class: 'factor-grid' }, [
+      // Le facteur tout de suite après le nom de l'opération : à 390 px, les deux se lisent sans faire défiler la feuille.
       el('div', { class: 'feed-head' }, 'Machine-outil'),
-      el('div', { class: 'feed-head', style: 'grid-column: 2 / span 2' }, 'Opération'),
-      el('div', { class: 'feed-head factor-head' }, 'Facteur'),
-      ...rows.flatMap((row, i) => (row.marked ? [el('div', { class: 'factor-band', style: `grid-column: 2 / span 3; ${at(i, 1)}` })] : [])),
+      el('div', { class: 'feed-head' }, 'Opération'),
+      el('div', { class: 'feed-head factor-head', style: 'grid-column: 3 / span 3' }, 'Facteur'),
+      ...rows.flatMap((row, i) => (row.marked ? [el('div', { class: 'factor-band', style: `grid-column: 2 / span 4; ${at(i, 1)}` })] : [])),
       ...machines.map((run) => el('div', { class: 'feed-machine factor-machine', style: `grid-column: 1; ${at(run.start, run.span)}` }, run.key.split(' / ').flatMap((part, i) => (i === 0 ? [part] : [el('br'), part])))),
       ...rows.flatMap((row, i) => {
         const end = lastOfMachine.has(i) ? ' feed-cell--end' : '';
         const image = el('img', { src: row.picto, alt: '', onerror: () => image.remove() });
         return [
           el('div', { class: `feed-cell feed-operation${end}`, style: `grid-column: 2; ${at(i, 1)}` }, row.operation),
-          el('div', { class: `feed-cell feed-picto${end}`, style: `grid-column: 3; ${at(i, 1)}` }, image),
-          el('div', { class: `feed-cell factor-value${row.marked ? ' factor-value--marked' : ''}${end}`, style: `grid-column: 4; ${at(i, 1)}` }, [el('span', { class: 'factor-times', 'aria-hidden': 'true' }, '×'), el('strong', {}, row.factor)]),
+          el('div', { class: `feed-cell factor-value${row.marked ? ' factor-value--marked' : ''}${end}`, style: `grid-column: 3; ${at(i, 1)}` }, [el('span', { class: 'factor-times', 'aria-hidden': 'true' }, '×'), el('strong', {}, row.factor)]),
+          el('div', { class: `feed-cell feed-picto${end}`, style: `grid-column: 4; ${at(i, 1)}` }, image),
+          el('div', { class: `feed-cell${end}`, style: `grid-column: 5; ${at(i, 1)}` }),
         ];
       }),
     ]),

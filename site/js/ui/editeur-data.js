@@ -52,19 +52,32 @@ export function fieldStatesText(draft) {
   return FIELD_CHOICES.map(({ key }) => `${short[key]} ${FIELD_STATES.find((s) => s.key === states[key]).label}`).join(' · ');
 }
 
+// D'où l'étudiant tient le facteur de vitesse, pour les avertissements ci-dessous (D83) : 'outil' — des tables d'avant,
+// qui ne portent pas les facteurs : celui de l'outil, affiché comme avant ; 'donne' — l'exercice le donne ;
+// 'a_trouver' — il se relève dans la feuille des facteurs.
+//   operations : les opérations des tables de l'exercice
+export function factorSource(draft, operations) {
+  if (!carriesSpeedFactors(operations)) return 'outil';
+  return draft.facteur_vitesse_donne === true ? 'donne' : 'a_trouver';
+}
+
 // Une grandeur évaluée ou masquée qui se déduit des grandeurs fournies et des données de la question
-// (Ø, facteur Vc, vitesse de rotation max, nombre de dents) : l'étudiant peut la retrouver sans la table. Un
-// avertissement, sans effet sur la publication. Relations du moteur (calcul.js) : N = Vc × 4 / Ø × facteur
-// Vc, plafonné ; f = fz × dents ; Vf = N × f. Seules les grandeurs fournies servent de source (une
+// (Ø, facteur de vitesse, vitesse de rotation max, nombre de dents) : l'étudiant peut la retrouver sans la table. Un
+// avertissement, sans effet sur la publication. Relations du moteur (calcul.js) : N = Vc × 4 / Ø × facteur,
+// plafonné ; f = fz × dents ; Vf = N × f. Seules les grandeurs fournies servent de source (une
 // grandeur évaluée n'est pas connue de l'étudiant). Retourne les phrases dans l'ordre de l'écran.
-export function deducibleWarnings(draft) {
+//   factor : factorSource — quand le facteur est à trouver (D83), Vc et N ne se déduisent l'une de l'autre qu'avec
+//            lui, et la phrase dit où il se relève ; avec des tables d'avant, les phrases d'avant (« facteur Vc »)
+export function deducibleWarnings(draft, { factor = 'outil' } = {}) {
   const states = fieldStates(draft);
   const given = (key) => states[key] === 'fournie';
   const sought = (key) => states[key] !== 'fournie'; // évaluée ou masquée
   const lines = [];
-  if (sought('vc') && given('n')) lines.push('Vc se déduit de N fourni : Vc = N × Ø / (4 × facteur Vc), sauf si N est plafonné par la vitesse de rotation max de la machine.');
+  const name = factor === 'outil' ? 'facteur Vc' : 'facteur de vitesse';
+  const withFactor = factor === 'a_trouver' ? ' et du facteur de vitesse, à relever dans la feuille des facteurs' : '';
+  if (sought('vc') && given('n')) lines.push(`Vc se déduit de N fourni${withFactor} : Vc = N × Ø / (4 × ${name}), sauf si N est plafonné par la vitesse de rotation max de la machine.`);
   if (sought('fz') && given('f')) lines.push('fz se déduit de f fournie : fz = f / dents.');
-  if (sought('n') && given('vc')) lines.push('N se déduit de Vc fournie : N = Vc × 4 / Ø × facteur Vc, plafonné à la vitesse de rotation max de la machine.');
+  if (sought('n') && given('vc')) lines.push(`N se déduit de Vc fournie${withFactor} : N = Vc × 4 / Ø × ${name}, plafonné à la vitesse de rotation max de la machine.`);
   if (sought('n') && given('f') && given('vf')) lines.push('N se déduit de f et Vf fournies : N = Vf / f.');
   if (sought('f') && given('fz')) lines.push('f se déduit de fz fournie : f = fz × dents.');
   if (sought('f') && given('n') && given('vf')) lines.push('f se déduit de N et Vf fournis : f = Vf / N.');
@@ -510,6 +523,29 @@ export function cascadeAction(c) {
   return 'Jamais publié : seul son brouillon passe à ces tables.';
 }
 
+// Le badge « facteur forcé » d'un outil (D83, point 4), dans la liste de la banque et dans celle des outils d'un
+// exercice : { label, title } — title dit la valeur, celle de la table et la raison —, ou null (hérité, ou des tables
+// d'avant).
+//   operation : l'opération de l'outil, dans les tables de la page
+export function forcedBadge(tool, operation) {
+  const state = speedFactorState(tool, operation);
+  if (state.mode !== 'forced') return null;
+  return { label: 'facteur forcé', title: `× ${factorText(state.value)} au lieu de × ${factorText(state.table)} (${operation.operation}) — ${state.reason}` };
+}
+
+// Le passage de la banque d'outils aux facteurs de vitesse (D83, point 5), tel que la confirmation de publication des
+// tables l'annonce et que son message le résume : des phrases, vide si aucun outil ne change.
+//   passage : { herites: [identifiants], forces: [{ id, nom, ligne }] } (GET …/tables/cascade, POST …/tables/publier)
+export function bankPassageLines(passage) {
+  const herites = passage?.herites ?? [];
+  const forces = passage?.forces ?? [];
+  if (herites.length === 0 && forces.length === 0) return [];
+  return [
+    `${herites.length} outil${herites.length > 1 ? 's héritent' : ' hérite'} désormais du facteur de ${herites.length > 1 ? 'leur' : 'son'} opération, sans changement de valeur.`,
+    ...forces.map((t) => t.ligne),
+  ];
+}
+
 // Le bouton de la confirmation : « Publier A2026_r2 », « Publier A2026_r2 et la cascade (3 exercices) ».
 export const publishTablesLabel = (id, checked) => `Publier ${id || 'cette version'}${checked > 0 ? ` et la cascade (${checked} exercice${checked > 1 ? 's' : ''})` : ''}`;
 
@@ -524,6 +560,9 @@ export function cascadeResultText(result, titles = new Map()) {
   if (draftsOnly.length > 0) parts.push(`Brouillons seuls passés à ${result.id} : ${draftsOnly.map(name).join(', ')}.`);
   if (c.laisses.length > 0) parts.push(`Laissés tels quels, en erreur avec ${result.id} (ils restent proposés aux cascades suivantes) : ${c.laisses.map((l) => `« ${l.titre} »${l.erreurs?.length > 0 ? ` (${l.erreurs.join(' ; ')})` : ''}`).join(', ')}.`);
   if (c.ignores.length > 0) parts.push(`Ignorés (plus sur la version remplacée) : ${c.ignores.map(name).join(', ')}.`);
+  // Le passage de la banque aux facteurs de vitesse (D83) : combien héritent, lesquels sont forcés, à vérifier.
+  const bank = result.banque ?? { herites: [], forces: [] };
+  if (bank.herites.length > 0 || bank.forces.length > 0) parts.push(`Banque d'outils : ${bank.herites.length} outil${bank.herites.length > 1 ? 's héritent' : ' hérite'} du facteur de ${bank.herites.length > 1 ? 'leur' : 'son'} opération${bank.forces.length > 0 ? ` ; ${bank.forces.length} forcé${bank.forces.length > 1 ? 's' : ''}, à vérifier : ${bank.forces.map((t) => `${t.nom} (${t.id})`).join(', ')}` : ''}.`);
   parts.push('Les séances en cours gardent leur version.');
   return parts.join(' ');
 }
