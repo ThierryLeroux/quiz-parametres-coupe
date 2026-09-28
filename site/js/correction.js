@@ -1,6 +1,7 @@
 // Correction des réponses de l'étudiant (SPEC §6) : tolérances par champ et par famille d'avance.
 // Fonctions pures : aucune lecture des données, aucun affichage.
 
+import { evaluateExpression } from './expression.js';
 import { decimalsOf, formatParameters } from './format.js';
 
 // Les 5 champs de réponse, dans l'ordre de l'écran. Mêmes noms que dans computeParameters (calcul.js).
@@ -66,13 +67,17 @@ export function toleranceLabel(feedType, field, { coherence = false, teeth = nul
   return field === 'feedRate' ? `${label} de N × f` : label;
 }
 
-// Lit une saisie : point ou virgule décimale (D10), espaces ignorés (« 1 600 »).
-// Retourne le nombre, ou null si la saisie est vide ou illisible (« abc », « 1.2.3 », « -5 »).
+// Lit une saisie : un nombre — point ou virgule décimale (D10), espaces ignorés (« 1 600 ») —, ou une expression
+// (D82 : « (3-1)*2 », « 4 × 350 / 0,75 », lue par expression.js). Retourne le nombre, ou null si la saisie est vide ou
+// illisible (« abc », « 1.2.3 », « -5 », « 2(3) », une division par zéro, un résultat négatif).
+// Un nombre se lit exactement comme avant D82, par les deux lignes du milieu : seul ce qui n'en est pas un passe par
+// l'évaluateur. Le serveur de correction lit chaque saisie avec cette fonction (seance.js, attestation.js).
 export function parseAnswer(text) {
   if (typeof text !== 'string') return null;
   const compact = text.replace(/\s/g, '').replace(',', '.');
-  if (!/^(\d+\.?\d*|\.\d+)$/.test(compact)) return null;
-  return Number(compact);
+  if (/^(\d+\.?\d*|\.\d+)$/.test(compact)) return Number(compact);
+  const result = evaluateExpression(text);
+  return result.error === undefined ? result.value : null;
 }
 
 // Efface le bruit de la virgule flottante (1600 × 0,95 = 1520,0000000000002) pour que

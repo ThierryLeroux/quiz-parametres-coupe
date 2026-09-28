@@ -3,8 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ANSWER_FIELDS, coherentFeedPerTooth, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
 import { computeParameters } from '../site/js/calcul.js';
+import { isExpression } from '../site/js/expression.js';
 import { formatParameters } from '../site/js/format.js';
-import { data, questionPour } from './aide.js';
+import { aleaAGraine, data, questionPour } from './aide.js';
 
 // Valeurs théoriques des cas de référence de tests/calcul.test.js (une par famille d'avance).
 // feedRate est écrit comme le moteur le calcule, bruit de virgule flottante compris.
@@ -351,6 +352,96 @@ test('parseAnswer : vide ou illisible → null', () => {
   for (const saisie of ['', '   ', 'abc', '12abc', '1.2.3', '1,2,3', '1,600.5', '-5', '+5', '1e3', '.', ',', null, undefined, 1600]) {
     assert.equal(parseAnswer(saisie), null, String(saisie));
   }
+});
+
+// --- Expressions (D82) ------------------------------------------------------------------------------------------
+
+test('parseAnswer (D82) : une expression — priorités, parenthèses, pi', () => {
+  assert.equal(parseAnswer('(3-1)*2'), 4);
+  assert.equal(parseAnswer('2+3*4'), 14);
+  assert.equal(parseAnswer('10-4-3'), 3);
+  assert.equal(parseAnswer('24/4/2'), 3);
+  assert.equal(parseAnswer('100 × 4 / 0.25'), 1600); // N = Vc × 4 / Ø
+  assert.equal(parseAnswer('2*(3+4)'), 14);
+  assert.equal(parseAnswer('((2+3)*(4-1))/5'), 3);
+  assert.equal(parseAnswer('400*12/(pi*2)'), 763.943726841);
+  assert.equal(parseAnswer('PI'), parseAnswer('π'));
+  assert.equal(parseAnswer('4*350/0.75'), 1866.66666667);
+  assert.equal(parseAnswer('0.1+0.2'), 0.3); // sans le bruit de la virgule flottante
+  assert.equal(parseAnswer('2*-3+10'), 4); // moins unaire
+});
+
+test('parseAnswer (D82) : virgules multiples — une par nombre ; « 1,600 » vaut toujours 1.6', () => {
+  assert.equal(parseAnswer('1,5+2,5'), 4);
+  assert.equal(parseAnswer('0,5+0,25+0,25'), 1);
+  assert.equal(parseAnswer('1,5*2,0'), 3);
+  assert.equal(parseAnswer('1,600'), 1.6);
+  assert.equal(parseAnswer('1,600*2'), 3.2);
+  assert.equal(parseAnswer('1,2,3'), null);
+  assert.equal(parseAnswer('1,2,3+1'), null);
+  assert.equal(parseAnswer('1,600.5'), null);
+});
+
+test('parseAnswer (D82) : saisies illisibles — mal formée, division par zéro, résultat négatif, trop longue', () => {
+  for (const saisie of ['2(3)', '(2)(3)', '2pi', '3)', '(3', '1+', '+5', '2^3', 'sqrt(4)', '1/0', '5/(2-2)', '-5', '3-5', '-0', `1${'+1'.repeat(30)}`]) {
+    assert.equal(parseAnswer(saisie), null, saisie);
+  }
+});
+
+// parseAnswer tel qu'il était avant D82, mot pour mot : la référence de la non-régression.
+function parseAnswerAvantD82(text) {
+  if (typeof text !== 'string') return null;
+  const compact = text.replace(/\s/g, '').replace(',', '.');
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(compact)) return null;
+  return Number(compact);
+}
+
+// Toute saisie lue avant D82 donne exactement le même nombre ; toute saisie refusée qui n'est pas une expression (sans
+// opérateur, parenthèse ni pi) reste refusée. Vérifié sur toutes les saisies de 0 à 4 caractères d'un alphabet de
+// chiffres, séparateurs, espaces, signes et lettres, puis sur 20 000 saisies plus longues tirées à graine.
+test('parseAnswer (D82) : non-régression — le même nombre pour toute saisie lue avant ; refusé reste refusé hors expression', () => {
+  const ALPHABET = ['0', '1', '5', '.', ',', ' ', ' ', '-', '+', 'a', 'e'];
+  const saisies = [''];
+  for (let longueur = 1, niveau = ['']; longueur <= 4; longueur += 1) {
+    niveau = niveau.flatMap((debut) => ALPHABET.map((c) => debut + c));
+    saisies.push(...niveau);
+  }
+  const alea = aleaAGraine(82);
+  const LONG = [...'0123456789', '.', ',', ' ', ' ', ' ', '-', '−', '+', 'a', 'e', 'x', 'p', 'i', '('];
+  for (let i = 0; i < 20000; i += 1) {
+    const longueur = 5 + Math.floor(alea() * 36);
+    saisies.push(Array.from({ length: longueur }, () => LONG[Math.floor(alea() * LONG.length)]).join(''));
+  }
+  const ecarts = [];
+  let lues = 0;
+  for (const saisie of saisies) {
+    const avant = parseAnswerAvantD82(saisie);
+    const apres = parseAnswer(saisie);
+    if (avant !== null) {
+      lues += 1;
+      if (!Object.is(apres, avant)) ecarts.push({ saisie, avant, apres });
+    } else if (!isExpression(saisie) && apres !== null) ecarts.push({ saisie, avant, apres });
+  }
+  assert.deepEqual(ecarts, []);
+  assert.ok(saisies.length > 36000 && lues > 1500, `${saisies.length} saisies, ${lues} lues avant D82`);
+  // Et les valeurs qu'affiche le site pour tout le catalogue (formatParameters) se lisent toujours de même.
+  for (const texte of ['1600', '0.0015', '0.00188', '0.0000118', '0.17717', '4.800', '400', '59.055', '1 600', '0,0015']) {
+    assert.equal(parseAnswer(texte), parseAnswerAvantD82(texte), texte);
+  }
+});
+
+test('gradeAnswers (D82) : une expression est jugée sur son nombre, cohérence de Vf comprise', () => {
+  const saisies = { vc: '100', feedPerTooth: '0,0015', rpm: '100 * 4 / 0,25', feedPerRev: '0.0015*2', feedRate: '1600×0.003' };
+  const resultat = gradeAnswers(PROPORTIONNELLE, saisies);
+  assert.equal(resultat.success, true);
+  assert.equal(resultat.fields.rpm.value, 1600);
+  assert.equal(resultat.fields.feedPerRev.value, 0.003);
+  assert.equal(resultat.fields.feedRate.value, 4.8);
+  // Une N fausse par sa formule (Ø oublié au dénominateur) : fausse, et Vf jugée sur ce N-là (D15).
+  const faux = gradeAnswers(PROPORTIONNELLE, { ...saisies, rpm: '100*4', feedRate: '400*0.003' });
+  assert.equal(faux.fields.rpm.ok, false);
+  assert.equal(faux.fields.rpm.value, 400);
+  assert.equal(faux.fields.feedRate.ok, true);
 });
 
 test('la virgule et le point donnent la même correction', () => {
