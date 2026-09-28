@@ -576,6 +576,35 @@ try {
     assert.deepEqual(exporte.corps.presentation_tables.historique.map((h) => h.action), ['application', 'retablissement']);
   });
 
+  // --- Chantier E5, jalon E5-2 : la cascade des tables et le retour en arrière (D77), sur la vraie D1 -----------------
+
+  await etape('cascade (D77) : A2026_r2 publiée avec la cascade en un seul lot (M10 version 4 = contenu de la 3, brouillon suivi, journal) ; Camille garde sa version 1 ; reprendre A2026_r0 puis annuler ; reprendre la version 1 du M10 en gardant ses tables, puis annuler', async () => {
+    const page = await appel('GET', '/api/prof/editeur/tables', { cookie });
+    const contenu = structuredClone(page.corps.brouillon.contenu);
+    contenu.materiaux.materiaux[0].vc_pi_min.insert_carbure = 555;
+    const enregistre = await appel('POST', '/api/prof/editeur/tables/enregistrer', { corps: { revision: page.corps.brouillon.revision, contenu }, cookie });
+    const propose = await appel('GET', '/api/prof/editeur/tables/cascade', { cookie });
+    assert.deepEqual([propose.corps.remplacee, propose.corps.candidats.map((c) => [c.id, c.publication?.numero ?? null, c.en_erreur])], ['A2026_r1', [[M10, 4, false]]]);
+    const v3 = (await appel('GET', `/api/exercice?exercice=${M10}&version=3`)).corps.exercice;
+    const publie = await appel('POST', '/api/prof/editeur/tables/publier', { corps: { revision: enregistre.corps.revision, id: 'A2026_r2', cascade: [M10] }, cookie });
+    assert.deepEqual([publie.status, publie.corps.cascade.publies, publie.corps.cascade.brouillons], [200, [{ id: M10, numero: 4 }], [M10]], JSON.stringify(publie.corps));
+    const v4 = await appel('GET', `/api/exercice?exercice=${M10}&version=4`);
+    assert.deepEqual([v4.corps.tables.materiaux.revision, v4.corps.tables.materiaux.materiaux[0].vc_pi_min.insert_carbure, v4.corps.exercice.titre], ['A2026_r2', 555, v3.titre]);
+    assert.equal((await appel('POST', '/api/reprise', { corps: CAMILLE })).corps.seance.exercice.version, '1');
+    const exercicePage = await appel('GET', `/api/prof/editeur/exercice?id=${M10}`, { cookie });
+    assert.equal(exercicePage.corps.exercice.tables_id, 'A2026_r2');
+    // Reprendre A2026_r0 : ses valeurs, le brouillon repart de A2026_r2 ; puis annuler : retour à A2026_r2.
+    const reprise = await appel('POST', '/api/prof/editeur/tables/reprendre', { corps: { revision: enregistre.corps.revision + 1, id: 'A2026_r0' }, cookie });
+    assert.deepEqual([reprise.status, reprise.corps.base_id, reprise.corps.modifie], [200, 'A2026_r2', true], JSON.stringify(reprise.corps));
+    const annule = await appel('POST', '/api/prof/editeur/tables/annuler', { corps: { revision: reprise.corps.revision }, cookie });
+    assert.deepEqual([annule.status, annule.corps.annule, annule.corps.id], [200, true, 'A2026_r2']);
+    // Le M10 : reprendre sa version 1 (ses tables A2026_r2 gardées), puis annuler.
+    const repriseExercice = await appel('POST', '/api/prof/editeur/exercice/reprendre', { corps: { id: M10, revision: exercicePage.corps.exercice.revision, numero: 1 }, cookie });
+    assert.deepEqual([repriseExercice.status, repriseExercice.corps.tables_id], [200, 'A2026_r2'], JSON.stringify(repriseExercice.corps));
+    const annuleExercice = await appel('POST', '/api/prof/editeur/exercice/annuler', { corps: { id: M10, revision: repriseExercice.corps.revision }, cookie });
+    assert.deepEqual([annuleExercice.status, annuleExercice.corps.annule, annuleExercice.corps.numero], [200, true, 4]);
+  });
+
   await etape('déconnexion professeur : le cookie est effacé', async () => {
     const deconnexion = await appel('POST', '/api/prof/deconnexion', { cookie });
     assert.deepEqual(deconnexion.corps, { deconnecte: true });
