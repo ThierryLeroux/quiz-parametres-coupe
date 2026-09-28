@@ -1,12 +1,12 @@
 // Écran Question (UI §3.3) et question corrigée (UI §3.4) : panneau de l'outil à la couleur de son
 // matériau, panneau du matériau brut à la couleur de sa classe ISO, questionnaire de cinq champs
-// avec pictogrammes et aide contextuelle, progression par points. L'exercice réussi ouvre la page
+// avec pictogrammes et aide contextuelle, progression par opération et par points. L'exercice réussi ouvre la page
 // de l'attestation (attestation-screen.js).
 // Tout ce qui est affiché vient du serveur (SPEC §7) ; ce qu'on montre et quand est décidé par
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
 import { el, pointDecimalComma, showScreen } from './dom.js';
-import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, gapExplanation, helpLine, materialCard, progressRows, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
+import { checkButtonLabel, diameterLines, factorLines, feedFamily, gapExplanation, helpLine, materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak } from './rules.js';
 import { classFeatures, classImages, heatImageMaxWidth, operationPictoOf, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, fieldResultNote, studentLine } from './text.js';
 
@@ -32,27 +32,42 @@ const header = (seance, actions) => ({
   ],
 });
 
-// Sur téléphone (la progression est sous le formulaire), les outils terminés sont repliés (UI §3.3).
+// Sur téléphone (la progression est sous le formulaire), les opérations terminées sont repliées (UI §3.3, D81).
 // La mise en page de question.css passe en deux colonnes à 1000 px.
 const isPhone = () => window.matchMedia('(max-width: 999px)').matches;
 
-// Progression (UI §3.3) : barre « n / m outils », puis un rang par outil, un point par réussite consécutive.
-function progressPanel(progression, labels, marks) {
+// Progression (UI §3.3, D81) : barre « n / m outils », puis les outils regroupés par opération (operationProgress) —
+// un en-tête par opération (son pictogramme, celui des tables de la séance ; son nom ; « n / m » ; sa barre), ses
+// outils dessous, un point par réussite consécutive. Pendant le corrigé (marks.previous : la progression d'avant
+// « Vérifier »), la barre montre en vert ce que la question vient de gagner, en rouge ce qu'elle vient de perdre.
+function progressPanel(progression, labels, marks, data) {
   const { outils, outils_termines: done } = progression;
   const tags = { current: 'en cours', reset: 'remis à zéro' };
   const rowItem = (row) => el('li', { class: `progress-row progress-row--${row.state}` }, [
     el('span', { class: 'progress-name' }, [row.label, tags[row.state] ? el('small', {}, ` ${tags[row.state]}`) : '']),
     el('span', { class: 'dots', role: 'img', 'aria-label': `${row.dots.filter(Boolean).length} sur ${row.dots.length}` }, row.dots.map((full) => el('span', { class: full ? 'dot dot--full' : 'dot' }))),
   ]);
-  const rows = progressRows(progression, labels, marks);
-  const { shown, folded } = isPhone() ? foldDoneRows(rows) : { shown: rows, folded: [] };
+  // Une part de la barre d'une opération : acquise (bleu), gagnée (vert) ou perdue (rouge), en réussites.
+  const part = (kind, count, total) => (count === 0 ? '' : el('span', { class: `progress-op-${kind}`, style: `width: ${(count / total) * 100}%` }));
+  const operationItem = (group) => el('li', { class: group.complete ? 'progress-op progress-op--complete' : 'progress-op' }, [
+    el('div', { class: 'progress-op-head' }, [
+      optionalImage(operationPictoOf(data, group.operation), 'operation-picto progress-op-picto'),
+      el('span', { class: 'progress-op-name' }, group.operation),
+      el('span', { class: 'progress-op-count' }, `${group.done} / ${group.total}`),
+      el('div', { class: 'progress-op-bar', role: 'img', 'aria-label': group.label }, [
+        part('kept', group.kept, group.total), part('gain', group.gain, group.total), part('loss', group.loss, group.total),
+      ]),
+    ]),
+    el('ul', { class: 'progress-rows' }, group.rows.map(rowItem)),
+  ]);
+  const { shown, folded, summary } = operationProgress(progression, labels, { ...marks, phone: isPhone() });
   return el('section', { class: 'panel progress' }, [
     el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Progression'), el('div', { class: 'muted smaller' }, `${done} / ${outils.length} outils`)]),
     el('div', { class: 'progress-bar', role: 'img', 'aria-label': `${done} outils réussis sur ${outils.length}` }, el('div', { style: `width: ${(done / outils.length) * 100}%` })),
-    el('ul', { class: 'progress-rows' }, shown.map(rowItem)),
-    folded.length === 0 ? '' : el('details', { class: 'progress-done' }, [
-      el('summary', {}, `${folded.length} outil${folded.length > 1 ? 's' : ''} terminé${folded.length > 1 ? 's' : ''}`),
-      el('ul', { class: 'progress-rows' }, folded.map(rowItem)),
+    el('ul', { class: 'progress-ops' }, shown.map(operationItem)),
+    summary === null ? '' : el('details', { class: 'progress-done' }, [
+      el('summary', {}, summary),
+      el('ul', { class: 'progress-ops' }, folded.map(operationItem)),
     ]),
     el('p', { class: 'muted smaller' }, 'Un point par réussite de suite. Un échec sur un outil remet ses points à zéro.'),
   ]);
@@ -207,7 +222,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   const reminder = el('p', { class: 'muted smaller form-reminder' }, `Point décimal (une virgule devient un point), sans séparateur de milliers : 2496 · 0.005  ·  ${toolStreak(seance.progression, question.outil.id)}`);
   // Rappel et message du serveur à gauche, « Vérifier » à droite, sur la même ligne (maquette 03).
   const actionsRow = el('div', { class: 'form-actions' }, [el('div', { class: 'form-notes' }, [reminder, status]), checkButton]);
-  const progressSlot = el('div', { class: 'question-side' }, progressPanel(seance.progression, labels, { currentId: question.outil.id }));
+  const progressSlot = el('div', { class: 'question-side' }, progressPanel(seance.progression, labels, { currentId: question.outil.id }, data));
 
   function showCorrection({ correction, seance: next }) {
     const correctedAt = Date.now();
@@ -231,8 +246,9 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     if (testBanner) testBanner.hidden = true;
     actionsRow.replaceChildren(nextButton);
     actionsRow.before(banner);
-    // La progression d'après la correction ; l'outil remis à zéro y passe en rouge.
-    progressSlot.replaceChildren(progressPanel(next.progression, labels, { resetId: correction.reussie ? null : correction.outil.id }));
+    // La progression d'après la correction, comparée à celle d'avant « Vérifier » : ce que la question a gagné (vert)
+    // ou perdu (rouge) dans la barre de son opération ; l'outil remis à zéro y passe en rouge (D81).
+    progressSlot.replaceChildren(progressPanel(next.progression, labels, { previous: seance.progression, resetId: correction.reussie ? null : correction.outil.id }, data));
     nextButton.focus();
   }
 

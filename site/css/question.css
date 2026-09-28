@@ -266,7 +266,7 @@
 .banner--wrong { border-color: var(--color-wrong); background: var(--color-wrong-bg); }
 .banner--wrong strong { color: var(--color-wrong); }
 
-/* --- Progression : un point par réussite consécutive ------------------------------------------------------------ */
+/* --- Progression : les outils regroupés par opération, un point par réussite consécutive -------------------------- */
 
 .progress-bar {
   height: 5px;
@@ -280,12 +280,65 @@
   box-shadow: 0 0 8px var(--color-correct);
 }
 
-.progress-rows {
+/* Une opération (D81) : un en-tête — pictogramme, nom, « n / m », et sa barre dessous —, puis ses outils. */
+.progress-ops {
   margin: 0 0 var(--space-3);
-  padding: 0 0 var(--space-3);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+  padding: 0;
   list-style: none;
 }
+
+.progress-op {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+}
+
+.progress-op:first-child { padding-top: 0; }
+
+.progress-op-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "picto name count" "picto bar bar";
+  align-items: center;
+  gap: 5px var(--space-2);
+  margin-bottom: var(--space-1);
+  /* Aligné sur les rangs des outils, qui ont un bord gauche de 3 px. */
+  padding: 0 var(--space-2) 0 calc(var(--space-2) + 3px);
+}
+
+.progress-op-picto {
+  grid-area: picto;
+  width: 30px;
+  height: 30px;
+}
+
+.progress-op-name { grid-area: name; font-size: 0.875rem; font-weight: 600; }
+
+.progress-op-count { grid-area: count; color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
+
+/* La barre : acquis en bleu ; pendant le corrigé seulement, gagné en vert et perdu en rouge. */
+.progress-op-bar {
+  grid-area: bar;
+  display: flex;
+  height: 8px;
+  background: color-mix(in srgb, var(--color-text-muted) 22%, transparent);
+}
+
+.progress-op-kept { background: var(--color-accent); }
+.progress-op-gain { background: var(--color-correct); box-shadow: 0 0 8px var(--color-correct); }
+.progress-op-loss { background: var(--color-wrong); box-shadow: 0 0 8px var(--color-wrong); }
+
+/* Une opération complète : le contour doré, dès la question qui la complète. */
+.progress-op--complete .progress-op-bar { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+.progress-op--complete .progress-op-count { color: var(--color-gold); font-weight: 600; }
+
+/* Les outils d'une opération : leurs noms alignés sur celui de l'opération, à droite du pictogramme. */
+.progress-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-ops .progress-row { padding-left: calc(var(--space-2) + 30px + var(--space-2)); }
 
 .progress-row {
   display: flex;
@@ -333,10 +386,10 @@
 
 .progress-row--reset .dot { border-color: var(--color-wrong); }
 
-/* Sur téléphone, les outils terminés sont repliés sous un résumé (UI §3.3). */
+/* Sur téléphone, les opérations terminées sont repliées sous un résumé (UI §3.3, D81). */
 .progress-done { margin: 0 0 var(--space-3); }
 .progress-done summary { padding: var(--space-1) var(--space-2); color: var(--color-text-muted); font-size: var(--text-xs); cursor: pointer; }
-.progress-done .progress-rows { margin-top: var(--space-2); border-bottom: none; padding-bottom: 0; }
+.progress-done .progress-ops { margin: var(--space-2) 0 0; }
 
 /* --- Tablette et ordinateur ---------------------------------------------------------------------------------------- */
 

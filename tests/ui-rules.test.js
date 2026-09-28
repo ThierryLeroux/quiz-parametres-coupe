@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { checkButtonLabel, diameterLines, factorLines, feedFamily, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
 import { sessionView } from '../worker/seance.js';
 import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationPictoOf, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
@@ -60,16 +60,6 @@ test('checkButtonLabel et remainingWait : le compte à rebours de la cadence sur
   assert.equal(remainingWait(10, 3400), 7); // arrondi vers le haut : on n'annonce jamais moins que le serveur n'exige
   assert.equal(remainingWait(10, 12000), 0);
   assert.equal(remainingWait(undefined, 0), 0); // séance servie par un serveur d'avant le compte à rebours
-});
-
-test('foldDoneRows : les outils terminés se replient, dans l’ordre ; l’outil en cours et celui remis à zéro restent visibles', () => {
-  const rows = [
-    { id: 'a', state: 'done' }, { id: 'b', state: 'current' }, { id: 'c', state: 'todo' }, { id: 'd', state: 'done' }, { id: 'e', state: 'reset' },
-  ];
-  const { shown, folded } = foldDoneRows(rows);
-  assert.deepEqual(shown.map((row) => row.id), ['b', 'c', 'e']);
-  assert.deepEqual(folded.map((row) => row.id), ['a', 'd']);
-  assert.deepEqual(foldDoneRows([]), { shown: [], folded: [] });
 });
 
 test('testAnswers : le bouton « Remplir » n’existe que si le serveur a joint les réponses (D26)', () => {
@@ -382,6 +372,15 @@ test('operationProgress sur téléphone : les opérations terminées se replient
   assert.deepEqual(operationProgress(progression, labels, { currentId: 'sdtmr_2' }).folded, []);
   // Rien de terminé : aucun résumé.
   assert.equal(operationProgress(progressionDe(m10), labels, { phone: true }).summary, null);
+  // Pendant le corrigé : l'opération de l'outil remis à zéro reste visible, avec ses outils terminés.
+  const corrige = operationProgress(progressionDe(m10, { mclnr: 1, barre_a_fileter: 1 }), labels, {
+    previous: progressionDe(m10, { mclnr: 1, barre_a_fileter: 1 }), resetId: 'barre_a_fileter_2', phone: true,
+  });
+  assert.deepEqual(corrige.folded.map((entry) => entry.operation), ['Chariotage ébauche']);
+  assert.deepEqual(groupe(corrige, 'Filetage interne').rows.map((row) => row.state), ['done', 'reset']);
+  assert.ok(corrige.shown.includes(groupe(corrige, 'Filetage interne')));
+  // Aucun outil : rien à montrer.
+  assert.deepEqual(operationProgress({ outils: [] }, new Map(), { phone: true }), { shown: [], folded: [], summary: null });
 });
 
 test('toolStreak : « Sur cet outil : n réussites de suite sur m »', () => {

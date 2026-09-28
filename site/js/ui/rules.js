@@ -196,16 +196,6 @@ export function remainingWait(seconds, elapsedMs) {
   return Math.max(0, Math.ceil((seconds ?? 0) - elapsedMs / 1000));
 }
 
-// --- Repli des outils terminés sur téléphone (UI §3.3) ---------------------------------------------------------
-// Les rangs terminés (« done ») sortent de la liste, dans l'ordre, pour être repliés sous un résumé ;
-// l'outil en cours et celui qui vient d'être remis à zéro ne sont jamais repliés (leur état diffère).
-export function foldDoneRows(rows) {
-  return {
-    shown: rows.filter((row) => row.state !== 'done'),
-    folded: rows.filter((row) => row.state === 'done'),
-  };
-}
-
 // --- Progression par opération (UI §3.3, D81 ; VBA modAffGraph) -------------------------------------------------
 // Les outils de la progression regroupés par opération : les opérations dans l'ordre de leur premier outil dans
 // l'exercice, les outils dans l'ordre de l'exercice (celui du serveur). Chaque opération :
