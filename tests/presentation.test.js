@@ -4,11 +4,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  OUTSIDE_WHITELIST, PRESENTATION_FIELDS, applyPresentation, archivedImagesOf, currentPresentation, imagesOfPresentation, normalizePresentation,
+  OUTSIDE_WHITELIST, PRESENTATION_FIELDS, applyPresentation, archivedImagesOf, archivedWarnings, currentPresentation, imageInForce, imagesOfPresentation, normalizePresentation,
   pendingDraftPresentation, presentData, presentationDiff, presentationErrors, presentationKeys, presentationOf,
 } from '../site/js/presentation.js';
 import { DEFAULT_ISO_CLASSES, completeTables } from '../site/js/tables.js';
-import { assembleData } from '../site/js/data.js';
+import { assembleData, validateTables } from '../site/js/data.js';
 import { lireFichier } from './aide.js';
 
 const materiaux = await lireFichier('data/materiaux.json');
@@ -19,6 +19,7 @@ const IMAGES = [
   ...['p', 'm', 'k', 'n', 's', 'h'].map((c) => ({ id: `copeaux-${c}-chaleur`, archivee_le: null })),
   { id: 'percage', archivee_le: null }, { id: 'img-0123456789abcdef', archivee_le: null }, { id: 'img-archivee', archivee_le: '2026-09-27T10:00:00.000Z' },
 ];
+const classe = (presentation, code) => presentation.classes_iso.find((c) => c.code === code);
 
 test('la liste blanche (D75) : nom, couleurs, image de chaleur, légende et caractéristiques des classes ; couleur des matières d’outil ; pictogramme des opérations', () => {
   assert.deepEqual(PRESENTATION_FIELDS, {
@@ -193,4 +194,40 @@ test('pendingDraftPresentation (D76, point 10) : une retouche de présentation f
   const later = structuredClone(pending.contenu);
   later.classes_iso[1].couleur = '#000000';
   assert.deepEqual(pendingDraftPresentation(base, draft, later).lignes, []);
+});
+
+test('retouche de D76 : « existante et non archivée » ne vaut que pour une image CHOISIE — une image que la présentation en vigueur a déjà pour ce champ est un avertissement, jamais une erreur, dans la présentation comme dans les tables', () => {
+  const inForce = presentationOf(tables());
+  classe(inForce, 'M').image_chaleur = 'img-archivee';
+  inForce.operations[0].pictogramme = 'img-archivee';
+  assert.equal(imageInForce(inForce, 'classes_iso', 'M', 'image_chaleur'), 'img-archivee');
+  assert.equal(imageInForce(inForce, 'operations', operations.operations[0].operation, 'pictogramme'), 'img-archivee');
+  assert.equal(imageInForce(null, 'classes_iso', 'M', 'image_chaleur'), undefined);
+  // Une légende changée pendant que deux images archivées sont en vigueur : aucune erreur, deux avertissements.
+  const legende = structuredClone(inForce);
+  classe(legende, 'P').legende_image = 'Zone chaude';
+  assert.deepEqual(presentationErrors(legende, { images: IMAGES, inForce }), []);
+  assert.deepEqual(presentationErrors(legende, { images: IMAGES }).length, 2); // sans la présentation en vigueur, les deux sont choisies
+  assert.deepEqual(archivedWarnings(legende, IMAGES), [
+    "Classe M — image de chaleur : l'image « img-archivee » est archivée ; elle reste affichée et ne bloque rien (pour la remplacer, choisis-en une autre, ou rétablis-la dans l'onglet Images).",
+    `Opération « ${operations.operations[0].operation} » — pictogramme : l'image « img-archivee » est archivée ; elle reste affichée et ne bloque rien (pour la remplacer, choisis-en une autre, ou rétablis-la dans l'onglet Images).`,
+  ]);
+  // La même image archivée, CHOISIE pour une autre classe ou une autre opération : refusée. Une image inconnue choisie aussi.
+  const choisie = structuredClone(inForce);
+  classe(choisie, 'K').image_chaleur = 'img-archivee';
+  choisie.operations[1].pictogramme = 'img-archivee';
+  classe(choisie, 'N').image_chaleur = 'img-inconnue';
+  assert.deepEqual(presentationErrors(choisie, { images: IMAGES, inForce }), [
+    "classes_iso[2] (K) : « image_chaleur » : l'image « img-archivee » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)",
+    "classes_iso[3] (N) : « image_chaleur » : l'image « img-inconnue » est inconnue",
+    `operations[1] (${operations.operations[1].operation}) : « pictogramme » : l'image « img-archivee » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)`,
+  ]);
+  // Les tables (le brouillon, la publication et son instantané) : l'image en vigueur passe ; une classe NOUVELLE qui la
+  // choisit, non ; sans présentation, la règle d'avant.
+  const brouillon = applyPresentation(tables(), inForce);
+  brouillon.materiaux.revision = 'A2026_r1';
+  assert.deepEqual(validateTables(brouillon, { images: IMAGES, presentation: inForce }), []);
+  assert.deepEqual(validateTables(brouillon, { images: IMAGES }), ["classes_iso[1] (M) : « image_chaleur » : l'image « img-archivee » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)"]);
+  brouillon.materiaux.classes_iso.push({ code: 'X', nom: 'Nouvelle', couleur: '#000000', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: 'img-archivee', legende_image: '', caracteristiques: [] });
+  assert.deepEqual(validateTables(brouillon, { images: IMAGES, presentation: inForce }), ["classes_iso[7] (X) : « image_chaleur » : l'image « img-archivee » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)"]);
 });

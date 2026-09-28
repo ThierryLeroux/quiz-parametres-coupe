@@ -19,7 +19,7 @@ import {
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
-import { applyPresentation, presentationDiff, presentationErrors, presentationKeys } from '../presentation.js';
+import { applyPresentation, archivedWarnings, presentationDiff, presentationErrors, presentationKeys } from '../presentation.js';
 import { CHARACTERISTIC_LIMITS, DEFAULT_LEGENDE_IMAGE, tablesDiff } from '../tables.js';
 import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js';
 import {
@@ -1135,6 +1135,7 @@ async function showTables(notice = '') {
   function renderPresentation(start, message = '') {
     const panelStatus = el('div', { class: 'server-message', role: 'status' }, message);
     const panelErrors = el('ul', { class: 'editeur-erreurs' });
+    const panelWarnings = el('ul', { class: 'avertissements' }); // une image archivée en vigueur : dite, jamais bloquante (D76, retouche)
     const dialog = el('div');
     const toolNames = new Map(shown.matieres_outil.map((m) => [m.cle, m.nom]));
     const onEdit = () => { presentationDirty = true; syncDirty(); check(); };
@@ -1167,13 +1168,16 @@ async function showTables(notice = '') {
     });
     const read = () => ({ classes_iso: classRows.map((r) => r.read()), materiaux_outil: toolRows.map((r) => r.read()), operations: opRows.map((r) => r.read()) });
 
-    // Erreurs, changements, bouton ; les couleurs de la page suivent le panneau à la frappe (même non appliqué).
+    // Erreurs, avertissements, changements, bouton ; les couleurs de la page suivent le panneau à la frappe (même non
+    // appliqué). Seule une image CHOISIE (différente de celle en vigueur) doit exister et ne pas être archivée ; une image
+    // archivée déjà en vigueur n'est qu'un avertissement, qui ne bloque pas « Appliquer » (D76, retouche).
     const applyButton = el('button', { class: 'button button--direct', type: 'button' }, 'Appliquer…');
     function check() {
       const current = read();
-      const errors = presentationErrors(current, { images: presentationImages() });
+      const errors = presentationErrors(current, { images: presentationImages(), inForce: shown.presentation });
       const lines = presentationDiff(shown.presentation, current, toolNames);
       panelErrors.replaceChildren(...errors.map((m) => el('li', {}, m)));
+      panelWarnings.replaceChildren(...archivedWarnings(current, presentationImages()).map((m) => el('li', {}, m)));
       const button = presentationApplyState(errors, lines);
       applyButton.disabled = !button.enabled;
       applyButton.textContent = button.label;
@@ -1283,6 +1287,7 @@ async function showTables(notice = '') {
       ]),
       panelStatus,
       panelErrors,
+      panelWarnings,
       pendingBox,
       dialog,
       el('h3', { class: 'presentation-titre' }, 'Classes ISO'),
@@ -1398,7 +1403,8 @@ async function showTables(notice = '') {
   const publishButton = el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
   function validate() {
     const current = readTables();
-    const errors = validateTables(publishedTables(), { images: state.images.classe }); // une image de classe inconnue ou archivée est une erreur
+    // Une image de classe inconnue ou archivée est une erreur, sauf celle que la présentation en vigueur a déjà (D76, retouche).
+    const errors = validateTables(publishedTables(), { images: state.images.classe, presentation: shown.presentation });
     errorsList.replaceChildren(...errors.map((message) => el('li', {}, message)));
     publishButton.disabled = errors.length > 0;
     publishButton.textContent = errors.length > 0 ? `Publier (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` : 'Publier…';

@@ -123,21 +123,25 @@ const IMAGE_REF = /^[a-z0-9]+([_-][a-z0-9]+)*$/;
 export const OUTSIDE_WHITELIST = 'hors de la liste blanche de la présentation';
 
 // Les erreurs d'une présentation reçue : [messages]. Toute clé hors de la liste blanche est une erreur (le serveur
-// refuse, 400) ; chaque entrée est complète ; mêmes règles que les tables (D61, D65, D68), et une image nommée
-// (image de chaleur, pictogramme) doit exister et ne pas être archivée.
+// refuse, 400) ; chaque entrée est complète ; mêmes règles que les tables (D61, D65, D68), et une image CHOISIE
+// (image de chaleur, pictogramme) doit exister et ne pas être archivée. Une image que la présentation en vigueur a
+// déjà pour ce champ n'est pas choisie : archivée, elle n'est qu'un avertissement (archivedWarnings) et ne bloque
+// rien (D76, retouche : corriger une légende ne doit jamais attendre une image qui n'a rien à voir).
 //   images   : les fiches des images de la base ([{ id, archivee_le }]), ou null : seule la forme est vérifiée
-//   archived : 'erreur' (par défaut) — une image archivée est une erreur ; 'permis' — pour « Rétablir » (D76, point 7)
-export function presentationErrors(presentation, { images = null, archived = 'erreur' } = {}) {
+//   inForce  : la présentation en vigueur, ou null (toute image est alors choisie)
+//   archived : 'erreur' (par défaut) — une image choisie archivée est une erreur ; 'permis' — pour « Rétablir » et
+//              l'import (D76, point 7), où rien n'est choisi : on remet un contenu qui a déjà été en vigueur
+export function presentationErrors(presentation, { images = null, inForce = null, archived = 'erreur' } = {}) {
   if (!isObject(presentation)) return ['La présentation doit être un objet { classes_iso, materiaux_outil, operations }.'];
   const errors = [];
   const known = Array.isArray(images) ? new Map(images.filter(isObject).map((image) => [image.id, image])) : null;
   for (const name of Object.keys(presentation)) {
     if (!PRESENTATION_LISTS.includes(name)) errors.push(`« ${name} » est ${OUTSIDE_WHITELIST} : seules « classes_iso », « materiaux_outil » et « operations » s'y modifient ; le reste se modifie dans le brouillon des tables, puis se publie.`);
   }
-  const imageErrors = (where, field, value) => {
+  const imageErrors = (where, field, value, list, keyValue) => {
     if (value === null) return;
     if (typeof value !== 'string' || !IMAGE_REF.test(value)) { errors.push(`${where} : « ${field} » doit être l'identifiant d'une image (ou null)`); return; }
-    if (known === null) return;
+    if (known === null || imageInForce(inForce, list, keyValue, field) === value) return; // déjà en vigueur : pas choisie
     if (!known.has(value)) errors.push(`${where} : « ${field} » : l'image « ${value} » est inconnue`);
     else if (known.get(value).archivee_le && archived !== 'permis') errors.push(`${where} : « ${field} » : l'image « ${value} » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)`);
   };
@@ -158,7 +162,7 @@ export function presentationErrors(presentation, { images = null, archived = 'er
         if (typeof entry.code !== 'string' || !/^[A-Z]$/.test(entry.code)) errors.push(`${where} : « code » doit être une lettre majuscule`);
         if ('nom' in entry && !isText(entry.nom)) errors.push(`${where} : « nom » est vide`);
         for (const color of ['couleur', 'couleur_texte', 'couleur_ligne']) if (color in entry && !isColor(entry[color])) errors.push(`${where} : « ${color} » doit être une couleur « #rrggbb »`);
-        if ('image_chaleur' in entry) imageErrors(where, 'image_chaleur', entry.image_chaleur);
+        if ('image_chaleur' in entry) imageErrors(where, 'image_chaleur', entry.image_chaleur, list, entry.code);
         if ('legende_image' in entry) {
           if (typeof entry.legende_image !== 'string') errors.push(`${where} : « legende_image » doit être un texte (vide : pas de légende)`);
           else if (entry.legende_image.length > LEGENDE_IMAGE_MAX) errors.push(`${where} : « legende_image » a ${entry.legende_image.length} caractères (au plus ${LEGENDE_IMAGE_MAX})`);
@@ -172,7 +176,7 @@ export function presentationErrors(presentation, { images = null, archived = 'er
         if ('couleur' in entry && !isColor(entry.couleur)) errors.push(`${where} : « couleur » doit être une couleur « #rrggbb »`);
       } else {
         if (!isText(entry.operation)) errors.push(`${where} : « operation » est vide`);
-        if ('pictogramme' in entry) imageErrors(where, 'pictogramme', entry.pictogramme);
+        if ('pictogramme' in entry) imageErrors(where, 'pictogramme', entry.pictogramme, list, entry.operation);
       }
     });
     const keys = entries.filter(isObject).map((e) => e[key]);
@@ -181,7 +185,21 @@ export function presentationErrors(presentation, { images = null, archived = 'er
   return errors;
 }
 
-// Les images archivées qu'une présentation nomme : [{ where, id }] — l'avertissement de « Rétablir » (D76, point 7).
+// L'image qu'une présentation (en vigueur) a pour ce champ d'une entrée, ou undefined : ce qui distingue une image
+// choisie d'une image déjà en vigueur (D76, retouche).
+//   list : 'classes_iso' ou 'operations' ; keyValue : le code ou le nom de l'opération ; field : 'image_chaleur' ou 'pictogramme'
+export function imageInForce(inForce, list, keyValue, field) {
+  const entries = Array.isArray(inForce?.[list]) ? inForce[list] : [];
+  return entries.find((e) => isObject(e) && e[PRESENTATION_FIELDS[list].key] === keyValue)?.[field];
+}
+
+// Les avertissements d'une présentation (D76, retouche) : une image archivée qu'elle nomme reste affichée (une image
+// archivée est toujours servie) et ne bloque rien ; le message dit comment la remplacer, si on le veut.
+export function archivedWarnings(presentation, images) {
+  return archivedImagesOf(presentation, images).map(({ where, id }) => `${where} : l'image « ${id} » est archivée ; elle reste affichée et ne bloque rien (pour la remplacer, choisis-en une autre, ou rétablis-la dans l'onglet Images).`);
+}
+
+// Les images archivées qu'une présentation nomme : [{ where, id }] — les avertissements (archivedWarnings).
 export function archivedImagesOf(presentation, images) {
   const archived = new Set((images ?? []).filter((image) => isObject(image) && image.archivee_le).map((image) => image.id));
   const found = [];

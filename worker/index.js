@@ -26,7 +26,7 @@ import {
 } from './editeur.js';
 import { isTablesId, nextRevision, tablesContent } from '../site/js/tables.js';
 import {
-  applyPresentation, archivedImagesOf, currentPresentation, normalizePresentation, pendingDraftPresentation, presentData, presentationDiff, presentationErrors,
+  applyPresentation, archivedWarnings, currentPresentation, normalizePresentation, pendingDraftPresentation, presentData, presentationDiff, presentationErrors,
 } from '../site/js/presentation.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
@@ -879,8 +879,9 @@ async function editeurBanque(request, env, { now }) {
 // --- Les tables de référence versionnées (D61, D63) : un brouillon, des versions immuables -------------------------
 
 // Les erreurs d'un brouillon de tables : celles des deux tables (validateTables), sans outils ; avec les
-// fiches des images, une image de classe inconnue ou archivée est une erreur (D64).
-const tablesErrors = (contenu, images = null) => validateTables(contenu, { images }).map((message) => ({ champ: '', message }));
+// fiches des images, une image de classe inconnue ou archivée est une erreur (D64) — sauf celle que la présentation en
+// vigueur a déjà pour cette classe : elle n'est pas choisie, et ne bloque ni le brouillon ni la publication (D76, retouche).
+const tablesErrors = (contenu, images = null, presentation = null) => validateTables(contenu, { images, presentation }).map((message) => ({ champ: '', message }));
 
 // GET /api/prof/editeur/tables — le brouillon des tables (complété, tel qu'en base), ses erreurs, les versions publiées
 // avec leurs utilisations, la révision suggérée pour la prochaine publication. Depuis D76, les champs de la présentation
@@ -897,7 +898,7 @@ async function editeurTables(request, env, { now }) {
   return json({
     brouillon: { contenu, revision: draft.revision, modifie_le: draft.modifie_le, base_id: draft.base_id },
     modifie: base_ === null || !sameContent(tablesContent(contenu), tablesContent(tablesOf(base_))),
-    erreurs: tablesErrors(applyPresentation(contenu, presentation.contenu), await base.listImages(env.DB)),
+    erreurs: tablesErrors(applyPresentation(contenu, presentation.contenu), await base.listImages(env.DB), presentation.contenu),
     presentation: presentation.contenu,
     presentation_en_attente: pendingDraftPresentation(base_ === null ? null : tablesOf(base_), contenu, presentation.contenu, toolNamesOf(presentation.latest)),
     versions: versions.map((v) => ({ id: v.id, creee_le: v.creee_le, utilisations: { versions_exercice: v.versions_exercice, brouillons: v.brouillons } })),
@@ -922,7 +923,8 @@ async function editeurTablesEnregistrer(request, env, { now }) {
   if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision du brouillon est requise.');
   const contenu = cleanTables(body.contenu);
   if (contenu === null) throw new HttpError(400, 'Le brouillon des tables est mal formé : « materiaux » et « operations » sont attendus.');
-  const erreurs = tablesErrors(applyPresentation(contenu, (await loadPresentation(env.DB)).contenu), await base.listImages(env.DB));
+  const presentation = (await loadPresentation(env.DB)).contenu;
+  const erreurs = tablesErrors(applyPresentation(contenu, presentation), await base.listImages(env.DB), presentation);
   const saved = await base.saveTablesDraft(env.DB, body.revision, contenu, now.toISOString(), logEntry(teacher, now, 'editeur_tables_enregistrement', `révision ${body.revision + 1}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s)` : ''}`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findTablesDraft(env.DB)).revision });
   return json({ enregistre: true, revision: body.revision + 1, erreurs });
@@ -939,10 +941,11 @@ async function editeurTablesPublier(request, env, { now }) {
   const draft = await base.findTablesDraft(env.DB);
   if (body.revision !== draft.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: draft.revision });
   if (!isTablesId(body.id)) throw new HttpError(400, 'La révision des tables doit être faite de lettres, de chiffres, de « _ », « . » ou « - » (ex. « A2026_r1 »).');
-  const contenu = applyPresentation(tablesOf(draft.contenu), (await loadPresentation(env.DB)).contenu);
+  const presentation = (await loadPresentation(env.DB)).contenu;
+  const contenu = applyPresentation(tablesOf(draft.contenu), presentation);
   contenu.materiaux = { ...contenu.materiaux, revision: body.id };
   contenu.operations = { ...contenu.operations, revision: body.id };
-  const erreurs = tablesErrors(contenu, await base.listImages(env.DB));
+  const erreurs = tablesErrors(contenu, await base.listImages(env.DB), presentation); // une image archivée déjà en vigueur passe, instantané compris
   if (erreurs.length > 0) throw new HttpError(400, `Le brouillon des tables a ${erreurs.length} erreur(s) : il ne peut pas être publié.`, { erreurs });
   const previous = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
   if (previous !== null && sameContent(tablesContent(contenu), tablesContent(tablesOf(previous)))) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${previous.id}.`);
@@ -961,8 +964,9 @@ async function editeurTablesApercu(request, env, { now, random }) {
   const record = await editorExercise(env, body.exercice);
   const contenu = cleanTables(body.contenu);
   if (contenu === null) throw new HttpError(400, 'Le brouillon des tables est mal formé.');
-  const tables = applyPresentation(tablesOf(contenu), (await loadPresentation(env.DB)).contenu); // ce que la publication prendrait (D76)
-  const erreursTables = tablesErrors(tables, await base.listImages(env.DB));
+  const presentation = (await loadPresentation(env.DB)).contenu;
+  const tables = applyPresentation(tablesOf(contenu), presentation); // ce que la publication prendrait (D76)
+  const erreursTables = tablesErrors(tables, await base.listImages(env.DB), presentation);
   if (erreursTables.length > 0) throw new HttpError(400, "Le brouillon des tables a des erreurs : corrige-les avant l'aperçu.", { erreurs: erreursTables });
   const erreurs = draftErrors(record.brouillon, tables);
   if (erreurs.length > 0) throw new HttpError(400, `L'exercice « ${record.brouillon.titre} » a des erreurs avec ces tables : ${erreurs.map((e) => `${e.champ} : ${e.message}`).join(' ; ')}`, { erreurs });
@@ -980,13 +984,14 @@ const PRESENTATION_CONFLICT = "La présentation a été appliquée ailleurs depu
 const changesText = (lignes) => `${lignes.length} changement(s) : ${lignes.slice(0, 6).join(' ; ')}${lignes.length > 6 ? ` ; … (${lignes.length - 6} de plus)` : ''}`;
 
 // GET /api/prof/editeur/presentation — la présentation en vigueur (celle du panneau), sa révision, si elle a déjà été
-// appliquée, ses erreurs (une image archivée depuis), les noms des matières d'outil, et l'historique, le plus récent
-// en tête, avec pour chaque contenu remplacé ce que le rétablir changerait.
+// appliquée, ses erreurs, ses avertissements (une image archivée en vigueur : elle ne bloque rien, D76), les noms des
+// matières d'outil, et l'historique, le plus récent en tête, avec pour chaque contenu remplacé ce que le rétablir changerait.
 async function editeurPresentation(request, env, { now }) {
   await requireAdmin(request, env, now);
   const presentation = await loadPresentation(env.DB);
   const names = toolNamesOf(presentation.latest);
   const historique = (await base.listPresentationHistory(env.DB)).reverse();
+  const images = await base.listImages(env.DB);
   return json({
     presentation: presentation.contenu,
     revision: presentation.revision,
@@ -995,7 +1000,8 @@ async function editeurPresentation(request, env, { now }) {
     enseignant: presentation.enseignant,
     derniere_tables: presentation.latest.id,
     matieres_outil: presentation.latest.materiaux.materiaux_outil.map(({ cle, nom }) => ({ cle, nom })),
-    erreurs: presentationErrors(presentation.contenu, { images: await base.listImages(env.DB) }),
+    erreurs: presentationErrors(presentation.contenu, { images, inForce: presentation.contenu }),
+    avertissements: archivedWarnings(presentation.contenu, images),
     historique: historique.map((h) => ({
       id: h.id, posee_le: h.posee_le, posee_par: h.posee_par, remplacee_le: h.remplacee_le, remplacee_par: h.remplacee_par, action: h.action,
       lignes: presentationDiff(presentation.contenu, currentPresentation(h.contenu, presentation.latest), names),
@@ -1017,22 +1023,25 @@ async function replacePresentation(env, presentation, { revision, contenu, actio
 }
 
 // POST /api/prof/editeur/presentation/appliquer — { revision, presentation } : la liste blanche est imposée ici
-// (tout autre champ → 400, nommé), avec les règles des tables et des images (existante, non archivée) ; effet immédiat.
+// (tout autre champ → 400, nommé), avec les règles des tables ; une image CHOISIE (différente de celle en vigueur pour ce
+// champ) doit exister et ne pas être archivée ; une image archivée déjà en vigueur n'est qu'un avertissement (D76,
+// retouche). Effet immédiat.
 async function editeurPresentationAppliquer(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request, EDITOR_BODY_MAX);
   if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision de la présentation est requise.');
-  const erreurs = presentationErrors(body.presentation, { images: await base.listImages(env.DB) });
+  const presentation = await loadPresentation(env.DB);
+  const images = await base.listImages(env.DB);
+  const erreurs = presentationErrors(body.presentation, { images, inForce: presentation.contenu });
   if (erreurs.length > 0) throw new HttpError(400, `La présentation a ${erreurs.length} erreur(s) : rien n'a été appliqué.`, { erreurs });
   const contenu = normalizePresentation(body.presentation);
-  const presentation = await loadPresentation(env.DB);
   const lignes = await replacePresentation(env, presentation, { revision: body.revision, contenu, action: 'application', teacher, now, details: '' });
-  return json({ applique: true, revision: body.revision + 1, lignes });
+  return json({ applique: true, revision: body.revision + 1, lignes, avertissements: archivedWarnings(contenu, images) });
 }
 
 // POST /api/prof/editeur/presentation/retablir — { revision, historique } : remet un contenu de l'historique en vigueur
 // (celui en vigueur va à l'historique). Permis même si une image a été archivée depuis (D76, point 7) : elle est
-// toujours servie ; l'avertissement la nomme.
+// toujours servie ; l'avertissement la nomme, et, en vigueur, elle ne bloque plus rien (D76, retouche).
 async function editeurPresentationRetablir(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
@@ -1045,8 +1054,7 @@ async function editeurPresentationRetablir(request, env, { now }) {
   const presentation = await loadPresentation(env.DB);
   const quand = entry.remplacee_le.slice(0, 16).replace('T', ' ');
   const lignes = await replacePresentation(env, presentation, { revision: body.revision, contenu: normalizePresentation(entry.contenu), action: 'retablissement', teacher, now, details: `historique n° ${entry.id} (remplacée le ${quand} UTC) · ` });
-  const avertissements = archivedImagesOf(entry.contenu, images).map(({ where, id }) => `${where} : l'image « ${id} » est archivée ; elle reste affichée, mais il faudra en choisir une autre (ou la rétablir dans l'onglet Images) avant d'appliquer autre chose.`);
-  return json({ retablie: true, revision: body.revision + 1, lignes, avertissements });
+  return json({ retablie: true, revision: body.revision + 1, lignes, avertissements: archivedWarnings(entry.contenu, images) });
 }
 
 // POST /api/prof/editeur/banque/creer — { id, outil } ou { id, depuis: <id> } (dupliquer).
@@ -1245,7 +1253,7 @@ async function planImport(env, received) {
   const overlay = exported !== null && typeof exported === 'object' && !Array.isArray(exported) ? currentPresentation(exported, current.latest) : current.contenu;
   return importPlan(received, existing, {
     tablesErrors: (t) => validateTables({ materiaux: t.materiaux, operations: t.operations }),
-    draftTablesErrors: (t) => validateTables(applyPresentation({ materiaux: t.materiaux, operations: t.operations }, overlay), { images: [...images.values()] }),
+    draftTablesErrors: (t) => validateTables(applyPresentation({ materiaux: t.materiaux, operations: t.operations }, overlay), { images: [...images.values()], presentation: overlay }),
     draftErrorsOf: (contenu, tables) => draftErrors(contenu, tablesOf(tables)),
     latestTablesId: (await base.findLatestTables(env.DB)).id,
     // La présentation de l'export et son historique (D76) : la forme et la liste blanche, et des images qui existeront ;

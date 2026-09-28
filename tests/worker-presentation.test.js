@@ -248,8 +248,9 @@ test('historique et « Rétablir » : chaque contenu remplacé est gardé (la pr
   assert.equal(journal[2].details, "historique n° 1 (remplacée le 2026-09-21 13:06 UTC) · 2 changement(s) : Classe P — couleur : #0099cc → #00b0f0 ; Classe P — légende de l'image : Zone chaude → Chaleur");
 });
 
-test('« Rétablir » un contenu dont une image a été archivée depuis : permis, avec un avertissement ; le panneau la signale ensuite et « Appliquer » exige d’en choisir une autre ; une image de la présentation, actuelle ou dans l’historique, ne se supprime pas', async () => {
+test('une image archivée déjà en vigueur ne bloque rien (D76, retouche) : « Rétablir » un contenu qui en nomme une est permis, avec un avertissement ; appliquer ensuite une légende réussit, avec l’avertissement ; CHOISIR une image archivée est refusé ; une image de la présentation, actuelle ou dans l’historique, ne se supprime pas', async () => {
   const serveur = await editeurDeTest();
+  const avertissement = (where, id) => `${where} : l'image « ${id} » est archivée ; elle reste affichée et ne bloque rien (pour la remplacer, choisis-en une autre, ou rétablis-la dans l'onglet Images).`;
   // Une image de classe téléversée, mise sur P, puis remplacée par celle de la semence, puis archivée.
   const png = await import('node:fs').then((fs) => fs.readFileSync(new URL('../site/img/copeaux/copeaux-p-chaleur.png', import.meta.url)));
   const neuve = await serveur.editeur('POST', 'images/televerser', { nom: 'chaleur P bis.png', usage: 'classe', type: 'image/png', contenu: Buffer.concat([png, Buffer.from([0x2a])]).toString('base64') });
@@ -264,14 +265,36 @@ test('« Rétablir » un contenu dont une image a été archivée depuis : permi
   const page = await presentationDe(serveur);
   const retablie = await serveur.editeur('POST', 'presentation/retablir', { revision: page.revision, historique: 2 });
   assert.equal(retablie.status, 200, JSON.stringify(retablie.corps));
-  assert.deepEqual(retablie.corps.avertissements, [`Classe P — image de chaleur : l'image « ${id} » est archivée ; elle reste affichée, mais il faudra en choisir une autre (ou la rétablir dans l'onglet Images) avant d'appliquer autre chose.`]);
+  assert.deepEqual(retablie.corps.avertissements, [avertissement('Classe P — image de chaleur', id)]);
   assert.equal(classe((await tablesServies(serveur)).materiaux, 'P').image_chaleur, id); // une image archivée est toujours servie (D56)
-  // Le panneau la signale ; appliquer autre chose sans la remplacer est refusé, nommément.
+  // Le panneau la dit en avertissement, pas en erreur.
   const signalee = await presentationDe(serveur);
-  assert.deepEqual(signalee.erreurs, [`classes_iso[0] (P) : « image_chaleur » : l'image « ${id} » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)`]);
-  const refus = await appliquer(serveur, (p) => { classe(p, 'M').legende_image = 'Arête'; });
-  assert.equal(refus.status, 400);
+  assert.deepEqual([signalee.erreurs, signalee.avertissements], [[], [avertissement('Classe P — image de chaleur', id)]]);
   assert.deepEqual((await utilisations()).presentation, ['actuelle', 'historique n° 2']);
+  // Appliquer une légende pendant qu'elle est en vigueur : réussit, avec l'avertissement.
+  const legende = await appliquer(serveur, (p) => { classe(p, 'M').legende_image = 'Arête'; });
+  assert.equal(legende.status, 200, JSON.stringify(legende.corps));
+  assert.deepEqual([legende.corps.lignes, legende.corps.avertissements], [["Classe M — légende de l'image : Chaleur → Arête"], [avertissement('Classe P — image de chaleur', id)]]);
+  // CHOISIR une image archivée — pour une autre classe, ou pour P une fois qu'elle a changé — est refusé, nommément.
+  const choisie = await appliquer(serveur, (p) => { classe(p, 'K').image_chaleur = id; });
+  assert.equal(choisie.status, 400);
+  assert.deepEqual(choisie.corps.erreurs, [`classes_iso[2] (K) : « image_chaleur » : l'image « ${id} » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)`]);
+  assert.equal((await appliquer(serveur, (p) => { classe(p, 'P').image_chaleur = 'copeaux-p-chaleur'; })).status, 200);
+  const reprise = await appliquer(serveur, (p) => { classe(p, 'P').image_chaleur = id; });
+  assert.deepEqual([reprise.status, reprise.corps.erreurs?.length], [400, 1]);
+});
+
+test('un pictogramme archivé déjà en vigueur (comme il peut y en avoir en production) ne bloque rien : une légende s’applique, avec l’avertissement ; choisir ce pictogramme pour une autre opération est refusé', async () => {
+  const serveur = await editeurDeTest();
+  const [premiere, seconde] = operations.operations.map((op) => op.operation);
+  assert.equal((await appliquer(serveur, (p) => { p.operations[0].pictogramme = 'tronconnage'; })).status, 200);
+  assert.equal((await serveur.editeur('POST', 'images/archiver', { id: 'tronconnage', archive: true })).status, 200);
+  const legende = await appliquer(serveur, (p) => { classe(p, 'P').legende_image = 'Zone chaude'; });
+  assert.equal(legende.status, 200, JSON.stringify(legende.corps));
+  assert.deepEqual(legende.corps.avertissements, [`Opération « ${premiere} » — pictogramme : l'image « tronconnage » est archivée ; elle reste affichée et ne bloque rien (pour la remplacer, choisis-en une autre, ou rétablis-la dans l'onglet Images).`]);
+  const choisi = await appliquer(serveur, (p) => { p.operations[1].pictogramme = 'tronconnage'; });
+  assert.equal(choisi.status, 400);
+  assert.deepEqual(choisi.corps.erreurs, [`operations[1] (${seconde}) : « pictogramme » : l'image « tronconnage » est archivée (choisis-en une autre, ou rétablis-la dans l'onglet Images)`]);
 });
 
 // --- Validation et contrôle optimiste ------------------------------------------------------------------------------------
