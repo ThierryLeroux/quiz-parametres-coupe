@@ -178,6 +178,13 @@ changement, ni le brouillon ni la publication des tables, instantané compris.
   valeurs (`tablesContent`, `tablesDiff`). Une classe ou une opération **nouvelle** reçoit sa présentation de
   départ dans sa ligne du brouillon ; publiée, elle entre dans la présentation en vigueur.
 
+**Présentation des exercices (décision D78 ; jalon E5-3).** La même mécanique vaut, exercice par exercice, pour ce
+qui, dans un exercice, ne fait qu'afficher : son `titre`, son `cours`, « À l'accueil » (`liste`), et la photo
+(`image`) et la note (`commentaire`) de chacune de ses copies d'outils. Elle vit dans `presentation_exercices`
+(migration `0011`, une ligne par exercice), avec son historique ; son format et ses règles sont au §10. Pour une copie
+d'un exercice publié, `image` et `commentaire` de §3 sont donc ceux de la présentation en vigueur ; tout le reste de
+la copie reste versionné.
+
 ## 4. Génération d'une question
 
 1. **Outil** : tirage uniforme parmi les outils *encore à évaluer* de l'exercice (voir §7 et §10). Les restrictions de l'exercice (dimensions, matériaux d'outil, groupes) s'appliquent aux tirages 3, 4 et 5.
@@ -487,7 +494,13 @@ ses noms d'outils à partir de là. **La présentation des tables en direct** (�
 par-dessus **après** le cache des versions assemblées, dans ce que le serveur montre seulement
 (`GET /api/exercice`, `GET /api/tables`, les tables de la Gestion du contenu) : le catalogue avec lequel
 il tire, corrige (`isQuestionValid`, `gradeQuestion`) et compose l'attestation est celui de la version,
-sans présentation. Le moteur (`site/js/` : question, calcul,
+sans présentation. **La présentation de chaque exercice** (§10, D78) se pose de même, après le cache, sur
+toute version de l'exercice, dans ce que le serveur montre seulement : `GET /api/exercice` (titre, cours,
+`liste`, photo et note des copies), `GET /api/exercices` (titre, cours, « À l'accueil »), la séance que rendent
+`creation`, `reprise`, `identite`, `seance`, `question` et `correction` (`presentSessionView` : le titre de la
+barre, la photo et la note de l'outil de la question), `GET /api/prof/seances` (les titres) et la Gestion du
+contenu. Le tirage, la correction et la question figée ne lisent ni titre, ni photo, ni note ; seule
+l'attestation **émise** inscrit le titre en vigueur à cet instant (§8). Le moteur (`site/js/` : question, calcul,
 format, correction, progression) est importé par le Worker : il n'existe qu'en
 un exemplaire.
 
@@ -501,8 +514,8 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | Appel | Requête | Réponse |
 |---|---|---|
 | `GET /api/version` | — | `{ version }` (celle de `package.json`) |
-| `GET /api/exercice?exercice=<id>[&version=<n>]` | — | `{ exercice, tables, version, archive }` — la dernière version publiée de l'exercice (ou la version `n`, celle d'une séance) : l'exercice au format du moteur avec ses copies d'outils (chacune avec `reussites_requises`), les deux tables de référence (les valeurs de la version, avec la présentation en vigueur par-dessus, D76), le numéro, et si l'exercice est archivé ; 400 inconnu ou jamais publié, 404 version inconnue (D47) |
-| `GET /api/exercices` | — | `{ exercices: [ { id, titre, cours, nombre_outils, champs_evalues } ] }` — la liste de l'accueil (D18, D71) : publiés, non archivés, sans `"liste": false`, dans l'ordre des rangs ; `cours` (`null` sans cours), le nombre d'outils et les grandeurs évaluées tels que la dernière version les publie |
+| `GET /api/exercice?exercice=<id>[&version=<n>]` | — | `{ exercice, tables, version, archive }` — la dernière version publiée de l'exercice (ou la version `n`, celle d'une séance) : l'exercice au format du moteur avec ses copies d'outils (chacune avec `reussites_requises`), les deux tables de référence (les valeurs de la version, avec la présentation en vigueur par-dessus, D76), le numéro, et si l'exercice est archivé ; l'exercice porte la présentation en vigueur de l'exercice, quelle que soit la version (titre, cours, `liste`, photo et note des copies qu'elle connaît, D78) ; 400 inconnu ou jamais publié, 404 version inconnue (D47) |
+| `GET /api/exercices` | — | `{ exercices: [ { id, titre, cours, nombre_outils, champs_evalues } ] }` — la liste de l'accueil (D18, D71) : publiés, non archivés, « À l'accueil », dans l'ordre des rangs ; le titre, le cours (`null` sans cours) et « À l'accueil » en vigueur (D78) ; le nombre d'outils et les grandeurs évaluées tels que la dernière version les publie |
 | `GET /api/tables?version=<id>` | — | `{ tables: { id, creee_le, materiaux, operations } }` — une version publiée des tables, complétée, avec la présentation en vigueur par-dessus (D63 : la page `/tables?version=` ; D76) ; 404 inconnue |
 | `GET /images/<id>` | — | l'image (pas du JSON) : photo d'outil ou pictogramme (D56), avec son type exact, `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=31536000, immutable`, `ETag` (304 si `If-None-Match` correspond) et, pour un SVG, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` (D57) ; une image archivée est servie ; 404 sinon |
 | `POST /api/consultation` | `{ exercice, matricule }` | `{ trouvee: false }`, ou `{ trouvee: true, prenom, initiale }` — **rien d'autre ne sort** |
@@ -513,6 +526,10 @@ l'identification, chaque appel porte le jeton dans l'en-tête
 | `POST /api/question` | jeton, `{ exercice }` | `{ seance }` — avec la question mémorisée, tirée au besoin ; `question` vaut `null` si l'exercice est réussi |
 | `POST /api/correction` | jeton, `{ exercice, saisies }` | `{ correction, seance }` — `seance` porte déjà la question suivante, ou la réussite |
 | `POST /api/deconnexion` | jeton, `{ exercice }` | `{ deconnecte: true }` — « Changer d'étudiant » : le jeton ne vaut plus rien |
+
+Dans chaque `seance` rendue, `exercice.titre` et, pour la question en attente, `outil.image` et `outil.commentaire`
+sont ceux de la présentation en vigueur de l'exercice (D78) — une séance épinglée à une version plus ancienne les
+voit dès que sa page se recharge ; tout le reste (progression, question, valeurs) est celui de sa version.
 | `GET /api/attestation?exercice=<id>` | jeton | `{ attestation, code, signature, url_verification, annulee_le }` — l'attestation de la séance réussie (§8), créée à la première ouverture pour une séance réussie avant le jalon 5 ; 409 si l'exercice n'est pas réussi |
 | `POST /api/verification` | `{ code }`, ou tous les champs de l'adresse du QR | `{ resultat: "valide", attestation }`, `{ resultat: "annulee", attestation, annulee_le, motif }`, `{ resultat: "aucune" }` ou `{ resultat: "invalide" }` — public, sans jeton (§8) |
 | `POST /api/prof/connexion` | `{ cle }` | `{ enseignant, role, expire_le }` + cookie `prof` (HttpOnly, Secure, SameSite=Strict, chemin `/api/prof`, 12 h) — `role` : `admin` (`CLE_ADMIN`) ou `consultation` (`CLE_CONSULTATION`, D44) ; 401 clé incorrecte ; 429 après cinq échecs par adresse, délai croissant |
@@ -535,19 +552,22 @@ porte toute la sauvegarde).
 
 | Appel | Requête | Réponse |
 |---|---|---|
-| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, cours, titre_publie, cours_publie, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : le brouillon diffère de la dernière version (ou jamais publié) ; `titre` et `cours` : ceux du brouillon, `titre_publie` et `cours_publie` : ceux de la dernière version (`null` sans version ; D71 : les cours déjà utilisés ; D74 : le doublon de titre, jugé sur le titre publié) |
-| `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le, tables_id }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, tables_versions, derniere_tables, erreurs }` — `tables` : la version de tables du brouillon (D62), `derniere_tables` : la plus récente ; `erreurs` : celles du brouillon contre ses tables (`draftErrors`), chacune avec son `champ` ; 404 inconnu |
-| `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié, sur la version de tables la plus récente (une copie garde celle de sa source, D62) ; 400 identifiant ou titre, 409 identifiant pris |
+| `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, cours, titre_publie, cours_publie, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : les **valeurs** du brouillon diffèrent de la dernière version (ou jamais publié ; D78 : sa présentation, qui dort, ne compte pas) ; `titre`, `cours` et `liste` : ceux en vigueur (D78), ceux du brouillon pour un exercice jamais publié ; `titre_publie` et `cours_publie` : ceux en vigueur (`null` jamais publié ; D71 : les cours déjà utilisés ; D74 : le doublon de titre, jugé sur le titre en vigueur) |
+| `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le, tables_id }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, tables_versions, derniere_tables, erreurs }` — `tables` : la version de tables du brouillon (D62), `derniere_tables` : la plus récente ; `erreurs` : celles du brouillon contre ses tables (`draftErrors`), chacune avec son `champ` ; `presentation` : pour un exercice publié, ce que rend `GET …/exercice/presentation` (D78), `null` jamais publié ; 404 inconnu |
+| `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié, sur la version de tables la plus récente (une copie garde celle de sa source, D62 ; celle d'un exercice publié part de sa présentation en vigueur, D78) ; 400 identifiant ou titre, 409 identifiant pris |
 | `POST /api/prof/editeur/exercice/tables` | `{ id, revision, tables_id }` | `{ change: true, tables_id, revision, erreurs }` — le brouillon passe à cette version des tables (D62), `erreurs` = celles du brouillon contre elle ; 404 version inconnue, 409 révision périmée |
 | `POST /api/prof/editeur/exercice/enregistrer` | `{ id, revision, brouillon }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur ; **409** si la révision n'est plus celle lue (D48, `revision_actuelle` jointe), rien n'est écrasé |
-| `POST /api/prof/editeur/exercice/renommer` | `{ id, titre }` | `{ renomme: true, titre }` — le titre du brouillon (à publier) |
+| `POST /api/prof/editeur/exercice/renommer` | `{ id, titre }` | `{ renomme: true, titre, en_direct }` — un exercice publié : le titre entre en vigueur tout de suite (D78), le même geste que `…/exercice/presentation/appliquer` (historique, journal `editeur_presentation_exercice_application` « renommé depuis la liste », 400 titre en double avec `doublons`) ; jamais publié : le titre du brouillon (`editeur_renommage`) |
 | `POST /api/prof/editeur/exercice/deplacer` | `{ id, rang, direction: "monter" \| "descendre" }` | `{ deplace: true, id, rang }` — l'ordre de la liste et de l'accueil (D51) ; `rang` est celui que l'écran a vu : 409 s'il a changé (`rang_actuel` joint) ; 400 déjà en tête ou en queue |
 | `POST /api/prof/editeur/exercice/archiver` | `{ id, archive }` | `{ archive, id }` |
 | `POST /api/prof/editeur/exercice/supprimer` | `{ id }` | `{ supprime: true, id }` — 409 s'il a des séances (archiver alors) |
 | `POST /api/prof/editeur/exercice/reprendre` | `{ id, revision, numero }` | `{ repris: true, numero, revision, tables_id, erreurs }` — le contenu de la version `numero` entre dans le brouillon, qui **garde sa version de tables** (D77) ; `erreurs` : celles du brouillon avec ses tables ; journal `editeur_reprise` ; 404 version inconnue, 409 révision périmée |
-| `POST /api/prof/editeur/exercice/annuler` | `{ id, revision }` | `{ annule, numero, revision, tables_id }` — le brouillon revient à la dernière version publiée, contenu **et** version de tables (D77) ; journal `editeur_annulation` ; déjà à jour : `annule: false`, rien n'est écrit ni journalisé (l'écran abandonne ses modifications non enregistrées) ; 400 jamais publié ; 409 révision périmée |
-| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; 400 s'il a des erreurs (`erreurs` jointes), s'il est identique à la dernière version, tables comprises (D51, D62), ou si un **autre exercice publié et non archivé porte son titre** (D74 : titre de sa dernière version, sans casse, accents ni espaces ; `doublons: [ { id, titre } ]` joints, le message les nomme et dit de changer l'un des titres), 409 révision périmée |
+| `POST /api/prof/editeur/exercice/annuler` | `{ id, revision }` | `{ annule, numero, revision, tables_id }` — le brouillon revient à la dernière version publiée, contenu **et** version de tables (D77) ; journal `editeur_annulation` ; déjà à jour (ses **valeurs** et ses tables, D78) : `annule: false`, rien n'est écrit ni journalisé (l'écran abandonne ses modifications non enregistrées) ; 400 jamais publié ; 409 révision périmée |
+| `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; un exercice déjà publié : la version prend **la présentation en vigueur** (D78 : un instantané — titre, cours, « À l'accueil », photo et note des copies qu'elle connaît ; une copie nouvelle garde celles de sa ligne du brouillon) ; 400 s'il a des erreurs (`erreurs` jointes ; celles du contenu à publier), si ses **valeurs** sont identiques à la dernière version, tables comprises (D51, D62, D78), ou, à la **première** publication, si un **autre exercice publié et non archivé porte son titre** (D74 : titre en vigueur, sans casse, accents ni espaces ; `doublons: [ { id, titre } ]` joints, le message les nomme et dit de changer l'un des titres ; ensuite le titre ne change qu'en direct, où la règle s'applique), 409 révision périmée |
 | `POST /api/prof/editeur/apercu` | `{ id, brouillon }` ou `{ id, version }` | `{ questions: [ { identifiant, outil_id, outil, operation, dimension, barre, dents, materiau_outil, materiau, reponses } ], champs_evalues }` — dix questions, rien d'enregistré (D49) ; 400 brouillon en erreur |
+| `GET /api/prof/editeur/exercice/presentation?id=<id>` | cookie admin | `{ presentation, revision, appliquee, modifiee_le, enseignant, derniere_version, outils: [ { id, nom, derniere_version } ], erreurs, avertissements, en_attente: { lignes, contenu }, historique: [ { id, posee_le, posee_par, remplacee_le, remplacee_par, action, lignes } ] }` — la présentation en vigueur d'un exercice publié (§10, D78), sa révision (0 : jamais appliquée), le nom de chaque copie qu'elle connaît (et si elle est dans la dernière version), ses erreurs, ses avertissements (une photo archivée en vigueur : elle ne bloque rien), les retouches de présentation restées dans le brouillon avant D78, et l'historique du plus récent au plus ancien, avec ce que le rétablir changerait ; 400 jamais publié ; 404 inconnu |
+| `POST /api/prof/editeur/exercice/presentation/appliquer` | `{ id, revision, presentation }` | `{ applique: true, revision, lignes, avertissements }` — **effet immédiat** ; le contenu remplacé va à l'historique ; journal `editeur_presentation_exercice_application` (les changements en clair) ; 400 avec `erreurs` (un champ hors de la liste blanche, à la racine ou dans une copie ; une copie que la présentation en vigueur ne connaît pas ; titre vide, cours, note ; une photo **choisie** inconnue ou archivée), un titre qui change pour celui d'un autre exercice publié et non archivé (`doublons`, D74), rien à changer, ou jamais publié ; 409 révision périmée (`revision_actuelle`), rien n'est écrit |
+| `POST /api/prof/editeur/exercice/presentation/retablir` | `{ id, revision, historique }` | `{ retablie: true, revision, lignes, avertissements }` — remet en vigueur un contenu de l'historique de cet exercice (celui en vigueur y va) ; permis même si une photo a été archivée depuis ; journal `editeur_presentation_exercice_retablissement` ; 400 titre pris (`doublons`) ou rien à changer ; 404 numéro inconnu pour cet exercice ; 409 révision périmée |
 | `GET /api/prof/editeur/banque` | cookie admin | `{ outils: [ { id, outil, revision, rang, archive_le, modifie_le, exercices } ], tables }` — `exercices` : ceux dont le brouillon a une copie de cet outil |
 | `GET /api/prof/editeur/tables` | cookie admin | `{ brouillon: { contenu, revision, modifie_le, base_id }, modifie, erreurs, presentation, presentation_en_attente: { lignes, contenu }, versions: [ { id, creee_le, utilisations: { versions_exercice, brouillons } } ], derniere, suggestion }` — le brouillon des tables complété, tel qu'en base ; si ses **valeurs** diffèrent de la version dont il est parti ; ses erreurs (`validateTables` du brouillon avec la présentation en vigueur par-dessus — ce que la publication prendra —, avec les fiches des images : une image de classe inconnue ou archivée en est une, D64, sauf celle que la présentation en vigueur a déjà pour cette classe, D76) ; la présentation en vigueur ; les retouches de présentation faites dans le brouillon avant D76, jamais publiées, et la présentation qui les reprend (D76) ; les versions de la plus récente à la plus ancienne, la révision suggérée (D61) |
 | `GET /api/prof/editeur/tables/version?id=<id>` | cookie admin | `{ tables: { id, creee_le, materiaux, operations } }` — une version publiée, complétée, telle qu'en base (sans la présentation en vigueur) ; 404 |
@@ -563,14 +583,14 @@ porte toute la sauvegarde).
 | `POST /api/prof/editeur/banque/creer` | `{ id, outil }` ou `{ id, depuis }` | `{ cree: true, id }` |
 | `POST /api/prof/editeur/banque/enregistrer` | `{ id, revision, outil }` | `{ enregistre: true, revision, erreurs }` — 409 révision périmée |
 | `POST /api/prof/editeur/banque/archiver` | `{ id, archive }` | `{ archive, id }` |
-| `GET /api/prof/editeur/images[?usage=outil\|operation\|classe]` | cookie admin | `{ images: [ { id, nom, usage, type, taille, empreinte, creee_le, archivee_le, utilisations: { versions, brouillons, banque, tables, brouillon_tables, presentation } } ] }` — les fiches (sans contenu), avec où chacune est utilisée (D56 ; `brouillon_tables` : le brouillon des tables la nomme, D77 ; `presentation` : « actuelle », « historique n° 3 », D76) |
+| `GET /api/prof/editeur/images[?usage=outil\|operation\|classe]` | cookie admin | `{ images: [ { id, nom, usage, type, taille, empreinte, creee_le, archivee_le, utilisations: { versions, brouillons, banque, tables, brouillon_tables, presentation, presentation_exercices } } ] }` — les fiches (sans contenu), avec où chacune est utilisée (D56 ; `brouillon_tables` : le brouillon des tables la nomme, D77 ; `presentation` : « actuelle », « historique n° 3 », D76 ; `presentation_exercices` : « m10-tournage-vc », « m10-tournage-vc · historique n° 2 », D78) |
 | `POST /api/prof/editeur/images/televerser` | `{ nom, usage, type, contenu }` (base64 ; corps ≤ 1 Mo, image ≤ 600 Ko) | `{ image, existante, retires }` — le type est lu dans les octets, un SVG est assaini (`retires` : ce qui a été retiré) ou refusé (400, D57) ; `existante: true` = même empreinte déjà en base, rien de stocké |
 | `POST /api/prof/editeur/images/renommer` | `{ id, nom }` | `{ renomme: true, id, nom }` — le nom lisible seulement |
 | `POST /api/prof/editeur/images/archiver` | `{ id, archive }` | `{ archive, id }` — retirée des galeries, toujours servie |
-| `POST /api/prof/editeur/images/supprimer` | `{ id }` | `{ supprimee: true, id }` — 409 si l'image est utilisée (version, brouillon, banque, tables, brouillon des tables, présentation actuelle ou dans son historique ; `utilisations` joint) : archiver alors |
+| `POST /api/prof/editeur/images/supprimer` | `{ id }` | `{ supprimee: true, id }` — 409 si l'image est utilisée (version, brouillon, banque, tables, brouillon des tables, présentation des tables ou d'un exercice, actuelle ou dans son historique ; `utilisations` joint) : archiver alors |
 | `POST /api/prof/editeur/images/importer` | `{ image: { id, nom, usage, type, empreinte, contenu, creee_le, archivee_le } }` | `{ importee, id, existante }` — une image d'un export, envoyée à part avant l'import (D59) ; 400 si le contenu n'a pas l'empreinte annoncée, 409 si la base a une autre image sous cet identifiant |
-| `GET /api/prof/editeur/export` | cookie admin | `{ format, exporte_le, version_serveur, tables_reference, brouillon_tables: { contenu, base_id }, presentation_tables: { contenu, modifiee_le, enseignant, historique }, banque, exercices: [ { id, brouillon, tables_id, archive_le, cree_le, publie_le, versions } ], images: [ { …fiche, contenu } ] }` — la sauvegarde complète : toutes les versions des tables et leur brouillon (D61), la présentation des tables et son historique (D76 ; `contenu` null : jamais appliquée), la version de tables de chaque exercice (D62), images comprises (contenu en base64, D59), sans données d'étudiants (D49) |
-| `POST /api/prof/editeur/import/valider` | `{ export }` (les images sans leur contenu suffisent) | `{ erreurs, resume }` — ce que l'import ferait, rien n'est écrit ; `resume.banque` = `{ ajoutes, modifies, retires, gardes }`, les trois listes par `{ id, nom }` (D50) ; `resume.images_manquantes` : les images de l'export à envoyer d'abord (`images/importer`, D59), `images_presentes`, `images_modifiees` (nom ou archivage) ; `presentation_remplacee` (la présentation de l'export remplacera celle de la base), `presentation_historique` (contenus ajoutés à son historique, D76) |
+| `GET /api/prof/editeur/export` | cookie admin | `{ format, exporte_le, version_serveur, tables_reference, brouillon_tables: { contenu, base_id }, presentation_tables: { contenu, modifiee_le, enseignant, historique }, banque, exercices: [ { id, brouillon, tables_id, archive_le, cree_le, publie_le, versions, presentation: { contenu, modifiee_le, enseignant, historique } } ], images: [ { …fiche, contenu } ] }` — la sauvegarde complète : toutes les versions des tables et leur brouillon (D61), la présentation des tables et son historique (D76 ; `contenu` null : jamais appliquée), la version de tables de chaque exercice (D62), la présentation de chaque exercice et son historique (D78 ; `contenu` null : jamais appliquée), images comprises (contenu en base64, D59), sans données d'étudiants (D49) |
+| `POST /api/prof/editeur/import/valider` | `{ export }` (les images sans leur contenu suffisent) | `{ erreurs, resume }` — ce que l'import ferait, rien n'est écrit ; `resume.banque` = `{ ajoutes, modifies, retires, gardes }`, les trois listes par `{ id, nom }` (D50) ; `resume.images_manquantes` : les images de l'export à envoyer d'abord (`images/importer`, D59), `images_presentes`, `images_modifiees` (nom ou archivage) ; `presentation_remplacee` (la présentation de l'export remplacera celle de la base), `presentation_historique` (contenus ajoutés à son historique, D76) ; `presentations_exercices: [ { id, remplacee, historique } ]` (de même, pour chaque exercice dont la présentation change, D78) |
 | `POST /api/prof/editeur/import` | `{ export, confirmation }` | `{ importe: true, resume }` — fusion en un seul lot (D49) ; le mot attendu est **IMPORTER**, ou **REMPLACER** si des outils de la banque disparaîtraient (D50) ; 400 sans le mot attendu (`mot` joint, le message nomme les outils), avec des erreurs, ou tant qu'une image manque (`images_manquantes` joint) : rien n'est touché |
 
 `saisies` : les champs évalués, en texte, sous les noms du moteur —
@@ -770,6 +790,10 @@ par une correction, ou constatée à la demande de question quand l'exercice a
 }
 ```
 
+- `exercice.titre` : le titre **en vigueur au moment où l'attestation est émise** (D78) — celui de la
+  présentation de l'exercice, que l'étudiant voyait à sa réussite ; une attestation émise avant D78 porte le titre
+  de sa version, et ne change pas. La réémission qui suit une correction d'identité (D37) recopie
+  l'enregistrement d'origine, titre compris ;
 - `revision` : la version de l'exercice à la réussite (`version_exercice_reussite`) — depuis D47,
   le numéro de la version publiée (« 1 »), affiché « version 1 » (D50) ; une attestation figée
   avant porte « r0 » et s'affiche telle quelle ;
@@ -1102,10 +1126,10 @@ immuables. Brouillon et version ont la même forme :
 ```
 
 - `cours`, `champs_masques`, `materiaux_outil`, `groupes` et `liste` sont facultatifs, avec le
-  même sens que dans le fichier d'exercice — le cours est **publié avec la version**, comme le titre
-  (D71 : les versions semées n'en ont pas) ; `titre`, `champs_evalues` et `outils` sont
-  obligatoires ; la **version** n'est pas dans le contenu : c'est le numéro attribué
-  à la publication.
+  même sens que dans le fichier d'exercice (D71 : les versions semées n'ont pas de cours) ; `titre`,
+  `champs_evalues` et `outils` sont obligatoires ; la **version** n'est pas dans le contenu : c'est le
+  numéro attribué à la publication. Le titre, le cours, `liste`, et `image` et `commentaire` des copies sont
+  de **la présentation en direct** une fois l'exercice publié (ci-dessous, D78).
 - Chaque entrée d'`outils` est une **copie complète** d'un outil (toutes les clés
   d'`outils.json`, `TOOL_KEYS`), plus `reussites_requises` (entier ≥ 1) et
   `origine` (l'id de l'outil de la banque dont elle vient, à titre d'information).
@@ -1129,19 +1153,59 @@ immuables. Brouillon et version ont la même forme :
   sur une version plus ancienne ; pour chaque coché, son contenu publié passe aux
   nouvelles tables (une version suivante faite de son dernier contenu publié) et son
   brouillon aussi, chacun de son côté.
-- **Publier** = copier le brouillon tel quel comme version suivante, avec **la
-  version de tables du brouillon** (D62). Un brouillon identique à la dernière
+- **Publier** = copier le brouillon comme version suivante, avec **la
+  version de tables du brouillon** (D62) — pour un exercice déjà publié, avec **la présentation
+  en vigueur** par-dessus (D78, ci-dessous). Un brouillon dont les **valeurs** sont celles de la dernière
   version, tables comprises, ne se publie pas (D51) ; un changement de tables est
-  une différence (« Tables de référence : « A2026_r0 » → « A2026_r1 » »). **Un
+  une différence (« Tables de référence : « A2026_r0 » → « A2026_r1 » »). **À la première publication, un
   titre déjà porté par un autre exercice publié et non archivé ne se publie pas
   non plus** (D74 : `titleKey`, `sameTitleExercises` de `exercice.js`, la même
-  règle à l'écran et sur le serveur — casse, accents et espaces ignorés ; un
-  exercice archivé ou jamais publié ne compte pas ; republier le même exercice ne
-  se bloque pas lui-même ; un doublon déjà publié reste en place et bloque la
-  prochaine publication de l'un comme de l'autre). Le brouillon reste, modifiable. Le serveur sert la dernière version ; une séance
+  règle à l'écran et sur le serveur — casse, accents et espaces ignorés, contre les **titres en vigueur** ; un
+  exercice archivé ou jamais publié ne compte pas). Ensuite, le titre ne change qu'en direct, où la même règle
+  s'applique (D78) ; une republication ne le vérifie plus, et un doublon d'avant reste en place jusqu'à ce qu'un
+  titre change. Le brouillon reste, modifiable. Le serveur sert la dernière version ; une séance
   garde la sienne, tables comprises (§7). Une version de la **cascade** (D77) n'est pas
-  une publication du brouillon : c'est le dernier contenu publié, avec d'autres tables,
-  et la règle du titre ne s'y applique pas (aucun titre ne change).
+  une publication du brouillon : c'est le dernier contenu publié, avec d'autres tables (et la présentation en
+  vigueur, D78), et la règle du titre ne s'y applique pas (aucun titre ne change).
+- **La présentation en direct d'un exercice publié** (décision D78 ; chantier E5, jalon E5-3). Ce qui ne fait
+  qu'afficher **ne se publie plus** : le `titre`, le `cours`, « À l'accueil » (`liste`), et la photo (`image`) et
+  la note (`commentaire`) de chaque copie. C'est la **liste blanche**, imposée par le serveur ; tout le reste de
+  l'exercice demeure versionné. Ces champs vivent dans `presentation_exercices` (migration `0011`, une ligne par
+  exercice, créée au premier « Appliquer »), au format de l'exercice réduit à la liste blanche :
+
+  ```json
+  { "titre": "M10 — Tournage : vitesse de coupe", "cours": "M10", "liste": true,
+    "outils": [ { "id": "mvlnr", "image": "mvlnr", "commentaire": "Outil de finition" } ] }
+  ```
+
+  `cours` null : sans cours ; `image` null : la photo nommée d'après l'identifiant de la copie ; `commentaire`
+  null : pas de note. La clé d'une copie est son identifiant dans l'exercice. Règles : titre non vide, cours de D71,
+  note non vide ou null, copies connues de la présentation en vigueur (une copie nouvelle se publie d'abord), et une
+  photo **choisie** (différente de celle en vigueur pour cette copie) existante et non archivée ; archivée et déjà en
+  vigueur, elle n'est qu'un avertissement.
+  - **La présentation en vigueur** : le titre, le cours et « À l'accueil » appliqués, sinon ceux de la dernière
+    version ; pour chaque copie de la dernière version, l'entrée appliquée si elle existe, sinon celle de la version ;
+    puis les entrées appliquées d'une copie que la dernière version n'a plus. **Rien d'appliqué** (pas de ligne,
+    au déploiement) : celle de la dernière version, telle quelle — une séance épinglée à une version plus ancienne
+    montre donc, dès le déploiement, le titre, les photos et les notes de la dernière.
+  - **Elle se pose par-dessus toute version**, à l'affichage seulement (§7) ; une copie qu'elle ne connaît pas garde
+    les siennes. Elle atteint les séances en cours dès que leur page se recharge. **L'attestation** émise ensuite
+    inscrit le titre en vigueur à son émission (§8) ; une attestation déjà émise ne change jamais.
+  - **Pas de brouillon** : « Appliquer » l'enregistre (contrôle optimiste, journal) ; **chaque contenu remplacé est
+    gardé** (`presentation_exercices_historique`), sans limite, et « Rétablir » en remet un. Une photo qu'elle
+    nomme, actuelle ou dans l'historique, compte comme utilisée. **« Renommer »** un exercice publié, dans la liste,
+    est ce même geste. **Titre en double** (D74) : refusé quand un titre entre en vigueur (appliquer, renommer,
+    rétablir) et **change** (sa clé), s'il est celui d'un autre exercice publié et non archivé — à l'écran comme au
+    serveur, avec le nom de l'exercice en conflit.
+  - **Le brouillon d'un exercice publié** garde ces champs (même format), mais ils y dorment : une version publiée
+    prend la présentation en vigueur (un instantané), le résumé des différences (`versionDiff`), le « brouillon
+    modifié », « aucune différence à publier » et « Annuler les modifications » ne comparent que les valeurs
+    (`exerciseValues`). Une copie **nouvelle** reçoit sa photo et sa note de départ dans sa ligne du brouillon ;
+    publiée, elle entre dans la présentation en vigueur. Un exercice **jamais publié** porte les siens dans son
+    brouillon, qui entrent en vigueur à sa première publication. Dupliquer un exercice publié, ou y prendre une
+    copie, part de sa présentation en vigueur. Une **retouche en attente** — une valeur de présentation du
+    brouillon que ni la présentation (en vigueur ou dans son historique) ni aucune version n'a portée, faite avant
+    D78 — est signalée dans le panneau, avec « Les reprendre dans le panneau ».
 - **Revenir en arrière** (D77) : **« Reprendre cette version »** met le contenu d'une
   version publiée dans le brouillon, qui garde sa version de tables ; puis publication
   normale, avec le résumé. **« Annuler les modifications »** ramène le brouillon à la
@@ -1175,7 +1239,8 @@ immuables. Brouillon et version ont la même forme :
   sont ajoutés, et, si celle de l'export diffère, elle remplace celle de la base, qui
   va à l'historique (« import ») — avec effet immédiat pour les étudiants ; un export
   d'avant (sans elle) ou dont la présentation n'a jamais été appliquée n'y touche pas.
-  Un aller-retour ne change rien.
+  **La présentation de chaque exercice** (D78) voyage avec lui (`presentation` : contenu,
+  date, enseignant, historique) et s'importe de la même façon. Un aller-retour ne change rien.
 
 ## 11. Questions ouvertes (résumé)
 

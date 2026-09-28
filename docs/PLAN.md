@@ -231,13 +231,14 @@ Rapport de session : `docs/rapports/e5-2-cascade-retour.md`.
 ### Jalon E5-3 — la présentation des exercices en direct (décision D78)
 Rapport de session : `docs/rapports/e5-3-presentation-exercices.md`.
 
-- [ ] Migration `0011` : la présentation des exercices (une ligne par exercice, au premier « Appliquer ») et son historique
-- [ ] `site/js/presentation-exercice.js` (pur, testé) : liste blanche, présentation d'une version, présentation en vigueur, pose par-dessus un contenu et une séance, validation, différences, retouches en attente du brouillon, valeurs sans la présentation
-- [ ] Serveur : la présentation posée après le cache des versions, sur l'accueil, l'exercice, la séance (barre, panneau de l'outil), l'espace professeur et la Gestion du contenu, jamais sur le tirage ni la correction ; la nouvelle attestation inscrit le titre en vigueur ; routes lire, appliquer, rétablir (admin, 409, journal) ; « Renommer » en direct ; titre en double refusé à l'application ; une version publiée (cascade comprise) prend la présentation en vigueur ; images de la présentation et de son historique comptées comme utilisées
-- [ ] Sauvegarde : la présentation de chaque exercice et son historique dans l'export ; l'import les fusionne ; aller-retour identique
-- [ ] Page d'un exercice : le panneau « Présentation — effet immédiat » (aperçu, Appliquer, historique, Rétablir), le brouillon et le résumé des différences sans ces champs ; copie nouvelle avec sa photo et sa note dans sa ligne ; liste des exercices en vigueur
-- [ ] Tests (liste blanche, séance épinglée, attestation identique octet pour octet, titre de la nouvelle attestation, titre en double, copie nouvelle, rétablissement, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
-- [ ] Documents : SPEC §3, §7, §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE
+- [x] Migration `0011` : la présentation des exercices (une ligne par exercice, au premier « Appliquer ») et son historique
+- [x] `site/js/presentation-exercice.js` (pur, testé) : liste blanche, présentation d'une version, présentation en vigueur, pose par-dessus un contenu et une séance, validation, différences, retouches en attente du brouillon, valeurs sans la présentation
+- [x] Serveur : la présentation posée après le cache des versions, sur l'accueil, l'exercice, la séance (barre, panneau de l'outil), l'espace professeur et la Gestion du contenu, jamais sur le tirage ni la correction ; la nouvelle attestation inscrit le titre en vigueur ; routes lire, appliquer, rétablir (admin, 409, journal) ; « Renommer » en direct ; titre en double refusé à l'application ; une version publiée (cascade comprise) prend la présentation en vigueur ; images de la présentation et de son historique comptées comme utilisées
+- [x] Sauvegarde : la présentation de chaque exercice et son historique dans l'export ; l'import les fusionne ; aller-retour identique
+- [x] Page d'un exercice : le panneau « Présentation — effet immédiat » (aperçu, Appliquer, historique, Rétablir), le brouillon et le résumé des différences sans ces champs ; copie nouvelle avec sa photo et sa note dans sa ligne ; liste des exercices en vigueur
+- [x] Tests (liste blanche, séance épinglée, attestation identique octet pour octet, titre de la nouvelle attestation, titre en double, copie nouvelle, rétablissement, 409, journal, Sauvegarde) ; `test:api` ; passe dans Chrome
+- [x] Documents : SPEC §3, §7, §8 (le titre de l'attestation), §10 ; UI §3.9 ; CLAUDE.md ; DEMARRAGE
+- [ ] **Thierry** : fusionner ; trancher les points douteux du rapport ; après la fusion, ouvrir la page de chaque exercice publié (un encadré doré y signale les retouches de présentation restées dans le brouillon, s'il y en a)
 
 ### Jalon E5-4 — l'historique de la banque d'outils
 - [ ] Chaque contenu remplacé d'un outil de la banque gardé, « Rétablir » en un clic, journal (le mécanisme d'E5-1)

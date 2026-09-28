@@ -304,9 +304,20 @@ créent et se modifient les exercices et la banque d'outils, **en production, sa
 commit ni déploiement** : un exercice a un brouillon (modifiable) et des versions
 publiées (numérotées, figées) ; les étudiants voient la dernière version publiée,
 et une séance commencée garde la sienne jusqu'à la fin. « Publier » résume les
-différences avant de créer la version, et refuse un titre déjà porté par un autre
-exercice publié et non archivé (D74) ; « Aperçu » tire dix questions avec leurs
-réponses. Dans les listes, **Modifier** ouvre un exercice ou un outil. Mode d'emploi : `docs/UI.md` §3.9.
+différences avant de créer la version, et, à la première publication, refuse un titre
+déjà porté par un autre exercice publié et non archivé (D74) ; « Aperçu » tire dix
+questions avec leurs réponses. Dans les listes, **Modifier** ouvre un exercice ou un outil.
+Mode d'emploi : `docs/UI.md` §3.9.
+
+Une fois un exercice publié, **son titre, son cours, « À l'accueil », la photo et la note
+de ses outils se changent en direct** (D78) : sur sa page, le panneau vert **Présentation —
+effet immédiat** (avec l'aperçu de ce que voit l'étudiant), **Appliquer…**, puis tous les
+étudiants le voient dès que leur page se recharge, séances en cours comprises — sans
+publication ; **Rétablir**, dans l'historique, revient en arrière en un clic. **Renommer**,
+dans la liste des exercices, fait la même chose pour le titre. Un titre déjà pris par un
+autre exercice publié est refusé. Les attestations déjà émises ne changent pas ; celles
+émises ensuite portent le titre en vigueur. Le reste de l'exercice (grandeurs, outils,
+dimensions, facteurs…) se modifie toujours dans le brouillon, puis se publie.
 
 Les **tables de référence** (onglet **Tables de référence**, décisions D61 à D63, D76) ont deux
 parties. En tête, le panneau vert **Présentation — effet immédiat** : les noms et couleurs des
