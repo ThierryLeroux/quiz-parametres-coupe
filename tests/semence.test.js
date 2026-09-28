@@ -87,7 +87,7 @@ test('migrations 0005 et 0006 sur des données réelles : les séances existante
 
   // 4. Le serveur continue sur cette base : /verifier répond pareil, l'attestation de Camille est la même, Zoé reprend et réussit sur la version 1.
   //    Le déploiement applique aussi les migrations suivantes : le serveur d'aujourd'hui lit, par exemple, la présentation des exercices (0011).
-  for (const n of [7, 8, 9, 10, 11]) db.sqlite.exec(migrationSql(n));
+  for (const n of [7, 8, 9, 10, 11, 12]) db.sqlite.exec(migrationSql(n));
   const serveur = serveurDeTest({ db });
   for (const [i, code] of codes.entries()) {
     assert.deepEqual((await serveur.appel('POST', '/api/verification', { corps: { code } })).corps, (await production.appel('POST', '/api/verification', { corps: { code } })).corps, `code ${i}`);

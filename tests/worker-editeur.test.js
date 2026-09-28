@@ -459,7 +459,7 @@ test('export puis import : l’export réimporté ne change rien (aller-retour i
   const validation = await serveur.editeur('POST', 'import/valider', { export: exporte });
   assert.equal(validation.status, 200, JSON.stringify(validation.corps));
   assert.deepEqual(validation.corps.erreurs, []);
-  assert.deepEqual(validation.corps.resume, { tables_ajoutees: [], banque: { ajoutes: [], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: [], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [], exercices_gardes: [], images_manquantes: [], images_presentes: 54, images_modifiees: [], brouillon_tables: true, presentation_remplacee: false, presentation_historique: 0, presentations_exercices: [] });
+  assert.deepEqual(validation.corps.resume, { tables_ajoutees: [], banque: { ajoutes: [], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: [], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [], exercices_gardes: [], images_manquantes: [], images_presentes: 54, images_modifiees: [], brouillon_tables: true, presentation_remplacee: false, presentation_historique: 0, presentations_exercices: [], banque_historique: 0 });
   assert.equal((await serveur.editeur('POST', 'import', { export: exporte, confirmation: 'oui' })).status, 400);
   const avant = ['seances', 'corrections', 'attestations'].map((t) => serveur.db.sqlite.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all().map((r) => ({ ...r })));
   const importe = await serveur.editeur('POST', 'import', { export: exporte, confirmation: IMPORT_WORD });
@@ -490,7 +490,7 @@ test('import par fusion (D49) : ajoute les exercices, versions et tables absents
   assert.equal((await cible.editeur('POST', 'exercice/creer', { id: 'local', titre: 'Local' })).status, 200);
   const validation = await cible.editeur('POST', 'import/valider', { export: exporte });
   assert.deepEqual(validation.corps.erreurs, []);
-  assert.deepEqual({ ...validation.corps.resume, versions_ajoutees: [...validation.corps.resume.versions_ajoutees].sort() }, { tables_ajoutees: [], banque: { ajoutes: [{ id: 'alesoir_3', nom: 'Alésoir (copie)' }], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: ['nouveau'], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [`${M10} v2`, 'nouveau v1'], exercices_gardes: ['local'], images_manquantes: [], images_presentes: 54, images_modifiees: [], brouillon_tables: true, presentation_remplacee: false, presentation_historique: 0, presentations_exercices: [{ id: M10, remplacee: true, historique: 1 }] });
+  assert.deepEqual({ ...validation.corps.resume, versions_ajoutees: [...validation.corps.resume.versions_ajoutees].sort() }, { tables_ajoutees: [], banque: { ajoutes: [{ id: 'alesoir_3', nom: 'Alésoir (copie)' }], modifies: [], retires: [], gardes: 29 }, exercices_ajoutes: ['nouveau'], exercices_remplaces: [M10, VC_RPM], versions_ajoutees: [`${M10} v2`, 'nouveau v1'], exercices_gardes: ['local'], images_manquantes: [], images_presentes: 54, images_modifiees: [], brouillon_tables: true, presentation_remplacee: false, presentation_historique: 0, presentations_exercices: [{ id: M10, remplacee: true, historique: 1 }], banque_historique: 0 });
   assert.equal((await cible.editeur('POST', 'import', { export: exporte, confirmation: IMPORT_WORD })).status, 200);
   const liste = (await cible.editeur('GET', 'exercices')).corps.exercices;
   const parId = (id) => liste.find((e) => e.id === id);

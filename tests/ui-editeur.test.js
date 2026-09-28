@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
-  exerciseHistoryLabel, liveTitleConflicts, presentationPreview, renameDone, renamePrompt,
+  exerciseHistoryLabel, liveTitleConflicts, presentationPreview, renameDone, renamePrompt, bankHistoryLabel, bankToolDiff, twinTitlesNote, twinTitlesWarning,
   cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, lostChangesTitle, publishTablesLabel, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
@@ -249,7 +249,14 @@ test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases,
   const banque = { ajoutes: [{ id: 'x', nom: 'Fraise X' }], modifies: [], retires: [], gardes: 28 };
   const resume = { tables_ajoutees: [], banque, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 48, images_modifiees: [] };
   const lines = importSummaryLines(resume);
-  assert.deepEqual(lines.slice(0, 6), ['Images : 48 déjà dans la base ; aucune à envoyer.', 'Tables de référence ajoutées : aucun.', 'Présentation des tables : inchangée.', "Banque d'outils — ajoutés : Fraise X (x) ; modifiés : aucun ; inchangés : 28.", "Banque d'outils — aucun outil ne disparaît.", 'Exercices ajoutés : nouveau.']);
+  assert.deepEqual(lines.slice(0, 8), [
+    'Images : 48 déjà dans la base ; aucune à envoyer.', 'Tables de référence ajoutées : aucun.', 'Présentation des tables : inchangée.', 'Présentation des exercices : inchangée.',
+    "Banque d'outils — ajoutés : Fraise X (x) ; modifiés : aucun ; inchangés : 28.", "Banque d'outils — aucun outil ne disparaît.",
+    "Historique de la banque : le contenu de chaque outil modifié ou retiré y va (« Rétablir » le ramène).", 'Exercices ajoutés : nouveau.',
+  ]);
+  // La présentation des exercices (D78) et l'historique de la banque de l'export (D79), dits en clair.
+  assert.equal(importSummaryLines({ ...resume, presentations_exercices: [{ id: 'm10', remplacee: true, historique: 2 }] })[3], "Présentation des exercices : m10 (remplacée, effet immédiat) (2 contenu(s) ajouté(s) à l'historique).");
+  assert.equal(importSummaryLines({ ...resume, banque_historique: 4 })[6], "Historique de la banque : le contenu de chaque outil modifié ou retiré y va (« Rétablir » le ramène) ; 4 contenu(s) de l'export ajouté(s).");
   // La présentation des tables remplacée par l'import (D76) : effet immédiat, dit en clair.
   assert.equal(importSummaryLines({ ...resume, presentation_remplacee: true, presentation_historique: 3 })[2], "Présentation des tables : remplacée par celle de l'export, avec effet immédiat pour les étudiants (l'actuelle va à l'historique) ; 3 contenu(s) ajouté(s) à son historique.");
   assert.equal(lines.at(-1), 'Les séances, les journaux et les attestations ne sont pas touchés.');
@@ -258,7 +265,7 @@ test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases,
   assert.equal(importWordFor(resume), IMPORT_WORD);
   // Des outils disparaîtraient (D50) : nommés, et le mot devient REMPLACER.
   const perte = { ...resume, banque: { ...banque, retires: [{ id: 'mvlnr', nom: 'MVLNR' }, { id: 'alesoir', nom: 'Alésoir' }] } };
-  assert.match(importSummaryLines(perte)[4], /^Banque d'outils — DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
+  assert.match(importSummaryLines(perte)[5], /^Banque d'outils — DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
   assert.equal(importWordFor(perte), REPLACE_WORD);
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], ['IMPORTER', 'REMPLACER']);
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], [SERVER_IMPORT_WORD, SERVER_REPLACE_WORD]); // les mêmes mots des deux côtés
@@ -433,6 +440,39 @@ test('présentation en direct (D76) : le bouton « Appliquer… » dit les erreu
   assert.equal(presentationHistoryLabel({ posee_le: heure(13, 5), posee_par: 'admin', remplacee_le: heure(14, 10), remplacee_par: 'admin', action: 'retablissement' }),
     'Présentation appliquée le 2026-09-27 13:05 par admin, remplacée le 2026-09-27 14:10 par admin (un rétablissement)');
   assert.equal(presentationHistoryLabel({ posee_le: heure(13, 5), posee_par: null, remplacee_le: heure(14, 10), remplacee_par: null, action: 'import' }), 'Présentation appliquée le 2026-09-27 13:05, remplacée le 2026-09-27 14:10 (un import)');
+});
+
+test('historique de la banque (D79) : ce qui change entre deux contenus d’un outil, en clair ; une ligne de l’historique', () => {
+  const avant = structuredClone(data.outils.find((o) => o.id === 'mvlnr'));
+  assert.deepEqual(bankToolDiff(avant, structuredClone(avant)), []);
+  const apres = structuredClone(avant);
+  apres.nom = 'MVLNR bis';
+  apres.commentaire = null;
+  apres.materiaux_outil = [...avant.materiaux_outil, 'Acier rapide'];
+  apres.dimensions = [{ ...avant.dimensions[0], valeur: 1.1 }, ...avant.dimensions.slice(2)];
+  assert.deepEqual(bankToolDiff(avant, apres), [
+    `Nom : « MVLNR » → « MVLNR bis »`,
+    `Note : « ${avant.commentaire} » → —`,
+    "Matières d'outil : ajoutés « Acier rapide »",
+    `Dimensions : retirées « ${avant.dimensions[1].libelle} »`,
+    `Dimensions « ${avant.dimensions[0].libelle} » : valeur « ${avant.dimensions[0].valeur} » → « 1.1 »`,
+  ]);
+  // L'ordre seul, et une longue liste résumée.
+  assert.deepEqual(bankToolDiff(avant, { ...avant, dimensions: [...avant.dimensions].reverse() }), ["Dimensions : l'ordre a changé"]);
+  const foret = data.outils.find((o) => o.id === 'foret_fractionnaire');
+  assert.match(bankToolDiff(foret, { ...foret, dimensions: foret.dimensions.slice(0, 1) })[0], /^Dimensions : retirées « Ø 1\/32 po », .* et \d+ autres$/);
+  const heure = (h, m) => new Date(2026, 8, 28, h, m).toISOString();
+  assert.equal(bankHistoryLabel({ enregistre_le: heure(8, 0), enregistre_par: null, remplace_le: heure(9, 30), remplace_par: 'admin', action: 'enregistrement' }), 'Contenu enregistré le 2026-09-28 08:00, remplacé le 2026-09-28 09:30 par admin (un enregistrement)');
+  assert.equal(bankHistoryLabel({ enregistre_le: heure(9, 30), enregistre_par: 'admin', remplace_le: heure(10, 0), remplace_par: 'admin', action: 'import' }), 'Contenu enregistré le 2026-09-28 09:30 par admin, remplacé le 2026-09-28 10:00 par admin (un import)');
+  assert.equal(bankHistoryLabel({ enregistre_le: null, enregistre_par: null, remplace_le: heure(10, 0), remplace_par: null, action: 'retablissement' }), 'Contenu de départ, remplacé le 2026-09-28 10:00 (un rétablissement)');
+});
+
+test('titres en double (D79) : la note de la liste et l’avertissement du panneau nomment l’autre ; rien sans doublon', () => {
+  assert.equal(twinTitlesNote([]), null);
+  assert.equal(twinTitlesWarning([]), null);
+  assert.equal(twinTitlesNote([{ id: 'autre', titre: 'M10' }]), 'Même titre que « M10 » (autre) : les étudiants ne les distinguent pas.');
+  assert.equal(twinTitlesWarning([{ id: 'autre', titre: 'M10' }]), "Titre en double : « M10 » (autre) porte aussi ce titre. Les étudiants ne les distinguent pas : change l'un des titres, ici ou dans la page de l'autre. Rien n'est bloqué ; l'avertissement disparaît dès qu'un titre change.");
+  assert.match(twinTitlesWarning([{ id: 'a', titre: 'M10' }, { id: 'b', titre: 'm10' }]), /^Titre en double : « M10 » \(a\), « m10 » \(b\) portent aussi ce titre\./);
 });
 
 test('présentation des exercices en direct (D78) : le titre déjà pris (seulement s’il change), « Renommer » en direct ou dans le brouillon, l’aperçu de ce que voit l’étudiant, l’historique', () => {

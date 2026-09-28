@@ -22,9 +22,9 @@ import * as base from './base.js';
 import { assembleDraft, loadExercisePresentation, loadLatest, loadPresentation, loadVersion, tablesOf } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
-  EXPORT_FORMAT, cascadeCandidates, cascadePlan, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
+  EXPORT_FORMAT, bankImageCheck, cascadeCandidates, cascadePlan, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
 } from './editeur.js';
-import { exerciseTablesImpact } from '../site/js/ui/editeur-data.js';
+import { bankToolDiff, exerciseTablesImpact } from '../site/js/ui/editeur-data.js';
 import { isTablesId, nextRevision, tablesContent } from '../site/js/tables.js';
 import {
   applyPresentation, archivedWarnings, currentPresentation, normalizePresentation, pendingDraftPresentation, presentData, presentationDiff, presentationErrors,
@@ -713,6 +713,7 @@ async function editeurExercices(request, env, { now }) {
   await requireAdmin(request, env, now);
   const rows = await base.listExercises(env.DB);
   const presentations = await livePresentations(env, rows);
+  const titles = rows.map((row) => ({ id: row.id, titre: presentations.get(row.id)?.titre ?? null, archive_le: row.archive_le }));
   const list = [];
   for (const row of rows) {
     const shown = shownPresentation(row, presentations);
@@ -735,6 +736,8 @@ async function editeurExercices(request, env, { now }) {
       seances: row.seances,
       versions: await base.listVersions(env.DB, row.id),
       liste: shown.liste,
+      // Les titres en double (D79) : les autres exercices publiés et non archivés au même titre en vigueur — un avertissement.
+      doublons: presentations.has(row.id) && row.archive_le === null ? sameTitleExercises(shown.titre, titles, row.id) : [],
     });
   }
   return json({ exercices: list });
@@ -1288,6 +1291,8 @@ async function exercisePresentationPayload(env, record, latest) {
     erreurs: exercisePresentationErrors(presentation.contenu, { images, inForce: presentation.contenu }),
     avertissements: exerciseArchivedWarnings(presentation.contenu, images, names),
     en_attente: pendingExercisePresentation(versions, record.brouillon, presentation.contenu, names, historique.map((h) => h.contenu)),
+    // Les titres en double (D79) : un avertissement, qui nomme les autres et ne bloque rien.
+    doublons: record.archive_le === null ? sameTitleExercises(presentation.contenu.titre, await titlesInForce(env), record.id) : [],
     historique: historique.map((h) => ({
       id: h.id, posee_le: h.posee_le, posee_par: h.posee_par, remplacee_le: h.remplacee_le, remplacee_par: h.remplacee_par, action: h.action,
       lignes: exercisePresentationDiff(presentation.contenu, currentExercisePresentation(h.contenu, latest.contenu), names),
@@ -1363,6 +1368,49 @@ async function editeurExercicePresentationRetablir(request, env, { now }) {
   return json({ retablie: true, revision: body.revision + 1, lignes, avertissements: exerciseArchivedWarnings(contenu, images, names) });
 }
 
+// --- La banque d'outils et son historique (D79) -------------------------------------------------------------------
+
+// Les erreurs d'un outil de la banque : la règle du catalogue (validateData) avec les tables d'aujourd'hui ; [{ champ, message }].
+const bankToolErrors = (outil, tables) => validateData({ materiaux: tables.materiaux, operations: tables.operations, outils: { outils: [outil] } }).map((message) => ({ champ: '', message }));
+
+// Un outil de la banque de la Gestion du contenu, ou 404.
+async function bankTool(env, id) {
+  const record = isToolId(id) ? await base.findBankTool(env.DB, id) : null;
+  if (record === null) throw new HttpError(404, "Cet outil n'existe pas dans la banque.");
+  return record;
+}
+
+// GET /api/prof/editeur/banque/outil?id=<id> — la page d'un outil : l'outil (avec qui a enregistré son contenu), les tables,
+// ses erreurs et avertissements, et son historique, le plus récent en tête — pour chaque contenu remplacé, ce que le
+// rétablir changerait, et ses erreurs et avertissements avec les tables d'aujourd'hui (D79).
+async function editeurBanqueOutil(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const record = await bankTool(env, new URL(request.url).searchParams.get('id'));
+  const tables = await latestTables(env);
+  const images = await base.listImages(env.DB);
+  const exercises = await base.listExercises(env.DB);
+  const historique = (await base.listBankToolHistory(env.DB, record.id)).reverse();
+  return json({
+    outil: {
+      id: record.id, outil: record.outil, revision: record.revision, rang: record.rang, archive_le: record.archive_le, modifie_le: record.modifie_le, modifie_par: record.modifie_par ?? null,
+      exercices: exercises.filter((e) => e.brouillon.outils.some((copy) => copy.origine === record.id)).map((e) => e.id),
+    },
+    tables: await shownTables(env, tables),
+    erreurs: bankToolErrors(record.outil, tables),
+    avertissements: bankImageCheck(record.outil, record.outil, images).avertissements,
+    historique: historique.map((h) => {
+      const contenu = { ...cleanTool(h.contenu), id: record.id };
+      const photo = bankImageCheck(contenu, record.outil, images, { archived: 'permis' });
+      return {
+        id: h.id, enregistre_le: h.enregistre_le, enregistre_par: h.enregistre_par, remplace_le: h.remplace_le, remplace_par: h.remplace_par, action: h.action,
+        lignes: bankToolDiff(record.outil, contenu),
+        erreurs: [...photo.erreurs, ...bankToolErrors(contenu, tables).map((e) => e.message)],
+        avertissements: photo.avertissements,
+      };
+    }),
+  });
+}
+
 // POST /api/prof/editeur/banque/creer — { id, outil } ou { id, depuis: <id> } (dupliquer).
 async function editeurBanqueCreer(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
@@ -1375,25 +1423,67 @@ async function editeurBanqueCreer(request, env, { now }) {
     outil = { ...structuredClone(source.outil), id: body.id, nom: `${source.outil.nom} (copie)` };
   } else {
     outil = { ...cleanTool(body.outil), id: body.id };
+    // Une photo nommée à la création est choisie : elle doit exister et ne pas être archivée (D79).
+    const photo = bankImageCheck(outil, null, await base.listImages(env.DB));
+    if (photo.erreurs.length > 0) throw new HttpError(400, `${photo.erreurs.join(' ')} Rien n'a été créé.`, { erreurs: photo.erreurs.map((message) => ({ champ: 'image', message })) });
   }
-  const created = await base.createBankTool(env.DB, { id: body.id, outil, now: now.toISOString() }, logEntry(teacher, now, typeof body.depuis === 'string' ? 'editeur_banque_duplication' : 'editeur_banque_creation', `${body.id}${typeof body.depuis === 'string' ? ` · dupliqué de ${body.depuis}` : ''}`));
+  const created = await base.createBankTool(env.DB, { id: body.id, outil, now: now.toISOString(), enseignant: teacher }, logEntry(teacher, now, typeof body.depuis === 'string' ? 'editeur_banque_duplication' : 'editeur_banque_creation', `${body.id}${typeof body.depuis === 'string' ? ` · dupliqué de ${body.depuis}` : ''}`));
   if (!created) throw new HttpError(409, `L'identifiant « ${body.id} » est déjà pris.`);
   return json({ cree: true, id: body.id });
 }
 
-// POST /api/prof/editeur/banque/enregistrer — { id, revision, outil } : contrôle optimiste (D48).
+// Écrit un contenu d'outil à la place du contenu actuel (enregistrement ou rétablissement) : le contenu remplacé va à
+// l'historique (D79), le journal dit les changements en clair. 409 si quelqu'un a enregistré entre-temps.
+async function replaceBankTool(env, record, { revision, outil, action, teacher, now, journal, details }) {
+  const saved = await base.saveBankTool(env.DB, {
+    id: record.id, revision, outil, now: now.toISOString(), enseignant: teacher, action,
+    remplace: { contenu: record.outil, enregistre_le: record.modifie_le, enregistre_par: record.modifie_par ?? null },
+  }, logEntry(teacher, now, journal, `${record.id} · ${details}`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findBankTool(env.DB, record.id)).revision });
+}
+
+// POST /api/prof/editeur/banque/enregistrer — { id, revision, outil } : contrôle optimiste (D48). Enregistré même en erreur
+// (les erreurs sont rendues) ; une photo CHOISIE inconnue ou archivée est refusée (400, D79) ; sans changement, rien n'est
+// écrit (`inchange`). Le contenu remplacé va à l'historique (D79).
 async function editeurBanqueEnregistrer(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request, EDITOR_BODY_MAX);
-  const record = isToolId(body.id) ? await base.findBankTool(env.DB, body.id) : null;
-  if (record === null) throw new HttpError(404, "Cet outil n'existe pas dans la banque.");
+  const record = await bankTool(env, body.id);
   if (!Number.isInteger(body.revision)) throw new HttpError(400, "La révision de l'outil est requise.");
+  if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
   const outil = { ...cleanTool(body.outil), id: record.id };
-  const tables = await latestTables(env);
-  const erreurs = validateData({ materiaux: tables.materiaux, operations: tables.operations, outils: { outils: [outil] } }).map((message) => ({ champ: '', message }));
-  const saved = await base.saveBankTool(env.DB, record.id, body.revision, outil, now.toISOString(), logEntry(teacher, now, 'editeur_banque_enregistrement', `${record.id} · révision ${body.revision + 1}`));
-  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findBankTool(env.DB, record.id)).revision });
-  return json({ enregistre: true, revision: body.revision + 1, erreurs });
+  const photo = bankImageCheck(outil, record.outil, await base.listImages(env.DB));
+  if (photo.erreurs.length > 0) throw new HttpError(400, `${photo.erreurs.join(' ')} Rien n'a été enregistré.`, { erreurs: photo.erreurs.map((message) => ({ champ: 'image', message })) });
+  const erreurs = bankToolErrors(outil, await latestTables(env));
+  if (sameContent(outil, record.outil)) return json({ enregistre: false, inchange: true, revision: record.revision, erreurs, lignes: [], avertissements: photo.avertissements });
+  const lignes = bankToolDiff(record.outil, outil);
+  await replaceBankTool(env, record, { revision: body.revision, outil, action: 'enregistrement', teacher, now, journal: 'editeur_banque_enregistrement',
+    details: `révision ${body.revision + 1} · ${changesText(lignes)}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s)` : ''}` });
+  return json({ enregistre: true, revision: body.revision + 1, erreurs, lignes, avertissements: photo.avertissements });
+}
+
+// POST /api/prof/editeur/banque/retablir — { id, revision, historique } : remet un contenu de l'historique de cet outil (celui
+// en place va à l'historique). Revalidé avec les tables d'aujourd'hui : un contenu devenu invalide se rétablit quand même,
+// comme un enregistrement en erreur, et ses erreurs sont rendues ; une photo archivée depuis est permise, avec un
+// avertissement (D79). 404 historique inconnu pour cet outil ; 409 révision périmée ; 400 rien à changer.
+async function editeurBanqueRetablir(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await bankTool(env, body.id);
+  if (!Number.isInteger(body.revision)) throw new HttpError(400, "La révision de l'outil est requise.");
+  const entry = Number.isInteger(body.historique) ? await base.findBankToolHistory(env.DB, record.id, body.historique) : null;
+  if (entry === null) throw new HttpError(404, "Ce contenu n'est pas dans l'historique de cet outil.");
+  if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
+  const outil = { ...cleanTool(entry.contenu), id: record.id };
+  const photo = bankImageCheck(outil, record.outil, await base.listImages(env.DB), { archived: 'permis' });
+  if (photo.erreurs.length > 0) throw new HttpError(400, `${photo.erreurs.join(' ')} Rien n'a été rétabli.`, { erreurs: photo.erreurs.map((message) => ({ champ: 'image', message })) });
+  if (sameContent(outil, record.outil)) throw new HttpError(400, 'Aucune différence avec le contenu actuel : rien à rétablir.');
+  const erreurs = bankToolErrors(outil, await latestTables(env));
+  const lignes = bankToolDiff(record.outil, outil);
+  const quand = entry.remplace_le.slice(0, 16).replace('T', ' ');
+  await replaceBankTool(env, record, { revision: body.revision, outil, action: 'retablissement', teacher, now, journal: 'editeur_banque_historique_retablissement',
+    details: `historique n° ${entry.id} (remplacé le ${quand} UTC) · ${changesText(lignes)}${erreurs.length > 0 ? ` · ${erreurs.length} erreur(s) avec les tables d'aujourd'hui` : ''}` });
+  return json({ retabli: true, revision: body.revision + 1, lignes, erreurs, avertissements: photo.avertissements });
 }
 
 // POST /api/prof/editeur/banque/archiver — { id, archive: true|false }.
@@ -1436,6 +1526,7 @@ async function imageContext(env) {
       actuelles: [...(await base.listExercisePresentations(env.DB))].map(([id, p]) => ({ exercice_id: id, contenu: p.contenu })),
       historique: await base.listExercisePresentationHistory(env.DB),
     },
+    historiqueBanque: await base.listBankToolHistory(env.DB),
   };
 }
 
@@ -1552,7 +1643,8 @@ async function editeurExport(request, env, { now }) {
 // l'export (fiches, sans contenu ou avec) sont comparées aux fiches en base : celles qui manquent
 // doivent être envoyées à part (images/importer) avant l'import.
 async function planImport(env, received) {
-  const existing = { ...await base.exportEditorData(env.DB), images: await base.listImages(env.DB) };
+  // La banque avec ses lignes complètes (D79 : quand et par qui chaque contenu avait été enregistré, pour l'historique).
+  const existing = { ...await base.exportEditorData(env.DB), images: await base.listImages(env.DB), banque: await base.listBankTools(env.DB) };
   // Les images que l'import laissera : celles de la base, et les fiches de l'export (leur état d'archivage) —
   // le brouillon des tables de l'export est validé contre elles (D64) ; une version publiée, immuable, ne l'est pas.
   const images = new Map(existing.images.map((i) => [i.id, i]));
@@ -1664,6 +1756,8 @@ const ROUTES = {
   'POST /api/prof/editeur/banque/creer': editeurBanqueCreer,
   'POST /api/prof/editeur/banque/enregistrer': editeurBanqueEnregistrer,
   'POST /api/prof/editeur/banque/archiver': editeurBanqueArchiver,
+  'GET /api/prof/editeur/banque/outil': editeurBanqueOutil,
+  'POST /api/prof/editeur/banque/retablir': editeurBanqueRetablir,
   'GET /api/prof/editeur/images': editeurImages,
   'POST /api/prof/editeur/images/televerser': editeurImageTeleverser,
   'POST /api/prof/editeur/images/archiver': editeurImageArchiver,

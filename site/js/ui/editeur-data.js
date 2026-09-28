@@ -4,7 +4,7 @@
 // champ, lignes de l'aperçu, résumé d'un import. Fonctions PURES, sans DOM, testées sous Node ;
 // editeur.js ne fait que les mettre à l'écran.
 
-import { TEMPLATE_TOKENS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
+import { TEMPLATE_TOKENS, TOOL_KEYS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
 import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey, sameTitleExercises, titleKey } from '../exercice.js';
 import { COPY_PRESENTATION_FIELDS } from '../presentation-exercice.js';
@@ -372,6 +372,81 @@ export function presentationPreview(p) {
   return { eyebrow: p.cours ? `${p.cours} · exercice` : 'Exercice', titre: p.titre, accueil };
 }
 
+// --- Les titres en double (D79, complément de D78) ------------------------------------------------------------------
+// Deux exercices publiés et non archivés dont les titres en vigueur se confondent : un avertissement doré, qui ne bloque
+// rien, sur la ligne de chacun et dans son panneau « Présentation », nommant l'autre. Le serveur les donne (`doublons`).
+
+const twinNames = (twins) => twins.map((t) => `« ${t.titre} » (${t.id})`).join(', ');
+
+// La note de la liste des exercices, ou null.
+export const twinTitlesNote = (twins) => (twins.length === 0 ? null : `Même titre que ${twinNames(twins)} : les étudiants ne les distinguent pas.`);
+
+// L'avertissement du panneau « Présentation », ou null.
+export const twinTitlesWarning = (twins) => (twins.length === 0 ? null
+  : `Titre en double : ${twinNames(twins)} ${twins.length > 1 ? 'portent' : 'porte'} aussi ce titre. Les étudiants ne les distinguent pas : change l'un des titres, ici ou dans la page de l'autre. Rien n'est bloqué ; l'avertissement disparaît dès qu'un titre change.`);
+
+// --- L'historique de la banque d'outils (D79) ---------------------------------------------------------------------
+
+// Les champs d'un outil, en clair.
+const TOOL_FIELD_LABELS = {
+  colonne_excel: 'Colonne du classeur', nom: 'Nom', format_identifiant: 'Gabarit de nomenclature', commentaire: 'Note', operation: 'Opération',
+  fact_vc: 'Facteur de vitesse', fact_av: "Facteur d'avance", limite_rpm: 'Vitesse de rotation max', limite_avance: "Limite d'avance (obsolète)",
+  nb_dents_min: 'Dents, minimum', nb_dents_max: 'Dents, maximum', materiaux_outil: "Matières d'outil", groupes_materiaux_usinables: 'Groupes usinables',
+  image: 'Photo', dimensions: 'Dimensions', dimensions_barre: 'Barres', rapport_barre_max: 'Rapport Ø barre / Ø usiné max',
+};
+const quoted = (value) => (value === undefined || value === null || value === '' ? '—' : `« ${value} »`);
+// « « a », « b », « c » et 4 autres » : une longue liste reste lisible.
+const someNames = (names, max = 6) => `${names.slice(0, max).map((name) => `« ${name} »`).join(', ')}${names.length > max ? ` et ${names.length - max} autre${names.length - max > 1 ? 's' : ''}` : ''}`;
+
+// Une liste de noms (matières, groupes) comparée : retirés, ajoutés, ou l'ordre seul.
+function namesDiff(label, before, after) {
+  const a = Array.isArray(before) ? before : [];
+  const b = Array.isArray(after) ? after : [];
+  const removed = a.filter((x) => !b.includes(x));
+  const added = b.filter((x) => !a.includes(x));
+  if (removed.length === 0 && added.length === 0) return [`${label} : l'ordre a changé`];
+  return [`${label} : ${[removed.length > 0 ? `retirés ${someNames(removed)}` : '', added.length > 0 ? `ajoutés ${someNames(added)}` : ''].filter(Boolean).join(' ; ')}`];
+}
+
+// Des dimensions comparées par libellé : retirées, ajoutées, valeur changée, ou l'ordre seul.
+function dimensionsDiff(label, before, after) {
+  const a = Array.isArray(before) ? before : [];
+  const b = Array.isArray(after) ? after : [];
+  const byLabel = (list) => new Map(list.map((d) => [d?.libelle, d]));
+  const avant = byLabel(a);
+  const apres = byLabel(b);
+  const removed = a.filter((d) => !apres.has(d?.libelle)).map((d) => d?.libelle);
+  const added = b.filter((d) => !avant.has(d?.libelle)).map((d) => d?.libelle);
+  const lines = [];
+  if (removed.length > 0 || added.length > 0) lines.push(`${label} : ${[removed.length > 0 ? `retirées ${someNames(removed)}` : '', added.length > 0 ? `ajoutées ${someNames(added)}` : ''].filter(Boolean).join(' ; ')}`);
+  for (const d of b) if (avant.has(d?.libelle) && !same(avant.get(d.libelle).valeur, d.valeur)) lines.push(`${label} « ${d.libelle} » : valeur ${quoted(avant.get(d.libelle).valeur)} → ${quoted(d.valeur)}`);
+  if (lines.length === 0) lines.push(`${label} : l'ordre a changé`);
+  return lines;
+}
+
+// Ce qui change entre deux contenus d'un outil de la banque, une ligne par champ, en clair : « Nom : « A » → « B » »,
+// « Dimensions : retirées « Ø 1/4 po » », « Matières d'outil : ajoutés « Acier rapide » ». Vide : rien ne change.
+export function bankToolDiff(before, after) {
+  const lines = [];
+  for (const key of TOOL_KEYS) {
+    if (key === 'id' || same(before?.[key], after?.[key])) continue;
+    const label = TOOL_FIELD_LABELS[key] ?? key;
+    if (key === 'dimensions' || key === 'dimensions_barre') lines.push(...dimensionsDiff(label, before?.[key], after?.[key]));
+    else if (Array.isArray(before?.[key]) || Array.isArray(after?.[key])) lines.push(...namesDiff(label, before?.[key], after?.[key]));
+    else lines.push(`${label} : ${quoted(before?.[key])} → ${quoted(after?.[key])}`);
+  }
+  return lines;
+}
+
+const BANK_REPLACED_BY = { enregistrement: 'un enregistrement', retablissement: 'un rétablissement', import: 'un import' };
+
+// Une ligne de l'historique d'un outil : quand et par qui ce contenu avait été enregistré, quand et par quoi il a été remplacé.
+export function bankHistoryLabel(h) {
+  const who = (par) => (par ? ` par ${par}` : '');
+  const origin = h.enregistre_le ? `Contenu enregistré le ${formatDateStamp(h.enregistre_le)}${who(h.enregistre_par)}` : 'Contenu de départ';
+  return `${origin}, remplacé le ${formatDateStamp(h.remplace_le)}${who(h.remplace_par)} (${BANK_REPLACED_BY[h.action] ?? h.action})`;
+}
+
 // --- La cascade des tables et le retour en arrière (D77) ------------------------------------------------------------
 
 // Ce que la cascade fera pour un exercice proposé, s'il est coché (GET /api/prof/editeur/tables/cascade, candidats ; D77 et sa
@@ -675,10 +750,14 @@ export function importSummaryLines(resume) {
     `Tables de référence ajoutées : ${list(resume.tables_ajoutees)}${resume.brouillon_tables ? ' ; le brouillon des tables est remplacé' : ''}.`,
     // La présentation des tables en direct (D76) : remplacée par celle de l'export (effet immédiat pour les étudiants).
     `Présentation des tables : ${resume.presentation_remplacee ? "remplacée par celle de l'export, avec effet immédiat pour les étudiants (l'actuelle va à l'historique)" : 'inchangée'}${(resume.presentation_historique ?? 0) > 0 ? ` ; ${resume.presentation_historique} contenu(s) ajouté(s) à son historique` : ''}.`,
+    // La présentation de chaque exercice (D78), remplacée par celle de l'export, avec effet immédiat.
+    `Présentation des exercices : ${(resume.presentations_exercices ?? []).length === 0 ? 'inchangée' : (resume.presentations_exercices ?? []).map((p) => `${p.id}${p.remplacee ? ' (remplacée, effet immédiat)' : ''}${p.historique > 0 ? ` (${p.historique} contenu(s) ajouté(s) à l'historique)` : ''}`).join(', ')}.`,
     `Banque d'outils — ajoutés : ${names(b.ajoutes)} ; modifiés : ${names(b.modifies)} ; inchangés : ${b.gardes}.`,
     b.retires.length > 0
       ? `Banque d'outils — DISPARAÎTRAIENT : ${names(b.retires)}. Les copies déjà faites dans les exercices ne changent pas, mais ces outils ne pourront plus être ajoutés. Pour importer quand même, il faudra taper ${REPLACE_WORD}.`
       : "Banque d'outils — aucun outil ne disparaît.",
+    // D79 : chaque contenu que l'import remplace ou retire va à l'historique de son outil ; « Rétablir » le ramène.
+    `Historique de la banque : le contenu de chaque outil modifié ou retiré y va (« Rétablir » le ramène)${(resume.banque_historique ?? 0) > 0 ? ` ; ${resume.banque_historique} contenu(s) de l'export ajouté(s)` : ''}.`,
     `Exercices ajoutés : ${list(resume.exercices_ajoutes)}.`,
     `Brouillons remplacés : ${list(resume.exercices_remplaces)}.`,
     `Versions publiées ajoutées : ${list(resume.versions_ajoutees)}.`,

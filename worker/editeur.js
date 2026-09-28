@@ -178,7 +178,7 @@ export const importWord = (resume) => (resume?.banque?.retires?.length > 0 ? REP
 
 export function importPlan(received, existing, { tablesErrors, draftTablesErrors = tablesErrors, draftErrorsOf, latestTablesId = null, presentationErrorsOf = () => [], exercisePresentationErrorsOf = () => [] }) {
   const erreurs = [];
-  const plan = { tables_ajoutees: [], brouillon_tables: null, presentation: { historique_ajoute: [], remplace: null }, banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [], presentations_exercices: [] };
+  const plan = { tables_ajoutees: [], brouillon_tables: null, presentation: { historique_ajoute: [], remplace: null }, banque: [], banque_retires: [], banque_historique_ajoute: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [], presentations_exercices: [] };
   if (!isObject(received) || received.format !== EXPORT_FORMAT) return { erreurs: [`Ce fichier n'est pas un export de la Gestion du contenu (format attendu : ${EXPORT_FORMAT}).`], plan, resume: null };
 
   // Les images (D59) : leurs fiches seulement — le contenu voyage à part, une image par requête
@@ -240,6 +240,29 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
     bankIds.add(b.id);
     plan.banque.push({ id: b.id, outil: cleanTool(b.outil), rang: Number.isInteger(b.rang) ? b.rang : i + 1, archive_le: typeof b.archive_le === 'string' ? b.archive_le : null });
   });
+  // Ce que l'import fait de chaque outil (D79) : un outil inchangé garde sa ligne ; un outil modifié ou retiré met son contenu
+  // actuel dans l'historique (« import »), pour qu'une restauration se défasse outil par outil.
+  //   existing.banque : les lignes de la base (outil, et modifie_le, modifie_par : quand et par qui le contenu avait été enregistré)
+  const bankRows = new Map(existing.banque.map((b) => [b.id, b]));
+  const before = (row) => ({ contenu: row.outil, enregistre_le: row.modifie_le ?? null, enregistre_par: row.modifie_par ?? null });
+  plan.banque = plan.banque.map((b) => {
+    const row = bankRows.get(b.id);
+    if (row === undefined) return { ...b, etat: 'ajoute' };
+    return sameContent(row.outil, b.outil) ? { ...b, etat: 'garde' } : { ...b, etat: 'modifie', avant: before(row) };
+  });
+  plan.banque_retires = existing.banque.filter((row) => !bankIds.has(row.id)).map((row) => ({ id: row.id, avant: before(row) }));
+  // L'historique de la banque de l'export (D79) : les contenus absents de la base s'ajoutent (un contenu déjà là, remplacé à la
+  // même date, n'est pas doublé). Un contenu ancien n'est pas revalidé : il a pu devenir invalide, « Rétablir » le dira.
+  const seenHistory = new Set((existing.historique_banque ?? []).map((h) => `${h.outil_id}|${h.remplace_le}|${canonicalText(h.contenu)}`));
+  (Array.isArray(received.historique_banque) ? received.historique_banque : []).forEach((h, n) => {
+    if (!isObject(h) || !isToolId(h.outil_id) || !isObject(h.contenu) || !isText(h.remplace_le) || !BANK_HISTORY_ACTIONS.includes(h.action)) return erreurs.push(`Historique de la banque, entrée ${n + 1} : illisible (outil, contenu, date ou action).`);
+    const contenu = { ...cleanTool(h.contenu), id: h.outil_id };
+    const key = `${h.outil_id}|${h.remplace_le}|${canonicalText(contenu)}`;
+    if (seenHistory.has(key)) return;
+    seenHistory.add(key);
+    const textOrNull = (v) => (isText(v) ? v : null);
+    plan.banque_historique_ajoute.push({ outil_id: h.outil_id, contenu, enregistre_le: textOrNull(h.enregistre_le), enregistre_par: textOrNull(h.enregistre_par), remplace_le: h.remplace_le, remplace_par: textOrNull(h.remplace_par), action: h.action });
+  });
 
   const exercices = Array.isArray(received.exercices) ? received.exercices : [];
   const existingById = new Map(existing.exercices.map((e) => [e.id, e]));
@@ -296,8 +319,32 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
     presentation_remplacee: plan.presentation.remplace !== null,
     presentation_historique: plan.presentation.historique_ajoute.length,
     presentations_exercices: plan.presentations_exercices.map((p) => ({ id: p.exercice_id, remplacee: p.remplace !== null, historique: p.historique_ajoute.length })),
+    banque_historique: plan.banque_historique_ajoute.length,
   };
   return { erreurs, plan, resume };
+}
+
+// Ce qui a remplacé un contenu de l'historique de la banque (migration 0012).
+const BANK_HISTORY_ACTIONS = ['enregistrement', 'retablissement', 'import'];
+
+// La photo d'un outil de la banque (D79, comme la retouche de D76) : seule une photo CHOISIE — différente de celle que
+// l'outil a déjà — doit exister et ne pas être archivée ; une photo archivée déjà en place, ou remise par « Rétablir »
+// (archived: 'permis' : elle a déjà été en place), n'est qu'un avertissement. Retourne { erreurs, avertissements }.
+//   outil : le contenu à écrire ; before : le contenu actuel (null : un outil créé) ; images : [{ id, archivee_le }]
+export function bankImageCheck(outil, before, images, { archived = 'erreur' } = {}) {
+  const erreurs = [];
+  const avertissements = [];
+  const image = outil?.image ?? null;
+  if (image === null) return { erreurs, avertissements }; // la photo nommée d'après l'identifiant, comme avant
+  const found = (Array.isArray(images) ? images : []).find((i) => isObject(i) && i.id === image);
+  const chosen = image !== (before?.image ?? null);
+  if (found === undefined) {
+    if (chosen) erreurs.push(`La photo « ${image} » est inconnue.`);
+  } else if (found.archivee_le) {
+    if (chosen && archived !== 'permis') erreurs.push(`La photo « ${image} » est archivée : choisis-en une autre, ou rétablis-la dans l'onglet Images.`);
+    else avertissements.push(`La photo « ${image} » est archivée ; elle reste affichée et ne bloque rien (pour la remplacer, choisis-en une autre, ou rétablis-la dans l'onglet Images).`);
+  }
+  return { erreurs, avertissements };
 }
 
 // La fusion d'une présentation et de son historique (D76, point 11 ; D78, point 12) : les contenus d'historique de
@@ -344,7 +391,7 @@ const IMAGE_ID = /^[a-z0-9]+([_-][a-z0-9]+)*$/;
 // Ce que le journal des actions note d'un import : « 1 table, 29 outils, 2 exercices ajoutés, 1 remplacé, 3 versions ».
 export function importDetails(resume) {
   const b = resume.banque;
-  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s) · images : ${resume.images_presentes ?? 0} présente(s), ${resume.images_modifiees?.length ?? 0} fiche(s) mise(s) à jour · présentation des tables : ${resume.presentation_remplacee ? 'remplacée' : 'inchangée'}, ${resume.presentation_historique ?? 0} contenu(s) ajouté(s) à l'historique${exercisePresentationsDetails(resume.presentations_exercices ?? [])}`;
+  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s) · images : ${resume.images_presentes ?? 0} présente(s), ${resume.images_modifiees?.length ?? 0} fiche(s) mise(s) à jour · présentation des tables : ${resume.presentation_remplacee ? 'remplacée' : 'inchangée'}, ${resume.presentation_historique ?? 0} contenu(s) ajouté(s) à l'historique${exercisePresentationsDetails(resume.presentations_exercices ?? [])}${(resume.banque_historique ?? 0) > 0 ? ` · historique de la banque : ${resume.banque_historique} contenu(s) ajouté(s)` : ''}`;
 }
 
 // « · présentation des exercices : 1 remplacée, 3 contenu(s) ajouté(s) à l'historique » (D78) ; rien s'il n'y en a pas.

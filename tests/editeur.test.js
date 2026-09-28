@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TOOL_KEYS, toolErrors } from '../site/js/data.js';
 import { COPY_KEYS, COURSE_MAX, DRAFT_KEYS, copyOfTool, courseErrors, courseKey, draftErrors, draftFromExercise, engineExercise, validateExercise } from '../site/js/exercice.js';
-import { EXPORT_FORMAT, IMPORT_WORD, REPLACE_WORD, cascadeCandidates, cascadePlan, cleanDraft, cleanTool, freeId, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent } from '../worker/editeur.js';
+import { EXPORT_FORMAT, IMPORT_WORD, REPLACE_WORD, bankImageCheck, cascadeCandidates, cascadePlan, cleanDraft, cleanTool, freeId, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent } from '../worker/editeur.js';
 import { aleaAGraine, data, lireFichier } from './aide.js';
 
 const materiaux = await lireFichier('data/materiaux.json');
@@ -155,7 +155,7 @@ test('importPlan : format exigé ; tables, banque, exercices et versions compar�
   };
   const { erreurs, plan, resume } = importPlan(recu, existant, outils);
   assert.deepEqual(erreurs, []);
-  assert.deepEqual({ ...resume, banque: undefined }, { tables_ajoutees: ['A2027_r0'], banque: undefined, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 0, images_modifiees: [], brouillon_tables: false, presentation_remplacee: false, presentation_historique: 0, presentations_exercices: [] });
+  assert.deepEqual({ ...resume, banque: undefined }, { tables_ajoutees: ['A2027_r0'], banque: undefined, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 0, images_modifiees: [], brouillon_tables: false, presentation_remplacee: false, presentation_historique: 0, presentations_exercices: [], banque_historique: 0 });
   // La banque reçue n'a que deux outils : les 27 autres disparaîtraient, nommés ; le mot exigé devient REMPLACER (D50).
   assert.deepEqual([resume.banque.ajoutes, resume.banque.modifies, resume.banque.gardes, resume.banque.retires.length], [[], [], 2, 27]);
   assert.deepEqual(resume.banque.retires[0], { id: 'foret_a_numero', nom: 'Foret à numéro' });
@@ -220,6 +220,20 @@ test('cours d’un exercice (D71) : facultatif, 1 à 30 caractères avec une let
 });
 
 // --- La cascade d'une publication de tables (D77) ------------------------------------------------------------------
+
+test('bankImageCheck (D79) : seule une photo CHOISIE doit exister et ne pas être archivée ; en place et archivée, un avertissement ; « permis » pour Rétablir ; sans photo, rien', () => {
+  const images = [{ id: 'mvlnr', archivee_le: null }, { id: 'vieille', archivee_le: '2026-09-01' }];
+  const outil = (image) => ({ id: 'x', image });
+  assert.deepEqual(bankImageCheck(outil('mvlnr'), outil(null), images), { erreurs: [], avertissements: [] });
+  assert.deepEqual(bankImageCheck(outil('inconnue'), outil('mvlnr'), images).erreurs, ['La photo « inconnue » est inconnue.']);
+  assert.match(bankImageCheck(outil('vieille'), outil('mvlnr'), images).erreurs[0], /^La photo « vieille » est archivée : choisis-en une autre/);
+  assert.match(bankImageCheck(outil('vieille'), null, images).erreurs[0], /archivée/); // à la création, toute photo est choisie
+  const enPlace = bankImageCheck(outil('vieille'), outil('vieille'), images);
+  assert.deepEqual([enPlace.erreurs, enPlace.avertissements.length], [[], 1]);
+  assert.match(enPlace.avertissements[0], /^La photo « vieille » est archivée ; elle reste affichée et ne bloque rien/);
+  assert.deepEqual(bankImageCheck(outil('vieille'), outil('mvlnr'), images, { archived: 'permis' }).erreurs, []);
+  assert.deepEqual(bankImageCheck(outil(null), outil('vieille'), images), { erreurs: [], avertissements: [] });
+});
 
 test('cascadeCandidates et cascadePlan (D77 et sa retouche) : une liste de tous les exercices, cochés par défaut ceux sur la version remplacée, décochés ceux sur une version plus ancienne, avec leur impact depuis leur propre version ; un coché passe de son côté (contenu publié) et du côté de son brouillon ; jamais un exercice en erreur ; un inconnu ignoré', () => {
   const contenu = (titre) => ({ titre, champs_evalues: ['vc'], outils: [] });

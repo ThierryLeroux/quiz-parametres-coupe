@@ -684,10 +684,11 @@ export async function findBankTool(db, id) {
 }
 
 // Crée un outil de la banque, au dernier rang, et journalise. Retourne false si l'identifiant est déjà pris.
-export async function createBankTool(db, { id, outil, now }, entry) {
+//   enseignant : qui l'a créé (D79 : l'auteur de son contenu)
+export async function createBankTool(db, { id, outil, now, enseignant = null }, entry) {
   try {
     await db.batch([
-      db.prepare('INSERT INTO banque_outils (id, outil, rang, modifie_le) SELECT ?, ?, COALESCE(MAX(rang), 0) + 1, ? FROM banque_outils').bind(id, JSON.stringify(outil), now),
+      db.prepare('INSERT INTO banque_outils (id, outil, rang, modifie_le, modifie_par) SELECT ?, ?, COALESCE(MAX(rang), 0) + 1, ?, ? FROM banque_outils').bind(id, JSON.stringify(outil), now, enseignant),
       teacherLogStatement(db, entry),
     ]);
     return true;
@@ -697,12 +698,36 @@ export async function createBankTool(db, { id, outil, now }, entry) {
   }
 }
 
-// Enregistre un outil de la banque, seulement si sa révision est encore celle qu'on a lue (D48), puis journalise.
-export async function saveBankTool(db, id, revision, outil, now, entry) {
-  const { meta } = await db.prepare('UPDATE banque_outils SET outil = ?, revision = revision + 1, modifie_le = ? WHERE id = ? AND revision = ?').bind(JSON.stringify(outil), now, id, revision).run();
+// Enregistre le contenu d'un outil de la banque (un enregistrement ou un rétablissement), seulement si sa révision est
+// encore celle qu'on a lue (D48). L'écriture décide ; puis le contenu remplacé va à l'historique (D79) et la ligne au
+// journal, dans un même lot. Retourne false si quelqu'un a enregistré entre-temps : rien n'est écrit.
+//   p : { id, revision, outil, now, enseignant, remplace: { contenu, enregistre_le, enregistre_par }, action }
+export async function saveBankTool(db, p, entry) {
+  const { meta } = await db.prepare('UPDATE banque_outils SET outil = ?, revision = revision + 1, modifie_le = ?, modifie_par = ? WHERE id = ? AND revision = ?')
+    .bind(JSON.stringify(p.outil), p.now, p.enseignant, p.id, p.revision).run();
   if (meta.changes !== 1) return false;
-  await addTeacherLog(db, entry);
+  await db.batch([bankHistoryStatement(db, p.id, { ...p.remplace, remplace_le: p.now, remplace_par: p.enseignant, action: p.action }), teacherLogStatement(db, entry)]);
   return true;
+}
+
+// --- L'historique de la banque d'outils (E5-4, D79, migration 0012) ---
+
+// Les contenus remplacés d'un outil — ou de tous (outilId null) —, dans l'ordre où ils l'ont été, contenus décodés.
+export async function listBankToolHistory(db, outilId = null) {
+  const { results } = outilId === null
+    ? await db.prepare('SELECT * FROM banque_outils_historique ORDER BY outil_id, id').all()
+    : await db.prepare('SELECT * FROM banque_outils_historique WHERE outil_id = ? ORDER BY id').bind(outilId).all();
+  return results.map((row) => decodeJson(row, ['contenu']));
+}
+
+export async function findBankToolHistory(db, outilId, id) {
+  return decodeJson(await db.prepare('SELECT * FROM banque_outils_historique WHERE id = ? AND outil_id = ?').bind(id, outilId).first(), ['contenu']);
+}
+
+//   h : { contenu, enregistre_le, enregistre_par, remplace_le, remplace_par, action }
+function bankHistoryStatement(db, outilId, h) {
+  return db.prepare('INSERT INTO banque_outils_historique (outil_id, contenu, enregistre_le, enregistre_par, remplace_le, remplace_par, action) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(outilId, JSON.stringify(h.contenu), h.enregistre_le ?? null, h.enregistre_par ?? null, h.remplace_le, h.remplace_par ?? null, h.action);
 }
 
 export async function archiveBankTool(db, id, archiveLe, entry) {
@@ -785,8 +810,8 @@ export async function listImagesWithContent(db) {
 // --- Sauvegarde : export complet, import par fusion (D49) ---
 
 // Tout ce que la Gestion du contenu gère : tables de référence (versions et brouillon, D61), la présentation des tables
-// et son historique (D76), banque, exercices avec leur version de tables (D62), toutes leurs versions, et leur
-// présentation avec son historique (D78).
+// et son historique (D76), banque et son historique (D79), exercices avec leur version de tables (D62), toutes leurs
+// versions, et leur présentation avec son historique (D78).
 export async function exportEditorData(db) {
   const tables = await listTables(db);
   const draft = await findTablesDraft(db);
@@ -794,6 +819,7 @@ export async function exportEditorData(db) {
   const historique = await listPresentationHistory(db);
   const exercisePresentations = await listExercisePresentations(db);
   const exerciseHistory = await listExercisePresentationHistory(db);
+  const bankHistory = await listBankToolHistory(db);
   const historyEntry = ({ contenu, posee_le, posee_par, remplacee_le, remplacee_par, action }) => ({ contenu, posee_le, posee_par, remplacee_le, remplacee_par, action });
   const banque = await listBankTools(db);
   const exercices = await listExercises(db);
@@ -808,6 +834,7 @@ export async function exportEditorData(db) {
       historique: historique.map(historyEntry),
     },
     banque: banque.map(({ id, outil, rang, archive_le }) => ({ id, outil, rang, archive_le })),
+    historique_banque: bankHistory.map(({ outil_id, contenu, enregistre_le, enregistre_par, remplace_le, remplace_par, action }) => ({ outil_id, contenu, enregistre_le, enregistre_par, remplace_le, remplace_par, action })),
     exercices: exercices.map(({ id, brouillon, archive_le, cree_le, publie_le, rang, tables_id }) => ({
       id, brouillon, tables_id, archive_le, cree_le, publie_le, rang,
       versions: versions.filter((v) => v.exercice_id === id).map(({ numero, contenu, tables_id: versionTables, publiee_le }) => ({ numero, contenu: JSON.parse(contenu), tables_id: versionTables, publiee_le })),
@@ -826,8 +853,26 @@ export async function exportEditorData(db) {
 export async function applyImport(db, plan, now, entry) {
   const statements = [];
   for (const t of plan.tables_ajoutees) statements.push(db.prepare('INSERT INTO tables_reference (id, materiaux, operations, creee_le) VALUES (?, ?, ?, ?)').bind(t.id, JSON.stringify(t.materiaux), JSON.stringify(t.operations), t.creee_le ?? now));
-  statements.push(db.prepare('DELETE FROM banque_outils'));
-  plan.banque.forEach((b, i) => statements.push(db.prepare('INSERT INTO banque_outils (id, outil, rang, modifie_le, archive_le) VALUES (?, ?, ?, ?, ?)').bind(b.id, JSON.stringify(b.outil), b.rang ?? i + 1, now, b.archive_le ?? null)));
+  // La banque (D49, D79) : remplacée par celle de l'export, outil par outil. Les contenus d'historique de l'export absents
+  // d'abord ; puis un outil modifié ou retiré met son contenu dans l'historique (« import ») — une restauration se défait
+  // outil par outil ; un outil inchangé garde sa ligne (révision, date, auteur), seuls son rang et son archivage suivent.
+  for (const h of plan.banque_historique_ajoute ?? []) statements.push(bankHistoryStatement(db, h.outil_id, h));
+  const replaced = (avant) => ({ ...avant, remplace_le: now, remplace_par: entry.enseignant, action: 'import' });
+  plan.banque.forEach((b, i) => {
+    const rang = b.rang ?? i + 1;
+    if (b.etat === 'garde') {
+      statements.push(db.prepare('UPDATE banque_outils SET rang = ?, archive_le = ? WHERE id = ?').bind(rang, b.archive_le ?? null, b.id));
+    } else if (b.etat === 'modifie') {
+      statements.push(bankHistoryStatement(db, b.id, replaced(b.avant)));
+      statements.push(db.prepare('UPDATE banque_outils SET outil = ?, rang = ?, archive_le = ?, revision = revision + 1, modifie_le = ?, modifie_par = ? WHERE id = ?').bind(JSON.stringify(b.outil), rang, b.archive_le ?? null, now, entry.enseignant, b.id));
+    } else {
+      statements.push(db.prepare('INSERT INTO banque_outils (id, outil, rang, modifie_le, modifie_par, archive_le) VALUES (?, ?, ?, ?, ?, ?)').bind(b.id, JSON.stringify(b.outil), rang, now, entry.enseignant, b.archive_le ?? null));
+    }
+  });
+  for (const r of plan.banque_retires ?? []) {
+    statements.push(bankHistoryStatement(db, r.id, replaced(r.avant)));
+    statements.push(db.prepare('DELETE FROM banque_outils WHERE id = ?').bind(r.id));
+  }
   // Le brouillon des tables (D61) : remplacé par celui de l'export, s'il en a un.
   if (plan.brouillon_tables) statements.push(db.prepare('UPDATE brouillon_tables SET contenu = ?, revision = revision + 1, modifie_le = ?, base_id = ? WHERE id = 1').bind(JSON.stringify(plan.brouillon_tables.contenu), now, plan.brouillon_tables.base_id ?? null));
   // Un exercice ajouté prend le dernier rang, dans l'ordre de l'export ; un exercice remplacé garde le sien (l'ordre est celui de la base).

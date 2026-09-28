@@ -2416,8 +2416,9 @@ titre sans que rien ne le dise.
    quoi il a été remplacé (`enregistrement`, `retablissement`, `import`). Sans limite ; rien ne s'efface. La banque
    gagne `modifie_par` (qui a enregistré le contenu actuel ; vide pour les outils d'avant, semés ou créés avant ce
    jalon).
-2. **Chaque enregistrement** d'un outil met le contenu qu'il remplace dans l'historique, dans le même lot que
-   l'écriture et le journal, avec le contrôle optimiste (D48, 409 : rien n'est écrit). Un enregistrement **sans
+2. **Chaque enregistrement** d'un outil met le contenu qu'il remplace dans l'historique : l'écriture décide, avec le
+   contrôle optimiste (D48, 409 : rien n'est écrit), puis le contenu remplacé et la ligne du journal suivent dans un
+   même lot, comme pour la présentation (D76). Un enregistrement **sans
    changement** n'écrit rien (ni révision, ni historique, ni journal) et le dit. Le journal
    (`editeur_banque_enregistrement`) dit les changements en clair. **L'archivage reste tel quel** (hors de l'historique).
    Créer ou dupliquer un outil ne remplace rien.

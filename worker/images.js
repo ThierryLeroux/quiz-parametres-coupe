@@ -144,7 +144,8 @@ export const imageView = ({ id, nom, usage, type, taille, empreinte, creee_le, a
 //              (celle d'une classe ou d'une opération nouvelle, par exemple) est utilisée (D77)
 //   presentationExercices : { actuelles: [{ exercice_id, contenu }], historique: [{ id, exercice_id, contenu }] } — la
 //              présentation des exercices (D78) : une photo qu'elle nomme, en vigueur ou dans l'historique, est utilisée
-export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [], presentation = { actuelle: null, historique: [] }, brouillonTables = null, presentationExercices = { actuelles: [], historique: [] } }) {
+//   historiqueBanque : [{ id, outil_id, contenu }] — l'historique de la banque (D79) : « Rétablir » remettrait la photo
+export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [], presentation = { actuelle: null, historique: [] }, brouillonTables = null, presentationExercices = { actuelles: [], historique: [] }, historiqueBanque = [] }) {
   const inTools = (tools) => (Array.isArray(tools) ? tools : []).some((tool) => tool?.image === id);
   const pictoOf = (op) => op?.pictogramme ?? operationSlug(String(op?.operation ?? ''));
   const inTables = (t) => (Array.isArray(t.operations?.operations) ? t.operations.operations : []).some((op) => pictoOf(op) === id)
@@ -163,6 +164,7 @@ export function imageUsages(id, { versions = [], exercices = [], banque = [], ta
       ...(presentationExercices.actuelles ?? []).filter((p) => imagesOfExercisePresentation(p.contenu).includes(id)).map((p) => p.exercice_id),
       ...(presentationExercices.historique ?? []).filter((h) => imagesOfExercisePresentation(h.contenu).includes(id)).map((h) => `${h.exercice_id} · historique n° ${h.id}`),
     ],
+    banque_historique: historiqueBanque.filter((h) => h.contenu?.image === id).map((h) => `${h.outil_id} · historique n° ${h.id}`),
   };
 }
 
@@ -178,5 +180,6 @@ export function usagesText(usages) {
   if ((usages.brouillon_tables ?? []).length > 0) parts.push('brouillon des tables');
   if ((usages.presentation ?? []).length > 0) parts.push(`présentation des tables (${usages.presentation.join(', ')})`);
   if ((usages.presentation_exercices ?? []).length > 0) parts.push(`présentation des exercices (${usages.presentation_exercices.join(', ')})`);
+  if ((usages.banque_historique ?? []).length > 0) parts.push(`historique de la banque (${usages.banque_historique.join(', ')})`);
   return parts.join(' · ');
 }
