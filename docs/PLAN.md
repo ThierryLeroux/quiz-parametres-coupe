@@ -285,9 +285,9 @@ Rapport de session : `docs/rapports/finition-calcul-saisie.md`. **Change la corr
 - [x] Chrome à 1280 et 390 px, sans erreur console : `m10-tournage-vc-rpm`, `test-complet` — `(3-1)*2` puis Entrée (4, on reste dans la case), deuxième Entrée (vérifie), Vérifier sur une expression pas encore calculée, `2(3)` illisible, boutons à 390 px, l'expression dans la correction
 - [x] Documents : SPEC §5, §6, §7 ; UI §3.3, §3.4, §7
 - [x] **Thierry** : relire, trancher les points douteux du rapport (fait : quatre acceptés, trois retouches, consignés à la fin de D82)
-- [ ] Retouche : une expression illisible ne part jamais — Vérifier (clic, toucher, Entrée) arrêté, la case rouge reçoit le focus ; « 12a » part comme avant ; le deuxième Entrée ne vérifie plus une case illisible (`enterComputes`)
-- [ ] Retouche : `pi` sans égard à la casse, `x` et `X`, « – » comme moins ; non-régression inchangée
-- [ ] Retouche : la rangée de boutons seulement après un toucher dans une case, pas au focus automatique de la première
-- [ ] Vérification : `npm test`, `test:api`, Chrome à 1280 et 390 px — Vérifier sur une expression illisible (rien ne part, la case rouge a le focus), « Pi*2 », « 2X3 », « 4–1 » ; procédure d'essai sur un vrai téléphone dans le rapport
-- [ ] Documents : SPEC §6 ; UI §3.3, §7 ; section « Suite » du rapport
+- [x] Retouche : une expression illisible ne part jamais — Vérifier (clic, toucher, Entrée) arrêté, la case rouge reçoit le focus ; « 12a » part comme avant ; le deuxième Entrée ne vérifie plus une case illisible (`enterComputes`)
+- [x] Retouche : `pi` sans égard à la casse, `x` et `X`, « – » comme moins ; non-régression inchangée
+- [x] Retouche : la rangée de boutons seulement après un toucher dans une case, pas au focus automatique de la première
+- [x] Vérification : `npm test`, `test:api`, Chrome à 1280 et 390 px — Vérifier sur une expression illisible (rien ne part, la case rouge a le focus), « Pi*2 », « 2X3 », « 4–1 » ; procédure d'essai sur un vrai téléphone dans le rapport
+- [x] Documents : SPEC §6 ; UI §3.3, §7 ; section « Suite » du rapport
 - [ ] **Thierry** : essayer sur son téléphone, puis fusionner — hors période de labo : la correction change au déploiement

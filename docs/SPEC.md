@@ -364,10 +364,12 @@ D82). Le serveur lit chaque saisie avec cette fonction, le navigateur aussi.
   « 1,600 » vaut 1.6.
 - Une **expression** (`site/js/expression.js`, un évaluateur écrit à la main,
   **jamais `eval` ni `Function`**) : des nombres (une virgule par nombre :
-  « 1,5 + 2,5 » vaut 4), `+`, `-` ou `−`, `*`, `×` ou `x`, `/` ou `÷`, les
-  parenthèses, `pi`, `PI` ou `π` (Math.PI). Priorités usuelles (× et / avant + et −,
-  de gauche à droite à priorité égale). Le moins unaire est permis partout où un
-  nombre peut aller (« 2 × −3 », « (−1 + 3) ») ; pas de plus unaire. **Rien
+  « 1,5 + 2,5 » vaut 4), `+`, `-`, `−` ou `–` (tiret demi-cadratin), `*`, `×`, `x`
+  ou `X`, `/` ou `÷`, les parenthèses, `pi` sans égard à la casse (`pi`, `Pi`, `PI`,
+  `pI` : les majuscules automatiques des téléphones) ou `π` (Math.PI). Priorités
+  usuelles (× et / avant + et −, de gauche à droite à priorité égale). Le moins
+  unaire est permis partout où un nombre peut aller (« 2 × −3 », « (−1 + 3) »,
+  « --5 » vaut 5) ; pas de plus unaire (« +5 » est illisible). **Rien
   d'autre** : ni puissance, ni fonction, ni multiplication implicite (« 2pi »,
   « 2(3+1) »). **60 caractères** au plus, **10 niveaux** de parenthèses. Le résultat
   est pris à 12 chiffres significatifs : le bruit de la virgule flottante disparaît
@@ -638,7 +640,11 @@ porte toute la sauvegarde).
 Chaque texte est un nombre ou une expression (§6, « Lecture d'une saisie », D82) :
 pour une case calculée, le navigateur envoie l'**expression** tapée, pas le résultat
 qu'il affiche, et le serveur juge le nombre qu'elle donne. Le journal
-(`corrections.reponses`) garde le texte reçu, expression comprise.
+(`corrections.reponses`) garde le texte reçu, expression comprise. Le navigateur
+**n'envoie jamais une expression illisible** (D82, réponse au rapport) : tant
+qu'une case en contient une, « Vérifier » ne part pas (UI §3.3). Le serveur
+n'en dépend pas : une expression mal formée qu'il recevrait reste illisible, une
+mauvaise réponse.
 
 `seance` (composée par `worker/seance.js`) :
 

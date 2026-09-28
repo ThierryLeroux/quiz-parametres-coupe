@@ -229,3 +229,140 @@ La vraie épreuve reste un téléphone : voir le point 2.
 5. Écran Question et rangée de boutons (`question-screen.js`, `question.css`).
 6. Documents : SPEC §5, §6, §7, §8 ; UI §3.3, §3.4, §7 ; `CLAUDE.md` ; `test:api` (une N sur deux en calcul).
 7. PLAN coché et ce rapport.
+
+## 7. Suite (réponses au rapport, même branche)
+
+> **Correction des séances en cours : toujours le changement annoncé en tête**, qui arrive au déploiement. La retouche
+> y ajoute une seule chose côté serveur : il lit aussi `Pi`, `pI`, `X` et « – ». Le reste de la retouche se passe dans
+> le navigateur : une expression illisible n'y part plus, et la rangée de boutons attend un toucher.
+
+**Tes réponses**, consignées à la fin de **D81** et de **D82** :
+
+- **F2** : tes cinq propositions sont gardées telles quelles, rien à changer dans le code.
+- **F3, acceptés** (points 1, 3, 4 et 6) : 9 caractères et « ≈ », la note sous la case, le rappel sous le formulaire,
+  les limites.
+- **F3, trois retouches** : une expression illisible ne part jamais ; la syntaxe élargie ; la rangée seulement après
+  un toucher.
+- **Ensuite** : tu essaies sur ton téléphone, puis tu fusionnes toi-même, hors des périodes de labo.
+
+### La retouche
+
+1. **Une expression illisible ne part jamais.**
+   - Vérifier (clic, toucher, ou Entrée dans une case) calcule toutes les cases. Si l'une d'elles contient une
+     expression illisible, **rien n'est envoyé** : la première, dans l'ordre de l'écran, reçoit le focus, en rouge
+     avec sa raison. Une faute de frappe dans un calcul ne coûte plus une série.
+   - La règle est `unreadableCase`, pure et testée (`rules.js`).
+   - **Entrée** calcule toute expression et ne vérifie jamais une case illisible. `enterComputes` n'a plus de
+     deuxième Entrée, et l'état « déjà essayé » a disparu de l'écran.
+   - **« 12a »** (illisible, mais sans opérateur, parenthèse ni pi) part comme avant et reste une mauvaise réponse.
+   - Le serveur n'a pas changé : il juge toujours illisible une expression mal formée qu'il recevrait.
+   - Conséquence à connaître : **« -5 »** et **« 12x »** sont maintenant retenus eux aussi. Le moins et le x en font
+     des expressions : la première est illisible parce que son résultat est négatif, la seconde parce qu'elle est mal
+     formée. Ils étaient envoyés et jugés faux ; ils ne partent plus. « 12a » et « abc » partent comme avant.
+2. **Syntaxe élargie** (`expression.js`) :
+   - `pi` sans égard à la casse (`pi`, `Pi`, `PI`, `pI`, `π`) ;
+   - `x` et `X` ;
+   - le tiret demi-cadratin « – » comme moins.
+
+   Ne changent pas :
+   - « -0 » et « +5 » restent refusés, et « --5 » vaut toujours 5 ;
+   - un nombre se lit toujours exactement comme avant : même test de non-régression, toujours vert.
+3. **La rangée après un toucher.**
+   - À l'affichage d'une question, la première case reçoit le focus comme avant, mais la rangée ne se montre pas.
+   - Elle apparaît au premier toucher dans une case, y compris dans la case qui avait déjà le focus : c'est le
+     `pointerdown` qui la déclenche, puisque cette case ne reçoit pas de nouvel événement focus.
+   - Ensuite, elle suit le focus d'une case à l'autre, et revient quand Vérifier donne le focus à une case illisible.
+   - Chaque nouvelle question repart sans rangée.
+
+**Les documents** :
+- SPEC §6 (syntaxe élargie) et §7 (le navigateur n'envoie jamais une expression illisible ; le serveur n'en dépend pas) ;
+- UI §3.3 (l'expression illisible retenue, « 12a » qui part, la rangée après un toucher) et §7 (Entrée, Vérifier) ;
+- PLAN : F2 tranché, tâches de la retouche du F3.
+
+### Vérifié
+
+- `npm test` : **725** tests, `fail 0`. Nouveau : `unreadableCase`. Mis à jour :
+  - `enterComputes` : plus de deuxième Entrée sur une case illisible ;
+  - l'évaluateur, `isExpression`, `expressionText` et `parseAnswer` : « Pi*2 », « 2X3 », « 4–1 », « -Pi », « –5 » ;
+  - la non-régression, inchangée, toujours verte.
+- `npm run test:api` : **35 étapes** réussies sur `wrangler dev` et une vraie D1 locale.
+- **Chrome**, à 1280 et 390 px, sur `m10-tournage-vc-rpm` et `test-complet` : **185 vérifications, aucun échec**,
+  aucune erreur console, aucune requête hors du site. En plus de celles du rapport :
+  - « 2(3) », deuxième Entrée : aucune requête de correction, focus dans la case, en rouge ;
+  - un vrai clic (à 390 px, un vrai toucher) sur **Vérifier**, le focus dans une autre case : aucune requête, la case
+    illisible reçoit le focus, en rouge avec « Illisible : expression mal formée » ;
+  - Entrée dans une autre case : aucune requête, le focus revient à la case illisible ;
+  - « 1/0 » puis Vérifier : aucune requête, « Illisible : division par zéro » ;
+  - « 12a » : ni rouge ni note ; Vérifier envoie une seule correction, « réponse vide ou illisible » ;
+  - « Pi*2 » donne « 6.2831853 », « ≈ π × 2 » ; « 2X3 » donne 6 ; « 4–1 » donne 3 ;
+  - à 390 px, première case avec le focus et sans rangée à chaque question ; la rangée au premier toucher.
+- Pour compter ce qui part, le script compte les requêtes `/api/correction` du navigateur.
+- Captures (non versionnées) : `captures/finition-calcul-saisie/`, dont `05-verifier-refuse.png` et, à 390 px,
+  `00-affichage-sans-rangee.png`.
+
+### Essayer sur ton téléphone
+
+Le poste et le téléphone sur **le même Wi-Fi**. Le 2026-09-28, le Wi-Fi du poste (réseau « ORICOM30617 ») avait
+l'adresse **192.168.68.56**. Elle est donnée par le routeur et peut changer : `ipconfig` dans un terminal, rubrique
+« Carte réseau sans fil Wi-Fi », ligne « Adresse IPv4 ».
+
+1. **Lancer le serveur local, ouvert au Wi-Fi.** Dans le dossier du projet :
+
+   ```
+   npm run dev -- --ip 0.0.0.0
+   ```
+
+   C'est `npm run dev` (migrations locales, puis `wrangler dev`), avec le serveur à l'écoute sur toutes les cartes
+   réseau au lieu du seul poste.
+2. **Sur le téléphone**, taper l'adresse en entier, avec `http://` : **`http://192.168.68.56:8787`**, puis choisir un
+   exercice.
+3. **Le pare-feu Windows.**
+   - Windows range ce Wi-Fi dans les réseaux **publics**. D'abord, le passer en **privé** (c'est ton réseau à la
+     maison) : Paramètres → Réseau et Internet → Wi-Fi → « ORICOM30617 » → Type de profil réseau : **Réseau privé**.
+   - Au premier lancement, Windows peut demander d'autoriser l'accès pour `workerd.exe` ou `node.exe`. Coche
+     **Réseaux privés** seulement, décoche Réseaux publics, puis « Autoriser ».
+   - Si rien n'est demandé et que le téléphone n'arrive pas à ouvrir la page (délai dépassé), ouvre une règle pour le
+     port 8787, sur les réseaux privés seulement. Dans un PowerShell **en administrateur** :
+
+     ```
+     New-NetFirewallRule -DisplayName "Quiz - wrangler dev 8787" -Direction Inbound -Protocol TCP -LocalPort 8787 -Action Allow -Profile Private
+     ```
+
+     Pour la retirer après l'essai :
+
+     ```
+     Remove-NetFirewallRule -DisplayName "Quiz - wrangler dev 8787"
+     ```
+   - Si ça ne passe toujours pas : le téléphone est-il bien sur le Wi-Fi, pas sur le réseau cellulaire ? Un réseau
+     « invité » isole souvent les appareils les uns des autres.
+4. **Pas de mode test sur le téléphone** : le serveur ne l'accorde qu'à `localhost` (D26). Il n'y a donc pas de bouton
+   « Remplir », et la cadence de 10 s s'applique entre deux corrections. C'est voulu.
+5. **À la fin**, Ctrl+C dans le terminal. `npm run dev` sans `--ip` redonne un serveur que seul le poste voit.
+
+**À essayer** (sur iPhone, et sur Android si tu en as un sous la main) :
+
+- [ ] À l'affichage d'une question, **pas de rangée**. Toucher la case Vc : le clavier s'ouvre, et la rangée apparaît
+  **juste au-dessus du clavier**.
+- [ ] Taper `3`, toucher **×**, taper `2` : **le clavier reste ouvert** à chaque toucher d'un bouton, et le curseur
+  reste dans la case.
+- [ ] Toucher **=** : la case affiche 6, et la note « = 3 × 2 » apparaît dessous.
+- [ ] **La rangée suit le clavier** : fais défiler la page, passe d'une case à l'autre (flèches du clavier de
+  l'iPhone). La rangée reste collée au-dessus du clavier.
+- [ ] **Fermer le clavier.** Sur iPhone, « OK » quitte la case : la rangée disparaît avec le clavier. Sur Android, la
+  touche retour ferme le clavier **sans quitter la case** : la rangée reste alors au bas de l'écran jusqu'à ce que tu
+  touches ailleurs. C'est la règle « tant qu'une case a le focus » ; dis-moi si ça te gêne.
+- [ ] **La case active n'est jamais cachée** par la rangée, même la case N, plus bas.
+- [ ] Taper `2(3)` et toucher **Vérifier** : **rien ne part**, la case est rouge, « Illisible : expression mal
+  formée », et elle a le focus. Efface-la, tape la bonne valeur, Vérifier : la correction arrive.
+- [ ] En passant : `pi` tapé avec la majuscule automatique (« Pi×2 ») est lu.
+
+Dis-moi ce qui ne va pas, avec le modèle du téléphone. La place de la rangée ne se règle qu'à partir de ce qu'on voit
+sur un vrai appareil.
+
+### Commits de la suite
+
+8. Tes réponses consignées à la fin de D81 et de D82 ; PLAN.
+9. La syntaxe élargie, avec ses tests.
+10. Une expression illisible ne part jamais (`unreadableCase`, `enterComputes`, écran), avec ses tests.
+11. La rangée après un toucher ; vu dans Chrome.
+12. Documents (SPEC §6, §7 ; UI §3.3, §7), cette section et le PLAN coché.
