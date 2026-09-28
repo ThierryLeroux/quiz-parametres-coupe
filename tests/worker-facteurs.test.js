@@ -135,7 +135,10 @@ test('publier des tables qui portent les facteurs : la confirmation annonce le p
   assert.equal(historique.length, 29);
   assert.ok(historique.every((h) => h.action === 'enregistrement' && h.remplace_par === 'admin' && h.contenu.fact_vc !== undefined && h.contenu.fact_vc_raison === undefined));
   const alesoir = (await serveur.editeur('GET', 'banque/outil?id=alesoir')).corps;
-  assert.deepEqual([alesoir.outil.outil.fact_vc, alesoir.erreurs, alesoir.historique.map((h) => h.lignes)], [undefined, [], [["Facteur de vitesse : « hérité de l'opération » → « × 1/4 »"]]]);
+  // L'historique garde le contenu d'avant ; le rétablir ne changerait rien (il referait son passage) : refusé, 400.
+  assert.deepEqual([alesoir.outil.outil.fact_vc, alesoir.erreurs, alesoir.historique.map((h) => [h.action, h.lignes])], [undefined, [], [['enregistrement', []]]]);
+  const refait = await serveur.editeur('POST', 'banque/retablir', { id: 'alesoir', revision: alesoir.outil.revision, historique: alesoir.historique[0].id });
+  assert.deepEqual([refait.status, refait.corps.erreur], [400, 'Aucune différence avec le contenu actuel : rien à rétablir.']);
   // Le journal : une ligne, celle de la publication des tables.
   assert.match(serveur.journalEnseignant().filter((l) => l.action === 'editeur_tables_publication').at(-1).details, / · banque d'outils, passage aux facteurs de vitesse : 27 outil\(s\) hérité\(s\), 2 forcé\(s\) \(nine9_90_degres, outil_a_chambrer\)$/);
   // La cascade : les copies des versions publiées ont fait leur passage ; rien d'autre n'y a changé.

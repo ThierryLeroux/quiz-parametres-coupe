@@ -133,6 +133,8 @@ test('forcedBadge : « facteur forcé » pour un outil qui ne suit pas sa table,
   assert.equal(forcedBadge(herite, chanfreinage), null);
   assert.equal(forcedBadge(outilDe('nine9_90_degres'), operationDe(SANS, 'Chanfreinage')), null);
   assert.equal(forcedBadge(outilDe('nine9_90_degres'), undefined), null);
+  // Pendant la saisie d'un forçage (valeur pas encore donnée, raison vide) : le badge, sans « NaN ».
+  assert.equal(forcedBadge({ ...herite, fact_vc: Number.NaN, fact_vc_raison: '' }, chanfreinage).title, "valeur à donner, au lieu de × 1/4 (Chanfreinage) — Valeur reprise de l'ancien outil — à vérifier");
 });
 
 test('factorSource et deducibleWarnings : avec des tables d’avant, les phrases d’avant ; le facteur donné, « facteur de vitesse » ; à trouver, la phrase dit où il se relève', () => {

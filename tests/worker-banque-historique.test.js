@@ -130,9 +130,10 @@ test('contenu ancien devenu invalide : une matière d’outil renommée dans les
   const page = await outil(serveur, 'foret_fractionnaire');
   assert.deepEqual(page.erreurs, []);
   // Le contenu de départ est le plus ancien de l'historique : depuis D83, la publication de tables qui portent les
-  // facteurs de vitesse y a ajouté le contenu d'avant le passage de l'outil (il hérite désormais de son opération).
+  // facteurs de vitesse y a ajouté le contenu d'avant le passage de l'outil (il hérite désormais de son opération) —
+  // le rétablir ne changerait rien : il referait ce passage.
   assert.equal(page.historique.length, 2);
-  assert.deepEqual([page.historique[0].action, page.historique[0].lignes, page.historique[0].erreurs], ['enregistrement', ["Facteur de vitesse : « hérité de l'opération » → « × 1 »"], []]);
+  assert.deepEqual([page.historique[0].action, page.historique[0].lignes, page.historique[0].erreurs], ['enregistrement', [], []]);
   const depart = page.historique.at(-1);
   assert.ok(depart.erreurs.length > 0 && depart.erreurs.every((m) => /Acier rapide/.test(m)), depart.erreurs.join('\n'));
   const retabli = await serveur.editeur('POST', 'banque/retablir', { id: 'foret_fractionnaire', revision: page.outil.revision, historique: depart.id });

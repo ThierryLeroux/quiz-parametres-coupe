@@ -1410,6 +1410,9 @@ async function editeurBanqueOutil(request, env, { now }) {
   const images = await base.listImages(env.DB);
   const exercises = await base.listExercises(env.DB);
   const historique = (await base.listBankToolHistory(env.DB, record.id)).reverse();
+  // Un contenu d'avant D83 ferait son passage en revenant (un facteur de vitesse sans raison : hérité, ou forcé « à
+  // vérifier ») : c'est ce contenu-là que « Rétablir » remettrait, et qu'on compare au contenu actuel.
+  const passage = (outil) => adoptSpeedFactor(outil, tables.operations.operations.find((op) => op.operation === outil.operation));
   return json({
     outil: {
       id: record.id, outil: record.outil, revision: record.revision, rang: record.rang, archive_le: record.archive_le, modifie_le: record.modifie_le, modifie_par: record.modifie_par ?? null,
@@ -1419,7 +1422,7 @@ async function editeurBanqueOutil(request, env, { now }) {
     erreurs: bankToolErrors(record.outil, tables),
     avertissements: bankImageCheck(record.outil, record.outil, images).avertissements,
     historique: historique.map((h) => {
-      const contenu = { ...cleanTool(h.contenu), id: record.id };
+      const contenu = passage({ ...cleanTool(h.contenu), id: record.id });
       const photo = bankImageCheck(contenu, record.outil, images, { archived: 'permis' });
       return {
         id: h.id, enregistre_le: h.enregistre_le, enregistre_par: h.enregistre_par, remplace_le: h.remplace_le, remplace_par: h.remplace_par, action: h.action,
@@ -1496,11 +1499,13 @@ async function editeurBanqueRetablir(request, env, { now }) {
   const entry = Number.isInteger(body.historique) ? await base.findBankToolHistory(env.DB, record.id, body.historique) : null;
   if (entry === null) throw new HttpError(404, "Ce contenu n'est pas dans l'historique de cet outil.");
   if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
-  const outil = { ...cleanTool(entry.contenu), id: record.id };
+  const tables = await latestTables(env);
+  // Un contenu d'avant D83 fait son passage en revenant, avec les tables d'aujourd'hui (D83, point 5).
+  const outil = adoptSpeedFactor({ ...cleanTool(entry.contenu), id: record.id }, tables.operations.operations.find((op) => op.operation === entry.contenu?.operation));
   const photo = bankImageCheck(outil, record.outil, await base.listImages(env.DB), { archived: 'permis' });
   if (photo.erreurs.length > 0) throw new HttpError(400, `${photo.erreurs.join(' ')} Rien n'a été rétabli.`, { erreurs: photo.erreurs.map((message) => ({ champ: 'image', message })) });
   if (sameContent(outil, record.outil)) throw new HttpError(400, 'Aucune différence avec le contenu actuel : rien à rétablir.');
-  const erreurs = bankToolErrors(outil, await latestTables(env));
+  const erreurs = bankToolErrors(outil, tables);
   const lignes = bankToolDiff(record.outil, outil);
   const quand = entry.remplace_le.slice(0, 16).replace('T', ' ');
   await replaceBankTool(env, record, { revision: body.revision, outil, action: 'retablissement', teacher, now, journal: 'editeur_banque_historique_retablissement',

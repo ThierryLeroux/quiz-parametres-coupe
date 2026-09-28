@@ -530,7 +530,9 @@ export function cascadeAction(c) {
 export function forcedBadge(tool, operation) {
   const state = speedFactorState(tool, operation);
   if (state.mode !== 'forced') return null;
-  return { label: 'facteur forcé', title: `× ${factorText(state.value)} au lieu de × ${factorText(state.table)} (${operation.operation}) — ${state.reason}` };
+  // Pendant la saisie, la valeur forcée peut manquer ou être illisible : le badge le dit, sans écrire « NaN ».
+  const value = Number.isFinite(state.value) && state.value > 0 ? `× ${factorText(state.value)}` : 'valeur à donner,';
+  return { label: 'facteur forcé', title: `${value} au lieu de × ${factorText(state.table)} (${operation.operation}) — ${state.reason}` };
 }
 
 // Le passage de la banque d'outils aux facteurs de vitesse (D83, point 5), tel que la confirmation de publication des

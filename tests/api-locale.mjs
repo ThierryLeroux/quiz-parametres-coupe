@@ -660,7 +660,7 @@ try {
   await etape('historique de la banque (D79) : un enregistrement garde le contenu remplacé ; 409 ; « Rétablir » le remet ; l’export porte l’historique ; deux titres identiques signalés, plus après un renommage', async () => {
     const page = await appel('GET', '/api/prof/editeur/banque/outil?id=alesoir', { cookie });
     // Un contenu déjà : celui d'avant le passage de la banque aux facteurs de vitesse, à la publication de A2026_r1 (D83).
-    assert.deepEqual([page.status, page.corps.historique.map((h) => [h.action, h.lignes])], [200, [['enregistrement', ["Facteur de vitesse : « hérité de l'opération » → « × 1/4 »"]]]], JSON.stringify(page.corps));
+    assert.deepEqual([page.status, page.corps.historique.map((h) => [h.action, h.lignes])], [200, [['enregistrement', []]]], JSON.stringify(page.corps));
     const revision = page.corps.outil.revision;
     const enregistre = await appel('POST', '/api/prof/editeur/banque/enregistrer', { corps: { id: 'alesoir', revision, outil: { ...page.corps.outil.outil, nom: 'Alésoir retouché' } }, cookie });
     assert.deepEqual([enregistre.status, enregistre.corps.lignes], [200, ['Nom : « Alésoir » → « Alésoir retouché »']], JSON.stringify(enregistre.corps));
