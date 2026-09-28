@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { checkButtonLabel, diameterLines, factorLines, feedFamily, foldDoneRows, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { sessionView } from '../worker/seance.js';
 import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationPictoOf, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
 import { data, lireFichier } from './aide.js';
 
@@ -230,6 +231,157 @@ test('progressRows : un point par réussite consécutive ; outil en cours, remis
   ]);
   assert.equal(progressRows(progression, labels, { currentId: 'sdtmr_2', resetId: 'mvlnr' })[1].state, 'reset');
   assert.equal(progressRows(progression, new Map())[2].label, 'SDTMR');
+});
+
+// --- Progression par opération (D81) --------------------------------------------------------------------------------------
+
+const rpm = await lireFichier('exercices/m10-tournage-vc-rpm.json');
+const complet = await lireFichier('exercices/test-complet.json');
+
+// La progression telle que le serveur l'envoie (sessionView) : les outils dans l'ordre de l'exercice, chacun avec son
+// opération, ses réussites de suite (plafonnées) et ses réussites exigées. Aucune question en cours.
+const progressionDe = (exercice, reussites = {}) => sessionView(
+  { prenom: 'Léa', nom: 'Tremblay', matricule: '1234567', debut: 0, reussite_le: null, question_courante: null, compteurs: { reussites, totalReussies: 0 } },
+  exercice,
+  data,
+).progression;
+
+// Une opération réduite à ce que la barre dessine.
+const barre = ({ operation, done, total, kept, gain, loss, complete }) => ({ operation, done, total, kept, gain, loss, complete });
+const groupes = (resultat) => [...resultat.shown, ...resultat.folded];
+const groupe = (resultat, operation) => groupes(resultat).find((entry) => entry.operation === operation);
+
+test('operationProgress (M10) : une opération par premier outil, ses outils dessous ; même une opération à un seul outil a son en-tête', () => {
+  const labels = toolLabels(m10, data);
+  const resultat = operationProgress(progressionDe(m10, { mvlnr: 2, sdtmr: 1 }), labels, { currentId: 'mvlnr' });
+  assert.deepEqual(resultat.folded, []); // sur ordinateur, rien n'est replié
+  assert.equal(resultat.summary, null);
+  assert.deepEqual(resultat.shown.map((entry) => [entry.operation, entry.rows.map((row) => row.id)]), [
+    ['Chariotage ébauche', ['mclnr']],
+    ['Chariotage finition', ['mvlnr']],
+    ['Tronçonnage', ['lame_a_tronconner']],
+    ['Filetage interne', ['barre_a_fileter', 'barre_a_fileter_2']],
+    ['Rainurage interne', ['barre_a_rainurer']],
+    ['Alésage à la barre', ['barre_a_aleser']],
+    ['Filetage externe', ['sdtmr', 'sdtmr_2']],
+  ]);
+  // Les rangs d'outils sont ceux d'avant (progressRows) : nom distinctif, points, état.
+  assert.deepEqual(groupe(resultat, 'Chariotage finition').rows, [{ id: 'mvlnr', label: 'MVLNR', dots: [true, true, false], state: 'current' }]);
+  assert.deepEqual(barre(groupe(resultat, 'Chariotage finition')), { operation: 'Chariotage finition', done: 2, total: 3, kept: 2, gain: 0, loss: 0, complete: false });
+  assert.equal(groupe(resultat, 'Chariotage finition').label, 'Chariotage finition : 2 réussites sur 3');
+  assert.equal(groupe(resultat, 'Chariotage ébauche').label, 'Chariotage ébauche : 0 réussite sur 1');
+});
+
+test('operationProgress : des outils de même nom gardent chacun leur rang et leur nom distinctif ; leur opération fait la somme', () => {
+  const resultat = operationProgress(progressionDe(m10, { sdtmr: 1 }), toolLabels(m10, data));
+  const filetage = groupe(resultat, 'Filetage externe');
+  assert.deepEqual(filetage.rows.map((row) => [row.label, row.dots, row.state]), [['SDTMR (impérial)', [true], 'done'], ['SDTMR (métrique)', [false], 'todo']]);
+  assert.deepEqual(barre(filetage), { operation: 'Filetage externe', done: 1, total: 2, kept: 1, gain: 0, loss: 0, complete: false });
+  assert.equal(filetage.label, 'Filetage externe : 1 réussite sur 2');
+  // Même nom et même unité : la plage de dimensions les distingue (test-complet, Perçage).
+  const percage = groupe(operationProgress(progressionDe(complet), toolLabels(complet, data)), 'Perçage');
+  assert.equal(new Set(percage.rows.map((row) => row.label)).size, percage.rows.length);
+  assert.equal(percage.rows.length, 7);
+});
+
+test('operationProgress : les réussites plafonnées du serveur ; « Perçage : 6 réussites sur 10 »', () => {
+  const resultat = operationProgress(progressionDe(rpm, { foret_fractionnaire: 2, foret_a_numero: 2, foret_a_lettre: 5, foret_metrique: 0 }), toolLabels(rpm, data));
+  const percage = groupe(resultat, 'Perçage');
+  assert.equal(percage.done, 6); // 2 + 2 + 2 (5, plafonné à 2) + 0 + 0
+  assert.equal(percage.total, 10);
+  assert.equal(percage.label, 'Perçage : 6 réussites sur 10');
+});
+
+test('operationProgress : premier affichage sans progression d’avant — tout est acquis, en bleu, ni gain ni perte', () => {
+  const resultat = operationProgress(progressionDe(rpm, { foret_a_pointer: 2, foret_udrill: 1 }), toolLabels(rpm, data), { currentId: 'foret_udrill' });
+  for (const entry of groupes(resultat)) {
+    assert.equal(entry.gain, 0, entry.operation);
+    assert.equal(entry.loss, 0, entry.operation);
+    assert.equal(entry.kept, entry.done, entry.operation);
+  }
+  assert.equal(groupe(resultat, 'Pointage').complete, true);
+});
+
+test('operationProgress : une réussite ajoute sa part en vert ; celle qui complète l’opération lui donne son contour doré, dès cette question', () => {
+  const labels = toolLabels(m10, data);
+  const avant = progressionDe(m10, { mclnr: 1, sdtmr: 1 });
+  const apres = progressionDe(m10, { mclnr: 1, sdtmr: 1, sdtmr_2: 1 });
+  const resultat = operationProgress(apres, labels, { previous: avant });
+  assert.deepEqual(barre(groupe(resultat, 'Filetage externe')), { operation: 'Filetage externe', done: 2, total: 2, kept: 1, gain: 1, loss: 0, complete: true });
+  // Une réussite qui ne complète rien : la part gagnée, sans contour.
+  const partielle = operationProgress(progressionDe(m10, { mvlnr: 2 }), labels, { previous: progressionDe(m10, { mvlnr: 1 }) });
+  assert.deepEqual(barre(groupe(partielle, 'Chariotage finition')), { operation: 'Chariotage finition', done: 2, total: 3, kept: 1, gain: 1, loss: 0, complete: false });
+  // Les autres opérations n'ont rien gagné ni perdu.
+  assert.equal(groupes(resultat).filter((entry) => entry.gain > 0 || entry.loss > 0).length, 1);
+  // Sur téléphone, l'opération qui vient de se compléter reste visible ; une opération terminée avant se replie.
+  const telephone = operationProgress(apres, labels, { previous: avant, phone: true });
+  assert.ok(telephone.shown.some((entry) => entry.operation === 'Filetage externe'));
+  assert.deepEqual(telephone.folded.map((entry) => entry.operation), ['Chariotage ébauche']);
+  assert.equal(telephone.summary, '1 opération terminée');
+  // À la question suivante (sans progression d'avant), la barre redevient simple, le contour reste.
+  assert.deepEqual(barre(groupe(operationProgress(apres, labels), 'Filetage externe')), { operation: 'Filetage externe', done: 2, total: 2, kept: 2, gain: 0, loss: 0, complete: true });
+});
+
+test('operationProgress : un échec qui vide une opération — la part perdue en rouge, l’outil « remis à zéro »', () => {
+  const labels = toolLabels(m10, data);
+  const resultat = operationProgress(progressionDe(m10), labels, { previous: progressionDe(m10, { mvlnr: 2 }), resetId: 'mvlnr' });
+  const finition = groupe(resultat, 'Chariotage finition');
+  assert.deepEqual(barre(finition), { operation: 'Chariotage finition', done: 0, total: 3, kept: 0, gain: 0, loss: 2, complete: false });
+  assert.equal(finition.rows[0].state, 'reset');
+  assert.equal(finition.label, 'Chariotage finition : 0 réussite sur 3');
+  // Un échec dans une opération à plusieurs outils : ce qui reste en bleu, ce qui est perdu en rouge.
+  const percage = groupe(operationProgress(
+    progressionDe(rpm, { foret_fractionnaire: 2 }),
+    toolLabels(rpm, data),
+    { previous: progressionDe(rpm, { foret_fractionnaire: 2, foret_a_numero: 1 }), resetId: 'foret_a_numero' },
+  ), 'Perçage');
+  assert.deepEqual(barre(percage), { operation: 'Perçage', done: 2, total: 10, kept: 2, gain: 0, loss: 1, complete: false });
+  assert.deepEqual(percage.rows.map((row) => row.state), ['done', 'reset', 'todo', 'todo', 'todo']);
+});
+
+test('operationProgress : un échec sur un outil déjà à zéro — rien de perdu, pas de rouge, mais « remis à zéro »', () => {
+  const avant = progressionDe(m10, { mvlnr: 1 });
+  const resultat = operationProgress(progressionDe(m10, { mvlnr: 1 }), toolLabels(m10, data), { previous: avant, resetId: 'lame_a_tronconner' });
+  const tronconnage = groupe(resultat, 'Tronçonnage');
+  assert.deepEqual(barre(tronconnage), { operation: 'Tronçonnage', done: 0, total: 3, kept: 0, gain: 0, loss: 0, complete: false });
+  assert.equal(tronconnage.rows[0].state, 'reset');
+  assert.equal(groupes(resultat).filter((entry) => entry.gain > 0 || entry.loss > 0).length, 0);
+});
+
+test('operationProgress : opérations intercalées — dans l’ordre de leur premier outil, leurs outils dans l’ordre de l’exercice', () => {
+  const progression = { outils: [
+    { id: 'a', nom: 'A', operation: 'Perçage', reussites: 1, requises: 1 },
+    { id: 'b', nom: 'B', operation: 'Chanfreinage', reussites: 0, requises: 2 },
+    { id: 'c', nom: 'C', operation: 'Perçage', reussites: 0, requises: 1 },
+    { id: 'd', nom: 'D', operation: 'Chanfreinage', reussites: 2, requises: 2 },
+  ] };
+  const resultat = operationProgress(progression, new Map());
+  assert.deepEqual(resultat.shown.map((entry) => [entry.operation, entry.rows.map((row) => row.id), entry.done, entry.total]), [
+    ['Perçage', ['a', 'c'], 1, 2],
+    ['Chanfreinage', ['b', 'd'], 2, 4],
+  ]);
+  // test-complet : 29 outils, 16 opérations ; le Chanfreinage revient trois fois dans l'exercice.
+  const complete = operationProgress(progressionDe(complet), toolLabels(complet, data));
+  const premiers = [...new Set(complet.outils.map((entry) => data.outils.find((tool) => tool.id === entry.id).operation))];
+  assert.deepEqual(complete.shown.map((entry) => entry.operation), premiers);
+  assert.equal(premiers.length, 16);
+  assert.deepEqual(groupe(complete, 'Chanfreinage').rows.map((row) => row.id), ['nine9_90_degres', 'fraise_82_degres', 'outil_a_chambrer']);
+  assert.equal(groupes(complete).flatMap((entry) => entry.rows).length, 29);
+});
+
+test('operationProgress sur téléphone : les opérations terminées se replient, dans l’ordre ; une opération non terminée garde tous ses outils', () => {
+  const labels = toolLabels(m10, data);
+  const progression = progressionDe(m10, { mclnr: 1, barre_a_aleser: 1, sdtmr: 1, barre_a_fileter: 1, barre_a_fileter_2: 1 });
+  const resultat = operationProgress(progression, labels, { currentId: 'sdtmr_2', phone: true });
+  assert.deepEqual(resultat.folded.map((entry) => entry.operation), ['Chariotage ébauche', 'Filetage interne', 'Alésage à la barre']);
+  assert.equal(resultat.summary, '3 opérations terminées');
+  assert.deepEqual(resultat.shown.map((entry) => entry.operation), ['Chariotage finition', 'Tronçonnage', 'Rainurage interne', 'Filetage externe']);
+  // L'opération de l'outil en cours reste, avec son outil terminé (SDTMR impérial) : on ne replie que des opérations.
+  assert.deepEqual(groupe(resultat, 'Filetage externe').rows.map((row) => row.state), ['done', 'current']);
+  // Sur ordinateur, rien n'est replié.
+  assert.deepEqual(operationProgress(progression, labels, { currentId: 'sdtmr_2' }).folded, []);
+  // Rien de terminé : aucun résumé.
+  assert.equal(operationProgress(progressionDe(m10), labels, { phone: true }).summary, null);
 });
 
 test('toolStreak : « Sur cet outil : n réussites de suite sur m »', () => {

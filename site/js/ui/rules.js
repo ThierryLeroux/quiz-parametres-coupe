@@ -206,6 +206,52 @@ export function foldDoneRows(rows) {
   };
 }
 
+// --- Progression par opération (UI §3.3, D81 ; VBA modAffGraph) -------------------------------------------------
+// Les outils de la progression regroupés par opération : les opérations dans l'ordre de leur premier outil dans
+// l'exercice, les outils dans l'ordre de l'exercice (celui du serveur). Chaque opération :
+//   { operation, done, total, kept, gain, loss, complete, label, rows }
+//   done / total : la somme des réussites de suite de ses outils (plafonnées par le serveur) / la somme de leurs
+//                  réussites exigées — « n / m », et la barre, de 0 à total ;
+//   kept, gain, loss : les trois parts de la barre, en réussites — acquis (bleu), gagné par la question (vert),
+//                  perdu par la question (rouge, au-delà de ce qui reste). Sans progression d'avant (`previous` :
+//                  premier affichage, question suivante), tout est acquis ;
+//   complete : toutes ses réussites acquises — le contour doré, dès la question qui la complète ;
+//   label : « Perçage : 6 réussites sur 10 », l'aria-label de la barre ;
+//   rows : ses outils (progressRows).
+// Sur téléphone (`phone`), les opérations terminées sont repliées (`folded`, dans l'ordre, sous `summary`), sauf
+// celle de l'outil en cours et celle que la question vient de changer : une perte, un « remis à zéro », mais aussi un
+// gain qui la complète (l'étudiant doit voir le contour doré). Une opération non terminée garde tous ses outils.
+export function operationProgress(progression, labels, { previous = null, currentId = null, resetId = null, phone = false } = {}) {
+  const rows = progressRows(progression, labels, { currentId, resetId });
+  const before = new Map((previous?.outils ?? []).map((outil) => [outil.id, outil.reussites]));
+  const groups = [];
+  progression.outils.forEach((outil, index) => {
+    let group = groups.find((entry) => entry.operation === outil.operation);
+    if (!group) {
+      group = { operation: outil.operation, done: 0, total: 0, kept: 0, gain: 0, loss: 0, rows: [] };
+      groups.push(group);
+    }
+    // Une question ne touche qu'un outil : il gagne une réussite, ou retombe à zéro.
+    const was = before.get(outil.id) ?? outil.reussites;
+    group.done += outil.reussites;
+    group.total += outil.requises;
+    group.kept += Math.min(was, outil.reussites);
+    group.gain += Math.max(0, outil.reussites - was);
+    group.loss += Math.max(0, was - outil.reussites);
+    group.rows.push(rows[index]);
+  });
+  const shown = [];
+  const folded = [];
+  for (const group of groups) {
+    group.complete = group.done === group.total;
+    group.label = `${group.operation} : ${group.done} réussite${group.done > 1 ? 's' : ''} sur ${group.total}`;
+    const changed = group.gain > 0 || group.loss > 0 || group.rows.some((row) => row.state === 'current' || row.state === 'reset');
+    (phone && group.complete && !changed ? folded : shown).push(group);
+  }
+  const summary = folded.length === 0 ? null : `${folded.length} opération${folded.length > 1 ? 's' : ''} terminée${folded.length > 1 ? 's' : ''}`;
+  return { shown, folded, summary };
+}
+
 // Rappel sous le formulaire : « Sur cet outil : 2 réussites de suite sur 3 ».
 export function toolStreak(progression, toolId) {
   const outil = progression.outils.find((entry) => entry.id === toolId);
