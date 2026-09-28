@@ -94,6 +94,58 @@ export function previewQuestions(exercise, data, random, count = 10) {
   });
 }
 
+// --- La cascade d'une publication de tables (D75, point 6 ; D77) --------------------------------------------------
+// Publier des tables propose, dans la même confirmation, tous les exercices « sur la version remplacée » — la version
+// dont le brouillon des tables est parti : ceux dont la DERNIÈRE VERSION PUBLIÉE est sur elle, et ceux dont le
+// BROUILLON y est (archivés et jamais publiés compris). Pour chacun, ce que la cascade fera :
+//   - publication : sa dernière version publiée est sur la version remplacée → la version suivante sera son DERNIER
+//     CONTENU PUBLIÉ avec les nouvelles tables, jamais son brouillon ; sans titre vérifié (D74 : la cascade n'en change aucun) ;
+//   - brouillon : son brouillon est sur la version remplacée → il passe aux nouvelles tables, ses modifications gardées ;
+//   - en_erreur : le contenu à republier a des erreurs avec les nouvelles tables → nommé, et laissé tel quel (brouillon compris).
+// Retourne [{ id, titre, archive_le, publication: { depuis, numero } | null, brouillon: { modifie, erreurs } | null,
+// en_erreur, erreurs, lignes }] dans l'ordre des rangs — lignes : ce que ça change pour lui (exerciseTablesImpact de son
+// contenu publié, ou de son brouillon s'il n'en a pas) ; brouillon.erreurs : les erreurs qui apparaîtraient dans son brouillon.
+//   rows : base.listExercises (id, brouillon, tables_id, archive_le, contenu_publie, derniere_version, tables_publiees)
+//   replacedId, replaced, next : l'identifiant et les tables de la version remplacée, et les nouvelles tables (complétées)
+//   draftErrorsOf : draftErrors (exercice.js) ; impactOf : exerciseTablesImpact (editeur-data.js) — injectées
+export function cascadeCandidates(rows, { replacedId, replaced, next }, { draftErrorsOf, impactOf }) {
+  if (replacedId === null || replacedId === undefined || replaced === null) return [];
+  return rows.filter((row) => row.tables_publiees === replacedId || row.tables_id === replacedId).map((row) => {
+    const published = row.tables_publiees === replacedId ? row.contenu_publie : null;
+    const erreurs = published === null ? [] : draftErrorsOf(published, next).map((e) => `${e.champ} : ${e.message}`);
+    const moves = row.tables_id === replacedId;
+    const draftImpact = moves ? impactOf(row.brouillon, replaced, next, draftErrorsOf) : null;
+    return {
+      id: row.id,
+      titre: (row.contenu_publie ?? row.brouillon).titre,
+      archive_le: row.archive_le,
+      publication: published === null ? null : { depuis: row.derniere_version, numero: row.derniere_version + 1 },
+      brouillon: moves ? { modifie: row.contenu_publie === null || !sameContent(row.brouillon, row.contenu_publie), erreurs: draftImpact.erreurs } : null,
+      en_erreur: erreurs.length > 0,
+      erreurs,
+      lignes: (published === null ? draftImpact : impactOf(published, replaced, next, draftErrorsOf)).lignes,
+    };
+  });
+}
+
+// Ce que la cascade fait des exercices cochés (D77) : { versions: [{ exercice_id, numero, contenu }], brouillons: [{ id }],
+// publies, laisses, ignores }. Un exercice coché qui n'est plus sur la version remplacée (la liste a changé depuis
+// l'ouverture) est ignoré ; un exercice en erreur est laissé tel quel, coché ou non (laisses les nomme tous) ; un
+// exercice décoché n'est pas touché, brouillon compris.
+//   candidates : cascadeCandidates ; rows : les mêmes lignes (le contenu publié) ; checked : les identifiants cochés
+export function cascadePlan(candidates, rows, checked) {
+  const byId = new Map(candidates.map((c) => [c.id, c]));
+  const plan = { versions: [], brouillons: [], laisses: candidates.filter((c) => c.en_erreur).map(({ id, titre, erreurs }) => ({ id, titre, erreurs })), ignores: [] };
+  for (const id of [...new Set(Array.isArray(checked) ? checked : [])]) {
+    const c = byId.get(id);
+    if (c === undefined) { plan.ignores.push(id); continue; }
+    if (c.en_erreur) continue;
+    if (c.publication !== null) plan.versions.push({ exercice_id: id, numero: c.publication.numero, contenu: rows.find((row) => row.id === id).contenu_publie });
+    if (c.brouillon !== null) plan.brouillons.push({ id });
+  }
+  return plan;
+}
+
 // --- Import par fusion (D49) ----------------------------------------------------------------------------------
 // Un export est relu et comparé à ce que la base contient. Règle : rien n'est jamais supprimé, et
 // une version publiée est immuable. Retourne { erreurs, plan, resume } ; un import n'est appliqué

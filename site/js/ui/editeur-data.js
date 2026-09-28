@@ -517,6 +517,7 @@ export function imageUsageLabel(utilisations) {
   if (utilisations.brouillons.length > 0) parts.push(plural(utilisations.brouillons.length, 'brouillon', 'brouillons'));
   if (utilisations.banque.length > 0) parts.push(plural(utilisations.banque.length, 'outil de la banque', 'outils de la banque'));
   if (utilisations.tables.length > 0) parts.push(plural(utilisations.tables.length, 'version des tables', 'versions des tables'));
+  if ((utilisations.brouillon_tables ?? []).length > 0) parts.push('brouillon des tables'); // D77
   // La présentation en direct (D76) : actuelle, ou dans l'historique (« Rétablir » la remettrait).
   const presentation = utilisations.presentation ?? [];
   if (presentation.includes('actuelle')) parts.push('présentation des tables');

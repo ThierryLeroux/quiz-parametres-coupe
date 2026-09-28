@@ -139,7 +139,9 @@ export const imageView = ({ id, nom, usage, type, taille, empreinte, creee_le, a
 //              version d'avant nomme les images de la semence)
 //   presentation : { actuelle (le contenu appliqué, ou null), historique: [{ id, contenu }] } — la présentation en
 //              direct (D76) : une image qu'elle nomme, actuelle ou dans l'historique, est utilisée (« Rétablir » la remettrait)
-export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [], presentation = { actuelle: null, historique: [] } }) {
+//   brouillonTables : le contenu du brouillon des tables ({ materiaux, operations }), ou null — une image qu'il nomme
+//              (celle d'une classe ou d'une opération nouvelle, par exemple) est utilisée (D77)
+export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [], presentation = { actuelle: null, historique: [] }, brouillonTables = null }) {
   const inTools = (tools) => (Array.isArray(tools) ? tools : []).some((tool) => tool?.image === id);
   const pictoOf = (op) => op?.pictogramme ?? operationSlug(String(op?.operation ?? ''));
   const inTables = (t) => (Array.isArray(t.operations?.operations) ? t.operations.operations : []).some((op) => pictoOf(op) === id)
@@ -149,6 +151,7 @@ export function imageUsages(id, { versions = [], exercices = [], banque = [], ta
     brouillons: exercices.filter((e) => inTools(e.brouillon?.outils)).map((e) => e.id),
     banque: banque.filter((b) => b.outil?.image === id).map((b) => b.id),
     tables: tables.filter(inTables).map((t) => t.id),
+    brouillon_tables: brouillonTables !== null && inTables(brouillonTables) ? ['brouillon'] : [],
     presentation: [
       ...(imagesOfPresentation(presentation.actuelle).includes(id) ? ['actuelle'] : []),
       ...(presentation.historique ?? []).filter((h) => imagesOfPresentation(h.contenu).includes(id)).map((h) => `historique n° ${h.id}`),
@@ -165,6 +168,7 @@ export function usagesText(usages) {
   if (usages.brouillons.length > 0) parts.push(`brouillon${usages.brouillons.length > 1 ? 's' : ''} ${usages.brouillons.join(', ')}`);
   if (usages.banque.length > 0) parts.push(`banque ${usages.banque.join(', ')}`);
   if (usages.tables.length > 0) parts.push(`tables ${usages.tables.join(', ')}`);
+  if ((usages.brouillon_tables ?? []).length > 0) parts.push('brouillon des tables');
   if ((usages.presentation ?? []).length > 0) parts.push(`présentation des tables (${usages.presentation.join(', ')})`);
   return parts.join(' · ');
 }

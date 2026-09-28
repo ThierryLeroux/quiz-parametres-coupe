@@ -466,7 +466,7 @@ try {
     assert.deepEqual([doublon.corps.existante, doublon.corps.image.id], [true, imageNeuve.id]);
     const liste = await appel('GET', '/api/prof/editeur/images', { cookie });
     assert.equal(liste.corps.images.length, 55);
-    assert.deepEqual(liste.corps.images.find((i) => i.id === imageNeuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [], presentation: [] });
+    assert.deepEqual(liste.corps.images.find((i) => i.id === imageNeuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [], brouillon_tables: [], presentation: [] });
   });
 
   await etape('images de classe ISO (D64) : la semence de 0009 est servie par /images/<id> ; la version publique des tables et l’exercice portent l’image de chaleur de chaque classe ; les six images sont utilisées par A2026_r0', async () => {

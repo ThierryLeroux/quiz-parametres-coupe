@@ -422,22 +422,63 @@ export async function saveTablesDraft(db, revision, contenu, now, entry) {
 
 // Publie le brouillon des tables comme version `id` (immuable), seulement si sa révision est encore
 // celle qu'on a lue et si l'identifiant est libre (UNIQUE) ; le brouillon repart de cette version
-// (base_id), et la ligne du journal va dans le même lot. Retourne 'ok', 'revision' ou 'id'.
+// (base_id), et la ligne du journal va dans le même lot. Retourne 'ok', 'revision', 'id' ou 'exercice'.
+// La cascade (D77) va dans le MÊME lot : tout passe, ou rien — la version des tables, et, pour chaque exercice coché,
+// sa version suivante (son dernier contenu publié avec ces tables) et le passage de son brouillon.
 //   contenu : { materiaux, operations } avec leurs révisions posées à `id`
-export async function publishTables(db, { id, revision, contenu, now }, entry) {
+//   cascade : { versions: [{ exercice_id, numero, contenu, entry }], brouillons: [{ id, depuis, entry }] }
+//             — un brouillon ne passe que s'il est encore sur la version remplacée (`depuis`) : sa ligne du journal aussi
+//   baseBefore : la version dont le brouillon partait ; si le lot échoue, le brouillon y est rattaché de nouveau
+export async function publishTables(db, { id, revision, contenu, now, cascade = { versions: [], brouillons: [] }, baseBefore = null }, entry) {
   const { meta } = await db.prepare('UPDATE brouillon_tables SET contenu = ?, revision = revision + 1, modifie_le = ?, base_id = ? WHERE id = 1 AND revision = ?').bind(JSON.stringify(contenu), now, null, revision).run();
   if (meta.changes !== 1) return 'revision';
+  const statements = [
+    db.prepare('INSERT INTO tables_reference (id, materiaux, operations, creee_le) VALUES (?, ?, ?, ?)').bind(id, JSON.stringify(contenu.materiaux), JSON.stringify(contenu.operations), now),
+    db.prepare('UPDATE brouillon_tables SET base_id = ? WHERE id = 1').bind(id),
+    teacherLogStatement(db, entry),
+  ];
+  for (const v of cascade.versions) {
+    statements.push(
+      db.prepare('INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le) VALUES (?, ?, ?, ?, ?)').bind(v.exercice_id, v.numero, JSON.stringify(v.contenu), id, now),
+      db.prepare('UPDATE exercices SET publie_le = ? WHERE id = ?').bind(now, v.exercice_id),
+      teacherLogStatement(db, v.entry),
+    );
+  }
+  for (const b of cascade.brouillons) {
+    statements.push(
+      db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) SELECT ?, ?, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM exercices WHERE id = ? AND tables_id = ?)')
+        .bind(b.entry.horodatage, b.entry.enseignant, b.entry.action, b.entry.details ?? null, b.id, b.depuis),
+      db.prepare('UPDATE exercices SET tables_id = ?, revision = revision + 1, brouillon_modifie_le = ? WHERE id = ? AND tables_id = ?').bind(id, now, b.id, b.depuis),
+    );
+  }
   try {
-    await db.batch([
-      db.prepare('INSERT INTO tables_reference (id, materiaux, operations, creee_le) VALUES (?, ?, ?, ?)').bind(id, JSON.stringify(contenu.materiaux), JSON.stringify(contenu.operations), now),
-      db.prepare('UPDATE brouillon_tables SET base_id = ? WHERE id = 1').bind(id),
-      teacherLogStatement(db, entry),
-    ]);
+    await db.batch(statements);
     return 'ok';
   } catch (error) {
-    if (/UNIQUE/i.test(String(error?.message))) return 'id';
+    await db.prepare('UPDATE brouillon_tables SET base_id = ? WHERE id = 1').bind(baseBefore).run(); // rien n'a été publié
+    const message = String(error?.message);
+    if (/UNIQUE/i.test(message)) return /versions_exercice/.test(message) ? 'exercice' : 'id';
     throw error;
   }
+}
+
+// Remplace le brouillon des tables (« Reprendre cette version », « Annuler les modifications », D77), seulement si sa
+// révision est encore celle qu'on a lue (D48) : son contenu, et la version dont il part désormais (la dernière publiée) ;
+// journalisé. Retourne false sinon : rien n'est écrit.
+export async function replaceTablesDraft(db, revision, contenu, baseId, now, entry) {
+  const { meta } = await db.prepare('UPDATE brouillon_tables SET contenu = ?, revision = revision + 1, modifie_le = ?, base_id = ? WHERE id = 1 AND revision = ?').bind(JSON.stringify(contenu), now, baseId, revision).run();
+  if (meta.changes !== 1) return false;
+  await addTeacherLog(db, entry);
+  return true;
+}
+
+// Remplace le brouillon d'un exercice et sa version de tables (« Reprendre cette version », « Annuler les
+// modifications », D77), seulement si sa révision est encore celle qu'on a lue (D48) ; journalisé. Retourne false sinon.
+export async function replaceDraft(db, id, revision, brouillon, tablesId, now, entry) {
+  const { meta } = await db.prepare('UPDATE exercices SET brouillon = ?, tables_id = ?, revision = revision + 1, brouillon_modifie_le = ? WHERE id = ? AND revision = ?').bind(JSON.stringify(brouillon), tablesId, now, id, revision).run();
+  if (meta.changes !== 1) return false;
+  await addTeacherLog(db, entry);
+  return true;
 }
 
 // Le brouillon d'un exercice change de version de tables (D62), seulement si sa révision est encore celle lue ; journalisé.
@@ -480,6 +521,7 @@ export async function listExercises(db) {
     SELECT e.id, e.brouillon, e.revision, e.brouillon_modifie_le, e.publie_le, e.archive_le, e.cree_le, e.rang, e.tables_id,
            (SELECT MAX(numero) FROM versions_exercice v WHERE v.exercice_id = e.id) AS derniere_version,
            (SELECT contenu FROM versions_exercice v WHERE v.exercice_id = e.id ORDER BY numero DESC LIMIT 1) AS contenu_publie,
+           (SELECT tables_id FROM versions_exercice v WHERE v.exercice_id = e.id ORDER BY numero DESC LIMIT 1) AS tables_publiees,
            (SELECT COUNT(*) FROM seances s WHERE s.exercice_id = e.id) AS seances
     FROM exercices e ORDER BY e.rang, e.id`).all();
   return results.map((row) => ({ ...row, brouillon: JSON.parse(row.brouillon), contenu_publie: row.contenu_publie === null ? null : JSON.parse(row.contenu_publie) }));

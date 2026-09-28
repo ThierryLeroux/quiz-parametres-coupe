@@ -125,7 +125,7 @@ test('publier les tables (D61) : révision saisie, suggérée et unique ; refus�
   assert.equal((await serveur.editeur('POST', 'tables/publier', { revision: 4, id: 'A2026_r2' })).status, 400);
   const prise = await publierTables(serveur, carbureDouble(apres.brouillon.contenu), 'A2026_r0');
   assert.deepEqual([prise.status, prise.corps.erreur], [409, 'La révision « A2026_r0 » existe déjà : une version publiée ne se remplace pas.']);
-  assert.deepEqual(serveur.journalEnseignant().filter((l) => l.action === 'editeur_tables_publication').map((l) => l.details), ['tables A2026_r1 · depuis A2026_r0']);
+  assert.deepEqual(serveur.journalEnseignant().filter((l) => l.action === 'editeur_tables_publication').map((l) => l.details), ['tables A2026_r1 · depuis A2026_r0 · cascade sur 2 exercice(s) proposé(s) : 0 version(s) publiée(s), 0 brouillon(s) passé(s), 0 en erreur laissé(s) tel(s) quel(s)']);
   // Publique : GET /api/tables?version=… rend la version complétée ; inconnue → 404.
   const publique = await serveur.appel('GET', '/api/tables?version=A2026_r0');
   assert.deepEqual([publique.status, publique.corps.tables.id, publique.corps.tables.materiaux.classes_iso[0].code, publique.corps.tables.materiaux.materiaux_outil.length], [200, 'A2026_r0', 'P', 3]);
@@ -372,7 +372,7 @@ test('images des classes ISO (D64) : le brouillon et les versions portent les im
   // présentation de départ, gardée dans l'historique, la nomme aussi ; supprimer reste refusé.
   const images = await serveur.editeur('GET', 'images?usage=classe');
   assert.equal(images.corps.images.length, 6);
-  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-m-chaleur').utilisations, { versions: [], brouillons: [], banque: [], tables: ['A2026_r0', 'A2026_r1'], presentation: ['historique n° 1'] });
+  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-m-chaleur').utilisations, { versions: [], brouillons: [], banque: [], tables: ['A2026_r0', 'A2026_r1'], brouillon_tables: [], presentation: ['historique n° 1'] });
   assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-p-chaleur').utilisations.tables, ['A2026_r0', 'A2026_r1', 'A2026_r2']);
   assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-p-chaleur').utilisations.presentation, ['actuelle', 'historique n° 1']);
   assert.equal((await serveur.editeur('POST', 'images/supprimer', { id: 'copeaux-m-chaleur' })).status, 409);

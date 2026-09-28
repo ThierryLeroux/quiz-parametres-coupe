@@ -22,8 +22,9 @@ import * as base from './base.js';
 import { assembleDraft, loadLatest, loadPresentation, loadVersion, tablesOf } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
-  EXPORT_FORMAT, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
+  EXPORT_FORMAT, cascadeCandidates, cascadePlan, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
 } from './editeur.js';
+import { exerciseTablesImpact } from '../site/js/ui/editeur-data.js';
 import { isTablesId, nextRevision, tablesContent } from '../site/js/tables.js';
 import {
   applyPresentation, archivedWarnings, currentPresentation, normalizePresentation, pendingDraftPresentation, presentData, presentationDiff, presentationErrors,
@@ -950,10 +951,113 @@ async function editeurTablesPublier(request, env, { now }) {
   const previous = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
   if (previous !== null && sameContent(tablesContent(contenu), tablesContent(tablesOf(previous)))) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${previous.id}.`);
   if ((await base.findTables(env.DB, body.id)) !== null) throw new HttpError(409, `La révision « ${body.id} » existe déjà : une version publiée ne se remplace pas.`);
-  const outcome = await base.publishTables(env.DB, { id: body.id, revision: draft.revision, contenu, now: now.toISOString() }, logEntry(teacher, now, 'editeur_tables_publication', `tables ${body.id}${draft.base_id === null ? '' : ` · depuis ${draft.base_id}`}`));
+  // La cascade (D77) : les exercices cochés parmi ceux sur la version remplacée, recalculés ici (jamais crus du navigateur).
+  const rows = await base.listExercises(env.DB);
+  const candidates = cascadeCandidates(rows, { replacedId: draft.base_id, replaced: previous === null ? null : tablesOf(previous), next: contenu }, { draftErrorsOf: draftErrors, impactOf: exerciseTablesImpact });
+  const plan = cascadePlan(candidates, rows, body.cascade);
+  const mention = `cascade de la publication des tables ${body.id}`;
+  const cascade = {
+    versions: plan.versions.map((v) => ({ ...v, entry: logEntry(teacher, now, 'editeur_publication', `${v.exercice_id} · version ${v.numero} · tables ${body.id} · ${mention}`) })),
+    brouillons: plan.brouillons.map((b) => ({ id: b.id, depuis: draft.base_id, entry: logEntry(teacher, now, 'editeur_tables_exercice', `${b.id} · tables ${draft.base_id} → ${body.id} · ${mention}`) })),
+  };
+  const summary = candidates.length === 0 ? '' : ` · cascade sur ${candidates.length} exercice(s) proposé(s) : ${plan.versions.length} version(s) publiée(s), ${plan.brouillons.length} brouillon(s) passé(s), ${plan.laisses.length} en erreur laissé(s) tel(s) quel(s)`;
+  const outcome = await base.publishTables(env.DB, { id: body.id, revision: draft.revision, contenu, now: now.toISOString(), cascade, baseBefore: draft.base_id },
+    logEntry(teacher, now, 'editeur_tables_publication', `tables ${body.id}${draft.base_id === null ? '' : ` · depuis ${draft.base_id}`}${summary}`));
   if (outcome === 'revision') throw new HttpError(409, CONFLICT);
   if (outcome === 'id') throw new HttpError(409, `La révision « ${body.id} » existe déjà : une version publiée ne se remplace pas.`);
-  return json({ publie: true, id: body.id, publiee_le: now.toISOString() });
+  if (outcome === 'exercice') throw new HttpError(409, "Un exercice de la cascade vient d'être publié ailleurs : rien n'a été publié. Recharge la page, puis recommence.");
+  return json({
+    publie: true,
+    id: body.id,
+    publiee_le: now.toISOString(),
+    cascade: { publies: plan.versions.map((v) => ({ id: v.exercice_id, numero: v.numero })), brouillons: plan.brouillons.map((b) => b.id), laisses: plan.laisses, ignores: plan.ignores },
+  });
+}
+
+// GET /api/prof/editeur/tables/cascade — ce que la publication du brouillon des tables (tel qu'enregistré) proposerait en
+// cascade (D77) : la version remplacée (celle dont le brouillon est parti) et, pour chaque exercice sur elle, ce que la
+// cascade ferait et ce que ça change pour lui (cascadeCandidates). Rien n'est écrit.
+async function editeurTablesCascade(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const draft = await base.findTablesDraft(env.DB);
+  const next = applyPresentation(tablesOf(draft.contenu), (await loadPresentation(env.DB)).contenu);
+  const previous = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
+  const candidats = cascadeCandidates(await base.listExercises(env.DB), { replacedId: draft.base_id, replaced: previous === null ? null : tablesOf(previous), next }, { draftErrorsOf: draftErrors, impactOf: exerciseTablesImpact });
+  return json({ remplacee: draft.base_id, candidats });
+}
+
+// --- Reprendre une version, annuler les modifications (D75, point 6 ; D77) ---------------------------------------------
+
+// Le brouillon des tables qui reprend les VALEURS d'une version : la présentation n'est pas reprise — pour une clé que la
+// présentation en vigueur connaît, le brouillon prend la sienne (applyPresentation), si bien que l'encadré des retouches
+// en attente ne s'allume pas à tort ; elle se rétablit par son propre historique.
+async function tablesDraftFrom(env, row) {
+  const presentation = (await loadPresentation(env.DB)).contenu;
+  const { materiaux, operations } = applyPresentation(tablesOf(row), presentation);
+  return { materiaux, operations };
+}
+
+// POST /api/prof/editeur/tables/reprendre — { revision, id } : les valeurs de la version `id` entrent dans le brouillon,
+// qui repart de la dernière version publiée : le résumé des différences, puis la publication (avec la cascade), la
+// comparent à elle. Contrôle optimiste ; journalisé.
+async function editeurTablesReprendre(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const draft = await base.findTablesDraft(env.DB);
+  if (body.revision !== draft.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: draft.revision });
+  const row = isTablesId(body.id) ? await base.findTables(env.DB, body.id) : null;
+  if (row === null) throw new HttpError(404, "Cette version des tables de référence n'existe pas.");
+  const latest = await base.findLatestTables(env.DB);
+  const contenu = await tablesDraftFrom(env, row);
+  const saved = await base.replaceTablesDraft(env.DB, draft.revision, contenu, latest.id, now.toISOString(), logEntry(teacher, now, 'editeur_tables_reprise', `valeurs de ${row.id} reprises dans le brouillon · repart de ${latest.id}`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findTablesDraft(env.DB)).revision });
+  return json({ repris: true, id: row.id, revision: draft.revision + 1, base_id: latest.id, modifie: !sameContent(tablesContent(tablesOf(contenu)), tablesContent(tablesOf(latest))) });
+}
+
+// POST /api/prof/editeur/tables/annuler — { revision } : le brouillon des tables revient à la dernière version publiée ;
+// 400 s'il en a déjà les valeurs. Contrôle optimiste ; journalisé.
+async function editeurTablesAnnuler(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const draft = await base.findTablesDraft(env.DB);
+  if (body.revision !== draft.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: draft.revision });
+  const latest = await base.findLatestTables(env.DB);
+  if (sameContent(tablesContent(tablesOf(draft.contenu)), tablesContent(tablesOf(latest)))) throw new HttpError(400, `Le brouillon des tables a déjà les valeurs de la dernière version publiée (${latest.id}) : rien à annuler.`);
+  const saved = await base.replaceTablesDraft(env.DB, draft.revision, await tablesDraftFrom(env, latest), latest.id, now.toISOString(), logEntry(teacher, now, 'editeur_tables_annulation', `brouillon ramené à ${latest.id}`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findTablesDraft(env.DB)).revision });
+  return json({ annule: true, id: latest.id, revision: draft.revision + 1 });
+}
+
+// POST /api/prof/editeur/exercice/reprendre — { id, revision, numero } : le contenu de la version `numero` entre dans le
+// brouillon, qui GARDE sa version de tables (reprendre un contenu ne ramène pas d'anciennes tables en silence). Puis
+// publication normale, avec le résumé. Contrôle optimiste ; journalisé ; les erreurs du brouillon avec ses tables sont rendues.
+async function editeurReprendre(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
+  const version = Number.isInteger(body.numero) ? await base.findVersion(env.DB, record.id, body.numero) : null;
+  if (version === null) throw new HttpError(404, "Cette version de l'exercice n'existe pas.");
+  const tables = await exerciseTables(env, record);
+  const brouillon = cleanDraft(structuredClone(version.contenu));
+  const saved = await base.replaceDraft(env.DB, record.id, record.revision, brouillon, tables.id, now.toISOString(), logEntry(teacher, now, 'editeur_reprise', `${record.id} · version ${version.numero} reprise dans le brouillon · tables ${tables.id} gardées`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
+  return json({ repris: true, numero: version.numero, revision: record.revision + 1, tables_id: tables.id, erreurs: draftErrors(brouillon, tables) });
+}
+
+// POST /api/prof/editeur/exercice/annuler — { id, revision } : le brouillon revient à la dernière version publiée, son
+// contenu ET sa version de tables ; 400 jamais publié ou déjà à jour. Contrôle optimiste ; journalisé.
+async function editeurAnnuler(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
+  const latest = await base.findLatestVersion(env.DB, record.id);
+  if (latest === null) throw new HttpError(400, "Cet exercice n'a jamais été publié : il n'y a pas de version à laquelle revenir.");
+  if (sameContent(record.brouillon, latest.contenu) && record.tables_id === latest.tables_id) throw new HttpError(400, `Le brouillon est déjà celui de la version ${latest.numero} : rien à annuler.`);
+  const saved = await base.replaceDraft(env.DB, record.id, record.revision, cleanDraft(structuredClone(latest.contenu)), latest.tables_id, now.toISOString(), logEntry(teacher, now, 'editeur_annulation', `${record.id} · brouillon ramené à la version ${latest.numero} (tables ${latest.tables_id})`));
+  if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
+  return json({ annule: true, numero: latest.numero, revision: record.revision + 1, tables_id: latest.tables_id });
 }
 
 // POST /api/prof/editeur/tables/apercu — { contenu, exercice } : dix questions du brouillon de cet exercice,
@@ -1116,7 +1220,7 @@ async function serveImage(request, env, id) {
 }
 
 // Où chaque image est utilisée : versions publiées, brouillons, banque, tables (pictogrammes, images de chaleur), et
-// la présentation en direct, actuelle ou dans l'historique (D76).
+// la présentation en direct, actuelle ou dans l'historique (D76), et le brouillon des tables (D77).
 async function imageContext(env) {
   return {
     versions: await base.listVersionContents(env.DB),
@@ -1124,6 +1228,7 @@ async function imageContext(env) {
     banque: await base.listBankTools(env.DB),
     tables: await base.listTables(env.DB),
     presentation: { actuelle: (await base.findPresentation(env.DB)).contenu, historique: await base.listPresentationHistory(env.DB) },
+    brouillonTables: (await base.findTablesDraft(env.DB)).contenu,
   };
 }
 
@@ -1337,6 +1442,11 @@ const ROUTES = {
   'POST /api/prof/editeur/tables/enregistrer': editeurTablesEnregistrer,
   'POST /api/prof/editeur/tables/publier': editeurTablesPublier,
   'POST /api/prof/editeur/tables/apercu': editeurTablesApercu,
+  'GET /api/prof/editeur/tables/cascade': editeurTablesCascade,
+  'POST /api/prof/editeur/tables/reprendre': editeurTablesReprendre,
+  'POST /api/prof/editeur/tables/annuler': editeurTablesAnnuler,
+  'POST /api/prof/editeur/exercice/reprendre': editeurReprendre,
+  'POST /api/prof/editeur/exercice/annuler': editeurAnnuler,
   'GET /api/prof/editeur/presentation': editeurPresentation,
   'POST /api/prof/editeur/presentation/appliquer': editeurPresentationAppliquer,
   'POST /api/prof/editeur/presentation/retablir': editeurPresentationRetablir,

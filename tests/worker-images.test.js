@@ -49,7 +49,7 @@ test('règles pures : identifiants, nom lisible, type d’après les octets, bas
     banque: [{ id: 'mvlnr', outil: { image: 'mvlnr' } }, { id: 'mvlnr_2', outil: { image: 'mvlnr' } }],
     tables: [{ id: 'A2026_r0', operations: { operations: [{ operation: 'Perçage' }] } }],
   });
-  assert.deepEqual(usages, { versions: [`${M10} v1`], brouillons: [M10], banque: ['mvlnr', 'mvlnr_2'], tables: [], presentation: [] });
+  assert.deepEqual(usages, { versions: [`${M10} v1`], brouillons: [M10], banque: ['mvlnr', 'mvlnr_2'], tables: [], brouillon_tables: [], presentation: [] });
   assert.equal(usagesText(usages), `version publiée ${M10} v1 · brouillon ${M10} · banque mvlnr, mvlnr_2`);
   assert.deepEqual(imageUsages('percage', { tables: [{ id: 'A2026_r0', operations: { operations: [{ operation: 'Perçage' }] } }, { id: 'B', operations: { operations: [{ operation: 'Perçage', pictogramme: 'img-abc' }] } }] }).tables, ['A2026_r0']);
   // Les images d'une classe ISO (D64) : une version d'avant (sans classes_iso) nomme celles de la semence ; une version qui a retiré l'image ne la nomme plus.
@@ -156,9 +156,9 @@ test('liste avec les utilisations ; archiver (toujours servie, retirée du choix
   assert.equal(status, 200);
   assert.equal(corps.images.length, 54);
   const mvlnr = corps.images.find((i) => i.id === 'mvlnr');
-  assert.deepEqual(mvlnr.utilisations, { versions: [`${M10} v1`], brouillons: [M10], banque: ['mvlnr'], tables: [], presentation: [] });
-  assert.deepEqual(corps.images.find((i) => i.id === 'percage').utilisations, { versions: [], brouillons: [], banque: [], tables: ['A2026_r0'], presentation: [] });
-  assert.deepEqual(corps.images.find((i) => i.id === 'fraise_a_surfacer').utilisations, { versions: [], brouillons: [], banque: ['fraise_a_surfacer'], tables: [], presentation: [] });
+  assert.deepEqual(mvlnr.utilisations, { versions: [`${M10} v1`], brouillons: [M10], banque: ['mvlnr'], tables: [], brouillon_tables: [], presentation: [] });
+  assert.deepEqual(corps.images.find((i) => i.id === 'percage').utilisations, { versions: [], brouillons: [], banque: [], tables: ['A2026_r0'], brouillon_tables: ['brouillon'], presentation: [] });
+  assert.deepEqual(corps.images.find((i) => i.id === 'fraise_a_surfacer').utilisations, { versions: [], brouillons: [], banque: ['fraise_a_surfacer'], tables: [], brouillon_tables: [], presentation: [] });
   assert.deepEqual((await serveur.editeur('GET', 'images?usage=operation')).corps.images.map((i) => i.usage).filter((u) => u !== 'operation'), []);
   assert.equal((await serveur.editeur('GET', 'images?usage=outil')).corps.images.length, 29);
 
@@ -180,7 +180,7 @@ test('liste avec les utilisations ; archiver (toujours servie, retirée du choix
   assert.equal((await serveur.editeur('POST', 'images/renommer', { id: 'mvlnr', nom: ' ' })).status, 400);
   // Une image jamais utilisée se supprime ; ensuite, 404.
   const neuve = (await serveur.editeur('POST', 'images/televerser', { nom: 'essai.png', usage: 'outil', type: 'image/png', contenu: base64(photoNeuve()) })).corps.image;
-  assert.deepEqual((await serveur.editeur('GET', 'images')).corps.images.find((i) => i.id === neuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [], presentation: [] });
+  assert.deepEqual((await serveur.editeur('GET', 'images')).corps.images.find((i) => i.id === neuve.id).utilisations, { versions: [], brouillons: [], banque: [], tables: [], brouillon_tables: [], presentation: [] });
   assert.deepEqual((await serveur.editeur('POST', 'images/supprimer', { id: neuve.id })).corps, { supprimee: true, id: neuve.id });
   assert.equal((await serveur.image(neuve.id)).status, 404);
   assert.equal((await serveur.editeur('POST', 'images/supprimer', { id: neuve.id })).status, 404);
