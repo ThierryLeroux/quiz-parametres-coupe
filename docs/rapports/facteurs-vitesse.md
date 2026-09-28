@@ -8,6 +8,9 @@
 > séances** prennent. Dans ces versions, le facteur est à trouver dans la 4e feuille au lieu d'être affiché (§6,
 > point 1), et la ligne de calcul de N l'écrit en fraction. Les séances commencées gardent leur version jusqu'à la fin.
 > **Aucune migration de la base.**
+>
+> **Retouche du 2026-09-28, avant la fusion (§7) : de la présentation seulement** — les onglets des feuilles et la
+> mise en page de la 4e feuille. Elle ne touche ni la correction, ni les trois autres feuilles.
 
 Session du 2026-09-28, branche `facteurs-vitesse`, partie de `main` à jour (`4ffb4bf`). Poussée, pas fusionnée ; rien
 n'a été lu ni écrit en production. Aucun point de ta demande ne contredisait une décision fermée ni le code : je n'ai
@@ -141,7 +144,8 @@ Le déploiement seul ne change rien pour les étudiants. Dans l'ordre :
    copie (le badge les montre), puis publier l'exercice.
 7. **Chambrage et Moletage**, si tu les veux : « Ajouter une opération » dans le brouillon des tables (machine,
    direction, famille, avances, facteur 1/4, pictogramme), publier, puis ranger l'outil à chambrer sous Chambrage —
-   il héritera.
+   il héritera. **Attention : à 21 opérations, la feuille des avances déborde sur son pied de page** (§7.5, point 4) ;
+   la 4e feuille, elle, tient.
 8. **Imprimer la 4e feuille** : « Feuilles imprimables », dans la liste des versions des tables.
 
 ## 5. Ce que je n'ai pas pu vérifier
@@ -153,6 +157,8 @@ Le déploiement seul ne change rien pour les étudiants. Dans l'ordre :
   la banque) : il passe sur la D1 locale de wrangler ; je n'ai pas de mesure en production.
 
 ## 6. Points douteux, chacun avec ma proposition
+
+> **Réponses de Thierry (2026-09-28) : les onze propositions sont acceptées telles quelles** (fin de D83, et §7).
 
 1. **Un exercice qui passe par la cascade a le facteur à trouver.** Tu as dit « décoché par défaut pour un nouvel
    exercice » et « une version publiée avant garde l'affichage d'aujourd'hui » ; pour un exercice existant qui passe
@@ -185,3 +191,98 @@ Le déploiement seul ne change rien pour les étudiants. Dans l'ordre :
     se présente pas à l'écran.
 11. **Les messages d'erreur nomment la clé** (« « fact_vc » doit être un nombre > 0 »), comme ceux des autres champs.
     **Proposition : ne rien changer ici** ; ce serait une retouche de tous les messages.
+
+## 7. Retouche avant la fusion (2026-09-28)
+
+**Rien ne touche la correction.** La retouche est de la présentation : `site/css/sheets.css`,
+`site/js/ui/reference-screen.js`, et un commentaire de `worker/seance.js`. Même branche, poussée, pas fusionnée.
+
+### 7.1 Tes réponses
+
+Les onze propositions du §6 sont acceptées telles quelles ; elles sont consignées à la fin de D83. Le `// ❓` de
+`worker/seance.js` est retiré (point 3) : le commentaire dit la règle, sans question.
+
+### 7.2 Les onglets des feuilles sur téléphone
+
+La barre des onglets **passe à la ligne** au lieu de défiler de côté (`flex-wrap` ; `overflow-x: auto` retiré).
+
+| Largeur | Quatre onglets (tables qui portent les facteurs) | Trois onglets (version d'avant) |
+|---|---|---|
+| 1280 px | une rangée, comme avant | une rangée, comme avant |
+| 390 px | deux rangées : deux et deux | deux rangées : deux et un |
+| 360 px | deux rangées : deux et deux | deux rangées : deux et un |
+
+Ouverte par « Ouvrir la table » de l'aide de N, la feuille montre son onglet actif, « Facteurs de vitesse », entier.
+Même règle sur `/tables?version=`, puisque c'est la même barre.
+
+### 7.3 La mise en page de la 4e feuille
+
+| | Avant | Ordinateur et impression | Téléphone (moins de 640 px) |
+|---|---|---|---|
+| Largeur du tableau | 374 px sur 720 | 720 px, quatre colonnes réparties | 720 px, colonnes serrées à gauche |
+| Nom de l'opération | 11 px | 15 px | 13 px |
+| Facteur d'une ligne réduite | 17 px | 25 px | 21 px |
+| Facteur d'une ligne à 1 | 13 px | 19 px | 16 px |
+| Hauteur d'un rang (19 opérations) | 41 px | 43,8 px | 43,8 px |
+| Pictogramme | 56 × 38 px | 59 × 40 px | 59 × 40 px |
+
+- **L'ordre des colonnes** : Machine-outil, Opération, Facteur, Pictogramme. Le pictogramme est centré dans la sienne.
+- **La bande bleue** d'une ligne réduite va du nom de l'opération au bord droit de la page.
+- **Les rangs se partagent la hauteur de la page**, 56 px au plus chacun : la feuille tient sur sa page lettre quel
+  que soit le nombre d'opérations. Essayé avec 21 opérations (Chambrage et Moletage ajoutés dans une base jetable) :
+  des rangs de 39,6 px, une page à l'impression.
+- **Sur téléphone**, les colonnes se serrent à gauche (68, 146 et 78 px) : le nom et le facteur de chaque opération
+  sont entiers dans l'écran, à 390 comme à 360 px, sans faire défiler. À l'impression, la pleine largeur, même
+  depuis un téléphone.
+
+### 7.4 Vérifications
+
+- `npm test` : **766 tests, 0 échec**. Le témoin de non-régression n'a pas été régénéré : `git diff` ne touche ni
+  `tests/instantanes/avant-d83.json` ni aucun test.
+- `npm run test:api` : **35 étapes**.
+- **Chrome, scénario complet du chantier** (celui du §3), rejoué sur l'état final : **74 vérifications, aucun échec**.
+- **Chrome, scénario de la retouche**, à 1280, 390 et 360 px : **82 vérifications, aucun échec**.
+  - Les onglets : tous entiers dans l'écran, la barre ne défile pas, chacun des quatre onglets actif à son tour ;
+    dans une séance, dans une séance d'avant (trois onglets), sur `/tables?version=A2026_r1` et `A2026_r0`.
+  - La 4e feuille ouverte depuis l'aide de N : les mesures du tableau ci-dessus, les en-têtes sur une ligne, les 19
+    pictogrammes chargés, le contenu qui finit avant le pied de page.
+  - L'impression : **une page lettre** pour chacune des quatre feuilles, depuis les trois largeurs.
+  - **Les trois autres feuilles** (vitesses de coupe, avances, formules), comparées à celles du code d'avant la
+    retouche, servi par un second serveur : la même mise en page élément par élément (place, taille, police,
+    couleurs, texte) aux trois largeurs, pour A2026_r0 et A2026_r1 ; à 1280 px, **la même image, octet pour octet**.
+- Aucune exception, aucune requête hors du site. En console : les trois 401 d'avant la connexion (scénario complet),
+  et deux 404 attendus — les pictogrammes de Chambrage et de Moletage, que l'essai à 21 opérations n'a pas téléversés.
+- Captures dans `captures/facteurs-vitesse/` (hors dépôt) : celles du scénario complet refaites, et les nouvelles,
+  préfixées `c1` à `c8`.
+
+**Un écart rencontré en route.** À un passage, la comparaison des images a différé sur trois feuilles (quelques
+centaines à 18 000 pixels sur 860 000), avec une mise en page identique. La cause était dans mon script : il capturait
+avant que Chrome ait fini de décoder les images. Une fois l'attente ajoutée, les six images sont identiques du premier
+coup.
+
+**Ce que je n'ai pas pu vérifier** : un vrai téléphone, et un autre navigateur que Chrome (Safari sur iPhone en
+particulier). Le partage de la hauteur entre les rangs repose sur des règles CSS courantes, mais je ne les ai vues
+tourner que dans Chrome.
+
+### 7.5 Points douteux de la retouche, chacun avec ma proposition
+
+1. **Les pictogrammes ne grandissent pas dans la proportion du texte** : 40 px de haut au lieu de 38 (+5 %), quand
+   le texte gagne un tiers. Avec une opération par rang, 19 opérations sur une page lettre laissent 44 px à chacun, et
+   le pictogramme ne peut pas dépasser son rang. **Proposition : garder.** Pour des pictogrammes vraiment plus gros, il
+   faudrait deux blocs côte à côte (le tour à gauche, fraiseuse et perceuse à droite, des rangs d'environ 80 px) ou
+   deux pages : le contraire de ta demande, donc je ne l'ai pas fait.
+2. **Sur téléphone, la feuille n'est pas disposée comme la page imprimée** : colonnes serrées à gauche, texte à 13 px
+   au lieu de 15. C'est la seule façon que j'ai trouvée de garder le nom et le facteur visibles sans défiler avec un
+   texte plus gros. **Proposition : garder.**
+3. **Les trois onglets d'une version d'avant passent aussi sur deux rangées sur téléphone.** À 390 px, ils tenaient
+   sur une rangée à 4 px près (la barre défilait de 4 px). C'est la même règle pour tous ; ces séances disparaissent
+   après ta cascade. **Proposition : garder.** L'autre choix : des onglets un peu plus étroits sur téléphone, pour que
+   trois tiennent sur une rangée à 390 px — quatre feraient alors trois et un.
+4. **La feuille des avances déborde à 21 opérations.** Ses rangs ont une hauteur fixe de 41 px : elle tient jusqu'à
+   20 opérations ; à 21, le dernier rang passe sur le pied de page (capture `c8-feuille-avances-21-operations-1280.png`).
+   Ce n'est pas nouveau et je n'y ai pas touché, puisque tu demandes que les trois autres feuilles ne changent pas.
+   Mais créer Chambrage **et** Moletage donne 21 opérations. **Proposition : lui donner la règle de la 4e feuille**
+   (les rangs se partagent la hauteur), avant que tu crées les deux opérations. Dis-le-moi.
+5. **Deux `// ❓` de D82 restent dans le code** (`site/js/expression.js`, `site/js/ui/question-screen.js`), sur des
+   points que tu as acceptés à la fin de D82. Hors de cette retouche : je ne les ai pas retirés. **Proposition : les
+   retirer** à la prochaine occasion.

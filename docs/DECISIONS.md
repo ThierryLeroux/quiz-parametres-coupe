@@ -2790,7 +2790,7 @@ temporaire est retiré (`site/js/ui/diag.js`, son import et l'appel dans `main.j
 aucune trace dans le code, seulement dans les documents. **L'iPhone n'a pas encore été essayé** : la rangée y est dans
 la page comme sur Android, et la remontée s'appuie sur Safari (`scrollIntoView`), sans calcul qui lui soit propre.
 
-## D83 — Les facteurs de modification de la vitesse de rotation : une valeur de l'opération, dans les tables ; l'outil en hérite ; la 4e feuille (2026-09-28, décidée ; précisions de mise en œuvre à confirmer)
+## D83 — Les facteurs de modification de la vitesse de rotation : une valeur de l'opération, dans les tables ; l'outil en hérite ; la 4e feuille (2026-09-28, décidée ; réponses de Thierry au rapport, et retouche, en fin d'entrée)
 
 **Contexte.** En classe, les étudiants se réfèrent à une table papier, « Modification du RPM en fonction de
 l'opération », que le site n'a pas — un oubli du classeur : Perçage 1 · Alésage 1/4 · Alésage à la barre 1 ·
@@ -2856,7 +2856,8 @@ vitesses.
 10. **Documents** : D83 ; SPEC ; UI ; PLAN ; rapport, avec la liste des gestes de Thierry en production après la
     fusion. Le déploiement se fait **hors des périodes de labo**.
 
-**Précisions de mise en œuvre** (proposées au rapport, à confirmer ; `// ❓` dans le code là où elles tranchent).
+**Précisions de mise en œuvre** (proposées au rapport ; **confirmées par Thierry** le 2026-09-28 — réponses en fin
+d'entrée, où la mise en page de la 4e feuille est aussi retouchée).
 
 - **Les clés.** `operations[].facteur_vitesse` dans les tables ; dans un outil (banque, copie), `fact_vc` reste la clé
   du facteur **propre à l'outil**, désormais facultative, et `fact_vc_raison` (texte de 80 caractères au plus) est la
@@ -2934,3 +2935,45 @@ d'avant le chantier. SPEC §3, §5, §7, §10 ; UI §3.3, §3.4, §3.5, §3.9 ; 
 correction des séances en cours** : tant que Thierry n'a pas publié de tables qui portent les facteurs, tout se lit
 et se corrige comme avant ; ensuite, seules les nouvelles séances prennent les versions de la cascade. Rapport :
 `docs/rapports/facteurs-vitesse.md`.
+
+**Réponses de Thierry au rapport, et retouche (2026-09-28).**
+
+1. **Les onze points douteux du rapport sont acceptés tels que proposés** :
+   1. un exercice qui passe aux nouvelles tables par la cascade reçoit le défaut : le facteur y est **à trouver** ;
+   2. la banque fait son passage **à la publication des tables** ;
+   3. la ligne de calcul **nomme le facteur** (« N = Vc × 4 / Ø × facteur = … × 1/4 », « (propre à cet outil) » après
+      un facteur forcé) ; le `// ❓` de `worker/seance.js` est retiré ;
+   4. « Reprendre cette version » d'une version d'avant préremplit d'après la **table papier** ;
+   5. sur la 4e feuille, le facteur reste **avant le pictogramme** ;
+   6. la couleur d'accent de la feuille reste le **bleu de la 1re partie** ;
+   7. la feuille des formules reste comme proposée (miniature sous la formule de N, formule exacte qui passe à la
+      ligne, exemple « perçage : facteur 1 ») ;
+   8. une raison de **80 caractères** au plus ; un facteur **> 0, sans plafond** ; un outil peut être forcé à la valeur
+      de sa table ;
+   9. le témoin de non-régression (565 Ko) est **gardé** dans le dépôt, jamais régénéré ;
+   10. le retour à des tables sans facteurs reste possible **par l'API seulement** ;
+   11. les messages d'erreur **ne changent pas** (ils nomment la clé).
+2. **Les onglets des feuilles sont tous visibles, sans défiler.** À 390 px, le 4e onglet sortait de l'écran : la barre
+   des onglets défilait de côté (`overflow-x: auto`), si bien qu'un étudiant sur téléphone pouvait ne jamais voir que
+   la feuille existe, et que l'onglet actif était coupé quand la feuille s'ouvrait par « Ouvrir la table ». La barre
+   **passe à la ligne** (`flex-wrap`) et ne défile plus : à 390 comme à 360 px, quatre onglets font deux rangées de
+   deux. Même règle sur `/tables?version=`. Sur ordinateur, une seule rangée : rien ne change. Conséquence de la même
+   règle : les trois onglets d'une version d'avant font aussi deux rangées sur téléphone (deux et un) ; à 390 px, il
+   leur manquait 4 px pour tenir sur une seule.
+3. **La 4e feuille occupe toute la largeur de la page, et son texte est plus gros.** Le tableau n'occupait que la
+   moitié gauche de la page lettre, et ses noms d'opérations étaient petits à côté de la table papier.
+   - **Quatre colonnes réparties sur la largeur utile** (720 px), dans l'ordre Machine-outil, Opération, Facteur,
+     Pictogramme (point 5 du rapport) ; le pictogramme est centré dans la sienne. La **bande bleue** d'une ligne
+     réduite va du nom de l'opération au bord droit de la page.
+   - **Tailles** : noms d'opérations 15 px (11 avant) ; facteur d'une ligne réduite 25 px (17 avant), d'une ligne à 1
+     19 px (13 avant) ; le facteur reste ce qu'on lit en premier.
+   - **Les rangs se partagent la hauteur de la page** (56 px au plus chacun), et le pictogramme suit la hauteur de
+     son rang : la feuille tient sur une page lettre **quel que soit le nombre d'opérations** — 19 opérations, des
+     rangs de 44 px (41 avant) ; 21 (avec Chambrage et Moletage), des rangs de 40 px.
+   - **Le pictogramme ne grandit pas dans la proportion du texte** : 40 px de haut au lieu de 38, quand le texte gagne
+     un tiers. Dix-neuf opérations sur une page lettre, une par rang, ne laissent pas plus de 44 px à chacun.
+   - **Sur téléphone** (écran de moins de 640 px), la page garde sa taille et défile dans son cadre ; les colonnes s'y
+     serrent à gauche (68, 146 et 78 px, puis le pictogramme) et le texte y est un peu plus petit (noms à 13 px,
+     facteurs à 21 et 16 px), pour que **le nom et le facteur se lisent sans faire défiler**, à 390 comme à 360 px.
+     À l'impression, toujours la pleine largeur, même depuis un téléphone.
+   - Les trois autres feuilles ne changent pas. **Rien ne touche la correction.**
