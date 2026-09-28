@@ -46,8 +46,8 @@ tables. Le format ci-dessous reste celui des tables en base.
 | Fichier | Contenu | Source Excel |
 |---|---|---|
 | `materiaux.json` | `revision` de la table ; 47 matériaux, classes ISO 513 P/M/K/N/S/H/O, groupe VDI 3323, dureté, exemple AISI/SAE, **Vc (pi/min)** pour 3 matériaux d'outil, `debut_famille` | `Vitesses de coupe` / `tblVitesse` |
-| `operations.json` | `revision` de la table ; 19 opérations : machine, direction d'avance, avance/rév., avance max, drapeaux *filetage* et *proportionnelle au Ø* | `Avances d'usinage` / `tblAvance` |
-| `outils.json` | 29 outils : gabarit de nom (`format_identifiant`, §4.6), opération, facteurs Vc/avance, vitesse de rotation max de la machine `limite_rpm` (et `limite_avance`, obsolète : D69), plage de nb de dents, matériaux d'outil possibles, groupes ISO usinables, liste des dimensions (libellé + valeur) ; pour un outil à deux diamètres, `dimensions_barre` et `rapport_barre_max` | `Liste d'outils` (masquée) |
+| `operations.json` | `revision` de la table ; 19 opérations : machine, direction d'avance, avance/rév., avance max, drapeaux *filetage* et *proportionnelle au Ø* ; depuis D83, en base, `facteur_vitesse` (la semence n'en a pas) | `Avances d'usinage` / `tblAvance` |
+| `outils.json` | 29 outils : gabarit de nom (`format_identifiant`, §4.6), opération, facteurs Vc/avance (`fact_vc`, propre à l'outil — facultatif depuis D83, avec `fact_vc_raison` —, et `fact_av`), vitesse de rotation max de la machine `limite_rpm` (et `limite_avance`, obsolète : D69), plage de nb de dents, matériaux d'outil possibles, groupes ISO usinables, liste des dimensions (libellé + valeur) ; pour un outil à deux diamètres, `dimensions_barre` et `rapport_barre_max` | `Liste d'outils` (masquée) |
 
 Unités : **impériales** (pouces, pi/min, tr/min, po/min). Les dimensions
 métriques sont déjà converties en pouces dans `outils.json` ; le libellé affiché
@@ -185,6 +185,40 @@ qui, dans un exercice, ne fait qu'afficher : son `titre`, son `cours`, « À l'a
 d'un exercice publié, `image` et `commentaire` de §3 sont donc ceux de la présentation en vigueur ; tout le reste de
 la copie reste versionné.
 
+**Facteur de vitesse (décision D83).** La table papier de l'atelier, « Modification du RPM en fonction de
+l'opération », que le classeur n'avait pas : **le facteur appartient à l'opération**, et l'outil en hérite, comme sa
+Vc vient de la table des vitesses.
+
+| Clé | Où | Contenu |
+|---|---|---|
+| `facteur_vitesse` | chaque opération des tables | un nombre > 0 : 1 (aucune réduction), 0.25 (« 1/4 »), 0.125 (« 1/8 »)… **Versionné**, comme les avances : il touche la correction, il n'est pas de la présentation en direct. Donné pour **toutes** les opérations d'une version, ou pour **aucune** (la validation refuse l'entre-deux) |
+| `fact_vc` | un outil (banque, copie) | le facteur **propre à l'outil** ; **facultatif** avec des tables qui portent les facteurs (absent : l'outil **hérite** de celui de son opération), exigé avec les autres, comme avant |
+| `fact_vc_raison` | un outil | la raison d'un facteur **forcé**, montrée à l'étudiant : un texte non vide de 80 caractères au plus ; exige `fact_vc` ; sans objet (une erreur) avec des tables qui ne portent pas les facteurs |
+| `facteur_vitesse_donne` | un exercice (§10) | `true` : la question donne le facteur à l'étudiant ; absent ou `false` : il le trouve dans la feuille des facteurs |
+
+- **Des tables « portent les facteurs »** quand chacune de leurs opérations a `facteur_vitesse`. Une version d'avant D83
+  (« A2026_r0 ») **n'en reçoit pas à la lecture**, contrairement aux couleurs (D61) : elle garde sa correction, et n'a pas
+  de 4e feuille — on ne montre jamais une feuille qui contredirait la correction de sa version.
+- **Le facteur qui sert au calcul de N** (§5) : celui de l'outil s'il en a un, sinon celui de son opération, dans les
+  tables de sa version (`speedFactorOf`, `site/js/facteur-vitesse.js`).
+- **L'état d'un outil** (`speedFactorState`), lu avec les tables de sa version : **propre** (tables sans facteurs :
+  l'affichage et la correction d'avant) ; **hérité** (pas de `fact_vc`) ; **forcé** (`fact_vc` et sa raison). Un
+  **ancien outil** — un `fact_vc` sans raison — rencontré avec des tables qui portent les facteurs se lit : égal au facteur
+  de son opération, hérité ; différent, forcé, avec la raison « Valeur reprise de l'ancien outil — à vérifier ».
+- **Le passage s'écrit** (`adoptSpeedFactor` : le `fact_vc` égal disparaît, le `fact_vc` différent reçoit sa raison) chaque
+  fois qu'un contenu est écrit avec des tables qui portent les facteurs : enregistrement d'un brouillon ou d'un outil de
+  la banque, cascade (la version publiée et le brouillon), « Passer à … », « Reprendre cette version », « Rétablir » un
+  contenu de la banque, duplication, import. **La banque**, qui n'a pas de version, fait son passage **à la publication
+  des premières tables qui portent les facteurs**, dans le même lot, son contenu d'avant dans l'historique (D79). Une
+  version publiée, immuable, n'est jamais réécrite. À l'inverse, un brouillon qu'on fait passer à des tables qui ne les
+  portent pas retrouve le `fact_vc` de chaque copie (`settleSpeedFactors`).
+- **Le brouillon des tables se lit prérempli** (`prefillSpeedFactors`) : une opération **sans** la clé y reçoit la valeur
+  de la table papier — Tronçonnage 1/8 ; Rainurage externe, Rainurage interne, Alésage à l'alésoir, Chanfreinage,
+  Chanfreinage / ébavurage 1/4 ; toute autre opération 1. Jamais une version publiée. Chambrage et Moletage, qui sont
+  sur le papier, ne sont pas des opérations des tables.
+- **En fraction** (`factorText`) : « 1 », « 1/4 », « 1/8 » ; en décimal seulement hors de la forme 1/n (« 0.75 »). Une
+  case de facteur de la Gestion du contenu lit « 1/4 » comme « 0.25 » (`parseFactor`, par l'évaluateur de D82).
+
 ## 4. Génération d'une question
 
 1. **Outil** : tirage uniforme parmi les outils *encore à évaluer* de l'exercice (voir §7 et §10). Les restrictions de l'exercice (dimensions, matériaux d'outil, groupes) s'appliquent aux tirages 3, 4 et 5.
@@ -215,8 +249,11 @@ Convention pédagogique du cours : `N = Vc × 4 / D` (approximation de 12/π ≈
 
 ```
 Vc        = materiaux[matériau].vc_pi_min[matériau d'outil]              (pi/min)
-N_brut    = Vc × 4 / D × fact_vc                                         (tr/min)
+N_brut    = Vc × 4 / D × facteur                                         (tr/min)
 N         = min(N_brut, limite_rpm)
+
+facteur (D83, §3) : fact_vc de l'outil s'il en a un — toujours, avant D83 ; forcé, depuis —,
+                    sinon facteur_vitesse de son opération, dans les tables de la version
 
 avance par dent (fz) :
   filetage                : fz = pas   (la table d'avance donne « pas du filetage »)
@@ -595,13 +632,13 @@ porte toute la sauvegarde).
 | `GET /api/prof/editeur/exercices` | cookie admin | `{ exercices: [ { id, rang, titre, cours, titre_publie, cours_publie, modifie, derniere_version, publie_le, archive_le, brouillon_modifie_le, seances, versions: [ { id, numero, tables_id, publiee_le, seances } ], liste } ] }` — dans l'ordre des rangs (D51) ; `modifie` : les **valeurs** du brouillon diffèrent de la dernière version (ou jamais publié ; D78 : sa présentation, qui dort, ne compte pas) ; `titre`, `cours` et `liste` : ceux en vigueur (D78), ceux du brouillon pour un exercice jamais publié ; `titre_publie` et `cours_publie` : ceux en vigueur (`null` jamais publié ; D71 : les cours déjà utilisés ; D74 : le doublon de titre, jugé sur le titre en vigueur) ; `doublons: [ { id, titre } ]` : les autres exercices publiés et non archivés au même titre en vigueur (D79 : un avertissement, qui ne bloque rien ; vide pour un exercice archivé ou jamais publié) |
 | `GET /api/prof/editeur/exercice?id=<id>` | cookie admin | `{ exercice: { id, brouillon, revision, brouillon_modifie_le, publie_le, archive_le, tables_id }, versions, derniere_version: { numero, contenu, tables_id, publiee_le } ou null, tables, tables_versions, derniere_tables, erreurs }` — `tables` : la version de tables du brouillon (D62), `derniere_tables` : la plus récente ; `erreurs` : celles du brouillon contre ses tables (`draftErrors`), chacune avec son `champ` ; `presentation` : pour un exercice publié, ce que rend `GET …/exercice/presentation` (D78), `null` jamais publié ; 404 inconnu |
 | `POST /api/prof/editeur/exercice/creer` | `{ id, titre }` ou `{ id, depuis }` (dupliquer) | `{ cree: true, id }` — un brouillon, jamais publié, sur la version de tables la plus récente (une copie garde celle de sa source, D62 ; celle d'un exercice publié part de sa présentation en vigueur, D78) ; 400 identifiant ou titre, 409 identifiant pris |
-| `POST /api/prof/editeur/exercice/tables` | `{ id, revision, tables_id }` | `{ change: true, tables_id, revision, erreurs }` — le brouillon passe à cette version des tables (D62), `erreurs` = celles du brouillon contre elle ; 404 version inconnue, 409 révision périmée |
-| `POST /api/prof/editeur/exercice/enregistrer` | `{ id, revision, brouillon }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur ; **409** si la révision n'est plus celle lue (D48, `revision_actuelle` jointe), rien n'est écrasé |
+| `POST /api/prof/editeur/exercice/tables` | `{ id, revision, tables_id }` | `{ change: true, tables_id, revision, erreurs }` — le brouillon passe à cette version des tables (D62), `erreurs` = celles du brouillon contre elle ; ses copies d'outils y prennent le facteur de vitesse que ces tables veulent (D83 : le passage vers des tables qui portent les facteurs ; leur `fact_vc` retrouvé vers des tables qui ne les portent pas) ; 404 version inconnue, 409 révision périmée |
+| `POST /api/prof/editeur/exercice/enregistrer` | `{ id, revision, brouillon }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur ; un ancien outil y fait son passage (D83) ; **409** si la révision n'est plus celle lue (D48, `revision_actuelle` jointe), rien n'est écrasé |
 | `POST /api/prof/editeur/exercice/renommer` | `{ id, titre }` | `{ renomme: true, titre, en_direct }` — un exercice publié : le titre entre en vigueur tout de suite (D78), le même geste que `…/exercice/presentation/appliquer` (historique, journal `editeur_presentation_exercice_application` « renommé depuis la liste », 400 titre en double avec `doublons`) ; jamais publié : le titre du brouillon (`editeur_renommage`) |
 | `POST /api/prof/editeur/exercice/deplacer` | `{ id, rang, direction: "monter" \| "descendre" }` | `{ deplace: true, id, rang }` — l'ordre de la liste et de l'accueil (D51) ; `rang` est celui que l'écran a vu : 409 s'il a changé (`rang_actuel` joint) ; 400 déjà en tête ou en queue |
 | `POST /api/prof/editeur/exercice/archiver` | `{ id, archive }` | `{ archive, id }` |
 | `POST /api/prof/editeur/exercice/supprimer` | `{ id }` | `{ supprime: true, id }` — 409 s'il a des séances (archiver alors) |
-| `POST /api/prof/editeur/exercice/reprendre` | `{ id, revision, numero }` | `{ repris: true, numero, revision, tables_id, erreurs }` — le contenu de la version `numero` entre dans le brouillon, qui **garde sa version de tables** (D77) ; `erreurs` : celles du brouillon avec ses tables ; journal `editeur_reprise` ; 404 version inconnue, 409 révision périmée |
+| `POST /api/prof/editeur/exercice/reprendre` | `{ id, revision, numero }` | `{ repris: true, numero, revision, tables_id, erreurs }` — le contenu de la version `numero` entre dans le brouillon, qui **garde sa version de tables** (D77) ; avec des tables qui portent les facteurs de vitesse, ses copies font leur passage (D83) ; `erreurs` : celles du brouillon avec ses tables ; journal `editeur_reprise` ; 404 version inconnue, 409 révision périmée |
 | `POST /api/prof/editeur/exercice/annuler` | `{ id, revision }` | `{ annule, numero, revision, tables_id }` — le brouillon revient à la dernière version publiée, contenu **et** version de tables (D77) ; journal `editeur_annulation` ; déjà à jour (ses **valeurs** et ses tables, D78) : `annule: false`, rien n'est écrit ni journalisé (l'écran abandonne ses modifications non enregistrées) ; 400 jamais publié ; 409 révision périmée |
 | `POST /api/prof/editeur/exercice/publier` | `{ id, revision }` | `{ publie: true, numero, publiee_le }` — le brouillon devient la version suivante, sur la version de tables du brouillon (D62) ; un exercice déjà publié : la version prend **la présentation en vigueur** (D78 : un instantané — titre, cours, « À l'accueil », photo et note des copies qu'elle connaît ; une copie nouvelle garde celles de sa ligne du brouillon) ; 400 s'il a des erreurs (`erreurs` jointes ; celles du contenu à publier), si ses **valeurs** sont identiques à la dernière version, tables comprises (D51, D62, D78), ou, à la **première** publication, si un **autre exercice publié et non archivé porte son titre** (D74 : titre en vigueur, sans casse, accents ni espaces ; `doublons: [ { id, titre } ]` joints, le message les nomme et dit de changer l'un des titres ; ensuite le titre ne change qu'en direct, où la règle s'applique), 409 révision périmée |
 | `POST /api/prof/editeur/apercu` | `{ id, brouillon }` ou `{ id, version }` | `{ questions: [ { identifiant, outil_id, outil, operation, dimension, barre, dents, materiau_outil, materiau, reponses } ], champs_evalues }` — dix questions, rien d'enregistré (D49) ; 400 brouillon en erreur |
@@ -609,21 +646,21 @@ porte toute la sauvegarde).
 | `POST /api/prof/editeur/exercice/presentation/appliquer` | `{ id, revision, presentation }` | `{ applique: true, revision, lignes, avertissements }` — **effet immédiat** ; le contenu remplacé va à l'historique ; journal `editeur_presentation_exercice_application` (les changements en clair) ; 400 avec `erreurs` (un champ hors de la liste blanche, à la racine ou dans une copie ; une copie que la présentation en vigueur ne connaît pas ; titre vide, cours, note ; une photo **choisie** inconnue ou archivée), un titre qui change pour celui d'un autre exercice publié et non archivé (`doublons`, D74), rien à changer, ou jamais publié ; 409 révision périmée (`revision_actuelle`), rien n'est écrit |
 | `POST /api/prof/editeur/exercice/presentation/retablir` | `{ id, revision, historique }` | `{ retablie: true, revision, lignes, avertissements }` — remet en vigueur un contenu de l'historique de cet exercice (celui en vigueur y va) ; permis même si une photo a été archivée depuis ; journal `editeur_presentation_exercice_retablissement` ; 400 titre pris (`doublons`) ou rien à changer ; 404 numéro inconnu pour cet exercice ; 409 révision périmée |
 | `GET /api/prof/editeur/banque` | cookie admin | `{ outils: [ { id, outil, revision, rang, archive_le, modifie_le, exercices } ], tables }` — `exercices` : ceux dont le brouillon a une copie de cet outil |
-| `GET /api/prof/editeur/tables` | cookie admin | `{ brouillon: { contenu, revision, modifie_le, base_id }, modifie, erreurs, presentation, presentation_en_attente: { lignes, contenu }, versions: [ { id, creee_le, utilisations: { versions_exercice, brouillons } } ], derniere, suggestion }` — le brouillon des tables complété, tel qu'en base ; si ses **valeurs** diffèrent de la version dont il est parti ; ses erreurs (`validateTables` du brouillon avec la présentation en vigueur par-dessus — ce que la publication prendra —, avec les fiches des images : une image de classe inconnue ou archivée en est une, D64, sauf celle que la présentation en vigueur a déjà pour cette classe, D76) ; la présentation en vigueur ; les retouches de présentation faites dans le brouillon avant D76, jamais publiées, et la présentation qui les reprend (D76) ; les versions de la plus récente à la plus ancienne, la révision suggérée (D61) |
+| `GET /api/prof/editeur/tables` | cookie admin | `{ brouillon: { contenu, revision, modifie_le, base_id }, modifie, erreurs, presentation, presentation_en_attente: { lignes, contenu }, versions: [ { id, creee_le, utilisations: { versions_exercice, brouillons } } ], derniere, suggestion }` — le brouillon des tables complété, et **prérempli des facteurs de vitesse** d'après la table papier pour les opérations qui n'en ont pas (D83 ; la base n'est écrite qu'à l'enregistrement) ; si ses **valeurs** diffèrent de la version dont il est parti (un brouillon parti d'une version d'avant D83 en diffère donc par ses facteurs) ; ses erreurs (`validateTables` du brouillon avec la présentation en vigueur par-dessus — ce que la publication prendra —, avec les fiches des images : une image de classe inconnue ou archivée en est une, D64, sauf celle que la présentation en vigueur a déjà pour cette classe, D76) ; la présentation en vigueur ; les retouches de présentation faites dans le brouillon avant D76, jamais publiées, et la présentation qui les reprend (D76) ; les versions de la plus récente à la plus ancienne, la révision suggérée (D61) |
 | `GET /api/prof/editeur/tables/version?id=<id>` | cookie admin | `{ tables: { id, creee_le, materiaux, operations } }` — une version publiée, complétée, telle qu'en base (sans la présentation en vigueur) ; 404 |
 | `POST /api/prof/editeur/tables/enregistrer` | `{ revision, contenu: { materiaux, operations } }` | `{ enregistre: true, revision, erreurs }` — enregistré même en erreur (dont une image de classe inconnue ou archivée, D64 ; les erreurs avec la présentation par-dessus, D76) ; 409 révision périmée (D48) ; 400 mal formé |
-| `POST /api/prof/editeur/tables/publier` | `{ revision, id, cascade? }` | `{ publie: true, id, publiee_le, cascade: { publies: [ { id, numero } ], brouillons, laisses: [ { id, titre, erreurs } ], ignores } }` — le brouillon, avec la présentation en vigueur par-dessus pour les clés qu'elle connaît (D76), devient la version `id` (sa révision est posée dans les deux JSON), le brouillon repart de là ; **la cascade** (D77 et sa retouche) : pour chaque exercice de `cascade` (les cochés), chacun de son côté, son contenu publié passe à ces tables — sa version suivante = son **dernier contenu publié** avec ces tables (jamais son brouillon ; sans la règle du titre en double) — et son brouillon aussi, d'où qu'il parte ; un exercice en erreur avec ces tables est laissé tel quel, brouillon compris (`laisses`, cochés ou non, avec leurs erreurs) ; un identifiant inconnu est ignoré (`ignores`) ; tout va dans **un seul lot** avec la version des tables et les lignes du journal (`editeur_publication` et `editeur_tables_exercice` avec « cascade de la publication des tables … », le résumé dans `editeur_tables_publication`) ; sans `cascade`, aucune ; 400 révision mal formée, brouillon en erreur (`erreurs`) ou de mêmes **valeurs** que la version dont il est parti ; 409 révision périmée, identifiant déjà pris (immuable), ou un exercice de la cascade publié ailleurs au même moment (rien n'est publié) |
-| `GET /api/prof/editeur/tables/cascade` | cookie admin | `{ remplacee, candidats: [ { id, titre, archive_le, jamais_publie, sur, par_defaut, publication: { depuis, numero, tables } \| null, brouillon: { depuis, modifie, erreurs }, en_erreur, erreurs, lignes } ] }` — ce que la publication du brouillon des tables (tel qu'enregistré) proposerait en cascade (D77 et sa retouche) : la version remplacée (celle dont le brouillon est parti) et **une liste de tous les exercices** (archivés et jamais publiés compris : aucun n'est encore sur les nouvelles tables), chacun avec la version où il est (`sur` : celle de sa dernière version publiée, ou de son brouillon s'il n'a jamais été publié), s'il est coché par défaut (`par_defaut` : sur la version remplacée, et pas en erreur ; sur une plus ancienne, décoché), ce que la cascade ferait et ce que ça change pour lui **depuis sa propre version** (`exerciseTablesImpact`) ; rien n'est écrit |
-| `POST /api/prof/editeur/tables/reprendre` | `{ revision, id }` | `{ repris: true, id, revision, base_id, modifie }` — les **valeurs** de la version `id` entrent dans le brouillon, qui repart de la **dernière** version publiée (`base_id`) : le résumé des différences et la cascade partent d'elle ; la présentation n'est pas reprise (pour une clé connue, celle en vigueur) (D77) ; journal `editeur_tables_reprise` ; 404 inconnue, 409 révision périmée |
-| `POST /api/prof/editeur/tables/annuler` | `{ revision }` | `{ annule, id, revision }` — le brouillon revient à la dernière version publiée (D77) ; journal `editeur_tables_annulation` ; déjà ses valeurs : `annule: false`, rien n'est écrit ni journalisé ; 409 révision périmée |
+| `POST /api/prof/editeur/tables/publier` | `{ revision, id, cascade? }` | `{ publie: true, id, publiee_le, cascade: { publies: [ { id, numero } ], brouillons, laisses: [ { id, titre, erreurs } ], ignores }, banque: { herites: [ id ], forces: [ { id, nom, ligne } ] } }` — le brouillon, avec la présentation en vigueur par-dessus pour les clés qu'elle connaît (D76), devient la version `id` (sa révision est posée dans les deux JSON), le brouillon repart de là ; **la cascade** (D77 et sa retouche) : pour chaque exercice de `cascade` (les cochés), chacun de son côté, son contenu publié passe à ces tables — sa version suivante = son **dernier contenu publié** avec ces tables (jamais son brouillon ; sans la règle du titre en double) — et son brouillon aussi, d'où qu'il parte ; un exercice en erreur avec ces tables est laissé tel quel, brouillon compris (`laisses`, cochés ou non, avec leurs erreurs) ; un identifiant inconnu est ignoré (`ignores`) ; avec des tables qui portent les facteurs de vitesse (D83), chaque copie d'outil fait son **passage**, dans la version publiée comme dans le brouillon qui passe (écrit avec sa révision lue), et **la banque fait le sien** (`banque` : les outils qui héritent désormais, et les outils forcés, nommés ; le contenu d'avant de chacun va à son historique, « enregistrement » ; vide une fois le passage fait) ; tout va dans **un seul lot** avec la version des tables et les lignes du journal (`editeur_publication` et `editeur_tables_exercice` avec « cascade de la publication des tables … », le résumé dans `editeur_tables_publication`) ; sans `cascade`, aucune ; 400 révision mal formée, brouillon en erreur (`erreurs`) ou de mêmes **valeurs** que la version dont il est parti ; 409 révision périmée, identifiant déjà pris (immuable), ou un exercice de la cascade publié ailleurs au même moment (rien n'est publié) |
+| `GET /api/prof/editeur/tables/cascade` | cookie admin | `{ remplacee, candidats: [ { id, titre, archive_le, jamais_publie, sur, par_defaut, publication: { depuis, numero, tables } \| null, brouillon: { depuis, modifie, erreurs }, en_erreur, erreurs, lignes } ], banque: { herites, forces } }` — ce que la publication du brouillon des tables (tel qu'enregistré) proposerait en cascade (D77 et sa retouche) : la version remplacée (celle dont le brouillon est parti) et **une liste de tous les exercices** (archivés et jamais publiés compris : aucun n'est encore sur les nouvelles tables), chacun avec la version où il est (`sur` : celle de sa dernière version publiée, ou de son brouillon s'il n'a jamais été publié), s'il est coché par défaut (`par_defaut` : sur la version remplacée, et pas en erreur ; sur une plus ancienne, décoché), ce que la cascade ferait et ce que ça change pour lui **depuis sa propre version** (`exerciseTablesImpact` ; D83 : ses outils qui héritent, ses outils forcés nommés, ce que devient l'affichage du facteur) ; `banque` : le passage que la publication ferait faire à la banque (D83) ; rien n'est écrit |
+| `POST /api/prof/editeur/tables/reprendre` | `{ revision, id }` | `{ repris: true, id, revision, base_id, modifie }` — les **valeurs** de la version `id` entrent dans le brouillon, qui repart de la **dernière** version publiée (`base_id`) : le résumé des différences et la cascade partent d'elle ; la présentation n'est pas reprise (pour une clé connue, celle en vigueur) (D77) ; une version d'avant D83, sans facteurs de vitesse, donne un brouillon prérempli d'après la table papier ; journal `editeur_tables_reprise` ; 404 inconnue, 409 révision périmée |
+| `POST /api/prof/editeur/tables/annuler` | `{ revision }` | `{ annule, id, revision }` — le brouillon revient à la dernière version publiée (D77) ; journal `editeur_tables_annulation` ; déjà ses valeurs — ou seulement prérempli de ses facteurs de vitesse (D83) — : `annule: false`, rien n'est écrit ni journalisé ; 409 révision périmée |
 | `POST /api/prof/editeur/tables/apercu` | `{ contenu, exercice }` | `{ questions, champs_evalues, champs_masques }` — dix questions du brouillon de cet exercice avec ces tables (et la présentation en vigueur par-dessus), rien d'enregistré (D63) ; 400 tables en erreur ou exercice en erreur avec elles (le message nomme l'erreur) ; 404 exercice inconnu |
 | `GET /api/prof/editeur/presentation` | cookie admin | `{ presentation, revision, appliquee, modifiee_le, enseignant, derniere_tables, matieres_outil: [ { cle, nom } ], erreurs, avertissements, historique: [ { id, posee_le, posee_par, remplacee_le, remplacee_par, action, lignes } ] }` — la présentation des tables en vigueur (§3, D76), sa révision (0 : jamais appliquée), ses erreurs, ses avertissements (une image archivée en vigueur : elle ne bloque rien), l'historique du plus récent au plus ancien, avec pour chaque contenu remplacé ce que le rétablir changerait (`lignes`, en clair) |
 | `POST /api/prof/editeur/presentation/appliquer` | `{ revision, presentation }` | `{ applique: true, revision, lignes, avertissements }` — **effet immédiat** ; le contenu remplacé va à l'historique ; journal `editeur_presentation_application` (les changements en clair) ; 400 avec `erreurs` (un champ hors de la liste blanche, une liste manquante, les règles des tables, une image **choisie** inconnue ou archivée — une image archivée déjà en vigueur pour ce champ passe, dite dans `avertissements`) ou rien à changer ; 409 révision périmée (`revision_actuelle`), rien n'est écrit |
 | `POST /api/prof/editeur/presentation/retablir` | `{ revision, historique }` | `{ retablie: true, revision, lignes, avertissements }` — remet en vigueur un contenu de l'historique (celui en vigueur y va) ; permis même si une image a été archivée depuis (`avertissements` la nomme, D76) ; journal `editeur_presentation_retablissement` ; 400 rien à changer ; 404 numéro inconnu ; 409 révision périmée |
 | `POST /api/prof/editeur/banque/creer` | `{ id, outil }` ou `{ id, depuis }` | `{ cree: true, id }` — l'auteur est retenu (`modifie_par`, D79) ; 400 identifiant mal formé ou photo nommée inconnue ou archivée ; 404 source inconnue ; 409 identifiant pris |
 | `GET /api/prof/editeur/banque/outil?id=<id>` | cookie admin | `{ outil: { id, outil, revision, rang, archive_le, modifie_le, modifie_par, exercices }, tables, erreurs, avertissements, historique: [ { id, enregistre_le, enregistre_par, remplace_le, remplace_par, action, lignes, erreurs, avertissements } ] }` — la page d'un outil (D79) : ses erreurs avec les tables d'aujourd'hui, ses avertissements (une photo archivée en place), et son historique, le plus récent en tête — pour chaque contenu remplacé, quand et par qui il avait été enregistré, quand, par qui et par quoi il a été remplacé, ce que le rétablir changerait (`lignes`, en clair) et ses erreurs et avertissements avec les tables d'aujourd'hui ; 404 inconnu |
-| `POST /api/prof/editeur/banque/enregistrer` | `{ id, revision, outil }` | `{ enregistre: true, revision, erreurs, lignes, avertissements }` — enregistré même en erreur (`erreurs`) ; le contenu remplacé va à l'historique (D79) ; journal `editeur_banque_enregistrement` avec les changements en clair ; sans changement : `{ enregistre: false, inchange: true, … }`, rien n'est écrit ; 400 photo **choisie** (différente de celle de l'outil) inconnue ou archivée, rien n'est écrit ; 409 révision périmée (`revision_actuelle`) |
-| `POST /api/prof/editeur/banque/retablir` | `{ id, revision, historique }` | `{ retabli: true, revision, lignes, erreurs, avertissements }` — remet un contenu de l'historique de cet outil (celui en place va à l'historique, « rétablissement ») ; revalidé avec les tables d'aujourd'hui : un contenu devenu invalide se rétablit quand même, `erreurs` les nomme ; une photo archivée depuis est permise (`avertissements`) ; journal `editeur_banque_historique_retablissement` ; 400 rien à changer ; 404 inconnu pour cet outil ; 409 révision périmée |
+| `POST /api/prof/editeur/banque/enregistrer` | `{ id, revision, outil }` | `{ enregistre: true, revision, erreurs, lignes, avertissements }` — enregistré même en erreur (`erreurs`) ; un ancien outil y fait son passage (D83) ; le contenu remplacé va à l'historique (D79) ; journal `editeur_banque_enregistrement` avec les changements en clair ; sans changement : `{ enregistre: false, inchange: true, … }`, rien n'est écrit ; 400 photo **choisie** (différente de celle de l'outil) inconnue ou archivée, rien n'est écrit ; 409 révision périmée (`revision_actuelle`) |
+| `POST /api/prof/editeur/banque/retablir` | `{ id, revision, historique }` | `{ retabli: true, revision, lignes, erreurs, avertissements }` — remet un contenu de l'historique de cet outil (celui en place va à l'historique, « rétablissement ») ; un contenu d'avant D83 refait son passage en revenant — s'il ne diffère du contenu actuel que par là, rien à rétablir (400) ; revalidé avec les tables d'aujourd'hui : un contenu devenu invalide se rétablit quand même, `erreurs` les nomme ; une photo archivée depuis est permise (`avertissements`) ; journal `editeur_banque_historique_retablissement` ; 400 rien à changer ; 404 inconnu pour cet outil ; 409 révision périmée |
 | `POST /api/prof/editeur/banque/archiver` | `{ id, archive }` | `{ archive, id }` — hors de l'historique (D79) |
 | `GET /api/prof/editeur/images[?usage=outil\|operation\|classe]` | cookie admin | `{ images: [ { id, nom, usage, type, taille, empreinte, creee_le, archivee_le, utilisations: { versions, brouillons, banque, tables, brouillon_tables, presentation, presentation_exercices, banque_historique } } ] }` — les fiches (sans contenu), avec où chacune est utilisée (D56 ; `brouillon_tables` : le brouillon des tables la nomme, D77 ; `presentation` : « actuelle », « historique n° 3 », D76 ; `presentation_exercices` : « m10-tournage-vc », « m10-tournage-vc · historique n° 2 », D78 ; `banque_historique` : « alesoir · historique n° 4 », D79) |
 | `POST /api/prof/editeur/images/televerser` | `{ nom, usage, type, contenu }` (base64 ; corps ≤ 1 Mo, image ≤ 600 Ko) | `{ image, existante, retires }` — le type est lu dans les octets, un SVG est assaini (`retires` : ce qui a été retiré) ou refusé (400, D57) ; `existante: true` = même empreinte déjà en base, rien de stocké |
@@ -662,7 +699,7 @@ mauvaise réponse.
   },
   "question": {
     "identifiant": "MVLNR - Ø charioté: 2.000\"",
-    "outil": { "id", "nom", "operation", "commentaire", "dents", "materiau", "limite_rpm", "fact_vc", "fact_av", "barre" },
+    "outil": { "id", "nom", "operation", "commentaire", "dents", "materiau", "limite_rpm", "fact_vc" ou "facteur_vitesse", "fact_av", "barre" },
     "dimension": "2.000\"",
     "materiau": { "iso", "groupe", "materiau", "composition", "etat", "durete", "exemple" },
     "champs": [ { "champ": "vc", "evalue": true, "texte": "" },
@@ -685,7 +722,12 @@ son `operation` et sa `plage` de dimensions dans l'exercice (« Ø 1/64 po à
 liste (§8), et qui fera partie du contenu signé (jalon 5).
 `identifiant` est le gabarit de nom résolu (§4.6). `outil.barre` est le libellé
 de la barre tirée pour un outil à deux diamètres (`dimension` est alors le Ø
-alésé), sinon `null`. En mode test seulement, `question` porte aussi
+alésé), sinon `null`. **Le facteur de vitesse** (D83) : pour une version dont les tables ne portent pas les
+facteurs, `outil.fact_vc`, comme avant ; sinon `outil.facteur_vitesse` (`questionFactor`), et pas de `fact_vc` —
+`{ etat: "force", texte: "1", valeur: 1, raison: "…" }` (toujours dit, avec sa raison, que l'exercice donne le
+facteur ou non), `{ etat: "donne", texte: "1/4", valeur: 0.25, raison: null }` (l'exercice le donne), ou
+`{ etat: "a_trouver", texte: null, valeur: null, raison: null }` : il se relève dans la feuille des facteurs, et
+**ni sa valeur ni son texte ne partent** (la règle ci-dessous). En mode test seulement, `question` porte aussi
 `reponses_test` (ci-dessous). L'image de chaleur et les caractéristiques de la classe du
 matériau (D64 à D66) ne sont pas dans `question` : le navigateur les lit dans les classes ISO
 des tables de sa version (`tables.materiaux.classes_iso[].image_chaleur`, `caracteristiques`).
@@ -726,7 +768,10 @@ Pour chaque champ :
   « ±25 %, au plus ±0.001 po », « ±0.5 % de N × f ») ; `ecart_pct`, l'écart de
   la saisie en % (`null` si elle est vide ou illisible) ; `calcul`, le calcul en
   une ligne (« Vf = N × f = 2500 × 0.0050 », facteur de vitesse et plafond de la
-  vitesse de rotation compris ; pour un outil à deux diamètres, il nomme celui qui sert :
+  vitesse de rotation compris — depuis D83, pour une version dont les tables portent les facteurs, **en fraction**
+  et nommé dans la formule : « N = Vc × 4 / Ø × facteur = 100 × 4 / 0.5 × 1/4 » ; un facteur hérité de 1 ne s'écrit
+  pas, un facteur forcé toujours, suivi de « (propre à cet outil) » ; pour une version d'avant, « … × 0.25 », comme
+  avant — ; pour un outil à deux diamètres, il nomme celui qui sert :
   « N = Vc × 4 / Ø usiné = … », « fz = avance × Ø barre = 0.006 × 0.75 » ; `null` pour Vc et pour une avance fixe, qui se lisent dans une
   table). Pour un champ fourni, ces trois valeurs sont `null`.
 
@@ -1105,6 +1150,7 @@ second ; `engineExercise` rend le second au moteur.
 | `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
 | `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon |
 | `champs_masques` | non | grandeurs **masquées** (D52) : « — » à l'écran, sans valeur, jamais envoyée au navigateur ; liste non vide, sans doublon, disjointe de `champs_evalues`. Absente = aucune |
+| `facteur_vitesse_donne` | non | `true` : la question **donne le facteur de vitesse** à l'étudiant (« Vitesse réduite × 1/4 », exercices pour débutants) ; absent ou `false` : il le trouve dans la feuille des facteurs, comme la Vc (D83). Versionné avec l'exercice. **Sans effet** avec des tables qui ne portent pas les facteurs : le facteur de l'outil s'affiche alors comme avant. Un facteur **forcé** est toujours affiché, avec sa raison |
 | `outils` | oui | au moins un ; chaque `id` une seule fois |
 | `liste` | non | `false` retire l'exercice de la liste de l'accueil (D18) ; il reste joignable par `?exercice=<id>`. Pour les exercices d'essai (D30). Absent = listé |
 | `materiaux_outil` | non | restreint le tirage du matériau d'outil pour **tous** les outils de l'exercice (D40) ; chacun doit être un matériau d'outil du catalogue (§3). Se croise avec les matériaux de chaque outil et avec `outils[].materiaux_outil` ; un outil qui n'aurait plus aucune matière permise rend l'exercice invalide (le message nomme l'outil, ce qu'il offre et ce que l'exercice permet) |
@@ -1187,7 +1233,7 @@ immuables. Brouillon et version ont la même forme :
 }
 ```
 
-- `cours`, `champs_masques`, `materiaux_outil`, `groupes` et `liste` sont facultatifs, avec le
+- `cours`, `champs_masques`, `facteur_vitesse_donne` (D83), `materiaux_outil`, `groupes` et `liste` sont facultatifs, avec le
   même sens que dans le fichier d'exercice (D71 : les versions semées n'ont pas de cours) ; `titre`,
   `champs_evalues` et `outils` sont obligatoires ; la **version** n'est pas dans le contenu : c'est le
   numéro attribué à la publication. Le titre, le cours, `liste`, et `image` et `commentaire` des copies sont
@@ -1195,6 +1241,8 @@ immuables. Brouillon et version ont la même forme :
 - Chaque entrée d'`outils` est une **copie complète** d'un outil (toutes les clés
   d'`outils.json`, `TOOL_KEYS`), plus `reussites_requises` (entier ≥ 1) et
   `origine` (l'id de l'outil de la banque dont elle vient, à titre d'information).
+  Avec des tables qui portent les facteurs de vitesse (D83, §3), la copie n'a pas de `fact_vc` — elle hérite de son
+  opération —, ou le porte avec `fact_vc_raison` : elle est forcée.
   Son `id` est unique dans l'exercice (« mvlnr », puis « mvlnr_2 » pour une
   copie dupliquée) ; `image` nomme sa photo — l'identifiant d'une image de la base,
   servie par `/images/<image>` (D56).
@@ -1208,7 +1256,8 @@ immuables. Brouillon et version ont la même forme :
   contenu), la plus récente à sa création ; il est validé contre elle (un matériau,
   un groupe ou une matière qu'elle n'a plus : erreur nommée). Quand une plus
   récente existe, la page le dit et offre d'y passer, en montrant d'abord ce que
-  ça change pour cet exercice (erreurs, Vc, avances, matériaux de ses groupes ; le
+  ça change pour cet exercice (erreurs, Vc, avances, matériaux de ses groupes, et, depuis D83, le facteur de
+  vitesse de ses outils : ceux qui héritent, ceux qui sont forcés, nommés, et ce que devient son affichage ; le
   pictogramme n'y est plus : il est de la présentation en direct, la même pour toutes
   les versions, D76). **Publier des tables propose aussi la cascade** (D77) : une liste
   de tous les exercices, cochés par défaut ceux sur la version remplacée, décochés ceux
@@ -1305,7 +1354,10 @@ immuables. Brouillon et version ont la même forme :
   sont envoyées **une par requête** avant l'import, qui les exige ; une image
   présente garde son contenu (nom et archivage mis à jour). La validation
   résume ce qui change dans la banque, outil par outil ; si des outils
-  disparaissaient, l'import exige le mot REMPLACER, écran et serveur (D50). Les
+  disparaissaient, l'import exige le mot REMPLACER, écran et serveur (D50). La
+  **banque** et les **brouillons** d'un export d'avant D83 font leur passage au facteur de vitesse hérité ou forcé
+  quand les tables qu'ils rencontrent portent les facteurs (la banque : les plus récentes ; un brouillon : les siennes) ;
+  les versions publiées ne sont pas touchées. Les
   **versions des tables** absentes sont ajoutées (une version différente sous une
   révision existante est refusée), le **brouillon des tables** est remplacé par
   celui de l'export (validé avec la présentation par-dessus : un champ de présentation

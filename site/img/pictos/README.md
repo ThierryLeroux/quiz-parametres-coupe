@@ -30,6 +30,8 @@ usage « pictogramme d'opération »), où le serveur l'assainit (scripts, liens
 refusés, D57). Une opération sans pictogramme s'affiche sans image, sans erreur ; le sien se dessine
 dans tout éditeur de SVG (palette : bleu `#00B0F0`, bouchée `#FFC000`, trait noir).
 
-## `miniatures/` — deux SVG de la feuille Formules
+## `miniatures/` — trois SVG de la feuille Formules
 
-Schémas des deux tables (où se fait le relevé) : ceux des maquettes approuvées.
+Schémas des tables (où se fait le relevé) : `table-vc` et `table-avances` sont ceux des maquettes
+approuvées ; `table-facteurs` (décision D83), dessiné sur le même modèle, est celui de la feuille des
+facteurs de vitesse — il n'est montré que pour des tables qui portent les facteurs.

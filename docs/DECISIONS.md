@@ -2874,15 +2874,26 @@ vitesses.
   point 5 : égal, hérité ; différent, forcé avec la raison du passage. Rien n'est donc jamais en erreur ni ignoré en
   silence, même pour un contenu importé ou repris d'une vieille version.
 - **Le passage s'écrit** (`adoptSpeedFactor` : le `fact_vc` égal disparaît, le `fact_vc` différent reçoit sa raison)
-  au moment où un contenu rencontre des tables qui portent les facteurs : dans **la cascade** (la version qu'elle
-  publie, et le brouillon qui passe), au **passage d'un brouillon** depuis sa page (« Passer à … »), à **« Reprendre
-  cette version »** d'un exercice, et à chaque **enregistrement** depuis le formulaire d'outil. La **banque**, qui
-  n'a pas de version, se lit avec les tables les plus récentes : ses anciens outils s'y montrent hérités ou forcés,
-  et s'écrivent au nouveau format quand on les enregistre. Un outil hérité qui a fait son passage **suit** ensuite sa
-  table ; un outil forcé garde sa valeur.
+  chaque fois qu'un contenu est écrit avec des tables qui portent les facteurs : dans **la cascade** (la version
+  qu'elle publie, et le brouillon qui passe — écrit avec sa révision lue), au **passage d'un brouillon** depuis sa
+  page (« Passer à … »), à **« Reprendre cette version »** d'un exercice, à chaque **enregistrement** d'un brouillon
+  ou d'un outil de la banque, à **« Rétablir »** un contenu de la banque, à la duplication et à l'**import**. Une
+  version publiée, immuable, n'est jamais réécrite : elle se lit par la règle ci-dessus. Un outil hérité qui a fait
+  son passage **suit** ensuite sa table ; un outil forcé garde sa valeur.
+- **La banque fait son passage à la publication** des premières tables qui portent les facteurs, **dans le même lot**
+  que la version des tables et la cascade : elle n'a pas de version, et se valide avec les tables les plus récentes.
+  Sans cela, un outil resté à l'ancien format aurait paru hérité tant que sa table ne changeait pas, puis « forcé » le
+  jour où elle change — alors qu'on attend de lui qu'il la suive. La confirmation de publication l'annonce (combien
+  d'outils héritent, lesquels sont forcés) ; le contenu d'avant de chaque outil va à son historique (D79), et la
+  ligne du journal de la publication le résume.
 - **Une copie ajoutée à un exercice** (depuis la banque, depuis un autre exercice) prend le facteur que les tables de
   l'exercice veulent (`settleSpeedFactor`) : avec des tables sans facteurs, elle reçoit son `fact_vc` — le sien, sinon
-  celui de son opération dans les tables d'où elle vient —, sans raison.
+  celui de son opération dans les tables d'où elle vient —, sans raison. De même un **brouillon qu'on fait passer à
+  des tables qui ne portent pas les facteurs** (par l'API : la page n'offre que les plus récentes) : chaque copie y
+  retrouve son `fact_vc`, et la raison d'un forçage, sans objet, n'y est plus.
+- **La 4e feuille** place le facteur tout de suite après le nom de l'opération, puis le pictogramme : à 390 px, le
+  nom et le facteur se lisent sans faire défiler la feuille. La **miniature** de la feuille des formules est sous la
+  formule de N, dont l'exacte devient « N = Vc × 12 / (π × Ø) × facteur ».
 - **Le brouillon des tables prérempli** : à la lecture du brouillon (jamais d'une version publiée), une opération
   **sans** la clé reçoit la valeur de la table papier, 1 si le papier ne la nomme pas (`prefillSpeedFactors`) ; la
   publication montre chaque facteur dans ses différences (« Opération « Tronçonnage » — facteur de vitesse : — →

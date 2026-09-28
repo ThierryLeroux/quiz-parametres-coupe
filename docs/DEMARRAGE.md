@@ -351,12 +351,26 @@ suivantes. Un exercice en erreur avec les nouvelles tables est nommé, avec ses 
 quel. Une correction de Vc ne coûte donc qu'un geste. La page d'un exercice dit toujours quand une
 version plus récente existe (**Passer à A2026_r1…**). Les séances commencées
 gardent les valeurs de leurs tables jusqu'à la fin (la présentation, elle, est toujours celle en
-vigueur). « Feuilles imprimables », dans la liste des versions, ouvre les trois feuilles d'une version
-(`/tables?version=A2026_r1`), prêtes pour l'atelier. **Revenir en arrière** (D77) : **Reprendre cette
+vigueur). « Feuilles imprimables », dans la liste des versions, ouvre les feuilles d'une version
+(`/tables?version=A2026_r1`), prêtes pour l'atelier : trois, ou quatre si la version porte les facteurs de vitesse. **Revenir en arrière** (D77) : **Reprendre cette
 version**, dans la liste des versions des tables ou d'un exercice, remet une version publiée dans le
 brouillon (les valeurs pour des tables ; le contenu, avec ses tables actuelles, pour un exercice) —
 il reste à la publier ; **Annuler les modifications** ramène un brouillon à sa dernière version
 publiée. Ce qui serait perdu est listé d'abord.
+
+Le **facteur de vitesse** (décision D83) — la table papier « Modification du RPM en fonction de
+l'opération » — est une colonne du tableau **Opérations** du brouillon des tables : **Facteur de
+vitesse**, où « 1/4 » se tape comme « 0.25 ». Le brouillon arrive **prérempli d'après la table
+papier** : à vérifier, puis à publier. Une version qui porte les facteurs a une **4e feuille**,
+« Facteurs de vitesse ». **Un outil hérite du facteur de son opération** : sa fiche dit « Selon la
+table : 1/4 (Chanfreinage) » ; **Forcer pour cet outil** lui donne sa propre valeur, avec une raison
+courte que l'étudiant voit toujours. Un badge doré **facteur forcé** signale ces outils dans la
+banque et dans les exercices. À la première publication de tables qui portent les facteurs, chaque
+outil existant fait son passage : même valeur que sa table, il hérite ; valeur différente, il est
+forcé avec la raison « Valeur reprise de l'ancien outil — à vérifier » — la confirmation les nomme.
+Dans un exercice, **Donner le facteur de vitesse à l'étudiant** (décoché par défaut) décide si la
+question l'affiche ou si l'étudiant le trouve dans la feuille. Les versions publiées avant, les
+séances en cours et les attestations ne changent pas.
 
 Les **images** (onglet **Images**, décision D56) : les photos d'outils et les pictogrammes
 d'opérations sont dans la base, et c'est là qu'on en ajoute — depuis le formulaire d'un
