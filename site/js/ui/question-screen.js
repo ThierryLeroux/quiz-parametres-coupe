@@ -45,91 +45,57 @@ const isPhone = () => window.matchMedia('(max-width: 999px)').matches;
 const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
 
 // La rangée de boutons de calcul (D82, point 6 ; UI §3.3) : le clavier numérique n'a ni parenthèses ni opérateurs, ni
-// touche Entrée sur iPhone. Elle se tient en bas de la zone visible, juste au-dessus du clavier virtuel, tant qu'une
-// case à saisir a le focus. Le clavier ne réduit que la zone visible (window.visualViewport), pas la page : la rangée
-// suit le bas de cette zone. Un bouton ne prend jamais le focus (pointerdown et mousedown sans effet par défaut) : la
-// case le garde, et le clavier reste ouvert.
+// touche Entrée sur iPhone. Elle s'attache à la case qui a le focus, DANS LA PAGE, entre la case et sa note, et défile
+// avec elle (troisième essai sur téléphone : fixée à l'écran et placée d'après window.visualViewport, elle finissait
+// derrière le clavier, Chrome se trompant de 56 px sur la zone visible quand la barre d'adresse réapparaît). Aucun
+// calcul à partir de la zone visible, de la fenêtre ou du clavier. Un bouton ne prend jamais le focus (pointerdown et
+// mousedown sans effet par défaut) : la case le garde, et le clavier reste ouvert.
 //   onKey(key) : un bouton pressé, une entrée de CALC_KEYS
-//   active()   : la case qui a le focus, pour que la rangée ne la couvre pas
-function calcBar(onKey, active) {
+function calcBar(onKey) {
   const keep = (event) => event.preventDefault();
   const bar = el('div', { class: 'calc-bar', role: 'toolbar', 'aria-label': 'Calcul', hidden: true }, CALC_KEYS.map((key) => el('button', {
     class: key.compute ? 'calc-key calc-key--equals' : 'calc-key', type: 'button', tabindex: '-1', 'aria-label': key.name, onpointerdown: keep, onmousedown: keep, onclick: () => onKey(key),
   }, key.label)));
   const viewport = window.visualViewport;
 
-  // La page ne défile jamais d'elle-même pendant que l'étudiant fait défiler (D82, retouche après l'essai sur
-  // téléphone). La seule remontée automatique : quand une case prend le focus et que le clavier s'ouvre, si la rangée
-  // couvre alors la case. Elle est armée à la prise de focus, et désarmée au premier geste de défilement de l'étudiant
-  // (touchmove, wheel). Avant cette retouche, la page remontait à chaque changement de la zone visible : la barre
-  // d'adresse du navigateur, qui paraît ou disparaît selon le sens du défilement, ramenait la case à l'écran.
+  // La page ne défile jamais d'elle-même pendant que l'étudiant fait défiler. La seule remontée automatique : à la
+  // prise de focus, si le clavier, en s'ouvrant, cache la rangée sous la case, la page remonte pour montrer la case, sa
+  // rangée et sa note — par le navigateur (scrollIntoView, au plus près), jamais par un calcul. Armée à la prise de
+  // focus, refaite quand la zone visible change de taille (le clavier qui s'ouvre), désarmée au premier geste de
+  // défilement de l'étudiant (touchmove, wheel).
   let reveal = false;
+  let box = null; // le bloc de la case active (libellé, case, rangée, note)
   const stopRevealing = () => { reveal = false; };
-
-  // Replace la rangée au bas de la zone visible, et ne fait rien d'autre, sauf la remontée tant qu'elle est armée (8 px
-  // d'air sous la case). Appelée au défilement de la zone visible ET de la page (deuxième essai sur téléphone : quand
-  // Chrome amène la case touchée vers le centre en faisant défiler la page elle-même, window.visualViewport n'annonce
-  // rien), quand la zone visible ou la fenêtre change de hauteur (clavier, barre d'adresse), et à chaque image pendant
-  // l'ouverture du clavier (settle).
-  function place() {
+  function revealBox() {
     if (!bar.isConnected) { // l'écran a été remplacé pendant que la rangée était ouverte
       hide();
       return;
     }
-    if (viewport) {
-      bar.style.width = `${viewport.width}px`;
-      bar.style.transform = `translate(${viewport.offsetLeft}px, ${viewport.offsetTop + viewport.height - bar.offsetHeight}px)`;
-    } else bar.classList.add('calc-bar--bottom'); // navigateur sans visualViewport : au bas de la fenêtre
-    const input = reveal ? active() : null;
-    const covered = input ? input.getBoundingClientRect().bottom + 8 - bar.getBoundingClientRect().top : 0;
-    if (covered > 0) window.scrollBy(0, covered);
+    if (reveal) box.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
-  // Pendant l'ouverture du clavier — environ une demi-seconde après la prise de focus —, la rangée se replace à chaque
-  // image, quels que soient les événements que le navigateur envoie ou n'envoie pas.
-  const SETTLE_MS = 600;
-  let settleUntil = 0;
-  let settling = false;
-  function settle() {
-    if (!settling) return;
-    place();
-    if (Date.now() < settleUntil && !bar.hidden) requestAnimationFrame(settle);
-    else settling = false;
-  }
-
-  // Une case prend le focus : la rangée s'ouvre (ou reste ouverte), la remontée s'arme, et le replacement à chaque image
-  // repart. Ouverte, la rangée réserve sa hauteur au bas de l'écran (calc-bar-open) : elle ne cache jamais la fin de la page.
-  function show() {
-    reveal = true;
+  // Une case prend le focus : la rangée s'insère entre elle et sa note (ou y reste), et la remontée s'arme.
+  //   fieldBox : le bloc .field de la case ; note : sa note, sous laquelle rien ne bouge
+  function show(fieldBox, note) {
+    box = fieldBox;
+    note.before(bar);
     if (bar.hidden) {
       bar.hidden = false;
-      bar.parentElement?.classList.add('calc-bar-open');
-      viewport?.addEventListener('resize', place);
-      viewport?.addEventListener('scroll', place);
-      window.addEventListener('scroll', place, { passive: true });
-      window.addEventListener('resize', place);
+      viewport?.addEventListener('resize', revealBox);
       window.addEventListener('touchmove', stopRevealing, { passive: true });
       window.addEventListener('wheel', stopRevealing, { passive: true });
     }
-    place();
-    settleUntil = Date.now() + SETTLE_MS;
-    if (!settling) {
-      settling = true;
-      requestAnimationFrame(settle);
-    }
+    reveal = true;
+    revealBox();
   }
   function hide() {
     reveal = false;
     bar.hidden = true;
-    bar.parentElement?.classList.remove('calc-bar-open');
-    viewport?.removeEventListener('resize', place);
-    viewport?.removeEventListener('scroll', place);
-    window.removeEventListener('scroll', place);
-    window.removeEventListener('resize', place);
+    viewport?.removeEventListener('resize', revealBox);
     window.removeEventListener('touchmove', stopRevealing);
     window.removeEventListener('wheel', stopRevealing);
   }
-  return { element: bar, show, hide };
+  return { show, hide };
 }
 
 // Progression (UI §3.3, D81) : barre « n / m outils », puis les outils regroupés par opération (operationProgress) —
@@ -286,7 +252,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   // curseur de la case qui a le focus ; « = » la calcule.
   const activeCase = () => Object.entries(inputs).find(([, input]) => input === document.activeElement && !input.readOnly)?.[0] ?? null;
   const touch = isTouch();
-  const bar = touch ? calcBar(pressKey, () => inputs[activeCase()] ?? null) : null;
+  const bar = touch ? calcBar(pressKey) : null;
   function pressKey(key) {
     const champ = activeCase();
     if (champ === null) return;
@@ -304,8 +270,12 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   // La rangée suit le focus des cases à saisir (D82, retouche après l'essai sur téléphone) : elle se montre quand une
   // case prend le focus — un toucher, ou Vérifier qui donne le focus à une case illisible —, se cache quand le focus
   // quitte les cases. Sur écran tactile, aucune case n'a le focus à l'affichage d'une question (initialFocus).
-  const showBar = () => bar?.show();
-  const hideBar = (event) => { if (bar && !Object.values(inputs).includes(event.relatedTarget)) bar.hide(); };
+  // Elle se cache UN INSTANT APRÈS, une fois le toucher terminé : au toucher d'un bouton sous la case (Vérifier, Ouvrir
+  // la table), le focus quitte la case dès que le doigt se pose ; si la rangée disparaissait à cet instant, la page se
+  // décalerait sous le doigt et le toucher n'atteindrait plus le bouton. Si une autre case a pris le focus entre-temps,
+  // la rangée l'a déjà suivie : rien à cacher.
+  const showBar = (champ) => bar?.show(boxes[champ], notes[champ]);
+  const hideBar = () => { if (bar) setTimeout(() => { if (activeCase() === null) bar.hide(); }, 0); };
 
   // Aide contextuelle, au clic seulement : la méthode, jamais la valeur (rules.js).
   const help = el('div', { class: 'help-line', hidden: true, 'aria-live': 'polite' });
@@ -344,11 +314,11 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
       maxlength: evalue ? String(EXPRESSION_MAX_LENGTH) : null, // une expression de 60 caractères au plus (D82)
       tabindex: evalue ? null : '-1', // Tab saute les champs fournis (UI §7)
       'aria-describedby': `${champ}-note`,
-      onfocus: evalue ? () => { showHelp(champ); if (!inputs[champ].readOnly) showBar(); } : () => {},
+      onfocus: evalue ? () => { showHelp(champ); if (!inputs[champ].readOnly) showBar(champ); } : () => {},
       // Calculs dans les cases (D82) : Entrée calcule, quitter la case calcule, toute retouche oublie l'expression.
       onkeydown: evalue ? (event) => enter(event, champ) : () => {},
       oninput: evalue ? () => edited(champ) : () => {},
-      onfocusout: evalue ? (event) => { compute(champ); hideBar(event); } : () => {},
+      onfocusout: evalue ? () => { compute(champ); hideBar(); } : () => {},
     });
     notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, evalue ? '' : "fourni par l'exercice");
     boxes[champ] = el('div', { class: evalue ? 'field field--number' : 'field field--number field--provided' }, [
@@ -477,7 +447,6 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
       ]),
     ]),
     progressSlot,
-    bar?.element ?? '', // hors des panneaux : leur filtre (le halo) ferait de la rangée un élément de panneau, pas de la fenêtre
   ]);
 
   // À chaque nouvelle question, sur ordinateur, la première case à saisir reçoit le focus ; sur écran tactile, le titre,

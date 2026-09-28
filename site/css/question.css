@@ -247,29 +247,23 @@
 
 .form-notes { flex: 1 1 260px; }
 
-/* Rangée de boutons de calcul (D82) : écran tactile seulement, tant qu'une case à saisir a le focus. Fixée en haut de
-   la fenêtre, puis descendue par question-screen.js au bas de la zone visible, juste au-dessus du clavier virtuel
-   (window.visualViewport) ; sans visualViewport, au bas de la fenêtre. Huit boutons de 44 px de haut sur toute la
-   largeur ; aucun ne prend le focus : la case le garde, et le clavier reste ouvert. */
+/* Rangée de boutons de calcul (D82) : écran tactile seulement, insérée par question-screen.js entre la case qui a le
+   focus et sa note, dans la page — elle défile avec la case, et la note reste visible dessous. Huit boutons de 44 px de
+   haut et 40 px de large au moins : quand la case est plus étroite que les huit (334 px, à 390 px d'écran), la rangée
+   déborde d'autant de chaque côté, dans la marge du panneau. Aucun ne prend le focus : la case le garde, et le clavier
+   reste ouvert. */
 .calc-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 5; /* sous les tables de référence (10), qui s'ouvrent par-dessus l'écran */
   display: flex;
-  gap: var(--space-1);
-  width: 100%;
-  padding: var(--space-1);
-  border-top: 1px solid var(--color-accent);
-  background: var(--color-bg-header);
+  gap: 2px;
+  width: max(100%, 334px);
+  margin-left: min(0px, calc((100% - 334px) / 2));
 }
 
 .calc-bar[hidden] { display: none; }
-.calc-bar--bottom { top: auto; bottom: 0; }
 
 .calc-key {
   flex: 1 1 0;
-  min-width: 0;
+  min-width: 40px;
   height: 44px;
   border: 1px solid var(--color-accent);
   background: var(--color-input-bg);
@@ -282,9 +276,6 @@
 
 .calc-key:active { background: color-mix(in srgb, var(--color-accent) 30%, var(--color-input-bg)); }
 .calc-key--equals { border-color: var(--color-accent-light); background: color-mix(in srgb, var(--color-accent) 22%, var(--color-input-bg)); color: var(--color-text); }
-
-/* La rangée ouverte réserve sa hauteur au bas de l'écran : elle ne cache jamais la fin de la page. */
-.calc-bar-open { padding-bottom: 60px; }
 
 /* DIAGNOSTIC TEMPORAIRE (?diag=1, diag.js) : à retirer avant la fusion. */
 .diag {
