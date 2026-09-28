@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, insertInCase, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak } from '../site/js/ui/rules.js';
+import { CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, insertInCase, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak, unreadableCase } from '../site/js/ui/rules.js';
 import { evaluateExpression } from '../site/js/expression.js';
 import { sessionView } from '../worker/seance.js';
 import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationPictoOf, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
@@ -231,15 +231,22 @@ test('computeCase (D82) : une expression illisible → la note qui dit pourquoi'
   assert.deepEqual(computeCase('-5'), { error: 'Illisible : résultat négatif' });
 });
 
-test('enterComputes (D82) : Entrée calcule une expression pas encore essayée ; sinon elle vérifie, comme avant', () => {
+test('enterComputes (D82) : Entrée calcule une expression ; sinon elle vérifie, comme avant — jamais une case illisible', () => {
   assert.equal(enterComputes('(3-1)*2'), true); // premier Entrée : calcule
   assert.equal(enterComputes('4'), false); // la case montre le résultat : le deuxième Entrée vérifie
   assert.equal(enterComputes('1600'), false); // un nombre tapé : Entrée vérifie, comme avant
   assert.equal(enterComputes(''), false);
-  assert.equal(enterComputes('abc'), false); // pas une expression : vérifie (illisible, comme avant)
-  assert.equal(enterComputes('2(3)', null), true); // illisible, premier Entrée : la note
-  assert.equal(enterComputes('2(3)', '2(3)'), false); // deuxième Entrée : vérifie
-  assert.equal(enterComputes('2*(3)', '2(3)'), true); // corrigée : calcule de nouveau
+  assert.equal(enterComputes('12a'), false); // pas une expression : vérifie (illisible, comme avant)
+  assert.equal(enterComputes('2(3)'), true); // illisible : Entrée la calcule (la note), à chaque fois — ne vérifie jamais
+});
+
+test('unreadableCase (D82, réponse au rapport) : la première case dont l’expression est illisible arrête Vérifier', () => {
+  assert.equal(unreadableCase([['vc', '400'], ['rpm', '2(3)'], ['feedRate', '1/0']]), 'rpm'); // la première, dans l'ordre de l'écran
+  assert.equal(unreadableCase([['vc', '-5'], ['rpm', '1600']]), 'vc'); // un moins : une expression, au résultat négatif
+  assert.equal(unreadableCase([['vc', '400'], ['rpm', '1600']]), null);
+  assert.equal(unreadableCase([['vc', '(3-1)*2'], ['rpm', '4']]), null); // lisible, même pas encore calculée
+  assert.equal(unreadableCase([['vc', '12a'], ['rpm', 'abc'], ['feedRate', '']]), null); // illisible sans être une expression : part
+  assert.equal(unreadableCase([]), null);
 });
 
 test('answerOf (D82) : l’expression part tant que la case montre son résultat ; retouchée, c’est le nombre tapé', () => {

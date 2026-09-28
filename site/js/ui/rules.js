@@ -161,10 +161,19 @@ export function computeCase(text) {
   return { value: shown.text, expression: text.trim(), note: computedNote(expressionText(text), shown.rounded) };
 }
 
-// Entrée dans une case : calcule-t-elle (true), ou vérifie-t-elle, comme avant (false) ? Elle calcule une expression
-// qu'on n'a pas encore essayé de calculer ; `tried` est le texte du dernier essai illisible. Après un calcul réussi, la
-// case montre un nombre : le deuxième Entrée vérifie ; sur une expression illisible aussi, une fois la note montrée.
-export const enterComputes = (text, tried = null) => isExpression(text) && text !== tried;
+// Entrée dans une case : calcule-t-elle (true), ou vérifie-t-elle, comme avant (false) ? Elle calcule toute expression.
+// Après un calcul réussi, la case montre un nombre : le deuxième Entrée vérifie. Une expression illisible, elle, reste
+// dans la case : Entrée la calcule de nouveau, et ne vérifie jamais (réponse de Thierry au rapport, point 2).
+export const enterComputes = (text) => isExpression(text);
+
+// La première case, dans l'ordre de l'écran, qui contient une expression illisible, ou null (réponse de Thierry au
+// rapport, point 2) : tant qu'il y en a une, Vérifier — clic, toucher ou Entrée — ne part pas, et c'est elle qui reçoit
+// le focus. Une faute de frappe dans un calcul ne coûte pas une série de réussites. Un texte illisible qui n'est pas une
+// expression (« 12a ») n'arrête rien : il part, et reste une mauvaise réponse.
+//   cases : [[champ, texte], …], dans l'ordre de l'écran
+export function unreadableCase(cases) {
+  return cases.find(([, text]) => computeCase(text)?.error !== undefined)?.[0] ?? null;
+}
 
 // Ce qui part au serveur pour une case : l'expression gardée de côté (`kept`, de computeCase) tant que la case montre
 // son résultat ; sinon le texte de la case — un nombre tapé, ou un résultat retouché à la main : l'expression est oubliée.

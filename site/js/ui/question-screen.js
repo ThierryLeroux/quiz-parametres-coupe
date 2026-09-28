@@ -9,7 +9,7 @@ import { EXPRESSION_MAX_LENGTH } from '../expression.js';
 import { el, pointDecimalComma, showScreen } from './dom.js';
 import {
   CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, gapExplanation, helpLine, insertInCase,
-  materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak,
+  materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak, unreadableCase,
 } from './rules.js';
 import { classFeatures, classImages, heatImageMaxWidth, operationPictoOf, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, expressionLine, fieldResultNote, studentLine } from './text.js';
@@ -194,10 +194,8 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   const boxes = {};
 
   // Calculs dans les cases (D82 ; règles dans rules.js). Pour chaque case calculée, `kept` garde { value, expression } :
-  // la case montre `value`, et c'est `expression` qui part au serveur tant qu'elle la montre. `tried` garde le texte
-  // d'une expression illisible déjà essayée : le deuxième Entrée vérifie.
+  // la case montre `value`, et c'est `expression` qui part au serveur tant qu'elle la montre.
   const kept = {};
-  const tried = {};
 
   // Calcule une case : Entrée, sortie de la case, Vérifier, bouton « = ». La virgule devient un point au même moment
   // (D71). Une expression illisible garde son texte, en rouge, avec la note qui dit pourquoi.
@@ -208,7 +206,6 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     const result = computeCase(input.value);
     if (result === null) return;
     if (result.error !== undefined) {
-      tried[champ] = input.value;
       input.setAttribute('aria-invalid', 'true');
       notes[champ].textContent = result.error;
       return;
@@ -228,15 +225,14 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     }
     if (input.hasAttribute('aria-invalid')) {
       input.removeAttribute('aria-invalid');
-      delete tried[champ];
       notes[champ].textContent = '';
     }
   }
 
-  // Entrée dans une case : calcule une expression qu'on n'a pas encore essayée, et on reste dans la case ; sinon,
-  // rien ici — le formulaire est envoyé, Entrée vérifie comme avant (UI §7).
+  // Entrée dans une case : calcule une expression, et on reste dans la case — même illisible : Entrée ne vérifie jamais
+  // une case illisible ; sinon, rien ici — le formulaire est envoyé, Entrée vérifie comme avant (UI §7).
   function enter(event, champ) {
-    if (event.key !== 'Enter' || event.isComposing || !enterComputes(inputs[champ].value, tried[champ] ?? null)) return;
+    if (event.key !== 'Enter' || event.isComposing || !enterComputes(inputs[champ].value)) return;
     event.preventDefault();
     compute(champ);
   }
@@ -392,13 +388,21 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   async function check(event) {
     event.preventDefault(); // Entrée dans une case = Vérifier (UI §7)
     if (checkButton.disabled) return; // un seul clic : le serveur ne corrige une question qu'une fois
-    checkButton.disabled = true;
     status.textContent = '';
     // Toutes les cases se calculent avant l'envoi (D82), et la virgule devient un point ici aussi, à l'écran (D71) :
     // Entrée ne quitte pas la case. Une case calculée envoie son expression, que le serveur juge (answerOf).
     Object.keys(inputs).forEach(compute);
     Object.values(inputs).forEach(pointDecimalComma);
-    const answers = Object.fromEntries(question.champs.filter((champ) => champ.evalue).map(({ champ }) => [champ, answerOf(inputs[champ].value, kept[champ])]));
+    // Une expression illisible ne part jamais (D82, réponse de Thierry au rapport, point 2) : rien n'est envoyé, et la
+    // première case illisible reçoit le focus, en rouge avec sa raison ; l'étudiant corrige ou efface.
+    const graded = question.champs.filter((champ) => champ.evalue).map(({ champ }) => champ);
+    const blocked = unreadableCase(graded.map((champ) => [champ, inputs[champ].value]));
+    if (blocked !== null) {
+      inputs[blocked].focus();
+      return;
+    }
+    checkButton.disabled = true;
+    const answers = Object.fromEntries(graded.map((champ) => [champ, answerOf(inputs[champ].value, kept[champ])]));
     const result = await actions.onCheck(answers);
     if (result === null) return;
     if (result.message !== undefined) {
