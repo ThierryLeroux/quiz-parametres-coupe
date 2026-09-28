@@ -200,7 +200,7 @@ function calculationLine(field, question, expected, shown, tool, operation) {
     const state = speedFactorState(tool, operation);
     if (state.mode === 'own') return `N = Vc × 4 / ${which} = ${shown.vc} × 4 / ${diameter}${tool.fact_vc === 1 ? '' : ` × ${tool.fact_vc}`}${capped}`;
     // Depuis D83 : le facteur en fraction ; un facteur hérité de 1 ne s'écrit pas, un facteur forcé s'écrit toujours.
-    // ❓ D83 : la formule le nomme aussi (« N = Vc × 4 / Ø × facteur = … »), comme la feuille des facteurs — à confirmer.
+    // La formule le nomme aussi (« N = Vc × 4 / Ø × facteur = … »), comme la feuille des facteurs.
     if (state.mode === 'inherited' && state.value === 1) return `N = Vc × 4 / ${which} = ${shown.vc} × 4 / ${diameter}${capped}`;
     return `N = Vc × 4 / ${which} × facteur = ${shown.vc} × 4 / ${diameter} × ${factorText(state.value)}${state.mode === 'forced' ? ' (propre à cet outil)' : ''}${capped}`;
   }
