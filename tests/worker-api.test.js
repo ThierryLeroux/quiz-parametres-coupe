@@ -591,7 +591,7 @@ test('correction sans question tirée → 409', async () => {
 
 // --- Séance épinglée à sa version (D47) : une publication ne touche pas les séances en cours --------------------
 
-test('séance épinglée (D47) : après la publication d’une version 2, la séance en cours garde la version 1 — même titre, mêmes outils, même question — et une nouvelle séance prend la 2', async () => {
+test('séance épinglée (D47) : après la publication d’une version 2, la séance en cours garde la version 1 — mêmes outils, même question — et une nouvelle séance prend la 2 ; le titre, lui, est celui en vigueur (D78)', async () => {
   const serveur = serveurDeTest();
   const { jeton, seance } = await commencer(serveur);
   assert.equal((await repondre(serveur, jeton, true)).status, 200);
@@ -601,10 +601,11 @@ test('séance épinglée (D47) : après la publication d’une version 2, la sé
   const v2 = { ...m10, titre: 'M10 — Tournage (v2)', outils: [...m10.outils.filter((outil) => outil.id !== enAttente), { id: 'foret_fractionnaire', reussites_requises: 1 }] };
   assert.equal(serveur.publierExercice(v2), 2);
 
-  // Camille continue sur la version 1 : la question en attente vaut toujours, l'outil retiré est toujours là, le titre est l'ancien.
+  // Camille continue sur la version 1 : la question en attente vaut toujours, l'outil retiré est toujours là. Le titre est
+  // celui en vigueur (D78) : rien n'a été appliqué en direct, c'est donc celui de la dernière version publiée.
   serveur.avancer(11 * SECONDE);
   const suite = (await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance;
-  assert.deepEqual(suite.exercice, { id: M10, titre: m10.titre, version: VERSION_1 });
+  assert.deepEqual(suite.exercice, { id: M10, titre: 'M10 — Tournage (v2)', version: VERSION_1 });
   assert.equal(suite.question.outil.id, enAttente);
   assert.deepEqual(suite.progression.outils.map((outil) => outil.id), m10.outils.map((outil) => outil.id));
   assert.equal((await serveur.appel('POST', '/api/correction', { jeton, corps: { exercice: M10, saisies: serveur.bonnesReponses() } })).status, 200);
@@ -624,7 +625,7 @@ test('séance épinglée (D47) : après la publication d’une version 2, la sé
   }
   assert.deepEqual([serveur.seance().version_exercice, serveur.seance().version_exercice_reussite], [VERSION_1, VERSION_1]);
   assert.equal(serveur.attestations()[0].enregistrement.revision, VERSION_1);
-  assert.equal(serveur.attestations()[0].enregistrement.exercice.titre, m10.titre);
+  assert.equal(serveur.attestations()[0].enregistrement.exercice.titre, 'M10 — Tournage (v2)'); // le titre en vigueur à la réussite (D78)
 });
 
 test('séance sans version (créée par l’ancien serveur entre la migration et le déploiement) : elle prend la dernière version publiée et y reste épinglée', async () => {
@@ -662,7 +663,7 @@ test('GET /api/exercice et /api/exercices (D47) : la dernière version publiée 
   assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}&version=9`)).status, 404);
   serveur.publierExercice({ ...m10, titre: 'M10 (v2)' });
   assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}`)).corps.exercice.titre, 'M10 (v2)');
-  assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}&version=1`)).corps.exercice.titre, m10.titre);
+  assert.equal((await serveur.appel('GET', `/api/exercice?exercice=${M10}&version=1`)).corps.exercice.titre, 'M10 (v2)'); // le titre en vigueur, sur toute version (D78)
   serveur.publierExercice({ ...ESSAI, liste: false });
   const liste = (await serveur.appel('GET', '/api/exercices')).corps.exercices;
   assert.deepEqual(liste.map((e) => ({ id: e.id, titre: e.titre })), index.exercices.filter((e) => e.id !== 'test-complet').map((e) => ({ ...e, titre: e.id === M10 ? 'M10 (v2)' : e.titre })));
@@ -887,7 +888,7 @@ test('nouvelle adresse (D72, D73) : une attestation émise sous l’ancienne adr
   assert.equal((await autreCle.appel('POST', '/api/reprise', { corps: { exercice: M10, matricule: '2412347', nip: CAMILLE.nip } })).status, 401);
 });
 
-test('figée : une nouvelle version de l’exercice (outil renommé, dimensions changées, titre, tables) ne change ni l’attestation ni la séance épinglée (D31, D47) ; une nouvelle séance la voit', async () => {
+test('figée : une nouvelle version de l’exercice (outil renommé, dimensions changées, titre, tables) ne change ni l’attestation ni la séance épinglée (D31, D47) — sauf le titre en vigueur, qu’elle montre (D78) ; une nouvelle séance la voit', async () => {
   const serveur = serveurDeTest();
   const { jeton } = await reussir(serveur);
   const { corps: avant } = await serveur.appel('GET', `/api/attestation?exercice=${M10}`, { jeton });
@@ -899,7 +900,10 @@ test('figée : une nouvelle version de l’exercice (outil renommé, dimensions 
   serveur.db.sqlite.prepare("UPDATE banque_outils SET outil = json_set(outil, '$.nom', 'MVLNR (nouveau)') WHERE id = 'mvlnr'").run();
   serveur.publierExercice({ ...m10, titre: 'M10 — nouveau titre', outils: m10.outils.map((o) => (o.id === 'mvlnr' ? { ...o, dimensions: ['1.000"', '1.500"'] } : o)) }, { tablesId: 'A2027_r0' });
   serveur.avancer(MINUTE);
-  assert.equal((await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance.exercice.titre, m10.titre); // épinglée à la version 1
+  const epinglee = (await serveur.appel('GET', `/api/seance?exercice=${M10}`, { jeton })).corps.seance;
+  assert.equal(epinglee.exercice.version, VERSION_1); // épinglée à la version 1…
+  assert.equal(epinglee.exercice.titre, 'M10 — nouveau titre'); // …qui montre le titre en vigueur (D78)
+  assert.equal(epinglee.progression.outils[1].nom, 'MVLNR'); // mais les noms d'outils restent ceux de sa version
   const alex = await commencer(serveur, { ...CAMILLE, prenom: 'Alex', nom: 'Roy', matricule: '2498765' });
   assert.equal(alex.seance.exercice.titre, 'M10 — nouveau titre');
   assert.deepEqual(alex.seance.progression.outils[1], { id: 'mvlnr', nom: 'MVLNR (nouveau)', operation: 'Chariotage finition', plage: '1.000" à 1.500"', reussites: 0, requises: 3 });

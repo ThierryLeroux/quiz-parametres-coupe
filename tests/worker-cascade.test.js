@@ -66,9 +66,9 @@ async function commencer(serveur, etudiant) {
 
 test('cascade (D77) : proposée pour tous les exercices (archivés, jamais publiés, titres en double compris), cochés par défaut ceux sur la version remplacée ; chaque coché publie son DERNIER CONTENU PUBLIÉ avec les nouvelles tables, jamais son brouillon, et son brouillon suit ; un décoché reste intact ; tout est au journal', async () => {
   const serveur = await editeurDeTest();
-  // M10 : un brouillon modifié, jamais publié ainsi. VC_RPM : archivé. « brouillon-seul » : jamais publié.
+  // M10 : un brouillon modifié (une grandeur de plus), jamais publié ainsi. VC_RPM : archivé. « brouillon-seul » : jamais publié.
   // « m10-bis » : le même titre publié que M10 (un doublon d'avant D74). « autre » : laissé décoché.
-  await enregistrerBrouillon(serveur, M10, (b) => { b.titre = 'M10 — titre du brouillon, pas encore publié'; });
+  await enregistrerBrouillon(serveur, M10, (b) => { b.champs_evalues = ['vc', 'n']; });
   assert.equal((await serveur.editeur('POST', 'exercice/archiver', { id: VC_RPM, archive: true })).status, 200);
   assert.equal((await serveur.editeur('POST', 'exercice/creer', { id: 'brouillon-seul', titre: 'Brouillon seul' })).status, 200);
   serveur.publierExercice({ ...m10, id: 'm10-bis' });
@@ -103,7 +103,7 @@ test('cascade (D77) : proposée pour tous les exercices (archivés, jamais publi
   assert.deepEqual([m10v2.numero, m10v2.tables_id], [2, 'A2026_r1']);
   assert.deepEqual(m10v2.contenu, avant.m10v1.contenu);
   const m10apres = ligne(serveur, M10);
-  assert.equal(JSON.parse(m10apres.brouillon).titre, 'M10 — titre du brouillon, pas encore publié');
+  assert.deepEqual(JSON.parse(m10apres.brouillon).champs_evalues, ['vc', 'n']);
   assert.deepEqual([m10apres.tables_id, m10apres.revision], ['A2026_r1', avant.m10.revision + 1]);
   // VC_RPM, archivé : publié aussi (seules les nouvelles séances le prendraient, et il n'en accepte pas).
   assert.deepEqual(versions(serveur, VC_RPM).map((v) => [v.numero, v.tables_id]), [[1, 'A2026_r0'], [2, 'A2026_r1']]);
@@ -120,7 +120,7 @@ test('cascade (D77) : proposée pour tous les exercices (archivés, jamais publi
   assert.deepEqual(journal.filter((l) => l.action === 'editeur_publication').map((l) => l.details), [`${M10} · version 2 · tables A2026_r1 · ${mention}`, `${VC_RPM} · version 2 · tables A2026_r1 · ${mention}`, `m10-bis · version 2 · tables A2026_r1 · ${mention}`]);
   assert.deepEqual(journal.filter((l) => l.action === 'editeur_tables_exercice').map((l) => l.details), [`${M10} · tables A2026_r0 → A2026_r1 · ${mention}`, `${VC_RPM} · tables A2026_r0 → A2026_r1 · ${mention}`, `brouillon-seul · tables A2026_r0 → A2026_r1 · ${mention}`, `m10-bis · tables — → A2026_r1 · ${mention}`]);
   assert.equal(journal.filter((l) => l.action === 'editeur_tables_publication').at(-1).details, 'tables A2026_r1 · depuis A2026_r0 · cascade sur 5 exercice(s) proposé(s) : 3 version(s) publiée(s), 4 brouillon(s) passé(s), 0 en erreur laissé(s) tel(s) quel(s)');
-  // La page de M10 : plus d'avis « version plus récente », et le brouillon (modifié) diffère de la version 2 par son titre seulement.
+  // La page de M10 : plus d'avis « version plus récente », et le brouillon (modifié) diffère de la version 2 par ses grandeurs seulement.
   const page10 = await exercice(serveur, M10);
   assert.deepEqual([page10.exercice.tables_id, page10.derniere_tables, page10.derniere_version.numero], ['A2026_r1', 'A2026_r1', 2]);
 });
@@ -244,12 +244,12 @@ test('reprendre une version des tables : ses VALEURS entrent dans le brouillon, 
 test('reprendre une version d’un exercice : son contenu entre dans le brouillon, qui GARDE sa version de tables ; publiée normalement', async () => {
   const serveur = await editeurDeTest();
   const v1 = versions(serveur, M10)[0];
-  // Une version 2 au contenu différent (un titre), puis la cascade vers A2026_r1 (version 3, contenu de la 2).
-  const revision = await enregistrerBrouillon(serveur, M10, (b) => { b.titre = 'M10 — deuxième titre'; });
+  // Une version 2 au contenu différent (les réussites exigées du premier outil), puis la cascade vers A2026_r1 (version 3, contenu de la 2).
+  const revision = await enregistrerBrouillon(serveur, M10, (b) => { b.outils[0].reussites_requises = 4; });
   assert.equal((await serveur.editeur('POST', 'exercice/publier', { id: M10, revision })).status, 200);
   const page = await brouillonTables(serveur);
   assert.equal((await publierAvecCascade(serveur, vcCorrigees(page.brouillon.contenu), 'A2026_r1', [M10])).status, 200);
-  assert.deepEqual(versions(serveur, M10).map((v) => [v.numero, v.tables_id, v.contenu.titre]), [[1, 'A2026_r0', v1.contenu.titre], [2, 'A2026_r0', 'M10 — deuxième titre'], [3, 'A2026_r1', 'M10 — deuxième titre']]);
+  assert.deepEqual(versions(serveur, M10).map((v) => [v.numero, v.tables_id, v.contenu.outils[0].reussites_requises]), [[1, 'A2026_r0', v1.contenu.outils[0].reussites_requises], [2, 'A2026_r0', 4], [3, 'A2026_r1', 4]]);
   // Reprendre la version 1 : son contenu, sur A2026_r1 (pas ses anciennes tables).
   const avant = await exercice(serveur, M10);
   const reprise = await serveur.editeur('POST', 'exercice/reprendre', { id: M10, revision: avant.exercice.revision, numero: 1 });

@@ -155,7 +155,7 @@ test('importPlan : format exigé ; tables, banque, exercices et versions compar�
   };
   const { erreurs, plan, resume } = importPlan(recu, existant, outils);
   assert.deepEqual(erreurs, []);
-  assert.deepEqual({ ...resume, banque: undefined }, { tables_ajoutees: ['A2027_r0'], banque: undefined, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 0, images_modifiees: [], brouillon_tables: false, presentation_remplacee: false, presentation_historique: 0 });
+  assert.deepEqual({ ...resume, banque: undefined }, { tables_ajoutees: ['A2027_r0'], banque: undefined, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 0, images_modifiees: [], brouillon_tables: false, presentation_remplacee: false, presentation_historique: 0, presentations_exercices: [] });
   // La banque reçue n'a que deux outils : les 27 autres disparaîtraient, nommés ; le mot exigé devient REMPLACER (D50).
   assert.deepEqual([resume.banque.ajoutes, resume.banque.modifies, resume.banque.gardes, resume.banque.retires.length], [[], [], 2, 27]);
   assert.deepEqual(resume.banque.retires[0], { id: 'foret_a_numero', nom: 'Foret à numéro' });
@@ -228,7 +228,7 @@ test('cascadeCandidates et cascadePlan (D77 et sa retouche) : une liste de tous 
   });
   const rows = [
     row('a'),
-    row('b', { brouillon: contenu('B modifié'), archive: '2026-09-01T00:00:00.000Z', version: 1 }),
+    row('b', { brouillon: { ...contenu('B modifié'), champs_evalues: ['n'] }, archive: '2026-09-01T00:00:00.000Z', version: 1 }),
     row('c', { publie: null, brouillon: contenu('C') }),
     row('d', { brouillonTables: 'r0', version: 4 }), // publié sur la version remplacée, brouillon sur une plus ancienne
     row('e', { tables: 'r0', version: 1 }), // resté sur une version plus ancienne
@@ -256,4 +256,7 @@ test('cascadeCandidates et cascadePlan (D77 et sa retouche) : une liste de tous 
   assert.deepEqual(plan.laisses, [{ id: 'f', titre: 'F en erreur', erreurs: ['outils.0.operation : opération inconnue'] }]);
   assert.deepEqual(plan.ignores, ['inconnu']);
   assert.deepEqual(cascadePlan(candidates, rows, undefined).versions, []); // sans liste cochée (un navigateur d'avant) : aucune cascade
+  // D78 : un exercice publié est nommé par son titre en vigueur ; un brouillon qui ne diffère que par sa présentation (qui dort) n'est pas « modifié ».
+  const [h] = cascadeCandidates([{ ...row('h', { brouillon: { ...contenu('H retouché'), liste: false } }), titre_en_vigueur: 'H en direct' }], { replacedId: 'r1', tablesById, latestId: 'r1', next: { id: 'r2' } }, { draftErrorsOf, impactOf });
+  assert.deepEqual([h.titre, h.brouillon.modifie], ['H en direct', false]);
 });

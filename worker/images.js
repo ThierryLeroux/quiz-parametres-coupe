@@ -5,6 +5,7 @@
 
 import { operationSlug } from '../site/js/ui/sheets-data.js';
 import { imagesOfPresentation } from '../site/js/presentation.js';
+import { imagesOfExercisePresentation } from '../site/js/presentation-exercice.js';
 import { CLASS_IMAGE_KEYS, completeTables } from '../site/js/tables.js';
 import { SvgError, sanitizeSvg } from './svg.js';
 
@@ -141,7 +142,9 @@ export const imageView = ({ id, nom, usage, type, taille, empreinte, creee_le, a
 //              direct (D76) : une image qu'elle nomme, actuelle ou dans l'historique, est utilisée (« Rétablir » la remettrait)
 //   brouillonTables : le contenu du brouillon des tables ({ materiaux, operations }), ou null — une image qu'il nomme
 //              (celle d'une classe ou d'une opération nouvelle, par exemple) est utilisée (D77)
-export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [], presentation = { actuelle: null, historique: [] }, brouillonTables = null }) {
+//   presentationExercices : { actuelles: [{ exercice_id, contenu }], historique: [{ id, exercice_id, contenu }] } — la
+//              présentation des exercices (D78) : une photo qu'elle nomme, en vigueur ou dans l'historique, est utilisée
+export function imageUsages(id, { versions = [], exercices = [], banque = [], tables = [], presentation = { actuelle: null, historique: [] }, brouillonTables = null, presentationExercices = { actuelles: [], historique: [] } }) {
   const inTools = (tools) => (Array.isArray(tools) ? tools : []).some((tool) => tool?.image === id);
   const pictoOf = (op) => op?.pictogramme ?? operationSlug(String(op?.operation ?? ''));
   const inTables = (t) => (Array.isArray(t.operations?.operations) ? t.operations.operations : []).some((op) => pictoOf(op) === id)
@@ -155,6 +158,10 @@ export function imageUsages(id, { versions = [], exercices = [], banque = [], ta
     presentation: [
       ...(imagesOfPresentation(presentation.actuelle).includes(id) ? ['actuelle'] : []),
       ...(presentation.historique ?? []).filter((h) => imagesOfPresentation(h.contenu).includes(id)).map((h) => `historique n° ${h.id}`),
+    ],
+    presentation_exercices: [
+      ...(presentationExercices.actuelles ?? []).filter((p) => imagesOfExercisePresentation(p.contenu).includes(id)).map((p) => p.exercice_id),
+      ...(presentationExercices.historique ?? []).filter((h) => imagesOfExercisePresentation(h.contenu).includes(id)).map((h) => `${h.exercice_id} · historique n° ${h.id}`),
     ],
   };
 }
@@ -170,5 +177,6 @@ export function usagesText(usages) {
   if (usages.tables.length > 0) parts.push(`tables ${usages.tables.join(', ')}`);
   if ((usages.brouillon_tables ?? []).length > 0) parts.push('brouillon des tables');
   if ((usages.presentation ?? []).length > 0) parts.push(`présentation des tables (${usages.presentation.join(', ')})`);
+  if ((usages.presentation_exercices ?? []).length > 0) parts.push(`présentation des exercices (${usages.presentation_exercices.join(', ')})`);
   return parts.join(' · ');
 }

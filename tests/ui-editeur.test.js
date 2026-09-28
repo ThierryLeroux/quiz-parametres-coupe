@@ -44,39 +44,49 @@ test('exerciseState, versionLabel, sessionsLabel : l’état en clair', () => {
   assert.deepEqual(TOOL_MATERIALS, ['Acier rapide', 'Carbure de tungstène solide', 'Insert de carbure de tungstène']);
 });
 
-test('versionDiff et diffLines : première publication ; réglages, outils ajoutés, retirés, modifiés champ par champ, réordonnés ; aucune différence', () => {
+test('versionDiff et diffLines : première publication ; réglages, outils ajoutés, retirés, modifiés champ par champ, réordonnés ; aucune différence ; jamais la présentation (D78)', () => {
   const avant = brouillon();
   assert.deepEqual(diffLines(versionDiff(null, avant)), ['Première publication : 9 outils.']);
   const apres = brouillon();
   apres.titre = 'M10 v2';
   apres.materiaux_outil = ['Acier rapide'];
+  apres.cours = 'M10';
+  apres.liste = false;
   apres.outils[1].fact_vc = 0.5;
   apres.outils[1].dimensions = apres.outils[1].dimensions.slice(0, 2);
+  apres.outils[1].image = 'img-0123456789abcdef'; // la photo et la note : de la présentation en direct (D78), hors du résumé
+  apres.outils[1].commentaire = 'Nouvelle note';
   apres.outils[2].reussites_requises = 1;
   apres.outils.splice(0, 1); // le MCLNR retiré
   apres.outils.push({ ...brouillon().outils[0], id: 'mclnr_2', nom: 'MCLNR bis', reussites_requises: 2 });
   const diff = versionDiff(avant, apres);
-  assert.deepEqual(diff.reglages.map((r) => [r.champ, r.avant, r.apres]), [['titre', 'M10 — Tournage : vitesse de coupe', 'M10 v2'], ['materiaux_outil', '(tous)', 'Acier rapide']]);
+  assert.deepEqual(diff.reglages.map((r) => [r.champ, r.avant, r.apres]), [['materiaux_outil', '(tous)', 'Acier rapide']]); // ni titre, ni cours, ni « À l'accueil » (D78)
   assert.deepEqual(diff.ajoutes.map((c) => c.id), ['mclnr_2']);
   assert.deepEqual(diff.retires.map((c) => c.id), ['mclnr']);
   assert.deepEqual(diff.modifies.map((m) => [m.id, m.champs.map((c) => c.champ)]), [['mvlnr', ['fact_vc', 'dimensions']], ['lame_a_tronconner', ['reussites_requises']]]);
   assert.equal(diff.reordonnes, false);
   const lines = diffLines(diff);
-  assert.deepEqual(lines.slice(0, 4), [
-    'Titre : « M10 — Tournage : vitesse de coupe » → « M10 v2 »',
+  assert.deepEqual(lines.slice(0, 3), [
     "Matières d'outil permises : « (tous) » → « Acier rapide »",
     'Outil ajouté : MCLNR bis (mclnr_2), 2 réussites de suite',
     'Outil retiré : MCLNR (mclnr)',
   ]);
-  assert.match(lines[4], /^MVLNR \(mvlnr\) — fact_vc : « 1 » → « 0.5 »$/);
-  assert.match(lines[5], /^MVLNR \(mvlnr\) — dimensions : « 1\.000", .* » → « 1\.000", 1\.500" »$/);
+  assert.match(lines[3], /^MVLNR \(mvlnr\) — fact_vc : « 1 » → « 0.5 »$/);
+  assert.match(lines[4], /^MVLNR \(mvlnr\) — dimensions : « 1\.000", .* » → « 1\.000", 1\.500" »$/);
+  assert.equal(lines.length, 6);
+  // Seule la présentation change : aucune différence à publier.
+  const retouche = brouillon();
+  Object.assign(retouche, { titre: 'Autre titre', cours: 'M20', liste: false });
+  retouche.outils[0].image = 'img-0123456789abcdef';
+  retouche.outils[0].commentaire = 'Autre note';
+  assert.deepEqual(diffLines(versionDiff(avant, retouche)), ['Aucune différence avec la version précédente.']);
   assert.deepEqual(diffLines(versionDiff(avant, brouillon())), ['Aucune différence avec la version précédente.']);
   const reordonne = brouillon();
   [reordonne.outils[0], reordonne.outils[1]] = [reordonne.outils[1], reordonne.outils[0]];
   assert.deepEqual(diffLines(versionDiff(avant, reordonne)), ["L'ordre des outils a changé."]);
 });
 
-test('cours (D71) : les cours des autres exercices proposés, une écriture par cours ; un cours écrit autrement reçoit l’écriture existante en conseil ; la différence à la publication', () => {
+test('cours (D71) : les cours des autres exercices proposés, une écriture par cours ; un cours écrit autrement reçoit l’écriture existante en conseil ; hors du résumé des différences (D78)', () => {
   const rows = [
     { id: 'a', cours: 'M10', cours_publie: 'M10' },
     { id: 'b', cours: 'm-10', cours_publie: null }, // même cours que « M10 », écrit autrement : une seule entrée
@@ -92,10 +102,9 @@ test('cours (D71) : les cours des autres exercices proposés, une écriture par 
   assert.equal(courseSpelling('M10', connus), null); // déjà la même écriture
   assert.equal(courseSpelling('M40', connus), null); // un cours nouveau
   assert.equal(courseSpelling('', connus), null);
-  // La confirmation de publication le dit, comme un réglage.
+  // Le cours est de la présentation en direct (D78) : la confirmation de publication ne le dit plus.
   const avant = { titre: 'T', champs_evalues: ['vc'], outils: [] };
-  assert.deepEqual(diffLines(versionDiff(avant, { ...avant, cours: 'M10' })), ['Cours : « — » → « M10 »']);
-  assert.deepEqual(diffLines(versionDiff({ ...avant, cours: 'M10' }, avant)), ['Cours : « M10 » → « — »']);
+  assert.deepEqual(diffLines(versionDiff(avant, { ...avant, cours: 'M10' })), ['Aucune différence avec la version précédente.']);
 });
 
 test('publishedTitles (D74) : la liste de la Gestion du contenu, réduite au titre publié et à l’archivage, pour sameTitleExercises', () => {
@@ -326,6 +335,10 @@ test('images (D56) : plan de réduction avant l’envoi, taille cible jamais agr
   assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: ['actuelle', 'historique n° 2', 'historique n° 5'] }), 'présentation des tables · historique de la présentation (2 contenus)');
   assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: ['historique n° 2'] }), 'historique de la présentation');
   assert.equal(canDeleteImage({ versions: [], brouillons: [], banque: [], tables: [], presentation: ['historique n° 2'] }), false);
+  // La présentation des exercices (D78) : en vigueur, ou dans un historique ; utilisée, donc pas supprimable.
+  assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: [], presentation_exercices: ['m10', 'm10 · historique n° 3', 'autre · historique n° 4'] }), "présentation d'un exercice · historique de la présentation des exercices (2 contenus)");
+  assert.equal(imageUsageLabel({ versions: [], brouillons: [], banque: [], tables: [], presentation: [], presentation_exercices: ['m10', 'autre'] }), 'présentation de 2 exercices');
+  assert.equal(canDeleteImage({ versions: [], brouillons: [], banque: [], tables: [], presentation: [], presentation_exercices: ['m10 · historique n° 3'] }), false);
   assert.match(imageDeleteConfirmation({ id: 'img-abc', nom: 'Fraise' }), /^Supprimer l'image « Fraise » \(img-abc\)/);
   assert.match(imageArchiveConfirmation({ id: 'mvlnr', nom: 'MVLNR' }), /toujours/);
   assert.deepEqual(Object.keys(USAGE_LABELS), ['outil', 'operation', 'classe']);

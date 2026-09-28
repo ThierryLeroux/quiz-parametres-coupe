@@ -372,7 +372,7 @@ test('images des classes ISO (D64) : le brouillon et les versions portent les im
   // présentation de départ, gardée dans l'historique, la nomme aussi ; supprimer reste refusé.
   const images = await serveur.editeur('GET', 'images?usage=classe');
   assert.equal(images.corps.images.length, 6);
-  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-m-chaleur').utilisations, { versions: [], brouillons: [], banque: [], tables: ['A2026_r0', 'A2026_r1'], brouillon_tables: [], presentation: ['historique n° 1'] });
+  assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-m-chaleur').utilisations, { versions: [], brouillons: [], banque: [], tables: ['A2026_r0', 'A2026_r1'], brouillon_tables: [], presentation: ['historique n° 1'], presentation_exercices: [] });
   assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-p-chaleur').utilisations.tables, ['A2026_r0', 'A2026_r1', 'A2026_r2']);
   assert.deepEqual(images.corps.images.find((i) => i.id === 'copeaux-p-chaleur').utilisations.presentation, ['actuelle', 'historique n° 1']);
   assert.equal((await serveur.editeur('POST', 'images/supprimer', { id: 'copeaux-m-chaleur' })).status, 409);

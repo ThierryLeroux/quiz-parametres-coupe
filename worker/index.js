@@ -11,7 +11,7 @@
 
 import pkg from '../package.json' with { type: 'json' };
 import { validateData, validateTables } from '../site/js/data.js';
-import { draftErrors, maskedFields, sameTitleExercises, sameTitleRefusal } from '../site/js/exercice.js';
+import { draftErrors, liveTitleRefusal, maskedFields, sameTitleExercises, sameTitleRefusal, titleKey } from '../site/js/exercice.js';
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
   ADMIN, CONSULTATION, DISTINCT_PER_HOUR, PURGE_WORD, anonymizedDetails, canAct, clientAddress, hourSlot, isLocked, lockWait, profCookieHeader,
@@ -19,7 +19,7 @@ import {
 } from './acces.js';
 import { buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, readClaims, verificationUrl } from './attestation.js';
 import * as base from './base.js';
-import { assembleDraft, loadLatest, loadPresentation, loadVersion, tablesOf } from './catalogue.js';
+import { assembleDraft, loadExercisePresentation, loadLatest, loadPresentation, loadVersion, tablesOf } from './catalogue.js';
 import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
 import {
   EXPORT_FORMAT, cascadeCandidates, cascadePlan, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
@@ -29,6 +29,10 @@ import { isTablesId, nextRevision, tablesContent } from '../site/js/tables.js';
 import {
   applyPresentation, archivedWarnings, currentPresentation, normalizePresentation, pendingDraftPresentation, presentData, presentationDiff, presentationErrors,
 } from '../site/js/presentation.js';
+import {
+  applyExercisePresentation, copyNames, currentExercisePresentation, exerciseArchivedWarnings, exercisePresentationDiff, exercisePresentationErrors,
+  exercisePresentationOf, exerciseValues, knownCopies, normalizeExercisePresentation, pendingExercisePresentation, presentSessionView, withLiveTitle,
+} from '../site/js/presentation-exercice.js';
 import {
   NIP_CLEARED, TOKEN_LIFETIME_MS, cadenceWait, cleanAnswers, correctionView, countNipAttempt, drawQuestion, emptyCounters,
   cadenceFor, gradeQuestion, isNipLocked, isQuestionValid, isTestMode, later, sessionView,
@@ -88,6 +92,28 @@ async function findExercise(env, id) {
   return { ...latest, archived: record.archive_le !== null };
 }
 
+// La présentation en vigueur d'un exercice publié (D78) : ce que le serveur pose par-dessus ce qu'il MONTRE de toute
+// version de l'exercice (titre, cours, « À l'accueil », photo et note des copies) — jamais sur le tirage ni la correction.
+//   latest : sa dernière version assemblée (findExercise)
+async function livePresentation(env, latest) {
+  return (await loadExercisePresentation(env.DB, latest.exercise.id, latest.version.contenu)).contenu;
+}
+
+// Les présentations en vigueur de tous les exercices publiés (D78) : Map id → présentation ; un exercice jamais publié
+// n'y est pas (sa présentation est celle de son brouillon : shownPresentation).
+//   rows : base.listExercises (contenu_publie : le contenu de la dernière version)
+async function livePresentations(env, rows) {
+  const stored = await base.listExercisePresentations(env.DB);
+  return new Map(rows.filter((row) => row.contenu_publie !== null).map((row) => [row.id, currentExercisePresentation(stored.get(row.id)?.contenu ?? null, row.contenu_publie)]));
+}
+
+// Ce qu'un exercice montre de sa présentation : celle en vigueur s'il a été publié, sinon celle de son brouillon.
+const shownPresentation = (row, presentations) => presentations.get(row.id) ?? exercisePresentationOf(row.brouillon);
+
+// La séance telle que le serveur la montre (D78) : sessionView, avec la présentation en vigueur de l'exercice par-dessus
+// (le titre de la barre, la photo et la note de l'outil de la question). La séance elle-même n'en sait rien.
+const shownSession = (session, exercise, data, options, presentation) => presentSessionView(sessionView(session, exercise, data, options), presentation);
+
 // La version épinglée à une séance (D47) : celle de sa création, jusqu'à la fin. Une séance sans
 // version (créée par l'ancien serveur entre la migration et le déploiement) prend la dernière
 // publiée, et y reste épinglée désormais.
@@ -139,7 +165,8 @@ async function limitRate(request, env, portee, valeur, now) {
 // ou à la première ouverture d'une séance réussie avant cette version. L'enregistrement est figé
 // à cet instant et signé (sous-clé « attestation » de CLE_SECRETE) ; il liste les questions
 // réussies qui comptent, lues dans le journal des corrections (D41). Un code tiré qui serait déjà
-// pris fait échouer l'insertion (UNIQUE) : on en tire un autre (D42).
+// pris fait échouer l'insertion (UNIQUE) : on en tire un autre (D42). Le titre qu'il inscrit est celui en vigueur à cet
+// instant (D78) : l'appelant passe l'exercice avec ce titre (withLiveTitle) ; une attestation déjà émise n'est jamais relue.
 //   session : la ligne de la séance, à jour (reussite_le non nul)
 //   tools   : { randomBytes } — l'aléa des codes, que les tests remplacent
 async function ensureAttestation(env, session, exercise, data, now, tools) {
@@ -186,11 +213,13 @@ function viewOptions(request, env, now) {
 // les feuilles de référence et les noms des outils. Rien de secret : les tables sont celles des
 // feuilles imprimées, et les copies d'outils ce qu'outils.json publiait.
 
-// Les tables y sont montrées avec la présentation en vigueur posée par-dessus (D76) : celle-ci change sans nouvelle
-// version, pour toutes les versions ; le catalogue gardé en mémoire, qui tire et corrige, n'est pas touché.
-function exerciseView({ data, exercise, version }, archived, presentation) {
+// Les tables y sont montrées avec la présentation en vigueur posée par-dessus (D76), et l'exercice avec la sienne (D78 :
+// titre, cours, « À l'accueil », photo et note des copies) : elles changent sans nouvelle version, pour toutes les
+// versions ; le catalogue gardé en mémoire, qui tire et corrige, n'est pas touché.
+function exerciseView({ data, exercise, version }, archived, presentation, exercisePresentation) {
+  const shown = { ...exercise, outils: data.outils.map((tool) => ({ ...tool, reussites_requises: exercise.outils.find((entry) => entry.id === tool.id).reussites_requises })) };
   return {
-    exercice: { ...exercise, outils: data.outils.map((tool) => ({ ...tool, reussites_requises: exercise.outils.find((entry) => entry.id === tool.id).reussites_requises })) },
+    exercice: applyExercisePresentation(shown, exercisePresentation),
     tables: tablesView(presentData(data, presentation)),
     version: version.numero,
     archive: archived,
@@ -223,23 +252,26 @@ async function exercice(request, env) {
   const params = new URL(request.url).searchParams;
   const latest = await findExercise(env, params.get('exercice'));
   const presentation = (await loadPresentation(env.DB)).contenu;
+  const live = await livePresentation(env, latest); // la même pour toutes ses versions (D78)
   const wanted = params.get('version');
-  if (wanted === null || Number(wanted) === latest.version.numero) return json(exerciseView(latest, latest.archived, presentation));
+  if (wanted === null || Number(wanted) === latest.version.numero) return json(exerciseView(latest, latest.archived, presentation, live));
   const version = /^[1-9]\d*$/.test(wanted) ? await base.findVersion(env.DB, latest.exercise.id, Number(wanted)) : null;
   if (version === null) throw new HttpError(404, "Cette version de l'exercice n'existe pas.");
-  return json(exerciseView(await loadVersion(env.DB, version.id), latest.archived, presentation));
+  return json(exerciseView(await loadVersion(env.DB, version.id), latest.archived, presentation, live));
 }
 
-// GET /api/exercices — la liste de l'accueil (D18) : publiés, non archivés, sans « liste »: false, dans l'ordre des
-// rangs (D51). Chacun avec son cours (D71 : l'accueil les regroupe), son nombre d'outils et ses grandeurs évaluées,
-// tels que sa dernière version les publie.
+// GET /api/exercices — la liste de l'accueil (D18) : publiés, non archivés, « À l'accueil », dans l'ordre des rangs
+// (D51). Chacun avec son titre et son cours (D71 : l'accueil les regroupe) en vigueur (D78), son nombre d'outils et ses
+// grandeurs évaluées, tels que sa dernière version les publie.
 async function exercices(request, env) {
   const rows = await base.listPublishedExercises(env.DB);
+  const stored = await base.listExercisePresentations(env.DB);
+  const shown = rows.map((row) => ({ row, live: currentExercisePresentation(stored.get(row.id)?.contenu ?? null, row.contenu) }));
   return json({
-    exercices: rows.filter((row) => row.archive_le === null && row.contenu.liste !== false).map((row) => ({
+    exercices: shown.filter(({ row, live }) => row.archive_le === null && live.liste).map(({ row, live }) => ({
       id: row.id,
-      titre: row.contenu.titre,
-      cours: row.contenu.cours ?? null,
+      titre: live.titre,
+      cours: live.cours,
       nombre_outils: row.contenu.outils.length,
       champs_evalues: row.contenu.champs_evalues,
     })),
@@ -314,7 +346,7 @@ async function creation(request, env, { now }) {
   });
   if (!created) throw new HttpError(409, ALREADY_EXISTS);
   const session = await base.findSession(env.DB, exercise.id, student.matricule);
-  return json({ jeton: token, seance: sessionView(session, exercise, data, viewOptions(request, env, now)) });
+  return json({ jeton: token, seance: shownSession(session, exercise, data, viewOptions(request, env, now), await livePresentation(env, latest)) });
 }
 
 // --- POST /api/reprise — écran 2/2, séance trouvée : matricule + NIP. Ni prénom ni nom.
@@ -333,7 +365,7 @@ async function reprise(request, env, { now }) {
   // nip_hache est réécrit : c'est ainsi qu'un NIP remis à zéro par l'enseignant est remplacé.
   await base.openSession(env.DB, session.id, { ...stored, nip_hache: await hashNip(env.CLE_SECRETE, matricule, nip), now: now.toISOString(), cleared: NIP_CLEARED });
   const { data, exercise } = await loadSessionVersion(env, session, latest);
-  return json({ jeton: token, seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env, now)) });
+  return json({ jeton: token, seance: shownSession(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env, now), await livePresentation(env, latest)) });
 }
 
 // --- POST /api/identite — « Corriger mon identité » : prénom, nom, matricule ; NIP exigé.
@@ -351,8 +383,9 @@ async function identite(request, env, { now, randomBytes }) {
   await base.clearNipAttempts(env.DB, session.id, NIP_CLEARED);
 
   const changed = ['prenom', 'nom', 'matricule'].some((key) => identity[key] !== session[key]);
+  const live = await livePresentation(env, latest);
   if (changed) {
-    const current = session.reussite_le === null ? null : await ensureAttestation(env, session, exercise, data, now, { randomBytes });
+    const current = session.reussite_le === null ? null : await ensureAttestation(env, session, withLiveTitle(exercise, live), data, now, { randomBytes });
     // Le NIP est haché avec le matricule (crypto.js) : nouveau matricule, nouveau haché du même NIP.
     const moved = { ...identity, nip_hache: await hashNip(env.CLE_SECRETE, identity.matricule, identity.nip) };
     let outcome = 'code';
@@ -367,7 +400,7 @@ async function identite(request, env, { now, randomBytes }) {
     if (outcome === 'matricule') throw new HttpError(409, ALREADY_EXISTS);
     if (outcome !== 'ok') throw new Error("impossible de réémettre l'attestation (codes en conflit)");
   }
-  return json({ seance: sessionView(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env, now)) });
+  return json({ seance: shownSession(await base.findSessionById(env.DB, session.id), exercise, data, viewOptions(request, env, now), live) });
 }
 
 // --- GET /api/seance?exercice=<id> ---------------------------------------------------------------------
@@ -375,7 +408,7 @@ async function identite(request, env, { now, randomBytes }) {
 async function seance(request, env, { now }) {
   const latest = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
   const { session, data, exercise } = await authenticate(request, env, latest, now);
-  return json({ seance: sessionView(session, exercise, data, viewOptions(request, env, now)) });
+  return json({ seance: shownSession(session, exercise, data, viewOptions(request, env, now), await livePresentation(env, latest)) });
 }
 
 // --- POST /api/question ----------------------------------------------------------------------------------
@@ -385,6 +418,7 @@ async function question(request, env, { now, random, randomBytes }) {
   const body = await readBody(request);
   const latest = await findExercise(env, body.exercice);
   let { session, data, exercise } = await authenticate(request, env, latest, now);
+  const live = await livePresentation(env, latest);
 
   if (session.reussite_le === null && !isQuestionValid(session.question_courante, session.compteurs, exercise, data)) {
     const drawn = drawQuestion(session.compteurs, exercise, data, random);
@@ -392,9 +426,9 @@ async function question(request, env, { now, random, randomBytes }) {
     const completion = drawn === null ? { reussite_le: now.toISOString(), version_exercice_reussite: exercise.version } : null;
     await base.saveQuestion(env.DB, session, drawn, completion); // si une autre requête a tiré avant nous, c'est sa question qui vaut
     session = await base.findSessionById(env.DB, session.id);
-    if (session.reussite_le !== null) await ensureAttestation(env, session, exercise, data, now, { randomBytes });
+    if (session.reussite_le !== null) await ensureAttestation(env, session, withLiveTitle(exercise, live), data, now, { randomBytes });
   }
-  return json({ seance: sessionView(session, exercise, data, viewOptions(request, env, now)) });
+  return json({ seance: shownSession(session, exercise, data, viewOptions(request, env, now), live) });
 }
 
 // --- POST /api/correction --------------------------------------------------------------------------------
@@ -431,11 +465,12 @@ async function correction(request, env, { now, random, randomBytes }) {
   if (!recorded) throw new HttpError(429, 'Une correction de cette question est déjà en cours.', { attendre_s: 1 });
 
   const updated = await base.findSessionById(env.DB, session.id);
-  // La dernière réussite exigée vient d'être obtenue : l'attestation est figée tout de suite (D31).
-  if (updated.reussite_le !== null) await ensureAttestation(env, updated, exercise, data, now, { randomBytes });
+  const live = await livePresentation(env, latest);
+  // La dernière réussite exigée vient d'être obtenue : l'attestation est figée tout de suite (D31), avec le titre en vigueur (D78).
+  if (updated.reussite_le !== null) await ensureAttestation(env, updated, withLiveTitle(exercise, live), data, now, { randomBytes });
   return json({
     correction: correctionView(asked, answers, graded.result, before, graded.counters, data, maskedFields(exercise)),
-    seance: sessionView(updated, exercise, data, viewOptions(request, env, now)),
+    seance: shownSession(updated, exercise, data, viewOptions(request, env, now), live),
   });
 }
 
@@ -446,7 +481,7 @@ async function attestation(request, env, { now, randomBytes }) {
   const latest = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
   const { session, data, exercise } = await authenticate(request, env, latest, now);
   if (session.reussite_le === null) throw new HttpError(409, "L'exercice n'est pas encore réussi.");
-  return json(attestationView(request, await ensureAttestation(env, session, exercise, data, now, { randomBytes })));
+  return json(attestationView(request, await ensureAttestation(env, session, withLiveTitle(exercise, await livePresentation(env, latest)), data, now, { randomBytes })));
 }
 
 // --- POST /api/verification — public, sans connexion (D33) -------------------------------------------------
@@ -530,10 +565,12 @@ async function profDeconnexion() {
   return json({ deconnecte: true }, 200, { 'set-cookie': profCookieHeader(null) });
 }
 
-// Les titres des exercices, par identifiant, pour le tableau des séances : le titre de la dernière
-// version publiée, sinon celui du brouillon.
+// Les titres des exercices, par identifiant, pour le tableau des séances (et son export CSV) : le titre en vigueur
+// (D78), sinon, jamais publié, celui du brouillon.
 async function exerciseTitles(env) {
-  return new Map((await base.listExercises(env.DB)).map((row) => [row.id, (row.contenu_publie ?? row.brouillon).titre]));
+  const rows = await base.listExercises(env.DB);
+  const presentations = await livePresentations(env, rows);
+  return new Map(rows.map((row) => [row.id, shownPresentation(row, presentations).titre]));
 }
 
 // GET /api/prof/seances — toutes les séances, pour le tableau des réussites ; le tri, le filtre et
@@ -675,31 +712,36 @@ const toolNamesOf = (latest) => new Map(latest.materiaux.materiaux_outil.map((m)
 async function editeurExercices(request, env, { now }) {
   await requireAdmin(request, env, now);
   const rows = await base.listExercises(env.DB);
+  const presentations = await livePresentations(env, rows);
   const list = [];
   for (const row of rows) {
+    const shown = shownPresentation(row, presentations);
     list.push({
       id: row.id,
       rang: row.rang,
-      titre: row.brouillon.titre,
-      // Le cours du brouillon et ce que la dernière version publie (D71) : les cours déjà utilisés, et les titres que
-      // voient les étudiants (un doublon est signalé à la publication).
-      cours: row.brouillon.cours ?? null,
-      titre_publie: row.contenu_publie?.titre ?? null,
-      cours_publie: row.contenu_publie?.cours ?? null,
-      modifie: row.contenu_publie === null || !sameContent(row.brouillon, row.contenu_publie),
+      // Le titre, le cours et « À l'accueil » en vigueur (D78) ; jamais publié, ceux du brouillon. titre_publie et
+      // cours_publie : ceux que voient les étudiants (null : jamais publié) — les cours déjà utilisés (D71), et les
+      // titres qu'un autre ne peut pas prendre (D74).
+      titre: shown.titre,
+      cours: shown.cours,
+      titre_publie: presentations.get(row.id)?.titre ?? null,
+      cours_publie: presentations.get(row.id)?.cours ?? null,
+      // Modifié : ses valeurs seules, pour un exercice publié (la présentation du brouillon dort, D78).
+      modifie: row.contenu_publie === null || !sameContent(exerciseValues(row.brouillon), exerciseValues(row.contenu_publie)),
       derniere_version: row.derniere_version,
       publie_le: row.publie_le,
       archive_le: row.archive_le,
       brouillon_modifie_le: row.brouillon_modifie_le,
       seances: row.seances,
       versions: await base.listVersions(env.DB, row.id),
-      liste: row.brouillon.liste !== false,
+      liste: shown.liste,
     });
   }
   return json({ exercices: list });
 }
 
-// GET /api/prof/editeur/exercice?id=<id> — le brouillon avec sa révision, les versions (sans contenu), la dernière version (contenu) et les tables.
+// GET /api/prof/editeur/exercice?id=<id> — le brouillon avec sa révision, les versions (sans contenu), la dernière version
+// (contenu), les tables, et, pour un exercice publié, sa présentation en vigueur (D78 : le panneau ; null sinon).
 async function editeurExercice(request, env, { now }) {
   await requireAdmin(request, env, now);
   const record = await editorExercise(env, new URL(request.url).searchParams.get('id'));
@@ -715,6 +757,7 @@ async function editeurExercice(request, env, { now }) {
     tables_versions: tablesVersions.map(({ id, creee_le }) => ({ id, creee_le })),
     derniere_tables: tablesVersions[0]?.id ?? tables.id,
     erreurs: draftErrors(record.brouillon, tables),
+    presentation: latest === null ? null : await exercisePresentationPayload(env, record, latest),
   });
 }
 
@@ -741,7 +784,10 @@ async function editeurCreer(request, env, { now }) {
   let details;
   if (typeof body.depuis === 'string') {
     const source = await editorExercise(env, body.depuis);
-    brouillon = structuredClone(source.brouillon);
+    // Une copie d'un exercice publié part de sa présentation en vigueur (D78) : titre, cours, photos et notes.
+    const sourceLatest = await base.findLatestVersion(env.DB, source.id);
+    const live = sourceLatest === null ? null : (await loadExercisePresentation(env.DB, source.id, sourceLatest.contenu)).contenu;
+    brouillon = structuredClone(applyExercisePresentation(source.brouillon, live));
     brouillon.titre = typeof body.titre === 'string' && body.titre.trim() !== '' ? body.titre.trim() : `${brouillon.titre} (copie)`;
     details = `${body.id} · dupliqué de ${body.depuis}`;
   } else {
@@ -771,16 +817,25 @@ async function editeurEnregistrer(request, env, { now }) {
   return json({ enregistre: true, revision: body.revision + 1, erreurs });
 }
 
-// POST /api/prof/editeur/exercice/renommer — { id, titre } : le titre du brouillon (à publier ensuite).
+// POST /api/prof/editeur/exercice/renommer — { id, titre }. Un exercice publié : le titre entre en vigueur tout de suite
+// (D78) — le même geste qu'« Appliquer » dans le panneau de sa présentation, avec la règle du titre en double, l'historique
+// et le journal. Jamais publié : le titre du brouillon, libre jusqu'à la première publication.
 async function editeurRenommer(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
   const record = await editorExercise(env, body.id);
   if (typeof body.titre !== 'string' || body.titre.trim() === '') throw new HttpError(400, 'Le titre est requis.');
-  const brouillon = { ...record.brouillon, titre: body.titre.trim() };
+  const titre = body.titre.trim();
+  const latest = await base.findLatestVersion(env.DB, record.id);
+  if (latest !== null) {
+    const presentation = await loadExercisePresentation(env.DB, record.id, latest.contenu);
+    await replaceExercisePresentation(env, record, latest, presentation, { revision: presentation.revision, contenu: { ...presentation.contenu, titre }, action: 'application', teacher, now, details: 'renommé depuis la liste · ' });
+    return json({ renomme: true, titre, en_direct: true });
+  }
+  const brouillon = { ...record.brouillon, titre };
   const saved = await base.saveDraft(env.DB, record.id, record.revision, brouillon, now.toISOString(), logEntry(teacher, now, 'editeur_renommage', `${record.id} · « ${record.brouillon.titre} » → « ${brouillon.titre} »`));
   if (!saved) throw new HttpError(409, CONFLICT);
-  return json({ renomme: true, titre: brouillon.titre });
+  return json({ renomme: true, titre: brouillon.titre, en_direct: false });
 }
 
 // POST /api/prof/editeur/exercice/deplacer — { id, rang, direction: "monter" | "descendre" } (D51) : l'ordre de la
@@ -821,27 +876,42 @@ async function editeurSupprimer(request, env, { now }) {
   return json({ supprime: true, id: record.id });
 }
 
-// POST /api/prof/editeur/exercice/publier — { id, revision } : le brouillon devient la version suivante, s'il est valide
-// et si aucun autre exercice publié et non archivé ne porte son titre (D74).
+// Les titres en vigueur (D78) de tous les exercices, pour la règle du titre en double (D74) : [{ id, titre, archive_le }] ;
+// titre null pour un exercice jamais publié (son brouillon est libre).
+async function titlesInForce(env) {
+  const rows = await base.listExercises(env.DB);
+  const presentations = await livePresentations(env, rows);
+  return rows.map((row) => ({ id: row.id, titre: presentations.get(row.id)?.titre ?? null, archive_le: row.archive_le }));
+}
+
+// POST /api/prof/editeur/exercice/publier — { id, revision } : le brouillon devient la version suivante, s'il est valide.
+// Un exercice déjà publié : la version prend la présentation en vigueur (D78, un instantané) et ne compare que ses valeurs
+// à la précédente. Un exercice jamais publié : refusé si un autre exercice publié et non archivé porte son titre (D74).
 async function editeurPublier(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
   const body = await readBody(request);
   const record = await editorExercise(env, body.id);
   if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
   const tables = await exerciseTables(env, record); // la version publiée prend la version de tables du brouillon (D62)
-  const erreurs = draftErrors(record.brouillon, tables);
-  if (erreurs.length > 0) throw new HttpError(400, `Le brouillon a ${erreurs.length} erreur(s) : il ne peut pas être publié.`, { erreurs });
   const latest = await base.findLatestVersion(env.DB, record.id);
+  // L'instantané (D78, point 8) : la présentation du brouillon d'un exercice publié dort ; celle en vigueur la remplace,
+  // pour les copies qu'elle connaît (une copie nouvelle garde la photo et la note de sa ligne du brouillon).
+  const live = latest === null ? null : (await loadExercisePresentation(env.DB, record.id, latest.contenu)).contenu;
+  const contenu = applyExercisePresentation(record.brouillon, live);
+  const erreurs = draftErrors(contenu, tables);
+  if (erreurs.length > 0) throw new HttpError(400, `Le brouillon a ${erreurs.length} erreur(s) : il ne peut pas être publié.`, { erreurs });
   // Une version identique à la précédente ne se publie pas (D51) : l'écran désactive déjà le bouton.
   // Un changement de version de tables est une différence (D62), même à contenu identique.
-  if (latest !== null && sameContent(record.brouillon, latest.contenu) && latest.tables_id === tables.id) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${latest.numero}.`);
-  // Le titre identifie l'exercice pour les étudiants (D74) : refusé tant qu'un AUTRE exercice publié et non archivé le
-  // porte (titre de sa dernière version ; sans casse, accents ni espaces) — même si l'on contourne l'écran.
-  const titles = (await base.listPublishedExercises(env.DB)).map((row) => ({ id: row.id, titre: row.contenu.titre, archive_le: row.archive_le }));
-  const doublons = sameTitleExercises(record.brouillon.titre, titles, record.id);
-  if (doublons.length > 0) throw new HttpError(400, sameTitleRefusal(doublons), { doublons });
+  if (latest !== null && sameContent(exerciseValues(contenu), exerciseValues(latest.contenu)) && latest.tables_id === tables.id) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${latest.numero}.`);
+  // Le titre identifie l'exercice pour les étudiants (D74) : à la première publication, refusé tant qu'un AUTRE exercice
+  // publié et non archivé porte le même titre en vigueur (sans casse, accents ni espaces) — même si l'on contourne l'écran.
+  // Ensuite, le titre ne change qu'en direct, où la même règle s'applique (D78, point 6).
+  if (latest === null) {
+    const doublons = sameTitleExercises(contenu.titre, await titlesInForce(env), record.id);
+    if (doublons.length > 0) throw new HttpError(400, sameTitleRefusal(doublons), { doublons });
+  }
   const numero = (latest?.numero ?? 0) + 1;
-  const published = await base.publishVersion(env.DB, { id: record.id, revision: record.revision, numero, contenu: record.brouillon, tablesId: tables.id, now: now.toISOString() },
+  const published = await base.publishVersion(env.DB, { id: record.id, revision: record.revision, numero, contenu, tablesId: tables.id, now: now.toISOString() },
     logEntry(teacher, now, 'editeur_publication', `${record.id} · version ${numero} · tables ${tables.id}`));
   if (!published) throw new HttpError(409, CONFLICT);
   return json({ publie: true, numero, publiee_le: now.toISOString() });
@@ -951,12 +1021,13 @@ async function editeurTablesPublier(request, env, { now }) {
   const previous = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
   if (previous !== null && sameContent(tablesContent(contenu), tablesContent(tablesOf(previous)))) throw new HttpError(400, `Aucune différence à publier : le brouillon est identique à la version ${previous.id}.`);
   if ((await base.findTables(env.DB, body.id)) !== null) throw new HttpError(409, `La révision « ${body.id} » existe déjà : une version publiée ne se remplace pas.`);
-  // La cascade (D77) : les exercices cochés, recalculés ici (jamais crus du navigateur).
-  const { rows, candidates } = await cascadeFor(env, draft.base_id, contenu);
+  // La cascade (D77) : les exercices cochés, recalculés ici (jamais crus du navigateur). Chaque version qu'elle publie prend
+  // la présentation en vigueur de son exercice (D78 : un instantané, comme toute version publiée).
+  const { rows, candidates, presentations } = await cascadeFor(env, draft.base_id, contenu);
   const plan = cascadePlan(candidates, rows, body.cascade);
   const mention = `cascade de la publication des tables ${body.id}`;
   const cascade = {
-    versions: plan.versions.map((v) => ({ ...v, entry: logEntry(teacher, now, 'editeur_publication', `${v.exercice_id} · version ${v.numero} · tables ${body.id} · ${mention}`) })),
+    versions: plan.versions.map((v) => ({ ...v, contenu: applyExercisePresentation(v.contenu, presentations.get(v.exercice_id) ?? null), entry: logEntry(teacher, now, 'editeur_publication', `${v.exercice_id} · version ${v.numero} · tables ${body.id} · ${mention}`) })),
     brouillons: plan.brouillons.map((b) => ({ id: b.id, depuis: b.depuis, entry: logEntry(teacher, now, 'editeur_tables_exercice', `${b.id} · tables ${b.depuis ?? '—'} → ${body.id} · ${mention}`) })),
   };
   const summary = candidates.length === 0 ? '' : ` · cascade sur ${candidates.length} exercice(s) proposé(s) : ${plan.versions.length} version(s) publiée(s), ${plan.brouillons.length} brouillon(s) passé(s), ${plan.laisses.length} en erreur laissé(s) tel(s) quel(s)`;
@@ -975,12 +1046,15 @@ async function editeurTablesPublier(request, env, { now }) {
 
 // Les exercices que la cascade propose (D77, cascadeCandidates) : tous, puisqu'aucun n'est encore sur les nouvelles tables
 // `next` ; cochés par défaut ceux qui sont sur la version remplacée ; ce que ça change pour chacun depuis sa propre version.
+// Chaque exercice publié y est nommé par son titre en vigueur (D78) ; `presentations` : les présentations en vigueur.
 async function cascadeFor(env, replacedId, next) {
   const versions = await base.listTables(env.DB);
   const tablesById = new Map(versions.map((row) => [row.id, tablesOf(row)]));
-  const rows = await base.listExercises(env.DB);
+  const listed = await base.listExercises(env.DB);
+  const presentations = await livePresentations(env, listed);
+  const rows = listed.map((row) => (presentations.has(row.id) ? { ...row, titre_en_vigueur: presentations.get(row.id).titre } : row));
   const candidates = cascadeCandidates(rows, { replacedId, tablesById, latestId: versions.at(-1)?.id ?? null, next }, { draftErrorsOf: draftErrors, impactOf: exerciseTablesImpact });
-  return { rows, candidates };
+  return { rows, candidates, presentations };
 }
 
 // GET /api/prof/editeur/tables/cascade — ce que la publication du brouillon des tables (tel qu'enregistré) proposerait en
@@ -1065,7 +1139,8 @@ async function editeurAnnuler(request, env, { now }) {
   if (body.revision !== record.revision) throw new HttpError(409, CONFLICT, { revision_actuelle: record.revision });
   const latest = await base.findLatestVersion(env.DB, record.id);
   if (latest === null) throw new HttpError(400, "Cet exercice n'a jamais été publié : il n'y a pas de version à laquelle revenir.");
-  if (sameContent(record.brouillon, latest.contenu) && record.tables_id === latest.tables_id) return json({ annule: false, numero: latest.numero, revision: record.revision, tables_id: latest.tables_id });
+  // Ses valeurs seules : la présentation du brouillon dort (D78).
+  if (sameContent(exerciseValues(record.brouillon), exerciseValues(latest.contenu)) && record.tables_id === latest.tables_id) return json({ annule: false, numero: latest.numero, revision: record.revision, tables_id: latest.tables_id });
   const saved = await base.replaceDraft(env.DB, record.id, record.revision, cleanDraft(structuredClone(latest.contenu)), latest.tables_id, now.toISOString(), logEntry(teacher, now, 'editeur_annulation', `${record.id} · brouillon ramené à la version ${latest.numero} (tables ${latest.tables_id})`));
   if (!saved) throw new HttpError(409, CONFLICT, { revision_actuelle: (await base.findExercise(env.DB, record.id)).revision });
   return json({ annule: true, numero: latest.numero, revision: record.revision + 1, tables_id: latest.tables_id });
@@ -1172,6 +1247,122 @@ async function editeurPresentationRetablir(request, env, { now }) {
   return json({ retablie: true, revision: body.revision + 1, lignes, avertissements: archivedWarnings(entry.contenu, images) });
 }
 
+// --- La présentation d'un exercice en direct (D78) : lire, appliquer, rétablir ---------------------------------------
+// Par exercice publié, la mécanique de la présentation des tables : pas de brouillon ; « Appliquer » change ce que tous les
+// étudiants voient de cet exercice dès que leur page se recharge, séances en cours comprises, quelle que soit leur version.
+// Chaque contenu remplacé va à l'historique ; « Rétablir » en remet un. Contrôle optimiste (D48), journal.
+
+const EXERCISE_PRESENTATION_CONFLICT = "La présentation de cet exercice a été appliquée ailleurs depuis ton ouverture (un autre onglet ou un autre appareil). Recharge le panneau pour partir de la présentation en vigueur ; rien n'a été écrasé.";
+const NEVER_PUBLISHED = "Cet exercice n'a jamais été publié : son titre, son cours, « À l'accueil », les photos et les notes sont dans son brouillon, et entrent en vigueur à sa première publication.";
+
+// La dernière version publiée d'un exercice de la Gestion du contenu ; 400 s'il n'a jamais été publié.
+async function publishedLatest(env, record) {
+  const latest = await base.findLatestVersion(env.DB, record.id);
+  if (latest === null) throw new HttpError(400, NEVER_PUBLISHED);
+  return latest;
+}
+
+// Les noms des copies d'un exercice, d'après ses versions publiées (la plus récente l'emporte) : pour dire un outil en clair.
+const versionNames = async (env, id) => copyNames((await base.listVersionContentsOf(env.DB, id)).map((v) => v.contenu));
+
+// Ce que le panneau de la présentation d'un exercice publié reçoit (GET …/exercice/presentation, et la page de
+// l'exercice) : la présentation en vigueur, sa révision, si elle a déjà été appliquée, les noms des copies (et si chacune
+// est dans la dernière version), ses erreurs, ses avertissements (une photo archivée en vigueur : elle ne bloque rien),
+// les retouches en attente du brouillon (D78, point 10), et l'historique, le plus récent en tête, avec pour chaque
+// contenu remplacé ce que le rétablir changerait.
+async function exercisePresentationPayload(env, record, latest) {
+  const presentation = await loadExercisePresentation(env.DB, record.id, latest.contenu);
+  const versions = (await base.listVersionContentsOf(env.DB, record.id)).map((v) => v.contenu);
+  const names = copyNames(versions);
+  const latestIds = new Set(latest.contenu.outils.map((copy) => copy.id));
+  const images = await base.listImages(env.DB);
+  const historique = (await base.listExercisePresentationHistory(env.DB, record.id)).reverse();
+  return {
+    presentation: presentation.contenu,
+    revision: presentation.revision,
+    appliquee: presentation.stocke !== null,
+    modifiee_le: presentation.modifiee_le,
+    enseignant: presentation.enseignant,
+    derniere_version: latest.numero,
+    outils: presentation.contenu.outils.map((e) => ({ id: e.id, nom: names.get(e.id) ?? e.id, derniere_version: latestIds.has(e.id) })),
+    erreurs: exercisePresentationErrors(presentation.contenu, { images, inForce: presentation.contenu }),
+    avertissements: exerciseArchivedWarnings(presentation.contenu, images, names),
+    en_attente: pendingExercisePresentation(versions, record.brouillon, presentation.contenu, names, historique.map((h) => h.contenu)),
+    historique: historique.map((h) => ({
+      id: h.id, posee_le: h.posee_le, posee_par: h.posee_par, remplacee_le: h.remplacee_le, remplacee_par: h.remplacee_par, action: h.action,
+      lignes: exercisePresentationDiff(presentation.contenu, currentExercisePresentation(h.contenu, latest.contenu), names),
+    })),
+  };
+}
+
+// GET /api/prof/editeur/exercice/presentation?id=<id> — la présentation en vigueur d'un exercice publié et son historique.
+async function editeurExercicePresentation(request, env, { now }) {
+  await requireAdmin(request, env, now);
+  const record = await editorExercise(env, new URL(request.url).searchParams.get('id'));
+  return json(await exercisePresentationPayload(env, record, await publishedLatest(env, record)));
+}
+
+// Écrit une présentation d'exercice à la place de celle en vigueur (application, renommage ou rétablissement) : 409 si la
+// révision est périmée, 400 si rien ne change, 400 si le titre change pour celui d'un autre exercice publié et non archivé
+// (D74, D78 point 6) ; le contenu remplacé va à l'historique ; journalisé. Retourne les changements.
+//   presentation : loadExercisePresentation ; names : versionNames
+async function replaceExercisePresentation(env, record, latest, presentation, { revision, contenu, action, teacher, now, details }, names = null) {
+  if (revision !== presentation.revision) throw new HttpError(409, EXERCISE_PRESENTATION_CONFLICT, { revision_actuelle: presentation.revision });
+  const next = currentExercisePresentation(contenu, latest.contenu);
+  const lignes = exercisePresentationDiff(presentation.contenu, next, names ?? await versionNames(env, record.id));
+  if (lignes.length === 0) throw new HttpError(400, 'Aucune différence avec la présentation en vigueur : rien à appliquer.');
+  if (titleKey(next.titre) !== titleKey(presentation.contenu.titre)) {
+    const doublons = sameTitleExercises(next.titre, await titlesInForce(env), record.id);
+    if (doublons.length > 0) throw new HttpError(400, liveTitleRefusal(doublons), { doublons });
+  }
+  const remplace = { contenu: presentation.stocke ?? presentation.contenu, posee_le: presentation.stocke === null ? null : presentation.modifiee_le, posee_par: presentation.stocke === null ? null : presentation.enseignant };
+  const saved = await base.setExercisePresentation(env.DB, { exerciceId: record.id, revision, contenu, remplace, action, now: now.toISOString(), enseignant: teacher },
+    logEntry(teacher, now, action === 'application' ? 'editeur_presentation_exercice_application' : 'editeur_presentation_exercice_retablissement', `${record.id} · ${details}${changesText(lignes)}`));
+  if (!saved) throw new HttpError(409, EXERCISE_PRESENTATION_CONFLICT, { revision_actuelle: (await base.findExercisePresentation(env.DB, record.id)).revision });
+  return lignes;
+}
+
+// POST /api/prof/editeur/exercice/presentation/appliquer — { id, revision, presentation } : la liste blanche est imposée
+// ici (tout autre champ → 400, nommé), une copie inconnue de la présentation en vigueur aussi ; une photo CHOISIE doit
+// exister et ne pas être archivée ; une photo archivée déjà en vigueur n'est qu'un avertissement. Effet immédiat.
+async function editeurExercicePresentationAppliquer(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request, EDITOR_BODY_MAX);
+  const record = await editorExercise(env, body.id);
+  if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision de la présentation est requise.');
+  const latest = await publishedLatest(env, record);
+  const presentation = await loadExercisePresentation(env.DB, record.id, latest.contenu);
+  const images = await base.listImages(env.DB);
+  const erreurs = exercisePresentationErrors(body.presentation, { images, inForce: presentation.contenu, copies: knownCopies(presentation.contenu) });
+  if (erreurs.length > 0) throw new HttpError(400, `La présentation a ${erreurs.length} erreur(s) : rien n'a été appliqué.`, { erreurs });
+  const contenu = normalizeExercisePresentation(body.presentation);
+  const names = await versionNames(env, record.id);
+  const lignes = await replaceExercisePresentation(env, record, latest, presentation, { revision: body.revision, contenu, action: 'application', teacher, now, details: '' }, names);
+  return json({ applique: true, revision: body.revision + 1, lignes, avertissements: exerciseArchivedWarnings(contenu, images, names) });
+}
+
+// POST /api/prof/editeur/exercice/presentation/retablir — { id, revision, historique } : remet un contenu de l'historique
+// de cet exercice en vigueur (celui en vigueur va à l'historique). Permis même si une photo a été archivée depuis ; la
+// règle du titre en double s'applique si le titre change.
+async function editeurExercicePresentationRetablir(request, env, { now }) {
+  const { teacher } = await requireAdmin(request, env, now);
+  const body = await readBody(request);
+  const record = await editorExercise(env, body.id);
+  if (!Number.isInteger(body.revision)) throw new HttpError(400, 'La révision de la présentation est requise.');
+  const latest = await publishedLatest(env, record);
+  const entry = Number.isInteger(body.historique) ? await base.findExercisePresentationHistory(env.DB, record.id, body.historique) : null;
+  if (entry === null) throw new HttpError(404, "Ce contenu n'est pas dans l'historique de la présentation de cet exercice.");
+  const images = await base.listImages(env.DB);
+  const erreurs = exercisePresentationErrors(entry.contenu, { images, archived: 'permis' });
+  if (erreurs.length > 0) throw new HttpError(400, `Ce contenu de l'historique a ${erreurs.length} erreur(s) : il ne peut pas être rétabli.`, { erreurs });
+  const presentation = await loadExercisePresentation(env.DB, record.id, latest.contenu);
+  const names = await versionNames(env, record.id);
+  const quand = entry.remplacee_le.slice(0, 16).replace('T', ' ');
+  const contenu = normalizeExercisePresentation(entry.contenu);
+  const lignes = await replaceExercisePresentation(env, record, latest, presentation, { revision: body.revision, contenu, action: 'retablissement', teacher, now, details: `historique n° ${entry.id} (remplacée le ${quand} UTC) · ` }, names);
+  return json({ retablie: true, revision: body.revision + 1, lignes, avertissements: exerciseArchivedWarnings(contenu, images, names) });
+}
+
 // POST /api/prof/editeur/banque/creer — { id, outil } ou { id, depuis: <id> } (dupliquer).
 async function editeurBanqueCreer(request, env, { now }) {
   const { teacher } = await requireAdmin(request, env, now);
@@ -1231,7 +1422,8 @@ async function serveImage(request, env, id) {
 }
 
 // Où chaque image est utilisée : versions publiées, brouillons, banque, tables (pictogrammes, images de chaleur), et
-// la présentation en direct, actuelle ou dans l'historique (D76), et le brouillon des tables (D77).
+// la présentation en direct, actuelle ou dans l'historique (D76), et le brouillon des tables (D77), et la présentation des
+// exercices, en vigueur ou dans l'historique (D78).
 async function imageContext(env) {
   return {
     versions: await base.listVersionContents(env.DB),
@@ -1240,6 +1432,10 @@ async function imageContext(env) {
     tables: await base.listTables(env.DB),
     presentation: { actuelle: (await base.findPresentation(env.DB)).contenu, historique: await base.listPresentationHistory(env.DB) },
     brouillonTables: (await base.findTablesDraft(env.DB)).contenu,
+    presentationExercices: {
+      actuelles: [...(await base.listExercisePresentations(env.DB))].map(([id, p]) => ({ exercice_id: id, contenu: p.contenu })),
+      historique: await base.listExercisePresentationHistory(env.DB),
+    },
   };
 }
 
@@ -1375,6 +1571,7 @@ async function planImport(env, received) {
     // La présentation de l'export et son historique (D76) : la forme et la liste blanche, et des images qui existeront ;
     // une image archivée n'est pas une erreur (un contenu rétabli peut en nommer une).
     presentationErrorsOf: (contenu) => presentationErrors(contenu, { images: [...images.values()], archived: 'permis' }),
+    exercisePresentationErrorsOf: (contenu) => exercisePresentationErrors(contenu, { images: [...images.values()], archived: 'permis' }),
   });
 }
 
@@ -1461,6 +1658,9 @@ const ROUTES = {
   'GET /api/prof/editeur/presentation': editeurPresentation,
   'POST /api/prof/editeur/presentation/appliquer': editeurPresentationAppliquer,
   'POST /api/prof/editeur/presentation/retablir': editeurPresentationRetablir,
+  'GET /api/prof/editeur/exercice/presentation': editeurExercicePresentation,
+  'POST /api/prof/editeur/exercice/presentation/appliquer': editeurExercicePresentationAppliquer,
+  'POST /api/prof/editeur/exercice/presentation/retablir': editeurExercicePresentationRetablir,
   'POST /api/prof/editeur/banque/creer': editeurBanqueCreer,
   'POST /api/prof/editeur/banque/enregistrer': editeurBanqueEnregistrer,
   'POST /api/prof/editeur/banque/archiver': editeurBanqueArchiver,

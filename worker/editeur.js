@@ -9,6 +9,7 @@ import { DRAFT_KEYS, draftErrors, fieldsToGrade, maskedFields } from '../site/js
 import { formatParameters } from '../site/js/format.js';
 import { eligibleTools } from '../site/js/progression.js';
 import { normalizePresentation } from '../site/js/presentation.js';
+import { exerciseValues, normalizeExercisePresentation } from '../site/js/presentation-exercice.js';
 import { generateQuestion } from '../site/js/question.js';
 import { USAGES } from './images.js';
 
@@ -109,7 +110,8 @@ export function previewQuestions(exercise, data, random, count = 10) {
 // brouillon: { depuis, modifie, erreurs }, en_erreur, erreurs, lignes }] dans l'ordre des rangs — lignes : ce que ça
 // change pour lui DEPUIS SA PROPRE VERSION (exerciseTablesImpact de son contenu publié et des tables de celui-ci, ou de
 // son brouillon et de ses tables s'il n'a jamais été publié) ; brouillon.erreurs : celles qui apparaîtraient dans son brouillon.
-//   rows : base.listExercises (id, brouillon, tables_id, archive_le, contenu_publie, derniere_version, tables_publiees)
+//   rows : base.listExercises (id, brouillon, tables_id, archive_le, contenu_publie, derniere_version, tables_publiees), et
+//   titre_en_vigueur : le titre de la présentation en vigueur d'un exercice publié (D78), sinon absent
 //   replacedId : la version remplacée ; tablesById : Map id → tables complétées (toutes les versions) ; latestId : la plus
 //   récente (celle d'un brouillon sans version de tables) ; next : les nouvelles tables (complétées)
 //   draftErrorsOf : draftErrors (exercice.js) ; impactOf : exerciseTablesImpact (editeur-data.js) — injectées
@@ -125,13 +127,14 @@ export function cascadeCandidates(rows, { replacedId, tablesById, latestId, next
     const sur = published === null ? (row.tables_id ?? latestId) : row.tables_publiees;
     return {
       id: row.id,
-      titre: (published ?? row.brouillon).titre,
+      titre: row.titre_en_vigueur ?? (published ?? row.brouillon).titre,
       archive_le: row.archive_le,
       jamais_publie: published === null,
       sur,
       par_defaut: erreurs.length === 0 && sur === replacedId,
       publication: published === null ? null : { depuis: row.derniere_version, numero: row.derniere_version + 1, tables: row.tables_publiees },
-      brouillon: { depuis: row.tables_id ?? null, modifie: published === null || !sameContent(row.brouillon, published), erreurs: draftImpact.erreurs },
+      // Modifié : ses valeurs seules (D78 : la présentation du brouillon d'un exercice publié dort).
+      brouillon: { depuis: row.tables_id ?? null, modifie: published === null || !sameContent(exerciseValues(row.brouillon), exerciseValues(published)), erreurs: draftImpact.erreurs },
       en_erreur: erreurs.length > 0,
       erreurs,
       lignes: impact.lignes,
@@ -163,7 +166,8 @@ export function cascadePlan(candidates, rows, checked) {
 // que sans erreur (base.applyImport).
 //   received : le JSON de l'export ; existing : base.exportEditorData(db) ; tablesErrors(tables) : erreurs d'une version des
 //   tables ; draftTablesErrors(tables) : celles du brouillon des tables (avec les images, D64 : une image archivée y est une erreur) ;
-//   presentationErrorsOf(contenu) : celles d'un contenu de la présentation des tables ou de son historique (D76)
+//   presentationErrorsOf(contenu) : celles d'un contenu de la présentation des tables ou de son historique (D76) ;
+//   exercisePresentationErrorsOf(contenu) : de même pour la présentation d'un exercice (D78)
 export const EXPORT_FORMAT = 'quiz-parametres-coupe/editeur/1';
 
 // Le mot que la requête d'import doit porter, tel quel ; l'écran l'exige aussi (editeur.js du site).
@@ -172,9 +176,9 @@ export const IMPORT_WORD = 'IMPORTER';
 export const REPLACE_WORD = 'REMPLACER';
 export const importWord = (resume) => (resume?.banque?.retires?.length > 0 ? REPLACE_WORD : IMPORT_WORD);
 
-export function importPlan(received, existing, { tablesErrors, draftTablesErrors = tablesErrors, draftErrorsOf, latestTablesId = null, presentationErrorsOf = () => [] }) {
+export function importPlan(received, existing, { tablesErrors, draftTablesErrors = tablesErrors, draftErrorsOf, latestTablesId = null, presentationErrorsOf = () => [], exercisePresentationErrorsOf = () => [] }) {
   const erreurs = [];
-  const plan = { tables_ajoutees: [], brouillon_tables: null, presentation: { historique_ajoute: [], remplace: null }, banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [] };
+  const plan = { tables_ajoutees: [], brouillon_tables: null, presentation: { historique_ajoute: [], remplace: null }, banque: [], exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], images_modifiees: [], presentations_exercices: [] };
   if (!isObject(received) || received.format !== EXPORT_FORMAT) return { erreurs: [`Ce fichier n'est pas un export de la Gestion du contenu (format attendu : ${EXPORT_FORMAT}).`], plan, resume: null };
 
   // Les images (D59) : leurs fiches seulement — le contenu voyage à part, une image par requête
@@ -218,38 +222,10 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
       else plan.brouillon_tables = { contenu, base_id: isText(bt.base_id) && tablesById.has(bt.base_id) ? bt.base_id : null };
     }
   }
-  // La présentation des tables et son historique (D76) : les contenus d'historique de l'export s'ajoutent (un contenu déjà
-  // là, remplacé à la même date, n'est pas doublé) ; la présentation de l'export remplace celle de la base si elle en
-  // diffère — celle de la base va à l'historique (« import »). Absente (un export d'avant) ou jamais appliquée (null) :
-  // la présentation de la base ne change pas.
+  // La présentation des tables et son historique (D76) : absente (un export d'avant), la présentation de la base ne change pas.
   const receivedPresentation = received.presentation_tables;
   if (receivedPresentation !== undefined && receivedPresentation !== null) {
-    if (!isObject(receivedPresentation)) erreurs.push('Présentation des tables : illisible.');
-    else {
-      const current = existing.presentation_tables ?? { contenu: null, modifiee_le: null, enseignant: null, historique: [] };
-      const seen = new Set((current.historique ?? []).map((h) => `${h.remplacee_le}|${canonicalText(h.contenu)}`));
-      (Array.isArray(receivedPresentation.historique) ? receivedPresentation.historique : []).forEach((h, n) => {
-        const where = `Présentation des tables, historique ${n + 1}`;
-        if (!isObject(h) || !isText(h.remplacee_le) || !HISTORY_ACTIONS.includes(h.action)) return erreurs.push(`${where} : illisible (contenu, date ou action).`);
-        const problems = presentationErrorsOf(h.contenu);
-        if (problems.length > 0) return erreurs.push(`${where} : ${problems.join(' ; ')}`);
-        const key = `${h.remplacee_le}|${canonicalText(h.contenu)}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        const textOrNull = (v) => (isText(v) ? v : null);
-        plan.presentation.historique_ajoute.push({ contenu: normalizePresentation(h.contenu), posee_le: textOrNull(h.posee_le), posee_par: textOrNull(h.posee_par), remplacee_le: h.remplacee_le, remplacee_par: textOrNull(h.remplacee_par), action: h.action });
-      });
-      if (receivedPresentation.contenu !== null && receivedPresentation.contenu !== undefined) {
-        const problems = presentationErrorsOf(receivedPresentation.contenu);
-        if (problems.length > 0) erreurs.push(`Présentation des tables : ${problems.join(' ; ')}`);
-        else if (current.contenu === null || !sameContent(current.contenu, receivedPresentation.contenu)) {
-          plan.presentation.remplace = {
-            avant: { contenu: current.contenu, modifiee_le: current.modifiee_le, enseignant: current.enseignant },
-            apres: { contenu: normalizePresentation(receivedPresentation.contenu), modifiee_le: isText(receivedPresentation.modifiee_le) ? receivedPresentation.modifiee_le : null, enseignant: isText(receivedPresentation.enseignant) ? receivedPresentation.enseignant : null },
-          };
-        }
-      }
-    }
+    plan.presentation = mergePresentation(receivedPresentation, existing.presentation_tables, { label: 'Présentation des tables', errorsOf: presentationErrorsOf, normalize: normalizePresentation }, erreurs);
   }
 
   // La version de tables la plus récente une fois l'import fait : celle qu'un exercice sans tables_id prend (D62).
@@ -291,6 +267,11 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
     const entry = { id: e.id, brouillon, tables_id: tablesId, archive_le: typeof e.archive_le === 'string' ? e.archive_le : null, cree_le: typeof e.cree_le === 'string' ? e.cree_le : null, publie_le: typeof e.publie_le === 'string' ? e.publie_le : null };
     if (known === undefined) plan.exercices_ajoutes.push(entry);
     else plan.exercices_remplaces.push(entry);
+    // Sa présentation et son historique (D78), comme ceux des tables ; absente (un export d'avant), rien ne change.
+    if (e.presentation !== undefined && e.presentation !== null) {
+      const merged = mergePresentation(e.presentation, known?.presentation, { label: `Exercice « ${e.id} », présentation`, errorsOf: exercisePresentationErrorsOf, normalize: normalizeExercisePresentation }, erreurs);
+      if (merged.historique_ajoute.length > 0 || merged.remplace !== null) plan.presentations_exercices.push({ exercice_id: e.id, ...merged });
+    }
   }
   // La banque est remplacée entière : ce qui y apparaît, y change, y disparaît — par nom (D50).
   const existingBank = new Map(existing.banque.map((b) => [b.id, b]));
@@ -314,11 +295,47 @@ export function importPlan(received, existing, { tablesErrors, draftTablesErrors
     brouillon_tables: plan.brouillon_tables !== null,
     presentation_remplacee: plan.presentation.remplace !== null,
     presentation_historique: plan.presentation.historique_ajoute.length,
+    presentations_exercices: plan.presentations_exercices.map((p) => ({ id: p.exercice_id, remplacee: p.remplace !== null, historique: p.historique_ajoute.length })),
   };
   return { erreurs, plan, resume };
 }
 
-// Ce qui a remplacé un contenu de l'historique de la présentation (migration 0010).
+// La fusion d'une présentation et de son historique (D76, point 11 ; D78, point 12) : les contenus d'historique de
+// l'export s'ajoutent (un contenu déjà là, remplacé à la même date, n'est pas doublé) ; la présentation de l'export
+// remplace celle de la base si elle en diffère — celle de la base va à l'historique (« import »). Jamais appliquée dans
+// l'export (null) : celle de la base ne change pas. Retourne { historique_ajoute, remplace } ; les erreurs vont dans `erreurs`.
+//   received : { contenu, modifiee_le, enseignant, historique } de l'export ; current : le même, tiré de la base (ou absent)
+//   label : ce qui préfixe les erreurs ; errorsOf, normalize : les règles de cette présentation (tables ou exercice)
+function mergePresentation(received, current, { label, errorsOf, normalize }, erreurs) {
+  const merged = { historique_ajoute: [], remplace: null };
+  if (!isObject(received)) { erreurs.push(`${label} : illisible.`); return merged; }
+  const now = current ?? { contenu: null, modifiee_le: null, enseignant: null, historique: [] };
+  const textOrNull = (v) => (isText(v) ? v : null);
+  const seen = new Set((now.historique ?? []).map((h) => `${h.remplacee_le}|${canonicalText(h.contenu)}`));
+  (Array.isArray(received.historique) ? received.historique : []).forEach((h, n) => {
+    const where = `${label}, historique ${n + 1}`;
+    if (!isObject(h) || !isText(h.remplacee_le) || !HISTORY_ACTIONS.includes(h.action)) return erreurs.push(`${where} : illisible (contenu, date ou action).`);
+    const problems = errorsOf(h.contenu);
+    if (problems.length > 0) return erreurs.push(`${where} : ${problems.join(' ; ')}`);
+    const key = `${h.remplacee_le}|${canonicalText(h.contenu)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.historique_ajoute.push({ contenu: normalize(h.contenu), posee_le: textOrNull(h.posee_le), posee_par: textOrNull(h.posee_par), remplacee_le: h.remplacee_le, remplacee_par: textOrNull(h.remplacee_par), action: h.action });
+  });
+  if (received.contenu !== null && received.contenu !== undefined) {
+    const problems = errorsOf(received.contenu);
+    if (problems.length > 0) erreurs.push(`${label} : ${problems.join(' ; ')}`);
+    else if (now.contenu === null || !sameContent(now.contenu, received.contenu)) {
+      merged.remplace = {
+        avant: { contenu: now.contenu, modifiee_le: now.modifiee_le, enseignant: now.enseignant },
+        apres: { contenu: normalize(received.contenu), modifiee_le: textOrNull(received.modifiee_le), enseignant: textOrNull(received.enseignant) },
+      };
+    }
+  }
+  return merged;
+}
+
+// Ce qui a remplacé un contenu de l'historique d'une présentation (migrations 0010 et 0011).
 const HISTORY_ACTIONS = ['application', 'retablissement', 'import'];
 
 // L'identifiant d'une image (images.js porte la même règle) : semence « mvlnr », « percage », téléversement « img-<empreinte> ».
@@ -327,5 +344,13 @@ const IMAGE_ID = /^[a-z0-9]+([_-][a-z0-9]+)*$/;
 // Ce que le journal des actions note d'un import : « 1 table, 29 outils, 2 exercices ajoutés, 1 remplacé, 3 versions ».
 export function importDetails(resume) {
   const b = resume.banque;
-  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s) · images : ${resume.images_presentes ?? 0} présente(s), ${resume.images_modifiees?.length ?? 0} fiche(s) mise(s) à jour · présentation des tables : ${resume.presentation_remplacee ? 'remplacée' : 'inchangée'}, ${resume.presentation_historique ?? 0} contenu(s) ajouté(s) à l'historique`;
+  return `${resume.tables_ajoutees.length} table(s) de référence · banque : ${b.ajoutes.length} ajouté(s), ${b.modifies.length} modifié(s), ${b.retires.length} retiré(s)${b.retires.length > 0 ? ` (${b.retires.map((t) => t.id).join(', ')})` : ''} · ${resume.exercices_ajoutes.length} exercice(s) ajouté(s) · ${resume.exercices_remplaces.length} remplacé(s) · ${resume.versions_ajoutees.length} version(s) ajoutée(s) · images : ${resume.images_presentes ?? 0} présente(s), ${resume.images_modifiees?.length ?? 0} fiche(s) mise(s) à jour · présentation des tables : ${resume.presentation_remplacee ? 'remplacée' : 'inchangée'}, ${resume.presentation_historique ?? 0} contenu(s) ajouté(s) à l'historique${exercisePresentationsDetails(resume.presentations_exercices ?? [])}`;
+}
+
+// « · présentation des exercices : 1 remplacée, 3 contenu(s) ajouté(s) à l'historique » (D78) ; rien s'il n'y en a pas.
+function exercisePresentationsDetails(list) {
+  if (list.length === 0) return '';
+  const replaced = list.filter((p) => p.remplacee).length;
+  const history = list.reduce((n, p) => n + p.historique, 0);
+  return ` · présentation des exercices : ${replaced} remplacée(s), ${history} contenu(s) ajouté(s) à l'historique`;
 }

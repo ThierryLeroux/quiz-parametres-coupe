@@ -60,7 +60,7 @@ test('loadExerciseVersion : la version épinglée à une séance, après une pub
   const derniere = await loadApp('?exercice=m10-tournage-vc', fauxFetch(serveur));
   assert.deepEqual([derniere.exercise.titre, derniere.exercise.version], ['M10 (v2)', '2']);
   const premiere = await loadExerciseVersion('m10-tournage-vc', '1', fauxFetch(serveur));
-  assert.deepEqual([premiere.exercise.titre, premiere.exercise.version, premiere.archived], [m10.titre, '1', false]);
+  assert.deepEqual([premiere.exercise.titre, premiere.exercise.version, premiere.archived], ['M10 (v2)', '1', false]); // la version 1, avec le titre en vigueur (D78)
   await assert.rejects(loadExerciseVersion('m10-tournage-vc', '9', fauxFetch(serveur)), /version/);
 });
 

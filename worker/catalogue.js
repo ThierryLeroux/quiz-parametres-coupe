@@ -13,11 +13,13 @@
 //
 // La présentation des tables en direct (D75, D76) ne passe PAS par ce cache : une version assemblée garde ses
 // valeurs et sa présentation d'origine — c'est avec elle que le serveur tire, corrige et atteste. La présentation
-// en vigueur (loadPresentation) se pose par-dessus ensuite, seulement dans ce que le serveur montre (index.js).
+// en vigueur (loadPresentation) se pose par-dessus ensuite, seulement dans ce que le serveur montre (index.js). De même
+// pour la présentation de chaque exercice (D78, loadExercisePresentation) : titre, cours, « À l'accueil », photo et note.
 
 import { assembleData } from '../site/js/data.js';
 import { engineExercise } from '../site/js/exercice.js';
 import { currentPresentation } from '../site/js/presentation.js';
+import { currentExercisePresentation } from '../site/js/presentation-exercice.js';
 import { completeTables } from '../site/js/tables.js';
 import * as base from './base.js';
 
@@ -84,6 +86,15 @@ export async function loadPresentation(db) {
   const row = await base.findPresentation(db);
   const latest = await loadLatestTables(db);
   return { contenu: currentPresentation(row.contenu, latest), stocke: row.contenu, revision: row.revision, modifiee_le: row.modifiee_le, enseignant: row.enseignant, latest };
+}
+
+// La présentation en vigueur d'un exercice (D78) : { contenu (celle du panneau : currentExercisePresentation ; null pour
+// un exercice jamais publié), stocke (celle enregistrée, ou null : rien d'appliqué), revision, modifiee_le, enseignant }.
+// Relue à chaque requête : elle change sans nouvelle version.
+//   latestContent : le contenu de la dernière version publiée de l'exercice (null : jamais publié)
+export async function loadExercisePresentation(db, exerciseId, latestContent) {
+  const row = await base.findExercisePresentation(db, exerciseId);
+  return { contenu: currentExercisePresentation(row.contenu, latestContent), stocke: row.contenu, revision: row.revision, modifiee_le: row.modifiee_le, enseignant: row.enseignant };
 }
 
 // Pour les tests et le Worker : oublier ce qui est en mémoire.

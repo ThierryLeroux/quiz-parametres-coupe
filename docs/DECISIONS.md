@@ -2310,8 +2310,10 @@ brouillon et à la publication.
    d'après l'identifiant de la copie ; `commentaire` null : pas de note. **La clé d'une copie est son identifiant dans
    l'exercice.** Rien ne s'efface, sauf avec l'exercice (un exercice supprimé, sans séance, emporte sa présentation).
 2. **Point de départ** : **pas de ligne tant que rien n'a été appliqué**, et la présentation est alors **celle de la
-   dernière version publiée de l'exercice**, lue à chaque fois : rien ne change au déploiement. Au premier
-   « Appliquer », elle entre dans l'historique (« présentation de départ »).
+   dernière version publiée de l'exercice**, lue à chaque fois : rien ne change au déploiement pour une séance sur la
+   dernière version ; une séance épinglée à une version plus ancienne montre dès lors le titre, les photos et les notes
+   de la dernière (ses valeurs, ses outils et ses questions restent ceux de sa version). Au premier « Appliquer », elle
+   entre dans l'historique (« présentation de départ »).
 3. **La présentation en vigueur** d'un exercice : son titre, son cours et « À l'accueil » appliqués (sinon ceux de sa
    dernière version) ; pour chaque copie de la dernière version, l'entrée appliquée si elle existe, sinon celle de la
    version ; puis les entrées appliquées d'une copie que la dernière version n'a plus (elle sert encore aux séances
@@ -2355,8 +2357,9 @@ brouillon et à la publication.
    la version publiée les porte, puis elles ne se modifient plus que dans le panneau. Dupliquer un exercice publié,
    ou y prendre une copie, part de sa présentation en vigueur.
 10. **Retouches en attente** (faites dans le brouillon avant ce jalon, jamais publiées) : une valeur de présentation
-    du brouillon que ni la présentation en vigueur, ni **aucune** version publiée n'a jamais portée (une valeur venue
-    d'une version, par « Reprendre » ou d'avant un « Appliquer », n'est pas une retouche). Le panneau les signale en
+    du brouillon que ni la présentation (en vigueur ou dans son historique), ni **aucune** version publiée n'a jamais
+    portée (une valeur venue d'une version, par « Reprendre » ou d'avant un « Appliquer », ou qui a déjà été en
+    vigueur, n'est pas une retouche). Le panneau les signale en
     doré, avec « Les reprendre dans le panneau » ; elles ne partent qu'à l'application, et la prochaine publication
     les abandonne.
 11. **Images** : même règle qu'après la retouche de D76 — seule une photo **choisie** (différente de celle en vigueur

@@ -83,6 +83,7 @@ const tablesServies = async (serveur, version = null) => (await serveur.appel('G
 
 test('migration 0010 : la présentation vide (rien d’appliqué, révision 0), l’historique vide ; aucune autre table touchée', async () => {
   const db = fausseD1({ jusqua: 9 });
+  db.sqlite.exec(migrationSql(11)); // le serveur d'aujourd'hui lit aussi la présentation des exercices (E5-3) : sa table est posée d'avance, sans rapport avec la 0010
   const serveur = serveurDeTest({ db });
   // Des données produites par le serveur d'avant : une séance commencée, une question tirée.
   await commencer(serveur, CAMILLE);

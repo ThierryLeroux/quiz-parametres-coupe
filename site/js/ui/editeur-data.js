@@ -7,6 +7,7 @@
 import { TEMPLATE_TOKENS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
 import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey } from '../exercice.js';
+import { COPY_PRESENTATION_FIELDS } from '../presentation-exercice.js';
 import { exerciseLink } from './home-data.js';
 import { formatDateStamp } from './text.js';
 
@@ -167,25 +168,26 @@ const text = (value) => {
   return String(value);
 };
 
-// Les réglages généraux comparés : [{ champ, avant, apres }] en texte.
+// Les réglages généraux comparés : [{ champ, avant, apres }] en texte. Le titre, le cours et « À l'accueil » n'y sont
+// plus : ils sont de la présentation en direct (D78), et une version publiée prend ceux en vigueur.
 function settingsDiff(before, after) {
   const compare = [
-    ['titre', 'Titre', (d) => d.titre],
-    ['cours', 'Cours', (d) => d.cours ?? '—'],
     ['champs_evalues', 'Grandeurs', (d) => fieldStatesText(d)],
     ['materiaux_outil', "Matières d'outil permises", (d) => listText(d.materiaux_outil)],
     ['groupes', 'Groupes de matériaux permis', (d) => listText(d.groupes)],
-    ['liste', "Proposé à l'accueil", (d) => (d.liste === false ? 'non' : 'oui')],
   ];
   return compare.filter(([, , read]) => read(before) !== read(after)).map(([champ, label, read]) => ({ champ, label, avant: read(before), apres: read(after) }));
 }
 
-// Les champs d'une copie comparés (sans « origine ») : dimensions et listes en texte.
+// Les champs d'une copie comparés (sans « origine », ni la photo et la note, de la présentation en direct : D78) :
+// dimensions et listes en texte.
+const NOT_COMPARED = ['origine', ...COPY_PRESENTATION_FIELDS];
 function copyDiff(before, after) {
-  return COPY_KEYS.filter((key) => key !== 'origine' && !same(before[key], after[key])).map((champ) => ({ champ, avant: text(before[champ]), apres: text(after[champ]) }));
+  return COPY_KEYS.filter((key) => !NOT_COMPARED.includes(key) && !same(before[key], after[key])).map((champ) => ({ champ, avant: text(before[champ]), apres: text(after[champ]) }));
 }
 
-// Les différences entre la dernière version publiée et le brouillon : ce que la confirmation résume.
+// Les différences entre la dernière version publiée et le brouillon : ce que la confirmation résume. Sans les champs de
+// la présentation en direct (D78) : ni titre, ni cours, ni « À l'accueil », ni photo, ni note d'une copie.
 //   before : le contenu de la version (ou null : première publication) ; after : le brouillon
 //   tables : { avant, apres } — la version de tables de la dernière version publiée et celle du brouillon (D62) ; null = sans
 // Retourne { premiere, reglages: [...], ajoutes: [copies], retires: [copies], modifies: [{ id, nom, champs }], tables }.
@@ -333,9 +335,10 @@ const REPLACED_BY = { application: 'une application', retablissement: 'un rétab
 // (une application) » ; la présentation de départ (jamais appliquée) : « Présentation de départ (celle des tables
 // publiées), remplacée le … ».
 //   h : { posee_le, posee_par, remplacee_le, remplacee_par, action } (GET /api/prof/editeur/presentation, historique)
-export function presentationHistoryLabel(h) {
+//   start : d'où vient la présentation de départ (celle des tables publiées ; d'un exercice, sa dernière version publiée)
+export function presentationHistoryLabel(h, start = 'celle des tables publiées') {
   const who = (par) => (par ? ` par ${par}` : '');
-  const origin = h.posee_le === null ? 'Présentation de départ (celle des tables publiées)' : `Présentation appliquée le ${formatDateStamp(h.posee_le)}${who(h.posee_par)}`;
+  const origin = h.posee_le === null ? `Présentation de départ (${start})` : `Présentation appliquée le ${formatDateStamp(h.posee_le)}${who(h.posee_par)}`;
   return `${origin}, remplacée le ${formatDateStamp(h.remplacee_le)}${who(h.remplacee_par)} (${REPLACED_BY[h.action] ?? h.action})`;
 }
 
@@ -556,6 +559,12 @@ export function imageUsageLabel(utilisations) {
   if (presentation.includes('actuelle')) parts.push('présentation des tables');
   const history = presentation.filter((where) => where !== 'actuelle').length;
   if (history > 0) parts.push(history === 1 ? 'historique de la présentation' : `historique de la présentation (${history} contenus)`);
+  // La présentation des exercices (D78) : en vigueur (l'identifiant de l'exercice), ou dans un historique.
+  const exercises = utilisations.presentation_exercices ?? [];
+  const live = exercises.filter((where) => !where.includes('historique')).length;
+  if (live > 0) parts.push(live === 1 ? "présentation d'un exercice" : `présentation de ${live} exercices`);
+  const past = exercises.length - live;
+  if (past > 0) parts.push(past === 1 ? "historique de la présentation d'un exercice" : `historique de la présentation des exercices (${past} contenus)`);
   return parts.length === 0 ? 'jamais utilisée' : parts.join(' · ');
 }
 

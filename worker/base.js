@@ -395,6 +395,58 @@ function historyStatement(db, h) {
     .bind(JSON.stringify(h.contenu), h.posee_le ?? null, h.posee_par ?? null, h.remplacee_le, h.remplacee_par ?? null, h.action);
 }
 
+// --- La présentation des exercices en direct (E5-3, D78, migration 0011) : une ligne par exercice, et son historique ---
+
+const NO_EXERCISE_PRESENTATION = { contenu: null, revision: 0, modifiee_le: null, enseignant: null };
+
+// La présentation enregistrée d'un exercice : { contenu (objet), revision, modifiee_le, enseignant } ; sans ligne (rien
+// d'appliqué) : contenu null et révision 0.
+export async function findExercisePresentation(db, exerciceId) {
+  const row = await db.prepare('SELECT contenu, revision, modifiee_le, enseignant FROM presentation_exercices WHERE exercice_id = ?').bind(exerciceId).first();
+  return row === null ? { ...NO_EXERCISE_PRESENTATION } : { ...row, contenu: JSON.parse(row.contenu) };
+}
+
+// Toutes les présentations enregistrées : Map exercice_id → { contenu, revision, modifiee_le, enseignant } (un exercice
+// sans ligne n'y est pas : rien d'appliqué).
+export async function listExercisePresentations(db) {
+  const { results } = await db.prepare('SELECT exercice_id, contenu, revision, modifiee_le, enseignant FROM presentation_exercices').all();
+  return new Map(results.map(({ exercice_id: id, ...row }) => [id, { ...row, contenu: JSON.parse(row.contenu) }]));
+}
+
+// L'historique de la présentation d'un exercice — ou de tous (exerciceId null) —, dans l'ordre où les contenus ont été
+// remplacés, contenus décodés.
+export async function listExercisePresentationHistory(db, exerciceId = null) {
+  const { results } = exerciceId === null
+    ? await db.prepare('SELECT * FROM presentation_exercices_historique ORDER BY exercice_id, id').all()
+    : await db.prepare('SELECT * FROM presentation_exercices_historique WHERE exercice_id = ? ORDER BY id').bind(exerciceId).all();
+  return results.map((row) => decodeJson(row, ['contenu']));
+}
+
+export async function findExercisePresentationHistory(db, exerciceId, id) {
+  return decodeJson(await db.prepare('SELECT * FROM presentation_exercices_historique WHERE id = ? AND exercice_id = ?').bind(id, exerciceId).first(), ['contenu']);
+}
+
+// Applique la présentation d'un exercice, seulement si sa révision est encore celle qu'on a lue (D48) : révision 0, la
+// ligne est créée (si une autre requête l'a créée entre-temps, rien n'est écrit) ; sinon elle est mise à jour. Puis le
+// contenu remplacé va à l'historique et la ligne au journal, dans un même lot. Retourne false si quelqu'un a appliqué
+// entre-temps : rien n'est écrit.
+//   p : { exerciceId, revision, contenu, remplace: { contenu, posee_le, posee_par }, action, now, enseignant }
+export async function setExercisePresentation(db, p, entry) {
+  const write = p.revision === 0
+    ? db.prepare('INSERT OR IGNORE INTO presentation_exercices (exercice_id, contenu, revision, modifiee_le, enseignant) VALUES (?, ?, 1, ?, ?)').bind(p.exerciceId, JSON.stringify(p.contenu), p.now, p.enseignant)
+    : db.prepare('UPDATE presentation_exercices SET contenu = ?, revision = revision + 1, modifiee_le = ?, enseignant = ? WHERE exercice_id = ? AND revision = ?').bind(JSON.stringify(p.contenu), p.now, p.enseignant, p.exerciceId, p.revision);
+  const { meta } = await write.run();
+  if (meta.changes !== 1) return false;
+  await db.batch([exerciseHistoryStatement(db, p.exerciceId, { ...p.remplace, remplacee_le: p.now, remplacee_par: p.enseignant, action: p.action }), teacherLogStatement(db, entry)]);
+  return true;
+}
+
+//   h : { contenu, posee_le, posee_par, remplacee_le, remplacee_par, action }
+function exerciseHistoryStatement(db, exerciceId, h) {
+  return db.prepare('INSERT INTO presentation_exercices_historique (exercice_id, contenu, posee_le, posee_par, remplacee_le, remplacee_par, action) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(exerciceId, JSON.stringify(h.contenu), h.posee_le ?? null, h.posee_par ?? null, h.remplacee_le, h.remplacee_par ?? null, h.action);
+}
+
 // Les versions des tables (sans contenu), de la plus récente à la plus ancienne, avec le nombre de
 // versions d'exercice et de brouillons d'exercice qui les utilisent (D61).
 export async function listTablesVersions(db) {
@@ -598,10 +650,13 @@ export async function archiveExercise(db, id, archiveLe, entry) {
   await db.batch([db.prepare('UPDATE exercices SET archive_le = ? WHERE id = ?').bind(archiveLe, id), teacherLogStatement(db, entry)]);
 }
 
-// Supprime un exercice et ses versions — l'appelant a vérifié qu'aucune séance ne s'y rattache.
+// Supprime un exercice, ses versions et sa présentation avec son historique (D78) — l'appelant a vérifié qu'aucune
+// séance ne s'y rattache.
 export async function deleteExercise(db, id, entry) {
   await db.batch([
     db.prepare('DELETE FROM versions_exercice WHERE exercice_id = ?').bind(id),
+    db.prepare('DELETE FROM presentation_exercices WHERE exercice_id = ?').bind(id),
+    db.prepare('DELETE FROM presentation_exercices_historique WHERE exercice_id = ?').bind(id),
     db.prepare('DELETE FROM exercices WHERE id = ?').bind(id),
     teacherLogStatement(db, entry),
   ]);
@@ -709,6 +764,12 @@ export async function deleteImage(db, id, entry) {
   await db.batch([db.prepare('DELETE FROM images WHERE id = ?').bind(id), teacherLogStatement(db, entry)]);
 }
 
+// Les contenus des versions publiées d'un exercice, de la plus ancienne à la plus récente : [{ numero, contenu }].
+export async function listVersionContentsOf(db, exerciceId) {
+  const { results } = await db.prepare('SELECT numero, contenu FROM versions_exercice WHERE exercice_id = ? ORDER BY numero').bind(exerciceId).all();
+  return results.map((row) => ({ ...row, contenu: JSON.parse(row.contenu) }));
+}
+
 // Toutes les versions publiées avec leur contenu, pour savoir où une image est utilisée.
 export async function listVersionContents(db) {
   const { results } = await db.prepare('SELECT exercice_id, numero, contenu FROM versions_exercice ORDER BY exercice_id, numero').all();
@@ -724,12 +785,16 @@ export async function listImagesWithContent(db) {
 // --- Sauvegarde : export complet, import par fusion (D49) ---
 
 // Tout ce que la Gestion du contenu gère : tables de référence (versions et brouillon, D61), la présentation des tables
-// et son historique (D76), banque, exercices avec leur version de tables (D62) et toutes leurs versions.
+// et son historique (D76), banque, exercices avec leur version de tables (D62), toutes leurs versions, et leur
+// présentation avec son historique (D78).
 export async function exportEditorData(db) {
   const tables = await listTables(db);
   const draft = await findTablesDraft(db);
   const presentation = await findPresentation(db);
   const historique = await listPresentationHistory(db);
+  const exercisePresentations = await listExercisePresentations(db);
+  const exerciseHistory = await listExercisePresentationHistory(db);
+  const historyEntry = ({ contenu, posee_le, posee_par, remplacee_le, remplacee_par, action }) => ({ contenu, posee_le, posee_par, remplacee_le, remplacee_par, action });
   const banque = await listBankTools(db);
   const exercices = await listExercises(db);
   const { results: versions } = await db.prepare('SELECT exercice_id, numero, contenu, tables_id, publiee_le FROM versions_exercice ORDER BY exercice_id, numero').all();
@@ -740,12 +805,18 @@ export async function exportEditorData(db) {
       contenu: presentation.contenu,
       modifiee_le: presentation.modifiee_le,
       enseignant: presentation.enseignant,
-      historique: historique.map(({ contenu, posee_le, posee_par, remplacee_le, remplacee_par, action }) => ({ contenu, posee_le, posee_par, remplacee_le, remplacee_par, action })),
+      historique: historique.map(historyEntry),
     },
     banque: banque.map(({ id, outil, rang, archive_le }) => ({ id, outil, rang, archive_le })),
     exercices: exercices.map(({ id, brouillon, archive_le, cree_le, publie_le, rang, tables_id }) => ({
       id, brouillon, tables_id, archive_le, cree_le, publie_le, rang,
       versions: versions.filter((v) => v.exercice_id === id).map(({ numero, contenu, tables_id: versionTables, publiee_le }) => ({ numero, contenu: JSON.parse(contenu), tables_id: versionTables, publiee_le })),
+      presentation: {
+        contenu: exercisePresentations.get(id)?.contenu ?? null,
+        modifiee_le: exercisePresentations.get(id)?.modifiee_le ?? null,
+        enseignant: exercisePresentations.get(id)?.enseignant ?? null,
+        historique: exerciseHistory.filter((h) => h.exercice_id === id).map(historyEntry),
+      },
     })),
   };
 }
@@ -776,6 +847,17 @@ export async function applyImport(db, plan, now, entry) {
     const { avant, apres } = presentation.remplace;
     if (avant.contenu !== null) statements.push(historyStatement(db, { contenu: avant.contenu, posee_le: avant.modifiee_le, posee_par: avant.enseignant, remplacee_le: now, remplacee_par: entry.enseignant, action: 'import' }));
     statements.push(db.prepare('UPDATE presentation_tables SET contenu = ?, revision = revision + 1, modifiee_le = ?, enseignant = ? WHERE id = 1').bind(JSON.stringify(apres.contenu), apres.modifiee_le ?? now, apres.enseignant ?? null));
+  }
+  // La présentation de chaque exercice (D78), de même : l'historique absent d'abord, puis, si elle change, celle de la
+  // base à l'historique (« import ») et celle de l'export à sa place (la ligne est créée s'il n'y en avait pas).
+  for (const p of plan.presentations_exercices ?? []) {
+    for (const h of p.historique_ajoute) statements.push(exerciseHistoryStatement(db, p.exercice_id, h));
+    if (p.remplace === null) continue;
+    const { avant, apres } = p.remplace;
+    if (avant.contenu !== null) statements.push(exerciseHistoryStatement(db, p.exercice_id, { contenu: avant.contenu, posee_le: avant.modifiee_le, posee_par: avant.enseignant, remplacee_le: now, remplacee_par: entry.enseignant, action: 'import' }));
+    statements.push(db.prepare(`INSERT INTO presentation_exercices (exercice_id, contenu, revision, modifiee_le, enseignant) VALUES (?, ?, 1, ?, ?)
+      ON CONFLICT (exercice_id) DO UPDATE SET contenu = excluded.contenu, revision = presentation_exercices.revision + 1, modifiee_le = excluded.modifiee_le, enseignant = excluded.enseignant`)
+      .bind(p.exercice_id, JSON.stringify(apres.contenu), apres.modifiee_le ?? now, apres.enseignant ?? null));
   }
   statements.push(teacherLogStatement(db, entry));
   await db.batch(statements);
