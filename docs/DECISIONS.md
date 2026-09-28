@@ -2524,3 +2524,49 @@ il ne reste plus aucun rapport du classeur à vérifier.
 (`legacy/index.htm`, l'ancienne page de vérification du classeur) ; `DEMARRAGE.md`, étapes 2 et 4 ; PLAN (jalon 0,
 jalon 3, chantier « accueil et libellés », E5-4, Finition). Aucun code, aucune migration ; rien ne touche la correction
 ni les attestations. Rapport : `docs/rapports/finition-d7-depot.md`.
+
+## D81 — Le graphique de progression par opération, dans le panneau Progression de l'écran Question (2026-09-28, décidée)
+
+**Contexte.** Le classeur montrait, sur la feuille « Quiz - Menu Principal », un graphique de progression par
+opération (VBA `modAffGraph`) : une barre horizontale par opération évaluée, de 0 à 100 % = somme des réussites de
+suite des outils de l'opération ÷ somme de leurs réussites exigées ; après « Vérifier », la part gagnée par la question
+en vert, la part perdue en rouge, retour au bleu à la question suivante ; un cadre doré quand l'opération est complète —
+affiché une question trop tard, parce que le VBA le décide sur le pourcentage d'avant la question. La SPEC le demandait
+(§7 : « Un graphique de progression par opération est affiché ») et en reportait les « seuils » à la finition (§10). Le
+panneau Progression du site ne montrait qu'un rang par outil, un point par réussite de suite.
+
+**Décision** (Thierry, 2026-09-28).
+
+1. **Forme.** Dans le panneau Progression de l'écran Question, la liste des outils est **regroupée par opération**.
+   Chaque opération a un **en-tête** : son pictogramme (celui des tables de la séance, comme le panneau de l'outil :
+   `operationPictoOf`), son nom, une barre horizontale et « n / m » (réussites). Dessous, ses outils avec leurs points,
+   comme avant (nom distinctif, « en cours », « remis à zéro »). Même une opération à un seul outil a son en-tête. La
+   barre « n / m outils » du haut et la légende du bas restent.
+2. **Valeur** : la somme des réussites de suite des outils de l'opération (plafonnées à leurs réussites exigées, comme
+   le serveur les envoie) ÷ la somme de leurs réussites exigées. **Aucun réglage dans l'exercice** : les « seuils du
+   graphique » reportés à la finition (SPEC §10) se ferment ainsi.
+3. **Couleurs**, avec les jetons existants et aucune couleur nouvelle : la part acquise en bleu (`--color-accent`) ;
+   **pendant le corrigé seulement**, la part que la question vient de gagner en vert (`--color-correct`) et celle
+   qu'elle vient de perdre en rouge (`--color-wrong`) ; à la question suivante, la barre redevient simple. Une opération
+   complète a un **contour doré** (`--color-gold`), **dès la question qui la complète** (le retard du classeur n'est pas
+   repris). La couleur reste doublée d'un texte (UI §7) : « n / m » change, les points se remplissent ou se vident,
+   « remis à zéro » ; la barre a un `aria-label` (« Perçage : 6 réussites sur 10 »).
+4. **Ordre** : les opérations dans l'ordre de leur premier outil dans l'exercice ; les outils dans l'ordre de
+   l'exercice à l'intérieur de leur opération.
+5. **Téléphone** (sous 1000 px) : les opérations terminées se replient sous « n opérations terminées » (au lieu de
+   « n outils terminés »). Restent toujours visibles : l'opération de l'outil en cours et, pendant le corrigé, celle que
+   la question vient de changer — une perte, mais aussi un gain qui la complète : l'étudiant doit voir le contour doré.
+   Dans une opération non terminée, tous ses outils restent affichés. Sur ordinateur, rien n'est replié.
+6. **Où** : seulement l'écran Question. Rien sur l'attestation (figée et signée), la page de description d'un
+   exercice ni l'espace professeur.
+7. **Données** : tout se passe dans le navigateur. Le serveur envoie déjà, pour chaque outil de la progression, son
+   opération, ses réussites et ses réussites exigées (`sessionView`), et l'écran a la progression d'avant « Vérifier »
+   (celle de la question) et celle d'après (celle de la correction). Ni le serveur, ni la correction, ni la séance, ni
+   l'attestation, ni aucune migration ne changent.
+
+**Conséquences.** `site/js/ui/rules.js` : une fonction pure, testée (regroupement, ordre, sommes, gain, perte, complète,
+repli sur téléphone), qui remplace le repli par outil (`foldDoneRows`) ; `site/js/ui/question-screen.js`,
+`site/css/question.css` ; `tests/ui-rules.test.js`. SPEC §7 (ce que le graphique montre) et §10 (la ligne « Reporté :
+seuils du graphique de progression » disparaît) ; UI §3.3 et §3.4 ; PLAN (Finition). La maquette 03 reste telle quelle :
+UI.md fait foi (D17). Les séances en cours ne changent que d'affichage : ni leur correction, ni leurs compteurs, ni leurs
+attestations. Rapport : `docs/rapports/finition-graphique-progression.md`.
