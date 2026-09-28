@@ -1522,6 +1522,9 @@ async function showTables(notice = '') {
       };
       const onReplaced = proposal.candidats.filter((c) => c.sur === proposal.remplacee);
       const older = proposal.candidats.filter((c) => c.sur !== proposal.remplacee);
+      // Construites ici, avant le libellé du bouton et les écouteurs des cases, qui les parcourent.
+      const replacedItems = onReplaced.map(cascadeItem);
+      const olderItems = older.map(cascadeItem);
       const checkedIds = () => [...checks].filter(([, box]) => box.checked).map(([id]) => id);
       const confirm = el('button', { class: 'button button--gold', type: 'button', onclick: async () => {
         if (presentationDirty && !window.confirm("Les modifications du panneau « Présentation » ne sont pas appliquées : elles seront perdues au rechargement de l'onglet. Publier quand même ?")) return;
@@ -1557,9 +1560,9 @@ async function showTables(notice = '') {
               el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => setAll(false) }, 'Tout décocher'),
             ]),
             onReplaced.length === 0 ? '' : el('h4', { class: 'cascade-groupe' }, `Sur ${proposal.remplacee ?? '—'}, la version remplacée — cochés par défaut`),
-            onReplaced.length === 0 ? '' : el('ul', { class: 'cascade-liste' }, onReplaced.map(cascadeItem)),
+            onReplaced.length === 0 ? '' : el('ul', { class: 'cascade-liste' }, replacedItems),
             older.length === 0 ? '' : el('h4', { class: 'cascade-groupe' }, 'Sur une version plus ancienne — décochés par défaut : ils ont pu être laissés de côté exprès'),
-            older.length === 0 ? '' : el('ul', { class: 'cascade-liste' }, older.map(cascadeItem)),
+            older.length === 0 ? '' : el('ul', { class: 'cascade-liste' }, olderItems),
           ]),
         el('p', { class: 'muted smaller' }, 'Une version publiée ne se modifie plus ; elle prend la présentation en vigueur (panneau « Présentation »). Tout se publie ensemble, ou rien.'),
         el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
