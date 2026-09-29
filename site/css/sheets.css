@@ -184,11 +184,16 @@ body.sheets-open { overflow: hidden; }
 .vc-value { font-weight: 700; }
 
 /* --- Avances : une grille ; machines, directions et encadrés s'étendent sur plusieurs rangs ------------------------------------ */
+/* Un rang fait 41 px, l'en-tête aussi. Quand la page ne suffit plus (plus de 20 opérations), la grille s'arrête à la
+   hauteur de la page et ses rangs se la partagent (--rows : le nombre d'opérations, posé par reference-screen.js) : ils
+   se resserrent, et la feuille tient toujours sur sa page lettre (D83, suite). Jusqu'à 20 opérations, rien ne change. */
 
 .feed-grid {
   display: grid;
   grid-template-columns: 78px 36px 150px 62px minmax(0, 1fr) 190px;
-  grid-auto-rows: 41px;
+  grid-template-rows: 41px repeat(var(--rows), minmax(0, 1fr));
+  height: calc(41px + var(--rows) * 41px);
+  max-height: calc(100% - 8px); /* un peu d'air avant le pied de la page */
   font-size: 11px;
 }
 
@@ -218,7 +223,8 @@ body.sheets-open { overflow: hidden; }
 .feed-cell { display: flex; align-items: center; padding-left: 8px; }
 .feed-cell--end { border-bottom: 1.5px solid #000; }
 .feed-picto { justify-content: center; padding: 0; }
-.feed-picto img { width: 56px; height: 38px; object-fit: contain; }
+/* Le pictogramme ne dépasse jamais son rang : dans un rang resserré, il rapetisse avec lui. */
+.feed-picto img { width: 56px; height: 38px; max-height: 100%; object-fit: contain; }
 .feed-value { padding-left: 0; }
 
 /* Barre orangée qui s'estompe, dont la longueur est proportionnelle à l'avance ; le texte peut la

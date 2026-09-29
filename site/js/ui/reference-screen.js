@@ -66,12 +66,14 @@ function vcPage(data) {
 }
 
 // --- Avances : une grille, un rang par opération ; machines, directions et encadrés sur plusieurs rangs ----------
+// Au-delà de 20 opérations, les rangs se partagent la hauteur de la page (--rows, lu par sheets.css) : la feuille tient
+// toujours sur sa page lettre.
 function feedPage(data) {
   const { rows, machines, directions, boxes, revision } = feedSheet(data);
   const at = (start, span) => `grid-row: ${start + 2} / span ${span}`; // le rang 1 est l'en-tête
   const lastOfMachine = new Set(machines.map((run) => run.start + run.span - 1));
   return page([
-    el('div', { class: 'feed-grid' }, [
+    el('div', { class: 'feed-grid', style: `--rows: ${rows.length}` }, [
       el('div', { class: 'feed-head', style: 'grid-column: 1 / span 2' }, 'Machine-outil'),
       el('div', { class: 'feed-head', style: 'grid-column: 3 / span 2' }, 'Opération'),
       el('div', { class: 'feed-head', style: 'grid-column: 5 / span 2' }, 'Avance par révolution'),
