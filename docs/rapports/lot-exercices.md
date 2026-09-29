@@ -10,9 +10,15 @@
 > et que ce chantier n'avait pas le droit de toucher (points douteux 1 et 2). Les exercices à cinq grandeurs donnent
 > une attestation de 6 à 19 pages, et la première page de celle de F50 déborde. « Tournage — Exercice 2 »,
 > « Fraisage — Exercice 2 » et leurs démos n'ont pas ce défaut.
+>
+> **Décidé depuis (section 6)** : ces deux limites se traitent dans un chantier à part, branche
+> `attestation-cinq-grandeurs`. **Les exercices à cinq grandeurs et leurs démos ne se publient qu'après sa fusion.**
+> La retouche du script (points 7 et 9) ne touche pas la correction non plus.
 
 Session du 2026-09-29, branche `lot-exercices`, partie de `main` à jour (`15fb57b`). Poussée, pas fusionnée. Rien
-n'a été lu ni écrit en production : tout vient de l'export que tu as déposé dans `captures/lot-exercices/`.
+n'a été lu ni écrit en production : tout vient de l'export que tu as déposé dans `captures/lot-exercices/`. Tes
+réponses aux treize points douteux sont arrivées le même jour : la retouche est la section 6, et la section 4 (tes
+gestes) est à jour.
 
 ## 1. Ce qui a été fait
 
@@ -39,10 +45,14 @@ sont absentes, par leur propre règle : `fact_vc` et `fact_vc_raison` (absentes 
 | Nine9 d'ébavurage (`nine9_ebavurage`) | Chanfreinage / ébavurage | Ø 1/4, 3/8, 1/2 po | 1 | insert | **forcé à 1**, avec la raison | 10000 | `nine9_90_degres` |
 | Fraise à surfacer 3 po, 5 dents (`fraise_a_surfacer_3po_5`) | Surfaçage | 3 po | 5 | insert | hérité (1) | 10000 | `fraise_a_surfacer` |
 | Fraise à surfacer 3 po, 7 dents (`fraise_a_surfacer_3po_7`) | Surfaçage | 3 po | 7 | insert | hérité (1) | 10000 | `fraise_a_surfacer` |
-| Fraise à fileter (`fraise_a_fileter`) | Contournage finition | Ø 0.300, 0.240, 0.180 po | 4 | carbure solide | hérité (1) | 10000 | nouvelle |
+| Fraise à fileter (`fraise_a_fileter`) | Contournage finition | Ø 0.180, 0.240, 0.300 po (retouche, point 7) | 4 | carbure solide | hérité (1) | 10000 | nouvelle |
 
 Tous usinent les 14 groupes hors de la classe O. La raison des deux Nine9 : « Un seul insert de carbure en
 périphérie : vitesse non réduite ».
+
+Leurs nomenclatures : « DTFNR - Ø dressé: [IdDia] » ; « Outil à rainurer - Ø rainuré: [IdDia] » ; « Outil à ébavurer
+Nine9 : [IdDia] » (retouche, point 9) ; « Fraise à surfacer Ø [IdDia] - [NbDent] inserts », pour les deux ; « Fraise
+à fileter [IdDia] - [NbDent] dents ».
 
 **Trois outils modifiés** (le catalogue en annonçait deux : point douteux 6).
 
@@ -142,8 +152,12 @@ Dans `captures/lot-exercices/repetition/` (hors dépôt), avec les journaux des 
 
 ## 4. Tes gestes en production
 
-Un soir hors des périodes de labo, tout le même soir. Avant : tranche les points douteux 1 et 2, qui disent quels
-exercices publier tout de suite.
+À jour de tes réponses (section 6). **En deux temps** : le soir de l'import, hors des périodes de labo, les gestes 1
+à 13 ; plus tard, **après la fusion du chantier `attestation-cinq-grandeurs`**, le geste 14.
+
+**Ne publie les exercices à cinq grandeurs et leurs démos qu'après la fusion de ce chantier** : « Tournage —
+Exercice 3 », « Fraisage — Exercice 3 », M30, M40, F50, et leurs cinq démos. D'ici là, ils restent des brouillons
+jamais publiés : ils ne sont ni à l'accueil ni servis par leur lien.
 
 1. **Fusionne la branche**, ou place-toi dessus (`git switch lot-exercices`) : le script y est. La fusion déploie,
    mais rien ne change sur le site.
@@ -160,23 +174,38 @@ exercices publier tout de suite.
    l'import. Si l'écran demande `REMPLACER`, un outil disparaîtrait : annule.
 7. **Pictogramme** (point douteux 3) : Tables de référence → panneau « Présentation — effet immédiat » → opération
    « Chanfreinage / chambrage » → choisis le pictogramme « Chanfreinage » → « Appliquer… ».
-8. **Publier, dans l'ordre**, chaque fois : « Modifier » → « Aperçu du brouillon » → « Publier… » → « Publier la
-   version n ». L'ordre : démo puis exercice, pour Tournage 2, Tournage 3, Fraisage 2, Fraisage 3, M30, M40, F50.
-   « Tournage — Exercice 2 » est publié en version 6 ; les treize autres en version 1.
+8. **Publier les quatre exercices à deux grandeurs, dans l'ordre**, chaque fois : « Modifier » → « Aperçu du
+   brouillon » → « Publier… » → « Publier la version n ».
+
+   | Ordre | Exercice | Version |
+   |---|---|---|
+   | 1 | Tournage — Démo de l'exercice 2 (`demo-m10-tournage-vc-rpm-2`) | 1 |
+   | 2 | Tournage — Exercice 2 (`m10-tournage-vc-rpm-2`) | 6 |
+   | 3 | Fraisage — Démo de l'exercice 2 (`demo-m10-fraisage-vc-rpm`) | 1 |
+   | 4 | Fraisage — Exercice 2 (`m10-fraisage-vc-rpm`) | 1 |
+
+   **Les dix autres attendent le geste 14.**
 9. **Monte la démo de « Tournage — Exercice 2 »** : dans la liste des exercices, « ↑ » deux fois sur
    `demo-m10-tournage-vc-rpm-2`. Elle passe devant la copie, puis devant son exercice.
-10. **Archive la copie** `m10-tournage-vc-rpm-2-2`, si tu n'en veux plus (point douteux 5).
-11. **Vérifie l'accueil** : « M10 — Tournage », « M10 — Fraisage », « M30 », « M40 », « F50 », chaque démo juste
-    avant son exercice. Compare à `08-accueil-1280.png`.
+10. **Archive la copie** `m10-tournage-vc-rpm-2-2` (« Archiver », dans la liste).
+11. **Vérifie l'accueil** : deux groupes, « M10 — Tournage » puis « M10 — Fraisage », chacun avec sa démo puis son
+    exercice.
 12. **Fais une démo**, puis **supprime sa séance** dans l'espace professeur si tu ne veux pas la garder : son
     attestation répondra « annulée ».
 13. **Refais un export**, à garder : c'est la sauvegarde d'après le lot.
+14. **Après la fusion et le déploiement de `attestation-cinq-grandeurs`**, hors des périodes de labo : publie les dix
+    autres, dans l'ordre, comme au geste 8 — démo puis exercice, pour Tournage 3, Fraisage 3, M30, M40, F50, tous en
+    version 1. Aucun rang à régler. Puis vérifie l'accueil : « M10 — Tournage », « M10 — Fraisage », « M30 »,
+    « M40 », « F50 », chaque démo juste avant son exercice. Compare à `08-accueil-1280.png`.
 
 Pour défaire : l'historique de chaque outil modifié garde son contenu d'avant (« Rétablir ») ; un exercice jamais
 publié se supprime ; la présentation de « Tournage — Exercice 2 » a son historique (« Rétablir ») ; l'export du
 geste 2 restaure la banque et les brouillons.
 
 ## 5. Points douteux
+
+*Tous tranchés le 2026-09-29 : tes réponses sont dans la section 6 et à la fin de D84. Les points restent ici tels
+qu'ils t'ont été écrits.*
 
 **1. L'attestation des exercices à cinq grandeurs fait de 6 à 19 pages.** Sur la page lettre, les colonnes ont des
 largeurs fixes, et « Matériau usiné » prend ce qui reste : 198 px avec deux grandeurs, **18 px avec cinq**. Le nom du
@@ -256,3 +285,93 @@ l'onglet Images : si tu les téléverses toi-même avant l'import, l'import les 
 ancien contenu (11 outils, 2 réussites chacun). Les séances en cours gardent ensuite ce contenu, sous le nouveau
 titre.
 *Proposition* : importer et publier le même soir, hors labo, comme prévu.
+
+## 6. Retouche (2026-09-29)
+
+> **Correction des séances en cours : aucun changement.** Deux valeurs du script changent ; aucun fichier de
+> `site/`, de `worker/` ni de `migrations/`. Le lot n'est pas encore importé : rien n'est à refaire en production.
+
+### Tes réponses aux treize points
+
+| Point | Ta réponse | Ce qui en découle |
+|---|---|---|
+| 1. Attestation à cinq grandeurs | chantier de code à part, branche `attestation-cinq-grandeurs` | les exercices à cinq grandeurs et leurs démos ne se publient qu'après sa fusion (geste 14) |
+| 2. Attestation à plus de 19 outils | le même chantier | de même |
+| 3. Pictogramme de « Chanfreinage / chambrage » | accepté | geste 7 |
+| 4. Rang de la démo de « Tournage — Exercice 2 » | accepté | geste 9 |
+| 5. La copie `m10-tournage-vc-rpm-2-2` | tu l'archives à la main | geste 10 ; rien dans le script |
+| 6. La fraise 82 degrés modifiée aussi | accepté | trois outils modifiés |
+| 7. Fraise à fileter | gabarit gardé ; dimensions de la plus petite à la plus grande | **retouche du script** |
+| 8. « Nine9 d'ébavurage » | accepté | rien à changer |
+| 9. Nomenclature du Nine9 d'ébavurage | « Outil à ébavurer Nine9 : [IdDia] » ; le Nine9 90 degrés garde la sienne | **retouche du script** |
+| 10. Pas de note pour les six nouveaux outils | accepté | rien à changer |
+| 11. Identifiant des images par leur empreinte | accepté | rien à changer |
+| 12. Le script dans `reference/lot-exercices/` | accepté | rien à changer |
+| 13. Importer et publier le même soir | accepté | gestes 1 à 13 |
+
+Elles sont consignées à la fin de D84. Le catalogue du dépôt n'est pas retouché : D84 et le script portent les cinq
+écarts, tous décidés (points 6, 7 — deux écarts —, 8 et 9).
+
+### Ce qui a changé
+
+Un commit par point.
+
+1. **Point 7** : dans le script, les dimensions de la fraise à fileter sont rangées Ø 0.180, 0.240, 0.300 po. La
+   plage se lit « Ø 0.180 po — 20 à 32 filets/po à Ø 0.300 po — 16 à 28 filets/po ». Le gabarit n'a pas bougé.
+2. **Point 9** : dans le script, la nomenclature du Nine9 d'ébavurage est « Outil à ébavurer Nine9 : [IdDia] ». Ses
+   copies viennent de la banque : elles suivent.
+
+Le script relancé sur le même export (celui du 2026-09-29, 09 h 47 UTC) a réécrit
+`captures/lot-exercices/import-lot.json`. Comparé au fichier d'avant, **huit valeurs changent, et aucune autre** :
+
+| Valeur | Où |
+|---|---|
+| nomenclature du Nine9 d'ébavurage | la banque ; ses copies dans « Fraisage — Exercice 2 », « Fraisage — Exercice 3 », M30 et F50 |
+| ordre des dimensions de la fraise à fileter | la banque ; ses copies dans F50 et dans sa démo |
+
+### Vérifications refaites
+
+- `npm test` : **779 tests, 0 échec** (777 avant la retouche ; deux tests ajoutés à `tests/lot-exercices.test.js`,
+  un par point ; aucun autre test touché).
+- **Les vérifications du script**, refaites aussi à part de lui, sur le fichier qu'il a écrit :
+
+| Vérification | Résultat |
+|---|---|
+| `draftErrors` | 14 brouillons, 0 erreur |
+| Outils de la banque (`validateData`) | 35 outils, 0 erreur |
+| Totaux de la grille | 36, 27, 34, 15, 43, 39, 37 ; les sept démos, 1 |
+| Titres en double (D74) | aucun |
+| `importPlan`, sur une base dans l'état de l'export | 0 erreur ; 6 outils ajoutés, 3 modifiés, 0 retiré, 26 inchangés ; 13 exercices ajoutés, 1 brouillon remplacé ; aucune version ajoutée ; 2 images à envoyer |
+| Second import du même fichier | 0 outil ajouté, modifié ou retiré ; 35 inchangés ; les 14 brouillons identiques ; aucune image à envoyer ; aucune présentation remplacée |
+| Le même export, deux fois | le même fichier, octet pour octet |
+
+- **Sur un serveur jetable, par l'API** (sans Chrome ; ton `npm run dev` n'a pas été touché) : **16 vérifications,
+  0 échec.** L'export restauré, le fichier régénéré importé, puis la publication en deux temps.
+
+| Étape | Résultat |
+|---|---|
+| Import du fichier régénéré | aucune erreur ; la base porte la banque et les 14 brouillons du fichier |
+| Second import, sur le vrai serveur | rien à ajouter ni à modifier ; la base identique, clé pour clé |
+| Premier temps : les quatre à deux grandeurs publiés, la démo montée, la copie archivée | accueil : « M10 — Tournage » (démo, exercice), « M10 — Fraisage » (démo, exercice) |
+| Un exercice du lot jamais publié, demandé par son lien | refusé : « Cet exercice n'existe pas. » |
+| Question du Nine9 d'ébavurage | « Outil à ébavurer Nine9 : Ø 3/8 po », facteur forcé × 1 avec sa raison |
+| Question du Nine9 90 degrés | « Outil à chanfreiner Nine9 : Ø 3/4 po », comme avant |
+| Second temps : les dix à cinq grandeurs publiés | accueil : cinq groupes dans l'ordre, chaque démo avant son exercice, sans toucher aux rangs |
+| Démo de F50, jusqu'à l'attestation | « Fraise à fileter Ø … po — … filets/po - 4 dents » ; la plage va de Ø 0.180 à Ø 0.300 po |
+
+Journal dans `captures/lot-exercices/retouche/` (hors dépôt).
+
+### Ce qui n'a pas été refait
+
+- **La répétition dans Chrome** (section 2) date d'avant la retouche : ses captures montrent encore l'ancienne
+  nomenclature du Nine9 d'ébavurage (`14-question-nine9-facteur-force.png`) et l'ancienne plage de la fraise à
+  fileter (`13-demo-f50-attestation.png`). La retouche ne change que ces deux textes ; l'API les a vérifiés.
+- **`npm run test:api`** n'a pas été relancé : le serveur n'a pas changé depuis ses 35 étapes.
+- **Les attestations à cinq grandeurs** sont telles que la section 5 les décrit, jusqu'au chantier
+  `attestation-cinq-grandeurs`.
+
+### Un point à te signaler
+
+**Le chantier `attestation-cinq-grandeurs` changera le code de l'attestation** : il touchera donc ce que voient les
+étudiants qui ont une séance en cours, au déploiement. Son rapport devra le dire en tête, et tu le déploieras hors
+des périodes de labo, comme d'habitude. La branche n'existe pas encore : dis-moi quand tu veux que je la commence.

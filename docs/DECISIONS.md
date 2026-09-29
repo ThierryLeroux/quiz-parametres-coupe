@@ -2997,7 +2997,7 @@ proposaient.
 Pas de nouvelle décision : c'est la règle de la 4e feuille, étendue à la feuille des avances. **Rien ne touche la
 correction.** Rapport : `docs/rapports/feuille-avances-hauteur.md`.
 
-## D84 — Le lot d'exercices de l'automne 2026 : sept exercices, sept démos, six outils, créés d'un seul coup par l'import de la Gestion du contenu (2026-09-29, décidée ; points douteux du rapport à trancher)
+## D84 — Le lot d'exercices de l'automne 2026 : sept exercices, sept démos, six outils, créés d'un seul coup par l'import de la Gestion du contenu (2026-09-29, décidée ; réponses de Thierry au rapport, et retouche, en fin d'entrée)
 
 **Contexte.** Le site n'offrait qu'un exercice, « M10 — Tournage : Vc et vitesse de rotation ». Thierry a arrêté, en
 discussion, le catalogue des exercices de quatre cours (M10 — tournage et fraisage —, M30, M40, F50), les outils qui
@@ -3072,3 +3072,40 @@ contourner) :
   le tableau des opérations de l'attestation dépasse sa première page.
 
 Rapport : `docs/rapports/lot-exercices.md`.
+
+**Réponses de Thierry au rapport, et retouche (2026-09-29).** Les treize points douteux du rapport sont tranchés.
+
+1. **L'attestation à cinq grandeurs** (la colonne « Matériau usiné » de 18 px, 6 à 19 pages) : **traitée dans un
+   chantier de code à part**, branche `attestation-cinq-grandeurs`. Le lot n'y touche pas.
+2. **L'attestation à plus de dix-neuf outils** (la première page de F50 déborde) : **le même chantier**.
+   Conséquence des points 1 et 2 : **les exercices à cinq grandeurs et leurs démos ne se publient qu'après la fusion
+   de ce chantier** — « Tournage — Exercice 3 », « Fraisage — Exercice 3 », M30, M40, F50, et leurs cinq démos.
+   L'import, lui, se fait en entier : un brouillon jamais publié n'est pas servi aux étudiants. « Tournage —
+   Exercice 2 », « Fraisage — Exercice 2 » et leurs démos se publient le soir de l'import.
+3. **Le pictogramme de « Chanfreinage / chambrage »** : accepté. Thierry le choisit dans le panneau
+   « Présentation » des tables (le pictogramme « Chanfreinage »), avec effet immédiat.
+4. **Le rang de la démo de « Tournage — Exercice 2 »** : accepté. Thierry la monte de deux rangs après l'import ;
+   aucun code n'est modifié pour que l'import règle les rangs.
+5. **La copie `m10-tournage-vc-rpm-2-2`** : Thierry l'archive à la main. Rien à faire dans le script.
+6. **La fraise 82 degrés est modifiée aussi** : accepté. Trois outils modifiés.
+7. **La fraise à fileter** : le gabarit est gardé (« Fraise à fileter [IdDia] - [NbDent] dents ») ; **ses dimensions
+   vont de la plus petite à la plus grande** — Ø 0.180, 0.240, 0.300 po —, comme celles des autres outils. La plage
+   se lit « Ø 0.180 po — 20 à 32 filets/po à Ø 0.300 po — 16 à 28 filets/po ».
+8. **« Nine9 d'ébavurage »** : accepté, c'est le nom de l'outil.
+9. **Le Nine9 d'ébavurage a sa propre nomenclature : « Outil à ébavurer Nine9 : [IdDia] »**, dans la banque et dans
+   toutes ses copies. Le Nine9 90 degrés garde la sienne, « Outil à chanfreiner Nine9 : [IdDia] ».
+10. **Les six nouveaux outils n'ont pas de note** : accepté.
+11. **L'identifiant des deux images vient de leur empreinte** (`img-…`) : accepté.
+12. **Le script reste dans `reference/lot-exercices/`** : accepté.
+13. **Importer et publier le même soir**, hors des périodes de labo : accepté.
+
+**Les écarts au catalogue sont donc cinq**, tous décidés : la fraise 82 degrés modifiée (point 6) ; le gabarit de la
+fraise à fileter sans son « Ø » et l'ordre de ses dimensions (point 7) ; le nom du Nine9 d'ébavurage (point 8) ; sa
+nomenclature (point 9). Le catalogue du dépôt reste tel que Thierry l'a arrêté : c'est cette entrée, puis le script,
+qui portent ces cinq écarts.
+
+**La retouche** tient en deux valeurs du script (points 7 et 9). Relancé sur le même export, il donne un fichier où
+huit valeurs changent, et aucune autre : la nomenclature du Nine9 d'ébavurage dans la banque et dans ses quatre copies
+(« Fraisage — Exercice 2 », « Fraisage — Exercice 3 », M30, F50), l'ordre des dimensions de la fraise à fileter dans
+la banque et dans ses deux copies (F50 et sa démo). **Rien ne touche la correction** : aucun code du site ni du
+serveur ne change, et le lot n'est pas encore importé.
