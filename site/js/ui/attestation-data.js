@@ -74,9 +74,11 @@ export function materialText(materiau) {
 // lignes. La coupe entre les pages se décide donc par un compte de pixels, à partir d'une estimation
 // du nombre de lignes de chaque rang. Tout est mesuré dans Chrome sur la page lettre (10 po utiles,
 // soit 960 px ; 720 px de large) avec la police d'impression, Carlito 9,5 px (UI §3.6) : si la
-// police ou la CSS de la page change, recalibrer ici.
+// police ou la CSS de la page change, recalibrer ici — et vérifier le débordement en mode impression, ou au
+// pied de page : à l'écran, ce qui dépasse tombe dans la marge de la page et ne se voit pas à `scrollHeight`.
 export const PAGE_LAYOUT = {
-  firstPageFree: 460, // px libres sur la page 1 pour les rangs des deux tableaux, une fois tout le reste posé (titres, en-têtes des tableaux, note, pied)
+  // ❓ D85, point 6 (proposé) : 460 jusque-là, soit 37 px de trop — mesuré : 422,9 px. Une page 1 pleine poussait son pied hors de la zone imprimable.
+  firstPageFree: 420, // px libres sur la page 1 pour les rangs des deux tableaux, une fois tout le reste posé (titres, en-têtes des tableaux, note, pied)
   nextPageFree: 740, // px libres sur une page de suite pour les rangs de son tableau (en-tête, rappel, titre, en-tête du tableau et pied posés)
   toolRow: 24, // px par ligne du tableau par outil
   toolsHead: 36, // px de l'en-tête du tableau par outil, avec la marge au-dessus

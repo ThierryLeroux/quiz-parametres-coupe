@@ -235,10 +235,27 @@ test('paginateAttestation : la place de la page 1 se partage entre le tableau pa
   assert.deepEqual(counts(paginateAttestation(tools(11), rowsOf(22, 2), 2, layout)), [[11, 5], [0, 9], [0, 8]]); // 180 / 33 = 5 ; 300 / 33 = 9
   // Un enregistrement figé avant D41 n'a pas de questions : le tableau par outil, sa note, pas de titre de liste.
   assert.deepEqual(paginateAttestation(tools(9), []), [{ tools: tools(9), note: true, title: false, questions: [] }]);
-  // Les capacités d'avant D85, gardées : « Vc et RPM » (11 outils, 22 questions) et le M10 (9 outils, 15) tiennent sur deux pages.
-  assert.deepEqual(counts(paginateAttestation(tools(11), rows, 2)), [[11, 9], [0, 13]]);
-  assert.deepEqual(counts(paginateAttestation(tools(9), rows.slice(0, 15), 1)), [[9, 12], [0, 3]]);
+  // Les vraies capacités, mesurées dans Chrome : « Vc et RPM » (11 outils, 22 questions) et le M10 (9 outils, 15) tiennent sur deux pages.
+  // Avant le recalibrage de la page 1 (D85, point 6) : 9 et 13, 12 et 3 — et le pied de la page 1 pouvait sortir de la zone imprimable.
+  assert.deepEqual(counts(paginateAttestation(tools(11), rows, 2)), [[11, 7], [0, 15]]); // (420 − 11 × 24) / 20 = 7,8
+  assert.deepEqual(counts(paginateAttestation(tools(9), rows.slice(0, 15), 1)), [[9, 10], [0, 5]]); // (420 − 9 × 24) / 20 = 10,2
   assert.ok(PAGE_LAYOUT.nextPageFree / rowHeight(rows[0]) >= 22);
+});
+
+test('la place de la page 1 (D85, point 6) : ce que la page porte ne dépasse jamais ce qui a été mesuré dans Chrome, pied de page compris', () => {
+  // Mesuré sur la page lettre, en mode impression : du bas du titre « Opérations effectuées » au bas de la zone imprimable,
+  // 593,6 px ; le pied et sa marge, 25,5 px. Les blocs, tels que mesurés (le modèle les arrondit vers le haut) :
+  const REAL = { zone: 593.6 - 25.5, toolsHead: 36.3, toolRow: 23.8, note: 39, questionsTitle: 37.9, questionsHead: 32, narrowHead: 45 };
+  const random = aleaAGraine(856);
+  for (let trial = 0; trial < 600; trial += 1) {
+    const answerColumns = 1 + Math.floor(random() * 5);
+    const floor = answerColumns >= 4 ? 2 : 1; // en largeurs resserrées, deux lignes au moins
+    const rows = Array.from({ length: Math.floor(random() * 50) }, (_, i) => ({ numero: String(i + 1), lines: floor + Math.floor(random() * 2) }));
+    const [first] = paginateAttestation(tools(1 + Math.floor(random() * 40)), rows, answerColumns);
+    const used = REAL.toolsHead + REAL.toolRow * first.tools.length + (first.note ? REAL.note : 0) + (first.title ? REAL.questionsTitle : 0)
+      + (first.questions.length > 0 ? (answerColumns >= 4 ? REAL.narrowHead : REAL.questionsHead) + first.questions.reduce((sum, row) => sum + rowHeight(row), 0) : 0);
+    assert.ok(used <= REAL.zone, `${first.tools.length} outils, ${first.questions.length} questions, ${answerColumns} grandeurs : ${used.toFixed(1)} px pour ${REAL.zone.toFixed(1)}`);
+  }
 });
 
 test('non-régression (D85) : tant que le tableau par outil tient en page 1, la liste des questions se coupe exactement comme avant', () => {
