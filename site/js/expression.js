@@ -190,7 +190,7 @@ function plainDecimal(value) {
 // l'affichage est arrondi (le serveur, lui, juge l'expression). Aucun arrondi pédagogique : ni les décimales de la
 // grandeur, ni l'entier de N.
 //   4 → « 4 » ; 0.0045 → « 0.0045 » ; 1866.66666667 (4 × 350 / 0.75) → « 1866.6667 », arrondi
-// ❓ D82, précision à confirmer : 9 caractères, la case à 1280 px ; elle en montre 6 à 1000 px, 26 à 390 px.
+// Neuf caractères : ce que montre une case à 1280 px ; elle en montre 6 à 1000 px, 26 à 390 px (D82, réponses de Thierry).
 // Un nombre qui ne tient jamais (plus de 9 chiffres avant le point) s'écrit en entier.
 export function computedText(value) {
   for (let digits = 12; digits >= 1; digits -= 1) {

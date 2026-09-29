@@ -365,7 +365,7 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
     el('button', { class: 'button-outline', type: 'button', onclick: fill }, 'Remplir'),
   ]);
   if (expected !== null) fill();
-  // ❓ D82 : « un calcul se tape tel quel » ajouté au rappel, pour que l'étudiant sache qu'il peut calculer dans la case.
+  // Le rappel dit aussi « un calcul se tape tel quel », pour que l'étudiant sache qu'il peut calculer dans la case (D82).
   const reminder = el('p', { class: 'muted smaller form-reminder' }, `Point décimal (une virgule devient un point), sans séparateur de milliers : 2496 · 0.005  ·  un calcul se tape tel quel : (3-1)*2  ·  ${toolStreak(seance.progression, question.outil.id)}`);
   // Rappel et message du serveur à gauche, « Vérifier » à droite, sur la même ligne (maquette 03).
   const actionsRow = el('div', { class: 'form-actions' }, [el('div', { class: 'form-notes' }, [reminder, status]), checkButton]);
