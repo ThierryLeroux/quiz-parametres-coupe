@@ -150,6 +150,22 @@ test('fraise à fileter : ses dimensions de la plus petite à la plus grande, le
   assert.equal(questions.find((q) => q.dimension.startsWith('Ø 0.300')).reponses.feedPerTooth, '0.0012');
 });
 
+test('Nine9 d’ébavurage : « Outil à ébavurer Nine9 : [IdDia] », dans la banque et dans toutes ses copies ; le Nine9 90 degrés garde sa nomenclature (fin de D84, point 9)', () => {
+  const gabarit = (outils, id) => outils.find((o) => o.id === id)?.format_identifiant;
+  const banque = LOT.lot.banque.map((b) => b.outil);
+  assert.equal(gabarit(banque, 'nine9_ebavurage'), 'Outil à ébavurer Nine9 : [IdDia]');
+  assert.equal(gabarit(banque, 'nine9_90_degres'), 'Outil à chanfreiner Nine9 : [IdDia]');
+  assert.equal(gabarit(banque, 'nine9_90_degres'), gabarit(EXPORT.banque.map((b) => b.outil), 'nine9_90_degres'));
+  const avec = (id) => LOT.lot.exercices.filter((e) => e.brouillon.outils.some((c) => c.id === id));
+  assert.deepEqual(avec('nine9_ebavurage').map((e) => e.id), ['m10-fraisage-vc-rpm', 'm10-fraisage-avances', 'm30-fraisage-cn', 'f50-synthese']);
+  for (const e of avec('nine9_ebavurage')) assert.equal(gabarit(e.brouillon.outils, 'nine9_ebavurage'), 'Outil à ébavurer Nine9 : [IdDia]', e.id);
+  for (const e of avec('nine9_90_degres')) assert.equal(gabarit(e.brouillon.outils, 'nine9_90_degres'), 'Outil à chanfreiner Nine9 : [IdDia]', e.id);
+  // Ce que l'étudiant lit : aux Ø que les deux outils partagent, deux titres différents.
+  const titres = (outil) => [...new Set(questionsDe('m10-fraisage-vc-rpm', 600).questions.filter((q) => q.outil_id === outil).map((q) => q.identifiant))].sort();
+  assert.deepEqual(titres('nine9_ebavurage'), ['Outil à ébavurer Nine9 : Ø 1/2 po', 'Outil à ébavurer Nine9 : Ø 1/4 po', 'Outil à ébavurer Nine9 : Ø 3/8 po']);
+  assert.deepEqual(titres('nine9_90_degres'), ['Outil à chanfreiner Nine9 : Ø 1/2 po', 'Outil à chanfreiner Nine9 : Ø 3/4 po', 'Outil à chanfreiner Nine9 : Ø 3/8 po', 'Outil à chanfreiner Nine9 : Ø 5/8 po']);
+});
+
 test('« Vc et vitesse de rotation » : son brouillon part du sien, ses versions ne sont pas dans le fichier, titre et cours en direct', () => {
   const entree = LOT.lot.exercices.find((e) => e.id === T2);
   assert.ok(!('versions' in entree));

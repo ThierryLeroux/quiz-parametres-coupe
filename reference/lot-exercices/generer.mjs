@@ -74,7 +74,9 @@ const NEW_TOOLS = [
   { id: 'dtfnr', nom: 'DTFNR', format_identifiant: 'DTFNR - Ø dressé: [IdDia]', operation: 'Dressage', limite_rpm: 3000, dents: [1, 1], materiaux_outil: [INSERT], image: { banque: 'mclnr' }, dimensions: { de: 'mvlnr' } },
   { id: 'outil_a_rainurer', nom: 'Outil à rainurer', format_identifiant: 'Outil à rainurer - Ø rainuré: [IdDia]', operation: 'Rainurage externe', limite_rpm: 3000, dents: [1, 1], materiaux_outil: [INSERT], image: { nouvelle: 'outil_a_rainurer' }, dimensions: { de: 'mvlnr' } },
   {
-    id: 'nine9_ebavurage', nom: "Nine9 d'ébavurage", format_identifiant: 'Outil à chanfreiner Nine9 : [IdDia]', operation: 'Chanfreinage / ébavurage', limite_rpm: 10000, dents: [1, 1], materiaux_outil: [INSERT], image: { banque: 'nine9_90_degres' },
+    // Sa nomenclature n'est pas celle du Nine9 90 degrés (« Outil à chanfreiner Nine9 : [IdDia] », qu'il garde) : à
+    // Ø 3/8 et 1/2 po, les deux questions auraient porté le même titre (fin de D84, point 9). Son nom est celui de la grille.
+    id: 'nine9_ebavurage', nom: "Nine9 d'ébavurage", format_identifiant: 'Outil à ébavurer Nine9 : [IdDia]', operation: 'Chanfreinage / ébavurage', limite_rpm: 10000, dents: [1, 1], materiaux_outil: [INSERT], image: { banque: 'nine9_90_degres' },
     force: { fact_vc: 1, fact_vc_raison: SINGLE_INSERT_REASON },
     dimensions: [{ libelle: 'Ø 1/4 po', valeur: 0.25 }, { libelle: 'Ø 3/8 po', valeur: 0.375 }, { libelle: 'Ø 1/2 po', valeur: 0.5 }],
   },
