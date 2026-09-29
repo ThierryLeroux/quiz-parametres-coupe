@@ -9,8 +9,10 @@ import { createHash } from 'node:crypto';
 import { buildLot, readArguments, summaryLines } from '../reference/lot-exercices/generer.mjs';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { adoptSpeedFactor, prefillSpeedFactors } from '../site/js/facteur-vitesse.js';
-import { EXPORT_FORMAT } from '../worker/editeur.js';
-import { lireFichier } from './aide.js';
+import { toolRows } from '../site/js/ui/home-data.js';
+import { assembleDraft } from '../worker/catalogue.js';
+import { EXPORT_FORMAT, previewQuestions } from '../worker/editeur.js';
+import { aleaAGraine, lireFichier } from './aide.js';
 
 const T2 = 'm10-tournage-vc-rpm-2';
 const RAISON = 'Un seul insert de carbure en périphérie : vitesse non réduite';
@@ -126,6 +128,26 @@ test('exercices : les réglages, la règle du Ø 1/16 po, aucun outil axial aux 
   for (const id of ['m10-tournage-avances', 'm10-fraisage-avances']) assert.deepEqual(brouillon(id).outils.filter((c) => axiaux.test(c.id)), [], id);
   assert.equal(brouillon('f50-synthese').outils.length, LOT.lot.banque.length);
   assert.deepEqual(brouillon('demo-f50-synthese').outils.map((c) => [c.id, c.reussites_requises]), [['fraise_a_fileter', 1]]);
+});
+
+// Les questions qu'un brouillon du lot donne, tirées par le moteur comme dans l'aperçu de la Gestion du contenu.
+function questionsDe(id, nombre) {
+  const entree = LOT.lot.exercices.find((e) => e.id === id);
+  const { exercise, data } = assembleDraft(id, entree.brouillon, LOT.lot.tables_reference[0]);
+  return { exercise, data, questions: previewQuestions(exercise, data, aleaAGraine(84), nombre) };
+}
+
+test('fraise à fileter : ses dimensions de la plus petite à la plus grande, le gabarit sans « Ø » en double (fin de D84, point 7)', () => {
+  const outil = LOT.lot.banque.find((b) => b.id === 'fraise_a_fileter').outil;
+  assert.deepEqual(outil.dimensions, [{ libelle: 'Ø 0.180 po — 20 à 32 filets/po', valeur: 0.18 }, { libelle: 'Ø 0.240 po — 18 à 28 filets/po', valeur: 0.24 }, { libelle: 'Ø 0.300 po — 16 à 28 filets/po', valeur: 0.3 }]);
+  assert.equal(outil.format_identifiant, 'Fraise à fileter [IdDia] - [NbDent] dents');
+  for (const id of ['demo-f50-synthese', 'f50-synthese']) assert.deepEqual(LOT.lot.exercices.find((e) => e.id === id).brouillon.outils.find((c) => c.id === 'fraise_a_fileter').dimensions, outil.dimensions, id);
+  // Ce que l'étudiant lit : la question, puis la plage de la page de l'exercice et de l'attestation.
+  const { exercise, data, questions } = questionsDe('demo-f50-synthese', 40);
+  assert.deepEqual([...new Set(questions.map((q) => q.identifiant))].sort(), ['Fraise à fileter Ø 0.180 po — 20 à 32 filets/po - 4 dents', 'Fraise à fileter Ø 0.240 po — 18 à 28 filets/po - 4 dents', 'Fraise à fileter Ø 0.300 po — 16 à 28 filets/po - 4 dents']);
+  assert.equal(toolRows(exercise, data)[0].range, 'Ø 0.180 po — 20 à 32 filets/po à Ø 0.300 po — 16 à 28 filets/po');
+  // L'avance : 0.004 × Ø par dent, soit 0.0012 po/dent à Ø 0.300 po.
+  assert.equal(questions.find((q) => q.dimension.startsWith('Ø 0.300')).reponses.feedPerTooth, '0.0012');
 });
 
 test('« Vc et vitesse de rotation » : son brouillon part du sien, ses versions ne sont pas dans le fichier, titre et cours en direct', () => {

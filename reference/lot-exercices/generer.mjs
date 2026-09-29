@@ -83,8 +83,10 @@ const NEW_TOOLS = [
   {
     // Le gabarit du catalogue est « Fraise à fileter Ø [IdDia] - [NbDent] dents » ; [IdDia] est le libellé de la
     // dimension, qui commence déjà par « Ø » : le « Ø » du gabarit est retiré, sinon la question afficherait « Ø Ø 0.300 po ».
+    // Ses dimensions vont de la plus petite à la plus grande, comme celles des autres outils (fin de D84, point 7) : la
+    // plage de l'attestation et de la page de l'exercice se lit « Ø 0.180 po … à Ø 0.300 po … ».
     id: 'fraise_a_fileter', nom: 'Fraise à fileter', format_identifiant: 'Fraise à fileter [IdDia] - [NbDent] dents', operation: 'Contournage finition', limite_rpm: 10000, dents: [4, 4], materiaux_outil: [SOLID], image: { nouvelle: 'fraise_a_fileter' },
-    dimensions: [{ libelle: 'Ø 0.300 po — 16 à 28 filets/po', valeur: 0.3 }, { libelle: 'Ø 0.240 po — 18 à 28 filets/po', valeur: 0.24 }, { libelle: 'Ø 0.180 po — 20 à 32 filets/po', valeur: 0.18 }],
+    dimensions: [{ libelle: 'Ø 0.180 po — 20 à 32 filets/po', valeur: 0.18 }, { libelle: 'Ø 0.240 po — 18 à 28 filets/po', valeur: 0.24 }, { libelle: 'Ø 0.300 po — 16 à 28 filets/po', valeur: 0.3 }],
   },
 ];
 
