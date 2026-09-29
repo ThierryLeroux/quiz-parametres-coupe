@@ -162,6 +162,18 @@
 .attestation-questions th:last-child { width: 110px; }
 .attestation-questions td.stamp { font-family: var(--font-number); font-size: 8.5px; }
 
+/* À quatre ou cinq grandeurs évaluées (D85), les largeurs resserrées (PAGE_LAYOUT.narrowColumns), pour que le
+   matériau usiné garde une colonne lisible : l'en-tête sur deux lignes (« Vc », puis « (pi/min) »), la date
+   puis l'heure. Un texte se replie entre les mots ; la colonne du matériau est assez large pour qu'aucun mot
+   n'y soit coupé. */
+.attestation-questions--narrow th:nth-child(2) { width: 150px; }
+.attestation-questions--narrow th:nth-child(3) { width: 56px; }
+.attestation-questions--narrow th.num:not(:first-child) { width: 54px; }
+.attestation-questions--narrow th:last-child { width: 62px; }
+.attestation-questions--narrow th { vertical-align: bottom; }
+.attestation-questions--narrow th span { display: block; }
+.attestation-questions--narrow td.stamp { white-space: normal; }
+
 .attestation-continuation { font-size: 11px; font-weight: 700; }
 
 .attestation-footer {

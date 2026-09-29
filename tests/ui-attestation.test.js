@@ -2,12 +2,14 @@
 // la partie pure de site/js/ui/qr.js (la bibliothèque vendorisée encode l'adresse de vérification).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   PAGE_LAYOUT, attestationFacts, exerciseVersionLabel, materialColumnWidth, rowHeight, attestationFileName, attestationFooter, attestationRows, continuationLine, hasQuestions,
-  materialText, pageLabel, paginateQuestions, questionColumns, questionRows, tablesRevision, verificationMention, verificationOutcome,
+  materialText, pageLabel, paginateAttestation, questionColumns, questionRows, questionWidths, tableTitles, tablesRevision, verificationMention, verificationOutcome,
 } from '../site/js/ui/attestation-data.js';
 import { qrModules } from '../site/js/ui/qr.js';
 import { formatDateStamp } from '../site/js/ui/text.js';
+import { aleaAGraine, data, toutesLesQuestions } from './aide.js';
 
 // Les dates sont écrites à l'heure du poste : on les construit en heure locale pour que le texte
 // attendu ne dépende pas du fuseau de la machine de test.
@@ -87,7 +89,8 @@ test('hasQuestions : vrai avec une liste non vide ; faux pour un enregistrement 
 });
 
 test('questionColumns : les grandeurs évaluées présentes, dans l’ordre du calcul, avec leur unité', () => {
-  assert.deepEqual(questionColumns(AVEC_LISTE), [{ key: 'vc', label: 'Vc (pi/min)' }, { key: 'rpm', label: 'N (tr/min)' }]);
+  assert.deepEqual(questionColumns(AVEC_LISTE), [{ key: 'vc', label: 'Vc (pi/min)', lines: ['Vc', '(pi/min)'] }, { key: 'rpm', label: 'N (tr/min)', lines: ['N', '(tr/min)'] }]);
+  assert.ok(questionColumns({ ...RECORD, questions: [{ ...QUESTIONS[0], reponses: { vc: '1', feedPerTooth: '1', rpm: '1', feedPerRev: '1', feedRate: '1' } }] }).every((c) => c.lines.join(' ') === c.label)); // deux lignes, le même texte
   assert.deepEqual(questionColumns({ ...RECORD, questions: [{ ...QUESTIONS[0], reponses: { feedRate: '4', vc: '40', feedPerTooth: '0.004' } }] }).map((c) => c.key), ['vc', 'feedPerTooth', 'feedRate']);
   assert.deepEqual(questionColumns(RECORD), []);
 });
@@ -115,30 +118,212 @@ test('repli (D43) : un matériau ou un outil trop long pour sa colonne compte de
   assert.equal(long.lines, 2);
   assert.equal(rowHeight(long), 7 + 2 * 13);
   assert.equal(rowHeight(questionRows(AVEC_LISTE)[0]), 20);
-  // Avec cinq grandeurs évaluées (test-complet), la colonne du matériau ne fait plus que 24 px : beaucoup de lignes, rien de perdu.
-  const cinq = { ...QUESTIONS[1], reponses: { vc: '1', feedPerTooth: '1', rpm: '1', feedPerRev: '1', feedRate: '1' } };
-  assert.ok(questionRows({ ...RECORD, questions: [cinq] })[0].lines >= 5);
   // Un nom d'outil long compte aussi.
   const fraise = { ...QUESTIONS[1], outil: 'Fraise à chanfreiner 82 degrés - Ø 5/16 po - 3 lèvre(s)' }; // 55 caractères, colonne de 180 px
   assert.equal(questionRows({ ...RECORD, questions: [fraise] })[0].lines, 2);
 });
 
-test('paginateQuestions : la place de la page 1 se partage entre le tableau par outil et les questions, en pixels ; un rang de deux lignes compte double ; jamais coupé entre deux pages', () => {
-  const rows = Array.from({ length: 22 }, (_, i) => ({ numero: String(i + 1), lines: 1 }));
+// --- À quatre ou cinq grandeurs : les largeurs resserrées (D85) ------------------------------------------------------
+
+const CINQ = { vc: '165', feedPerTooth: '0.000938', rpm: '10000', feedPerRev: '0.000984', feedRate: '166.667' };
+const AMPCO = { classe: 'N', groupe: 30, materiau: 'Cuivre et alliages de cuivre', etat: 'Haute résistance en traction, Ampco' };
+
+// Tous les noms d'outils que le moteur compose pour le catalogue (chaque outil × dimension × dents × barre).
+const NOMS = new Set();
+for (const question of toutesLesQuestions()) NOMS.add(question.displayId);
+
+test('questionWidths (D85) : les largeurs ordinaires jusqu’à trois grandeurs ; resserrées à quatre et cinq, où le matériau usiné garde au moins 100 px', () => {
+  assert.deepEqual([1, 2, 3, 4, 5].map((n) => questionWidths(n).narrow), [false, false, false, true, true]);
+  assert.deepEqual([1, 2, 3, 4, 5].map((n) => materialColumnWidth(n)), [258, 198, 138, 214, 160]); // avant D85 : 78 px à quatre grandeurs, 18 px à cinq
+  assert.ok([1, 2, 3, 4, 5].every((n) => materialColumnWidth(n) >= PAGE_LAYOUT.minMaterial));
+  assert.deepEqual(questionWidths(2), { ...PAGE_LAYOUT.columns, narrow: false, materiau: 198 }); // une ou deux grandeurs : rien ne change
+  assert.deepEqual(questionWidths(5), { numero: 22, outil: 150, materiau_outil: 56, answer: 54, stamp: 62, page: 720, narrow: true, materiau: 160 });
+  // Les colonnes remplissent la page, ni plus ni moins.
+  for (const n of [1, 2, 3, 4, 5]) {
+    const w = questionWidths(n);
+    assert.equal(w.numero + w.outil + w.materiau_outil + w.materiau + w.answer * n + w.stamp, 720);
+  }
+});
+
+test('attestation.css porte les largeurs de PAGE_LAYOUT, ordinaires et resserrées', () => {
+  const css = readFileSync(new URL('../site/css/attestation.css', import.meta.url), 'utf8');
+  const width = (selector) => Number(css.match(new RegExp(`^${selector.replace(/[.()]/g, '\\$&')} \\{ width: (\\d+)px; \\}`, 'm'))?.[1]);
+  for (const [name, columns] of [['.attestation-questions', PAGE_LAYOUT.columns], ['.attestation-questions--narrow', PAGE_LAYOUT.narrowColumns]]) {
+    assert.equal(width(`${name} th:nth-child(2)`), columns.outil, `${name} : outil`);
+    assert.equal(width(`${name} th:nth-child(3)`), columns.materiau_outil, `${name} : matière d'outil`);
+    assert.equal(width(`${name} th.num:not(:first-child)`), columns.answer, `${name} : grandeur`);
+    assert.equal(width(`${name} th:last-child`), columns.stamp, `${name} : date et heure`);
+  }
+  assert.equal(width('.attestation-questions th:nth-child(1)'), PAGE_LAYOUT.columns.numero);
+  assert.equal(PAGE_LAYOUT.narrowColumns.numero, PAGE_LAYOUT.columns.numero); // la même colonne : une seule règle dans la feuille
+});
+
+test('largeurs resserrées (D85) : la date et l’heure sur deux lignes, donc deux lignes au moins par rang ; le matériau le plus long en prend trois, replié entre les mots', () => {
+  const court = { ...QUESTIONS[1], reponses: CINQ };
+  const [row] = questionRows({ ...RECORD, questions: [court] });
+  assert.deepEqual(row.reponses, ['165', '0.000938', '10000', '0.000984', '166.667']); // dans l'ordre du calcul : Vc, fz, N, f, Vf
+  assert.equal(row.horodatage, '2026-09-21 13:40:59'); // le texte ne change pas : c'est la colonne qui le replie
+  assert.equal(row.lines, 2);
+  assert.equal(rowHeight(row), 33);
+  // « N 30 — Cuivre et alliages de » / « cuivre, Haute résistance en » / « traction, Ampco » dans 152 px à 4,6 px par caractère.
+  assert.equal(questionRows({ ...RECORD, questions: [{ ...court, materiau: AMPCO }] })[0].lines, 3);
+  // Le nom d'outil le plus long du lot (57 caractères) tient sur deux lignes dans 150 px.
+  assert.equal(questionRows({ ...RECORD, questions: [{ ...court, outil: 'Fraise à fileter Ø 0.180 po — 20 à 32 filets/po - 4 dents' }] })[0].lines, 2);
+  // Un mot plus large que sa colonne se coupe, en dernier recours, et compte ses lignes : 40 caractères dans 142 px.
+  assert.equal(questionRows({ ...RECORD, questions: [{ ...court, outil: 'x'.repeat(40) }] })[0].lines, 2);
+  assert.equal(questionRows({ ...RECORD, questions: [{ ...court, outil: `Foret ${'x'.repeat(40)}` }] })[0].lines, 3);
+});
+
+test('aucun mot coupé (D85) : à cinq grandeurs, chaque mot des matériaux des tables et des noms d’outils du catalogue tient dans sa colonne', () => {
+  const widths = questionWidths(5);
+  const fits = (text, width) => text.split(' ').every((word) => word.length * PAGE_LAYOUT.charWidth <= width - PAGE_LAYOUT.cellPadding);
+  for (const m of data.materiaux) assert.ok(fits(materialText({ classe: m.iso, groupe: m.groupe, materiau: m.materiau, etat: m.etat }), widths.materiau), m.materiau);
+  assert.ok(NOMS.size > 400, `${NOMS.size} noms`);
+  for (const name of NOMS) assert.ok(fits(name, widths.outil), name);
+  for (const name of ['Acier rapide', 'Carbure solide', 'Insert de carbure']) assert.ok(fits(name, widths.materiau_outil), name);
+});
+
+test('non-régression (D85) : à une et deux grandeurs, le repli entre les mots compte les mêmes lignes que l’estimation d’avant, pour tout le catalogue', () => {
+  // L'estimation d'avant D85, gardée ici comme témoin : au caractère, sans égard aux mots.
+  const before = (text, width) => Math.max(1, Math.ceil(text.length * 4.6 / (width - 8)));
+  const linesOf = (question, n) => questionRows({ ...RECORD, questions: [{ ...QUESTIONS[0], ...question, reponses: Object.fromEntries(Object.entries(CINQ).slice(0, n)) }] })[0].lines;
+  let compared = 0;
+  for (const n of [1, 2]) {
+    for (const m of data.materiaux) {
+      const materiau = { classe: m.iso, groupe: m.groupe, materiau: m.materiau, etat: m.etat };
+      assert.equal(linesOf({ outil: 'MCLNR', materiau }, n), before(materialText(materiau), materialColumnWidth(n)), `${n} grandeur(s) : ${m.materiau}, ${m.etat}`);
+      compared += 1;
+    }
+  }
+  for (const name of NOMS) {
+    assert.equal(linesOf({ outil: name, materiau: { classe: 'P', groupe: 1, materiau: 'Acier', etat: null } }, 2), before(name, 180), name);
+    compared += 1;
+  }
+  assert.ok(compared > 500, `${compared} textes comparés`);
+});
+
+// --- La coupe entre les pages (D41, D43, D85) ---------------------------------------------------------------------------
+
+const TOOL = { operation: 'Perçage', outil: 'Foret', plage: 'Ø 1/16 po à Ø 1 po', reussites: '1 / 1' };
+const tools = (count) => Array.from({ length: count }, (_, i) => ({ ...TOOL, outil: `Foret ${i + 1}` }));
+const rowsOf = (count, lines = 1) => Array.from({ length: count }, (_, i) => ({ numero: String(i + 1), lines }));
+const counts = (pages) => pages.map((page) => [page.tools.length, page.questions.length]);
+
+// La coupe d'avant D85, gardée ici comme témoin : la liste des questions seule ; le tableau par outil, d'un bloc en page 1.
+function paginateBefore(rows, toolCount, layout = PAGE_LAYOUT) {
+  const pages = [[]];
+  let free = layout.firstPageFree - layout.toolRow * toolCount;
+  for (const row of rows) {
+    const height = rowHeight(row, layout);
+    if (height > free && pages.at(-1).length > 0) { pages.push([]); free = layout.nextPageFree; }
+    if (height > free && pages.length === 1) { pages.push([]); free = layout.nextPageFree; }
+    pages.at(-1).push(row);
+    free -= height;
+  }
+  return pages;
+}
+
+test('paginateAttestation : la place de la page 1 se partage entre le tableau par outil et les questions, en pixels ; un rang de deux lignes compte double ; jamais coupé entre deux pages', () => {
+  const rows = rowsOf(22);
   const layout = { ...PAGE_LAYOUT, firstPageFree: 400, nextPageFree: 300, toolRow: 20, rowBase: 7, line: 13 };
-  const pages = paginateQuestions(rows, 11, layout);
-  assert.deepEqual(pages.map((page) => page.length), [9, 13]); // (400 − 11 × 20) / 20 = 9
-  assert.deepEqual(pages.flat(), rows); // rien de perdu, rien en double, dans l'ordre
-  assert.deepEqual(paginateQuestions(rows, 3, { ...layout, firstPageFree: 500 }).map((page) => page.length), [22]); // tout tient
-  assert.deepEqual(paginateQuestions(rows, 25, { ...layout, nextPageFree: 200 }).map((page) => page.length), [0, 10, 10, 2]); // trop d'outils : la liste commence page 2
-  assert.deepEqual(paginateQuestions([], 9), [[]]);
+  const pages = paginateAttestation(tools(11), rows, 2, layout);
+  assert.deepEqual(counts(pages), [[11, 9], [0, 13]]); // (400 − 11 × 20) / 20 = 9
+  assert.deepEqual(pages.flatMap((page) => page.questions), rows); // rien de perdu, rien en double, dans l'ordre
+  assert.deepEqual(pages.map((page) => [page.note, page.title]), [[true, true], [false, false]]); // la note et le titre de la liste, en page 1
+  assert.deepEqual(counts(paginateAttestation(tools(3), rows, 2, { ...layout, firstPageFree: 500 })), [[3, 22]]); // tout tient
   // Des rangs de deux lignes (33 px) : ils prennent leur place, et un rang qui ne tient pas passe entier à la page suivante.
-  const doubles = rows.map((row) => ({ ...row, lines: 2 }));
-  assert.deepEqual(paginateQuestions(doubles, 11, layout).map((page) => page.length), [5, 9, 8]); // 180 / 33 = 5 ; 300 / 33 = 9
-  // Les vraies capacités, mesurées dans Chrome : « Vc et RPM » (11 outils, 22 questions) et le M10 (9 outils, 15) tiennent sur deux pages.
-  assert.deepEqual(paginateQuestions(rows, 11).map((page) => page.length), [9, 13]);
-  assert.deepEqual(paginateQuestions(rows.slice(0, 15), 9).map((page) => page.length), [12, 3]);
+  assert.deepEqual(counts(paginateAttestation(tools(11), rowsOf(22, 2), 2, layout)), [[11, 5], [0, 9], [0, 8]]); // 180 / 33 = 5 ; 300 / 33 = 9
+  // Un enregistrement figé avant D41 n'a pas de questions : le tableau par outil, sa note, pas de titre de liste.
+  assert.deepEqual(paginateAttestation(tools(9), []), [{ tools: tools(9), note: true, title: false, questions: [] }]);
+  // Les capacités d'avant D85, gardées : « Vc et RPM » (11 outils, 22 questions) et le M10 (9 outils, 15) tiennent sur deux pages.
+  assert.deepEqual(counts(paginateAttestation(tools(11), rows, 2)), [[11, 9], [0, 13]]);
+  assert.deepEqual(counts(paginateAttestation(tools(9), rows.slice(0, 15), 1)), [[9, 12], [0, 3]]);
   assert.ok(PAGE_LAYOUT.nextPageFree / rowHeight(rows[0]) >= 22);
+});
+
+test('non-régression (D85) : tant que le tableau par outil tient en page 1, la liste des questions se coupe exactement comme avant', () => {
+  const random = aleaAGraine(85);
+  let compared = 0;
+  for (let toolCount = 1; toolCount <= 18; toolCount += 1) {
+    for (let trial = 0; trial < 40; trial += 1) {
+      const rows = Array.from({ length: Math.floor(random() * 70) }, (_, i) => ({ numero: String(i + 1), lines: 1 + Math.floor(random() * 3) }));
+      const pages = paginateAttestation(tools(toolCount), rows, 2);
+      assert.deepEqual(pages.map((page) => page.questions), paginateBefore(rows, toolCount), `${toolCount} outils, ${rows.length} questions`);
+      assert.deepEqual(counts(pages).map(([t]) => t), [toolCount, ...Array(pages.length - 1).fill(0)]); // tout le tableau par outil en page 1
+      assert.deepEqual([pages[0].note, pages[0].title], [true, rows.length > 0]);
+      compared += 1;
+    }
+  }
+  assert.equal(compared, 720);
+});
+
+test('paginateAttestation (D85) : le tableau par outil se poursuit sur la page suivante ; la note reste sous son dernier rang ; la liste des questions vient ensuite', () => {
+  const rows = rowsOf(37, 2);
+  const pages = paginateAttestation(tools(35), rows, 5);
+  // Rien de perdu, rien en double, dans l'ordre — pour les deux tableaux.
+  assert.deepEqual(pages.flatMap((page) => page.tools), tools(35));
+  assert.deepEqual(pages.flatMap((page) => page.questions), rows);
+  assert.ok(pages[0].tools.length < 35 && pages[1].tools.length > 0, JSON.stringify(counts(pages)));
+  assert.equal(pages[0].tools.length + pages[1].tools.length, 35);
+  // La note : une seule, sur la page du dernier rang du tableau par outil ; le titre de la liste : un seul, après elle.
+  assert.deepEqual(pages.map((page) => page.note), pages.map((_, i) => i === 1));
+  assert.deepEqual(pages.map((page) => page.title), pages.map((_, i) => i === 1));
+  assert.equal(pages[0].questions.length, 0);
+  // Chaque page tient dans sa place : ce qu'elle porte, en pixels, contre ce que la page offre sous son premier titre.
+  const L = PAGE_LAYOUT;
+  const head = L.questionsHead + L.line; // cinq grandeurs : l'en-tête des questions sur deux lignes
+  pages.forEach((page, i) => {
+    const room = i === 0 ? L.firstPageFree + L.toolsHead + L.note + L.questionsTitle + L.questionsHead : L.nextPageFree + L.questionsHead;
+    const midTitle = page.title && page.tools.length > 0 ? L.questionsTitle : 0; // en tête de page, le titre est déjà compté
+    const used = (page.tools.length > 0 ? L.toolsHead + L.toolRow * page.tools.length : 0) + (page.note ? L.note : 0) + midTitle
+      + (page.questions.length > 0 ? head + page.questions.reduce((sum, row) => sum + rowHeight(row), 0) : 0);
+    assert.ok(used <= room, `page ${i + 1} : ${used} px pour ${room}`);
+  });
+});
+
+test('paginateAttestation (D85) : cas limites — le dernier rang du tableau par outil passe à la page suivante avec la note ; le titre de la liste en tête de page ; une page neuve prend toujours son premier rang', () => {
+  // 100 px sous le titre en page 1 : l'en-tête (20) et trois rangs (3 × 20) tiennent, mais pas la note (30) sous le troisième.
+  const layout = { ...PAGE_LAYOUT, firstPageFree: 0, nextPageFree: 100, toolRow: 20, toolsHead: 20, note: 30, questionsTitle: 25, questionsHead: 25, rowBase: 7, line: 13 };
+  assert.deepEqual(layout.firstPageFree + layout.toolsHead + layout.note + layout.questionsTitle + layout.questionsHead, 100);
+  const split = paginateAttestation(tools(3), [], 0, layout);
+  assert.deepEqual(counts(split), [[2, 0], [1, 0]]);
+  assert.deepEqual(split.map((page) => page.note), [false, true]);
+  // Deux outils et la note : il reste 10 px, le titre de la liste (25) passe en tête de la page suivante, avec ses rangs.
+  const titled = paginateAttestation(tools(2), rowsOf(3), 2, layout);
+  assert.deepEqual(counts(titled), [[2, 0], [0, 3]]);
+  assert.deepEqual(titled.map((page) => [page.note, page.title]), [[true, false], [false, true]]);
+  // Un outil et la note : le titre tient (25 px sur 30), mais pas un rang ; la liste commence à la page suivante.
+  const alone = paginateAttestation(tools(1), rowsOf(3), 2, layout);
+  assert.deepEqual(counts(alone), [[1, 0], [0, 3]]);
+  assert.deepEqual(alone.map((page) => page.title), [true, false]);
+  // Un rang plus haut qu'une page : il est posé quand même, seul sur sa page.
+  const tall = paginateAttestation(tools(1), [{ numero: '1', lines: 20 }, { numero: '2', lines: 1 }], 2, layout);
+  assert.deepEqual(counts(tall), [[1, 0], [0, 1], [0, 1]]);
+  // En largeurs resserrées, l'en-tête des questions a une ligne de plus : 130 px sous le titre, cinq rangs de 20 px à deux grandeurs, quatre à cinq.
+  const roomy = { ...layout, nextPageFree: 105 };
+  assert.deepEqual(counts(paginateAttestation(tools(1), rowsOf(8), 2, roomy)), [[1, 0], [0, 5], [0, 3]]);
+  assert.deepEqual(counts(paginateAttestation(tools(1), rowsOf(8), 5, roomy)), [[1, 0], [0, 4], [0, 4]]);
+});
+
+test('tableTitles (D85) : « (suite) » après la première page d’un tableau, « — suite à la page suivante » tant qu’il n’est pas fini', () => {
+  const page = (toolCount, questionCount, title = false) => ({ tools: tools(toolCount), note: false, title, questions: rowsOf(questionCount) });
+  // Comme avant D85 : le tableau par outil en page 1, la liste sur trois pages.
+  assert.deepEqual(tableTitles([page(13, 4, true), page(0, 27), page(0, 5)], 36), [
+    { tools: 'Opérations effectuées', questions: 'Questions réussies qui comptent (36) — suite à la page suivante' },
+    { tools: null, questions: 'Questions réussies qui comptent (suite) — suite à la page suivante' },
+    { tools: null, questions: 'Questions réussies qui comptent (suite)' },
+  ]);
+  assert.deepEqual(tableTitles([page(9, 15, true)], 15), [{ tools: 'Opérations effectuées', questions: 'Questions réussies qui comptent (15)' }]);
+  // Le titre de la liste seul au bas de la page 1 : la liste commence à la page suivante.
+  assert.deepEqual(tableTitles([page(18, 0, true), page(0, 22)], 22).map((t) => t.questions), ['Questions réussies qui comptent (22) — suite à la page suivante', 'Questions réussies qui comptent (suite)']);
+  // Le tableau par outil sur deux pages, la liste à sa suite.
+  assert.deepEqual(tableTitles([page(22, 0), page(13, 10, true), page(0, 27)], 37), [
+    { tools: 'Opérations effectuées — suite à la page suivante', questions: null },
+    { tools: 'Opérations effectuées (suite)', questions: 'Questions réussies qui comptent (37) — suite à la page suivante' },
+    { tools: null, questions: 'Questions réussies qui comptent (suite)' },
+  ]);
+  // Sans liste de questions (enregistrement figé avant D41).
+  assert.deepEqual(tableTitles([page(9, 0)], 0), [{ tools: 'Opérations effectuées', questions: null }]);
 });
 
 test('pageLabel et continuationLine : « Page 2 de 3 » ; le rappel en tête d’une page de suite', () => {

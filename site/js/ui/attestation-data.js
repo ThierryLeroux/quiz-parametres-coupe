@@ -49,9 +49,13 @@ export function attestationRows(record) {
 export const hasQuestions = (record) => Array.isArray(record.questions) && record.questions.length > 0;
 
 // Les colonnes de réponses : les grandeurs évaluées, dans l'ordre du calcul, en tête « Vc (pi/min) ».
+//   lines : le même en-tête sur deux lignes, « Vc » puis « (pi/min) », pour les largeurs resserrées (D85)
 export function questionColumns(record) {
   const present = new Set((record.questions ?? []).flatMap((q) => Object.keys(q.reponses)));
-  return ANSWER_FIELDS.filter((field) => present.has(field)).map((field) => ({ key: field, label: `${FIELD_PARTS[field].symbol} (${FIELD_PARTS[field].unit})` }));
+  return ANSWER_FIELDS.filter((field) => present.has(field)).map((field) => {
+    const { symbol, unit } = FIELD_PARTS[field];
+    return { key: field, label: `${symbol} (${unit})`, lines: [symbol, `(${unit})`] };
+  });
 }
 
 // La matière de l'outil, en court (l'enregistrement garde le nom complet).
@@ -65,38 +69,72 @@ export function materialText(materiau) {
 
 // Mise en page sur une ou plusieurs pages lettre (UI §3.6). La première page porte l'en-tête, le bloc
 // d'informations, le QR et le tableau par outil : il lui reste d'autant moins de place pour les
-// questions qu'il y a d'outils. Les pages suivantes n'ont que l'en-tête et la suite du tableau.
+// questions qu'il y a d'outils. Les pages suivantes n'ont que l'en-tête et la suite des tableaux.
 // Rien n'est tronqué (D43) : un texte long se replie dans sa cellule, et un rang peut prendre deux
 // lignes. La coupe entre les pages se décide donc par un compte de pixels, à partir d'une estimation
 // du nombre de lignes de chaque rang. Tout est mesuré dans Chrome sur la page lettre (10 po utiles,
 // soit 960 px ; 720 px de large) avec la police d'impression, Carlito 9,5 px (UI §3.6) : si la
 // police ou la CSS de la page change, recalibrer ici.
 export const PAGE_LAYOUT = {
-  firstPageFree: 460, // px libres sur la page 1 pour le tableau par outil et les questions, une fois tout le reste posé
-  nextPageFree: 740, // px libres sur une page de suite (en-tête, rappel, titre et pied posés)
+  firstPageFree: 460, // px libres sur la page 1 pour les rangs des deux tableaux, une fois tout le reste posé (titres, en-têtes des tableaux, note, pied)
+  nextPageFree: 740, // px libres sur une page de suite pour les rangs de son tableau (en-tête, rappel, titre, en-tête du tableau et pied posés)
   toolRow: 24, // px par ligne du tableau par outil
+  toolsHead: 36, // px de l'en-tête du tableau par outil, avec la marge au-dessus
+  note: 39, // px de la note sous le tableau par outil (deux lignes), avec la marge au-dessus
+  questionsTitle: 38, // px du titre de la liste des questions, avec la marge au-dessus
+  questionsHead: 32, // px de l'en-tête du tableau des questions, avec la marge au-dessus ; une ligne de plus en largeurs resserrées
   rowBase: 7, // px d'un rang de question sans ses lignes de texte (marges et trait)
   line: 13, // px par ligne de texte d'un rang
   charWidth: 4.6, // px par caractère, avec de la marge (mesuré : 4,0), pour ne jamais sous-estimer le repli
   cellPadding: 8, // px de marges dans une cellule
-  columns: { numero: 22, outil: 180, materiau_outil: 90, answer: 60, stamp: 110, page: 720 }, // largeurs de attestation.css
+  minMaterial: 100, // px : sous cette largeur du matériau usiné, le tableau des questions passe aux largeurs resserrées
+  // Largeurs de attestation.css (un test vérifie qu'elles s'y retrouvent). Le matériau usiné prend ce qui reste.
+  columns: { numero: 22, outil: 180, materiau_outil: 90, answer: 60, stamp: 110, page: 720 }, // une, deux ou trois grandeurs évaluées
+  narrowColumns: { numero: 22, outil: 150, materiau_outil: 56, answer: 54, stamp: 62, page: 720 }, // quatre ou cinq (D85) : la date et l'heure sur deux lignes
 };
 
-// Nombre de lignes qu'un texte occupe dans une colonne de cette largeur (au moins une).
-const linesIn = (text, width, layout) => Math.max(1, Math.ceil(text.length * layout.charWidth / (width - layout.cellPadding)));
-
-// Largeur de la colonne « Matériau usiné » : ce qui reste, une fois les autres colonnes posées.
-export function materialColumnWidth(answerColumns, layout = PAGE_LAYOUT) {
-  const { numero, outil, materiau_outil: material, answer, stamp, page } = layout.columns;
-  return page - numero - outil - material - answer * answerColumns - stamp;
+// Nombre de lignes qu'un texte occupe dans une colonne de cette largeur (au moins une). Le texte se replie entre
+// les mots, comme dans le navigateur ; un mot plus large que la colonne, lui, se coupe — en dernier recours.
+function linesIn(text, width, layout) {
+  const room = width - layout.cellPadding;
+  let lines = 1;
+  let used = 0; // px déjà pris sur la ligne en cours
+  for (const word of text.split(' ')) {
+    const size = word.length * layout.charWidth;
+    if (used > 0 && used + layout.charWidth + size > room) { lines += 1; used = 0; }
+    if (size > room) {
+      const parts = Math.ceil(size / room);
+      lines += parts - 1;
+      used = size - (parts - 1) * room;
+    } else {
+      used += (used > 0 ? layout.charWidth : 0) + size;
+    }
+  }
+  return lines;
 }
+
+// Les largeurs du tableau des questions, d'après le nombre de grandeurs évaluées (D85) : les largeurs ordinaires
+// tant qu'elles laissent au matériau usiné au moins `minMaterial` px (une, deux ou trois grandeurs) ; sinon les
+// largeurs resserrées (quatre ou cinq), où l'en-tête d'une grandeur et la date et l'heure prennent deux lignes.
+//   narrow   : vrai en largeurs resserrées
+//   materiau : la largeur du matériau usiné — ce qui reste, une fois les autres colonnes posées
+export function questionWidths(answerColumns, layout = PAGE_LAYOUT) {
+  const rest = ({ numero, outil, materiau_outil: material, answer, stamp, page }) => page - numero - outil - material - answer * answerColumns - stamp;
+  const narrow = rest(layout.columns) < layout.minMaterial;
+  const columns = narrow ? layout.narrowColumns : layout.columns;
+  return { ...columns, narrow, materiau: rest(columns) };
+}
+
+// Largeur de la colonne « Matériau usiné ».
+export const materialColumnWidth = (answerColumns, layout = PAGE_LAYOUT) => questionWidths(answerColumns, layout).materiau;
 
 // Les lignes du tableau des questions réussies, dans l'ordre de l'enregistrement (chronologique),
 // chacune avec le nombre de lignes de texte qu'elle occupe (`lines`, pour la pagination).
 //   reponses : une valeur par colonne de questionColumns, « — » si la question n'évaluait pas cette grandeur
 export function questionRows(record, layout = PAGE_LAYOUT) {
   const columns = questionColumns(record);
-  const materialWidth = materialColumnWidth(columns.length, layout);
+  const widths = questionWidths(columns.length, layout);
+  const stampLines = widths.narrow ? 2 : 1; // en largeurs resserrées : la date, puis l'heure
   return (record.questions ?? []).map((q) => {
     const outil = q.outil;
     const materiauOutil = TOOL_MATERIAL_SHORT[q.materiau_outil] ?? q.materiau_outil;
@@ -108,7 +146,7 @@ export function questionRows(record, layout = PAGE_LAYOUT) {
       materiau,
       reponses: columns.map((column) => q.reponses[column.key] ?? '—'),
       horodatage: formatDateStamp(q.horodatage, { seconds: true }),
-      lines: Math.max(linesIn(outil, layout.columns.outil, layout), linesIn(materiauOutil, layout.columns.materiau_outil, layout), linesIn(materiau, materialWidth, layout)),
+      lines: Math.max(stampLines, linesIn(outil, widths.outil, layout), linesIn(materiauOutil, widths.materiau_outil, layout), linesIn(materiau, widths.materiau, layout)),
     };
   });
 }
@@ -116,20 +154,74 @@ export function questionRows(record, layout = PAGE_LAYOUT) {
 // Hauteur d'un rang, en px : ses marges et son trait, plus ses lignes de texte.
 export const rowHeight = (row, layout = PAGE_LAYOUT) => layout.rowBase + layout.line * (row.lines ?? 1);
 
-// Répartit les lignes de questions en pages : [ [lignes de la page 1], [page 2], … ]. La première
-// page est toujours là, même vide. Une page suivante n'existe que s'il reste des lignes ; un rang
-// ne se coupe jamais entre deux pages.
-export function paginateQuestions(rows, toolCount, layout = PAGE_LAYOUT) {
-  const pages = [[]];
-  let free = layout.firstPageFree - layout.toolRow * toolCount;
-  for (const row of rows) {
-    const height = rowHeight(row, layout);
-    if (height > free && pages.at(-1).length > 0) { pages.push([]); free = layout.nextPageFree; }
-    if (height > free && pages.length === 1) { pages.push([]); free = layout.nextPageFree; } // page 1 pleine avant la première question
-    pages.at(-1).push(row);
-    free -= height;
+// Répartit les deux tableaux en pages (D85) : [{ tools, note, title, questions }, …], dans l'ordre de lecture.
+//   tools     : les rangs du tableau par outil qui sont sur cette page
+//   note      : la note des réussites de suite est sur cette page — toujours sous le dernier rang du tableau par outil
+//   title     : la liste des questions commence sur cette page (son titre y est, même si aucun rang n'y tient)
+//   questions : les rangs de la liste des questions qui sont sur cette page
+// La première page est toujours là. Le tableau par outil se poursuit sur la page suivante quand il ne tient plus,
+// comme la liste des questions ; un rang ne se coupe jamais entre deux pages, et une page neuve prend toujours son
+// premier rang. Sans question (enregistrement figé avant D41) : le tableau par outil seul.
+//   toolRows      : attestationRows(record)
+//   rows          : questionRows(record)
+//   answerColumns : le nombre de grandeurs évaluées, dont dépend la hauteur de l'en-tête du tableau des questions
+export function paginateAttestation(toolRows, rows, answerColumns = 0, layout = PAGE_LAYOUT) {
+  const head = layout.questionsHead + (questionWidths(answerColumns, layout).narrow ? layout.line : 0);
+  // La place sous le premier titre de la page, jusqu'au pied.
+  const firstPage = layout.firstPageFree + layout.toolsHead + layout.note + layout.questionsTitle + layout.questionsHead;
+  const nextPage = layout.nextPageFree + layout.questionsHead;
+  const pages = [];
+  let page;
+  let free;
+  const open = () => {
+    page = { tools: [], note: false, title: false, questions: [] };
+    free = pages.length === 0 ? firstPage : nextPage;
+    pages.push(page);
+  };
+  open();
+
+  toolRows.forEach((row, i) => {
+    const under = i === toolRows.length - 1 ? layout.note : 0; // la note ne quitte pas le dernier rang
+    if (page.tools.length > 0 && layout.toolRow + under > free) open();
+    if (page.tools.length === 0) free -= layout.toolsHead;
+    page.tools.push(row);
+    free -= layout.toolRow;
+  });
+  if (toolRows.length > 0) {
+    page.note = true;
+    free -= layout.note;
+  }
+
+  if (rows.length > 0) {
+    // Le titre de la liste : sous la note s'il y tient, sinon en tête de la page suivante (où il ne coûte rien).
+    if (layout.questionsTitle > free) open(); else free -= layout.questionsTitle;
+    page.title = true;
+    for (const row of rows) {
+      const height = rowHeight(row, layout);
+      const blank = page.tools.length === 0 && page.questions.length === 0;
+      if (!blank && height + (page.questions.length === 0 ? head : 0) > free) open();
+      if (page.questions.length === 0) free -= head;
+      page.questions.push(row);
+      free -= height;
+    }
   }
   return pages;
+}
+
+// Les titres des deux tableaux, page par page : [{ tools, questions }], null quand le tableau n'est pas sur la page.
+// « Opérations effectuées », puis « Opérations effectuées (suite) » ; « Questions réussies qui comptent (36) » là où
+// la liste commence, puis « … (suite) » ; et « — suite à la page suivante » tant que le tableau n'est pas fini.
+//   pages         : celles de paginateAttestation
+//   questionCount : le nombre de questions de la liste
+export function tableTitles(pages, questionCount) {
+  const lastOf = (key) => pages.map((page) => page[key].length > 0).lastIndexOf(true);
+  const lastTools = lastOf('tools');
+  const lastQuestions = lastOf('questions');
+  const more = (continued) => (continued ? ' — suite à la page suivante' : '');
+  return pages.map((page, i) => ({
+    tools: page.tools.length > 0 ? `Opérations effectuées${i > 0 ? ' (suite)' : ''}${more(i < lastTools)}` : null,
+    questions: page.title || page.questions.length > 0 ? `Questions réussies qui comptent (${page.title ? questionCount : 'suite'})${more(i < lastQuestions)}` : null,
+  }));
 }
 
 // « Page 2 de 3 »

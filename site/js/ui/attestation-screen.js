@@ -1,40 +1,45 @@
-// Page de l'attestation de réussite (UI §3.6 ; décisions D31 à D33, D37, D41) : une page lettre
-// blanche, identique à l'écran et à l'impression, avec le QR de vérification — et, si la liste des
-// questions réussies ne tient pas dessous, sa suite sur une deuxième page avec l'en-tête. Elle
-// remplace l'écran « Exercice réussi » et l'attestation provisoire du jalon 4. Le PDF vient de
-// l'impression du navigateur, pas du serveur.
+// Page de l'attestation de réussite (UI §3.6 ; décisions D31 à D33, D37, D41, D85) : une page lettre
+// blanche, identique à l'écran et à l'impression, avec le QR de vérification — et, si le tableau par
+// outil ou la liste des questions réussies ne tiennent pas dessous, leur suite sur les pages suivantes,
+// avec l'en-tête. Elle remplace l'écran « Exercice réussi » et l'attestation provisoire du jalon 4. Le
+// PDF vient de l'impression du navigateur, pas du serveur.
 // Tout vient de l'enregistrement figé rendu par le serveur ; ce qu'on en montre est décidé par
 // attestation-data.js (pur, testé) : ici, on ne fait que construire le DOM.
 
 import { el, showScreen } from './dom.js';
 import {
-  attestationFacts, attestationFileName, attestationFooter, attestationRows, continuationLine, hasQuestions, pageLabel, paginateQuestions,
-  questionColumns, questionRows, verificationMention,
+  attestationFacts, attestationFileName, attestationFooter, attestationRows, continuationLine, hasQuestions, pageLabel, paginateAttestation,
+  questionColumns, questionRows, questionWidths, tableTitles, verificationMention,
 } from './attestation-data.js';
 import { qrSvg } from './qr.js';
 import { DEPARTMENT_LINES, studentLine } from './text.js';
 
 // Le tableau des opérations effectuées, aussi utilisé par la page de vérification.
-export function operationsTable(record) {
+//   rows : les lignes à mettre dans ce tableau (une page, ou toutes pour la vérification)
+export function operationsTable(record, rows = attestationRows(record)) {
   return el('table', { class: 'attestation-table' }, [
     el('thead', {}, el('tr', {}, [el('th', {}, 'Opération'), el('th', {}, 'Outil'), el('th', {}, 'Plage de dimensions'), el('th', { class: 'num' }, 'Réussites de suite')])),
-    el('tbody', {}, attestationRows(record).map((row) => el('tr', {}, [el('td', {}, row.operation), el('td', {}, row.outil), el('td', {}, row.plage), el('td', { class: 'num' }, row.reussites)]))),
+    el('tbody', {}, rows.map((row) => el('tr', {}, [el('td', {}, row.operation), el('td', {}, row.outil), el('td', {}, row.plage), el('td', { class: 'num' }, row.reussites)]))),
   ]);
 }
 
 // Le tableau des questions réussies (D41), aussi utilisé par la page de vérification : une ligne par
 // question de la série finale de chaque outil, dans l'ordre chronologique.
-//   rows : les lignes à mettre dans ce tableau (une page, ou toutes pour la vérification)
-export function questionsTable(record, rows = questionRows(record)) {
+//   rows   : les lignes à mettre dans ce tableau (une page, ou toutes pour la vérification)
+//   narrow : les largeurs resserrées de la page lettre, à quatre ou cinq grandeurs évaluées (D85 : questionWidths) ;
+//            la page de vérification n'a pas de largeurs fixes et ne les prend pas
+export function questionsTable(record, rows = questionRows(record), narrow = false) {
   const columns = questionColumns(record);
-  return el('table', { class: 'attestation-table attestation-questions' }, [
+  // Un en-tête ; en largeurs resserrées, le même texte sur deux lignes (attestation.css : chaque <span> fait sa ligne).
+  const head = (attributes, label, lines) => el('th', attributes, narrow ? [el('span', {}, lines[0]), ' ', el('span', {}, lines[1])] : label);
+  return el('table', { class: `attestation-table attestation-questions${narrow ? ' attestation-questions--narrow' : ''}` }, [
     el('thead', {}, el('tr', {}, [
       el('th', { class: 'num' }, 'N°'),
       el('th', {}, 'Outil'),
-      el('th', {}, "Matière d'outil"),
+      head({}, "Matière d'outil", ['Matière', "d'outil"]),
       el('th', {}, 'Matériau usiné'),
-      ...columns.map((column) => el('th', { class: 'num' }, column.label)),
-      el('th', {}, 'Date et heure'),
+      ...columns.map((column) => head({ class: 'num' }, column.label, column.lines)),
+      head({}, 'Date et heure', ['Date', 'et heure']),
     ])),
     el('tbody', {}, rows.map((row) => el('tr', {}, [
       el('td', { class: 'num' }, row.numero),
@@ -67,14 +72,24 @@ const pageFooter = (record, number, total) => el('footer', { class: 'attestation
 ]);
 
 // Les pages lettre de l'attestation : la première avec le QR, le bloc d'informations et le tableau
-// par outil ; la liste des questions réussies commence dessous et continue, au besoin, sur les
-// pages suivantes (attestation-data.js décide de la coupe).
+// par outil ; la liste des questions réussies commence dessous. Les deux tableaux continuent, au
+// besoin, sur les pages suivantes, avec leur titre et leur en-tête (attestation-data.js décide de la coupe).
 //   attestation : { attestation (l'enregistrement), code, url_verification } rendus par GET /api/attestation
 //   host        : l'adresse du site, pour la mention de vérification
 export function attestationPages({ attestation: record, code, url_verification: url }, host) {
   const listed = hasQuestions(record);
-  const pages = listed ? paginateQuestions(questionRows(record), record.outils.length) : [[]];
+  const answerColumns = questionColumns(record).length;
+  const { narrow } = questionWidths(answerColumns);
+  const pages = paginateAttestation(attestationRows(record), listed ? questionRows(record) : [], answerColumns);
   const total = pages.length;
+  const titles = tableTitles(pages, record.questions?.length ?? 0);
+  // Ce qu'une page porte des deux tableaux, dans l'ordre : le tableau par outil, sa note, la liste des questions.
+  const tables = (page, i) => [
+    ...(titles[i].tools === null ? [] : [el('h2', { class: 'attestation-subtitle' }, titles[i].tools), operationsTable(record, page.tools)]),
+    ...(page.note ? [el('p', { class: 'attestation-note' }, 'Chaque outil devait être réussi le nombre de fois indiqué, de suite : une mauvaise réponse remettait son compteur à zéro. Les paramètres ont été corrigés par le serveur de correction.')] : []),
+    ...(titles[i].questions === null ? [] : [el('h2', { class: 'attestation-subtitle' }, titles[i].questions)]),
+    ...(page.questions.length > 0 ? [questionsTable(record, page.questions, narrow)] : []),
+  ];
   const first = el('article', { class: 'print-page attestation' }, [
     pageHeader(),
     el('h1', { class: 'attestation-title', tabindex: '-1' }, "Attestation de réussite — calcul de paramètres d'usinage"),
@@ -86,20 +101,13 @@ export function attestationPages({ attestation: record, code, url_verification: 
       ]),
     ]),
     el('p', { class: 'attestation-mention' }, verificationMention(host, code)),
-    el('h2', { class: 'attestation-subtitle' }, 'Opérations effectuées'),
-    operationsTable(record),
-    el('p', { class: 'attestation-note' }, 'Chaque outil devait être réussi le nombre de fois indiqué, de suite : une mauvaise réponse remettait son compteur à zéro. Les paramètres ont été corrigés par le serveur de correction.'),
-    ...(listed ? [
-      el('h2', { class: 'attestation-subtitle' }, `Questions réussies qui comptent (${record.questions.length})${total > 1 ? ' — suite à la page suivante' : ''}`),
-      ...(pages[0].length > 0 ? [questionsTable(record, pages[0])] : []),
-    ] : []),
+    ...tables(pages[0], 0),
     pageFooter(record, 1, total),
   ]);
-  const rest = pages.slice(1).map((rows, i) => el('article', { class: 'print-page attestation attestation--continued' }, [
+  const rest = pages.slice(1).map((page, i) => el('article', { class: 'print-page attestation attestation--continued' }, [
     pageHeader(),
     el('p', { class: 'attestation-continuation' }, continuationLine(record, code)),
-    el('h2', { class: 'attestation-subtitle' }, `Questions réussies qui comptent (suite)${i + 2 < total ? ' — suite à la page suivante' : ''}`),
-    questionsTable(record, rows),
+    ...tables(page, i + 1),
     pageFooter(record, i + 2, total),
   ]));
   return [first, ...rest];
