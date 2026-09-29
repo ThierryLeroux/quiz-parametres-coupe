@@ -348,9 +348,9 @@ Rapport de session : `docs/rapports/attestation-cinq-grandeurs.md`. Branche `att
 
 - [x] L'état d'avant, mesuré avec le code de `main` dans une base jetable où le lot est importé : neuf attestations émises (les sept exercices du lot, les deux M10 d'origine), gardées pour être montrées par le code d'avant et par celui d'après
 - [x] D85 ; tâches du chantier dans le PLAN
-- [ ] Règles pures (`site/js/ui/attestation-data.js`), testées : les largeurs en vigueur d'après le nombre de grandeurs (`questionWidths`), le repli mot par mot, la coupe des deux tableaux (`paginateAttestation`), les titres des tableaux (`tableTitles`) ; l'écran et la feuille de style ; un test vérifie que la feuille porte les largeurs de `PAGE_LAYOUT`
-- [ ] Non-régression : à une et deux grandeurs, les pages identiques à celles du code de `main`, image contre image
-- [ ] Recalibrage de la place de la page 1 (D85, point 6 — proposé), dans un commit à part
-- [ ] Vérification : `npm test`, `test:api` ; dans Chrome, à l'écran et en mode impression, les neuf attestations (pages avant et après, rien ne déborde du pied de page, aucun mot coupé) ; l'estimation des lignes contre le réel pour tout le catalogue ; la page de vérification ; captures
-- [ ] Documents : UI §3.6, §6 ; CLAUDE.md ; rapport
-- [ ] **Thierry** : relire, trancher les points douteux du rapport (dont le point 6 de D85), fusionner — hors période de labo : la page de l'attestation change au déploiement
+- [x] Règles pures (`site/js/ui/attestation-data.js`), testées : les largeurs en vigueur d'après le nombre de grandeurs (`questionWidths`), le repli mot par mot, la coupe des deux tableaux (`paginateAttestation`), les titres des tableaux (`tableTitles`) ; l'écran et la feuille de style ; un test vérifie que la feuille porte les largeurs de `PAGE_LAYOUT`
+- [x] Non-régression : à une et deux grandeurs, les dix pages de quatre attestations identiques à celles du code de `main`, octet pour octet (commit des largeurs, avant le recalibrage) ; la page de vérification, identique aussi
+- [x] Recalibrage de la place de la page 1, 420 px au lieu de 460 (D85, point 6 — proposé), dans un commit à part : une ou deux questions passent de la page 1 à la page 2
+- [x] Vérification : `npm test` (789), `test:api` (35 étapes) ; dans Chrome, à l'écran et en mode impression, les neuf attestations (7 à 20 pages avant, 2 à 4 après à cinq grandeurs ; rien ne déborde du pied de page ; aucun mot coupé ; mêmes cellules, même code, même QR, « valide ») ; l'estimation des lignes contre le réel pour tout le catalogue (1 349 rangs, une à cinq grandeurs) ; la page de vérification ; 390 px ; captures
+- [x] Documents : UI §3.6, §6 ; CLAUDE.md ; rapport, avec neuf points douteux
+- [ ] **Thierry** : relire, trancher les points douteux du rapport (dont le point 6 de D85), fusionner — hors période de labo : la page de l'attestation change au déploiement ; ensuite, le geste 14 du lot d'exercices
