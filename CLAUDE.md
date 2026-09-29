@@ -34,6 +34,7 @@ la lisibilité priment sur l'élégance technique.**
 - `site/js/ui/` — les écrans. Ce qu'on montre et quand est décidé par des fonctions **pures, testées** (`text.js`, `rules.js`, `sheets-data.js` — dont `speedFactorSheet`, la feuille des facteurs de vitesse, D83 —, `home-data.js` — l'accueil unique par cours et la page de description d'un exercice, D71) ; les fichiers `*-screen.js` ne font que construire le DOM. Une règle d'affichage nouvelle va dans les premiers, avec son test.
 - `migrations/*.sql` — schéma de la base D1. Un fichier appliqué n'est **jamais modifié** : un changement = un nouveau fichier numéroté. `deploy.yml` les applique en production avant chaque déploiement.
 - `reference/pictogrammes-du-classeur/` — le convertisseur DrawingML → SVG des pictogrammes d'opérations (D29). Les SVG de `site/img/pictos/operations/` ne se retouchent pas à la main : on relance la conversion.
+- `reference/lot-exercices/generer.mjs` — **le lot d'exercices de l'automne 2026** (D84) : à partir d'un export de la Gestion du contenu, il compose `captures/lot-exercices/import-lot.json` (hors dépôt), que Thierry importe lui-même par l'écran Sauvegarde — sept exercices, sept démos, six outils créés, trois modifiés, deux images. Le catalogue arrêté, qui fait foi, est `docs/lots/lot-exercices-2026-09.md` : il ne se retouche pas (un changement = une décision, puis le script). Le script ne parle à aucun serveur, n'écrit rien si une vérification échoue, et se teste sur un export fait de la semence (`tests/lot-exercices.test.js`). **L'import ne règle pas le rang d'un exercice** : un exercice ajouté prend le dernier rang, un exercice remplacé garde le sien.
 - `docs/rapports/<jalon>-<sujet>.md` (ou `<sujet>.md` pour une session hors jalon) — les rapports de fin de session, tels qu'écrits à Thierry (règle 8 ci-dessous) : ce qui a été fait, vérifié, et les points douteux à trancher.
 - `legacy/vba/*.bas|.cls|.frm` — VBA d'origine, à consulter quand la SPEC est muette. Ne pas le modifier.
 
@@ -65,10 +66,10 @@ site/exercices/    exercices au format fichier (SPEC §10) : semence (les deux M
 site/img/outils/   photos des outils (semence de la table images, D56) ; site/img/pictos/operations/ : les pictogrammes (semence aussi) ; site/img/copeaux/ : chaleur et copeaux par classe ISO (D64, semence aussi)
 worker/            le Worker : API /api/… du serveur de correction et de la Gestion du contenu, et /images/<id> (décisions D19, D20, D47, D56)
 migrations/        schéma de la base D1, un fichier SQL numéroté par changement ; 0005 sème la banque et les exercices, 0007 les images, 0009 les images de classe, 0010 la présentation des tables, 0011 celle des exercices, 0012 l'historique de la banque (D83, les facteurs de vitesse : aucune migration)
-reference/         outillage ponctuel : convertisseur des pictogrammes (D29), générateurs des semences 0005, 0007 et 0009, détourage des images de classe (D64)
+reference/         outillage ponctuel : convertisseur des pictogrammes (D29), générateurs des semences 0005, 0007 et 0009, détourage des images de classe (D64), lot-exercices/ = le fichier d'import du lot d'exercices (D84)
 wrangler.jsonc     configuration du Worker (nom, ressources statiques, base D1)
 tests/             tests du moteur et du serveur (node --test) ; api-locale.mjs = npm run test:api ; publier-test-complet.mjs = npm run publier:test-complet ; instantanes/ = le témoin de non-régression d'avant D83 (ne pas le régénérer)
-docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN ; rapports/ = un rapport de fin de session par jalon
+docs/              SPEC, UI (+ maquettes/), DECISIONS, PLAN ; rapports/ = un rapport de fin de session par jalon ; lots/ = le catalogue arrêté d'un lot d'exercices (D84)
 legacy/            classeur .xlsm, VBA exporté, index.htm actuel — lecture seule
 ```
 
