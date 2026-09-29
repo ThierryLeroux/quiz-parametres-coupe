@@ -2996,3 +2996,79 @@ proposaient.
 
 Pas de nouvelle décision : c'est la règle de la 4e feuille, étendue à la feuille des avances. **Rien ne touche la
 correction.** Rapport : `docs/rapports/feuille-avances-hauteur.md`.
+
+## D84 — Le lot d'exercices de l'automne 2026 : sept exercices, sept démos, six outils, créés d'un seul coup par l'import de la Gestion du contenu (2026-09-29, décidée ; points douteux du rapport à trancher)
+
+**Contexte.** Le site n'offrait qu'un exercice, « M10 — Tournage : Vc et vitesse de rotation ». Thierry a arrêté, en
+discussion, le catalogue des exercices de quatre cours (M10 — tournage et fraisage —, M30, M40, F50), les outils qui
+manquaient à la banque et ceux à corriger. Les saisir à la main dans la Gestion du contenu, c'est quatorze exercices et
+deux cent cinquante copies d'outils. L'import d'une sauvegarde (D49) sait déjà tout écrire d'un coup, avec un résumé
+avant la confirmation.
+
+**Décision** (Thierry, 2026-09-29).
+
+1. **Le catalogue arrêté est gardé dans le dépôt**, tel quel : `docs/lots/lot-exercices-2026-09.md`. Il fait foi :
+   règles communes, outils à créer et à modifier, grille des outils par exercice avec les réussites exigées, réglages
+   de chaque exercice, démos.
+2. **Un script reproductible compose le fichier d'import** : `reference/lot-exercices/generer.mjs`. Entrée : un
+   export de la Gestion du contenu ; sortie : `captures/lot-exercices/import-lot.json`, au format
+   « quiz-parametres-coupe/editeur/1 ». Il ne parle à aucun serveur et ne touche à aucune base. Le même export donne
+   le même fichier, octet pour octet. Le fichier produit ne va pas dans Git.
+3. **Aucun code du site ni du serveur ne change.** Le script se sert du code du dépôt pour se vérifier (`draftErrors`,
+   `validateData`, `importPlan`, `copyOfTool`) et n'écrit rien si une vérification échoue.
+4. **Le déroulement**, un soir hors des périodes de labo : **export frais → script → valider → importer → publier.**
+   Rien ne se modifie dans la Gestion du contenu entre l'export et l'import : l'import remplace la banque entière et
+   les brouillons des exercices du lot.
+5. **Ce que le fichier contient**, et rien d'autre :
+   - la **version de tables** sur laquelle les brouillons sont faits (la plus récente de l'export) : si la base en a
+     une autre sous ce nom, l'import est refusé ;
+   - la **banque entière** : les outils de l'export, les six nouveaux au dernier rang, trois outils modifiés ; aucun
+     outil n'est retiré ;
+   - **quatorze exercices** : sept démos et six exercices en brouillons jamais publiés, et un brouillon nouveau pour
+     `m10-tournage-vc-rpm-2`, bâti sur le sien ; ses versions publiées ne sont pas dans le fichier, donc pas touchées ;
+   - **deux images** (fiche et contenu), celles de l'outil à rainurer et de la fraise à fileter ; leur identifiant
+     vient de leur empreinte (`img-…`), comme celui d'une image téléversée dans l'onglet Images.
+   Les tables, leur brouillon, leur présentation, l'historique de la banque et les autres exercices ne sont pas dans
+   le fichier : l'import les laisse tels quels.
+6. **Le titre et le cours de `m10-tournage-vc-rpm-2` entrent en vigueur à l'import**, par sa présentation en direct
+   (D78) : « Tournage — Exercice 2 », « M10 — Tournage ». Le reste de sa présentation est gardé. L'effet est
+   immédiat, séances en cours comprises ; sa version 6 ne prend effet qu'à sa publication, pour les nouvelles séances.
+7. **Une démo est un exercice comme un autre**, d'une seule question : identifiant `demo-<exercice>`, mêmes réglages,
+   une copie d'outil, une réussite, « Démo » dans le titre, juste avant son exercice à l'accueil. Sa séance se
+   supprime dans l'espace professeur (D45) ; son attestation répond alors « annulée ».
+
+**Trois écarts au catalogue, chacun signalé dans le rapport.**
+
+1. **La fraise 82 degrés est modifiée aussi** (trois outils modifiés, pas deux). La version A2026_r6 des tables a
+   renommé l'opération « Chanfreinage » en « Chanfreinage / chambrage » ; la banque ne suit pas un renommage, et ses
+   trois outils de cette opération (Nine9 90 degrés, fraise 82 degrés, outil à chambrer) portaient encore l'ancien
+   nom, inconnu des tables. Le script leur donne le nouveau. Rien d'autre ne change dans la fraise 82 degrés.
+2. **Le gabarit de la fraise à fileter perd son « Ø »** : « Fraise à fileter [IdDia] - [NbDent] dents ». Le jeton
+   [IdDia] est le libellé de la dimension, qui commence déjà par « Ø » : avec le gabarit du catalogue, la question
+   aurait affiché « Fraise à fileter Ø Ø 0.300 po — … ».
+3. **Le nouveau Nine9 s'appelle « Nine9 d'ébavurage »**, le nom que lui donne la grille ; le tableau des outils à créer
+   dit « Nine9 » tout court, qui se confondrait avec « Nine9 90 degrés » dans la progression.
+
+**Ce que l'import ne sait pas exprimer**, et qui se fait à la main après lui (aucun code n'a été modifié pour le
+contourner) :
+
+1. **Le rang d'un exercice.** Un exercice ajouté prend le dernier rang, dans l'ordre du fichier ; un exercice
+   remplacé garde le sien. La démo de « Tournage — Exercice 2 » arrive donc après son exercice : elle se monte de deux
+   rangs dans la liste de la Gestion du contenu (« ↑ », deux fois). Les six autres démos arrivent à leur place.
+2. **L'archivage d'un exercice hors du lot.** `m10-tournage-vc-rpm-2-2` (« … (copie) », cours « M10 »), publié et non
+   archivé, ferait un sixième groupe à l'accueil : Thierry l'archive s'il n'en veut plus.
+
+**Conséquences.**
+
+- **Rien ne touche la correction des séances en cours** : aucun code ne change, et une séance commencée garde sa
+  version. La banque ne touche aucun exercice publié (ses copies sont indépendantes, D47).
+- La Gestion du contenu reste le seul endroit où le contenu se modifie : le script ne fait que préparer un fichier que
+  l'écran Sauvegarde valide, résume, puis importe sur confirmation.
+- Le script est gardé avec son test (`tests/lot-exercices.test.js`, sur un export d'essai fait de la semence) : tant
+  que le lot n'est pas importé, un changement du code qui casserait le fichier se voit à `npm test`. Le lot importé et
+  publié, le script ne sert plus qu'à relire comment il a été composé.
+- **Deux limites du code, vues à la répétition générale, restent à traiter à part** (rapport, points douteux 1 et 2) :
+  à cinq grandeurs évaluées, la colonne « Matériau usiné » de l'attestation n'a que 18 px ; à plus de dix-neuf outils,
+  le tableau des opérations de l'attestation dépasse sa première page.
+
+Rapport : `docs/rapports/lot-exercices.md`.
