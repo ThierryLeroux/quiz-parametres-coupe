@@ -2790,7 +2790,7 @@ temporaire est retiré (`site/js/ui/diag.js`, son import et l'appel dans `main.j
 aucune trace dans le code, seulement dans les documents. **L'iPhone n'a pas encore été essayé** : la rangée y est dans
 la page comme sur Android, et la remontée s'appuie sur Safari (`scrollIntoView`), sans calcul qui lui soit propre.
 
-## D83 — Les facteurs de modification de la vitesse de rotation : une valeur de l'opération, dans les tables ; l'outil en hérite ; la 4e feuille (2026-09-28, décidée ; réponses de Thierry au rapport, et retouche, en fin d'entrée)
+## D83 — Les facteurs de modification de la vitesse de rotation : une valeur de l'opération, dans les tables ; l'outil en hérite ; la 4e feuille (2026-09-28, décidée ; réponses de Thierry au rapport, et retouche, puis la feuille des avances à plus de 20 opérations, en fin d'entrée)
 
 **Contexte.** En classe, les étudiants se réfèrent à une table papier, « Modification du RPM en fonction de
 l'opération », que le site n'a pas — un oubli du classeur : Perçage 1 · Alésage 1/4 · Alésage à la barre 1 ·
@@ -2977,3 +2977,22 @@ et se corrige comme avant ; ensuite, seules les nouvelles séances prennent les 
      facteurs à 21 et 16 px), pour que **le nom et le facteur se lisent sans faire défiler**, à 390 comme à 360 px.
      À l'impression, toujours la pleine largeur, même depuis un téléphone.
    - Les trois autres feuilles ne changent pas. **Rien ne touche la correction.**
+
+**Suite : la feuille des avances à plus de 20 opérations (2026-09-28).** Réponses de Thierry aux points 4 et 5 de la
+retouche (§7.5 du rapport) : **acceptés**. Les points 1 à 3 (les pictogrammes, la disposition du téléphone, les trois
+onglets d'une version d'avant sur deux rangées) n'ont pas reçu de réponse ; la branche a été fusionnée avec ce qu'ils
+proposaient.
+
+1. **La feuille des avances reçoit la règle de la 4e feuille.** Ses rangs avaient une hauteur fixe, 41 px : elle
+   tenait jusqu'à 20 opérations ; à 21 — Chambrage et Moletage créés —, le dernier rang passait sur le pied de page.
+   Désormais **les rangs se partagent la hauteur de la page, sans jamais dépasser leur hauteur d'aujourd'hui** :
+   - **jusqu'à 20 opérations**, des rangs de 41 px : la feuille est celle d'avant, élément par élément ;
+   - **au-delà**, la grille s'arrête 8 px avant le pied de page, l'en-tête garde ses 41 px et les rangs se partagent
+     le reste, tous égaux (21 opérations : 39,8 px ; 23 : 36,4 px) ; le pictogramme ne dépasse jamais son rang ; le
+     texte garde sa taille ; la feuille tient sur une page lettre.
+2. **Les deux `// ❓` de D82 sont retirés** (`site/js/expression.js`, `site/js/ui/question-screen.js`) : leurs
+   commentaires disent la règle acceptée à la fin de D82 — le résultat en 9 caractères, le rappel « un calcul se tape
+   tel quel ».
+
+Pas de nouvelle décision : c'est la règle de la 4e feuille, étendue à la feuille des avances. **Rien ne touche la
+correction.** Rapport : `docs/rapports/feuille-avances-hauteur.md`.

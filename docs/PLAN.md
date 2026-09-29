@@ -319,5 +319,13 @@ Rapport de session : `docs/rapports/facteurs-vitesse.md`. Branche `facteurs-vite
 - [x] **Thierry** : relire, trancher les points douteux du rapport — les onze propositions acceptées telles quelles (fin de D83)
 - [x] Retouche avant la fusion : le `// ❓` de `worker/seance.js` retiré ; les onglets des feuilles tous visibles sans défiler, sur deux rangées au besoin (téléphone, 390 et 360 px ; `/tables?version=` aussi) ; la 4e feuille sur toute la largeur de la page, noms, facteurs et pictogrammes plus gros, les rangs qui se partagent la hauteur de la page
 - [x] Vérification de la retouche : `npm test` (le témoin de non-régression intact), `test:api`, Chrome à 1280, 390 et 360 px — les onglets, la 4e feuille ouverte depuis l'aide de N, à l'écran et à l'impression (une page lettre), les trois autres feuilles identiques à celles du code d'avant ; documents (fin de D83, UI §3.5, rapport)
-- [ ] **Thierry** : fusionner et déployer **hors des périodes de labo**
-- [ ] **Thierry**, en production, après la fusion (marche à suivre dans le rapport) : vérifier la colonne préremplie des facteurs ; publier les tables ; faire la cascade ; trancher Nine9 90 degrés et l'outil à chambrer ; créer Chambrage et Moletage s'il le veut
+- [x] **Thierry** : fusionner — fait, `main` est à `5e293e4` (constaté le 2026-09-28) ; le déploiement suit la fusion
+- [ ] **Thierry**, en production, après la fusion (marche à suivre dans le rapport) : vérifier la colonne préremplie des facteurs ; publier les tables ; faire la cascade ; trancher Nine9 90 degrés et l'outil à chambrer ; créer Chambrage et Moletage s'il le veut — **après** le déploiement de la feuille des avances ci-dessous
+
+## Petit chantier « feuille des avances à plus de 20 opérations » (suite de D83)
+Rapport de session : `docs/rapports/feuille-avances-hauteur.md`. Branche `feuille-avances-hauteur`. **Rien ne touche la correction** : de la présentation seulement.
+
+- [x] Feuille des avances : les rangs se partagent la hauteur de la page, sans dépasser 41 px (la règle de la 4e feuille) ; le pictogramme ne dépasse jamais son rang ; jusqu'à 20 opérations, la feuille ne change pas
+- [x] Les deux `// ❓` de D82 retirés (`site/js/expression.js`, `site/js/ui/question-screen.js`)
+- [x] Vérification : `npm test` (le témoin de non-régression intact), `test:api`, Chrome à 1280, 390 et 360 px — à 19 et à 20 opérations, chaque feuille identique à celle de `main` ; à 21 et à 23, une page lettre, rien sur le pied de page ; documents (fin de D83, UI §3.5, rapport)
+- [ ] **Thierry** : relire, fusionner et déployer **hors des périodes de labo**, avant de créer Chambrage et Moletage
