@@ -3109,3 +3109,75 @@ huit valeurs changent, et aucune autre : la nomenclature du Nine9 d'ébavurage d
 (« Fraisage — Exercice 2 », « Fraisage — Exercice 3 », M30, F50), l'ordre des dimensions de la fraise à fileter dans
 la banque et dans ses deux copies (F50 et sa démo). **Rien ne touche la correction** : aucun code du site ni du
 serveur ne change, et le lot n'est pas encore importé.
+
+## D85 — L'attestation à quatre ou cinq grandeurs et à plus de dix-neuf outils : largeurs resserrées, tableau par outil qui se poursuit, page 1 recalibrée (2026-09-29, décidée ; le point 6 est proposé, à confirmer par Thierry)
+
+**Contexte.** La répétition générale du lot d'exercices (D84, rapport `lot-exercices`, points douteux 1 et 2) a montré
+deux limites de la page de l'attestation. À cinq grandeurs évaluées, les colonnes du tableau des questions ont des
+largeurs fixes et « Matériau usiné » prend ce qui reste : 18 px. Le nom du matériau s'y écrit deux lettres par ligne,
+un rang fait de 111 à 449 px de haut, et l'attestation fait de 7 à 20 pages. Le tableau « Opérations effectuées »,
+lui, n'est jamais coupé entre deux pages : à 35 outils (F50), la première page déborde et les derniers outils sont
+perdus à l'impression.
+
+**Décision** (Thierry, 2026-09-29 ; les valeurs sont mesurées dans Chrome, sur la page lettre).
+
+1. **Seule la mise en page change.** L'enregistrement figé, son code, sa signature et l'adresse que porte le QR ne
+   changent pas : aucun fichier de `worker/` n'est touché, et l'attestation montre les mêmes textes et les mêmes
+   valeurs. **Une attestation déjà émise reste valide** ; elle s'affiche et s'imprime avec la nouvelle mise en page.
+2. **Des largeurs resserrées à quatre ou cinq grandeurs évaluées.** La règle : les largeurs ordinaires (N° 22,
+   Outil 180, Matière d'outil 90, chaque grandeur 60, Date et heure 110 px) tant qu'elles laissent au matériau usiné
+   **au moins 100 px** — une, deux ou trois grandeurs : 258, 198, 138 px. Sinon, les largeurs resserrées : N° 22,
+   Outil 150, Matière d'outil 56, chaque grandeur 54, Date et heure 62 px ; le matériau usiné a alors **214 px à
+   quatre grandeurs et 160 px à cinq**. Pour y arriver : l'en-tête d'une grandeur sur deux lignes (« Vc », puis
+   « (pi/min) »), comme « Matière » / « d'outil » et « Date » / « et heure » ; **la date et l'heure sur deux lignes** ;
+   la matière d'outil sur deux lignes au besoin (« Insert de » / « carbure »). Les polices et leurs tailles ne
+   changent pas ; une valeur de huit caractères (« 0.000938 ») tient dans sa colonne. Page lettre, portrait.
+3. **Un texte se replie entre les mots, jamais au milieu d'un mot.** La colonne du matériau usiné (152 px utiles à
+   cinq grandeurs) est plus de deux fois plus large que le mot le plus long des tables (« thermodurcissable »,
+   72 px). Un mot plus large que sa colonne — il n'y en a aucun — se couperait, en dernier recours, plutôt que de
+   passer sur la colonne voisine.
+4. **Le tableau « Opérations effectuées » se poursuit sur la page suivante**, comme la liste des questions : son
+   titre dit « — suite à la page suivante », la page suivante reprend l'en-tête du département, la ligne de rappel,
+   le titre « Opérations effectuées (suite) » et l'en-tête du tableau. La note des réussites de suite reste sous son
+   dernier rang. La liste des questions vient ensuite, sur la même page s'il reste de la place.
+5. **Non-régression.** À une et deux grandeurs, et tant que le tableau par outil tient en page 1, la page est
+   **identique à celle d'avant, image contre image** : mêmes largeurs, même repli, même coupe entre les pages.
+   L'estimation du repli se fait maintenant mot par mot (elle suit ce que fait le navigateur) ; pour tous les
+   matériaux des tables et tous les noms d'outils du catalogue, elle compte les mêmes lignes que l'estimation
+   d'avant aux largeurs d'une et de deux grandeurs (un test le vérifie).
+6. **❓ La place de la page 1 est recalibrée : 420 px au lieu de 460** (`firstPageFree`). C'est la seule chose qui
+   change pour une attestation à une ou deux grandeurs, et elle est proposée, pas demandée. La mesure du chantier a
+   montré que la constante d'origine offrait 37 px de trop (la place réelle est de 422,9 px) : quand la liste des
+   questions remplissait la page 1 jusqu'au bout, **le pied de page sortait de la zone imprimable** — de 18 px sur
+   « M10 — Tournage : Vc et RPM », avec le code de `main`. La vérification d'UI §3.6 (`scrollHeight` =
+   `clientHeight`) ne le voyait pas : à l'écran, le débordement tombe dans la marge de la page. Avec 420 px, la
+   page 1 porte une ou deux questions de moins, qui passent à la page 2 ; rien d'autre ne bouge. UI §3.6 demande de recalibrer quand la CSS de la page change, et de
+   vérifier qu'aucune page ne déborde : c'est ce qui est fait, dans un commit à part. **Si Thierry préfère garder les
+   pages d'avant telles quelles**, ce commit s'annule seul — mais les pages 1 pleines débordent alors de nouveau, à
+   cinq grandeurs aussi.
+7. **La place d'une page de suite ne change pas** (`nextPageFree`, 740 px) : elle est mesurée à 790 px, donc
+   prudente de 50 px. La corriger ferait tenir deux rangs de plus par page, et changerait la coupe de toutes les
+   attestations de plus de deux pages ; elle est laissée telle quelle.
+
+**Conséquences.**
+
+- **La correction des séances en cours n'est pas touchée** : ni formule, ni tolérance, ni texte. Ce qui change au
+  déploiement, pour tout le monde : la page de l'attestation — sa mise en page à quatre ou cinq grandeurs et à plus de
+  dix-neuf outils, et, par le point 6, une ou deux questions qui passent de la page 1 à la page 2.
+- `site/js/ui/attestation-data.js` : `questionWidths` (les largeurs en vigueur), `linesIn` (le repli mot par mot),
+  `paginateAttestation` (les deux tableaux, page par page ; remplace `paginateQuestions`), `tableTitles` (les titres
+  des tableaux) ; `PAGE_LAYOUT` porte les largeurs resserrées et la hauteur des blocs de la page (en-tête du tableau
+  par outil, note, titre et en-tête de la liste). `attestation-screen.js` ne fait que construire le DOM.
+  `attestation.css` : les largeurs resserrées, sous la classe `attestation-questions--narrow` ; un test vérifie
+  qu'elles sont celles de `PAGE_LAYOUT`.
+- Les exercices à cinq grandeurs du lot (D84) donnent une attestation de **2 à 4 pages** (7 à 20 avant). Ils peuvent
+  être publiés après la fusion et le déploiement de ce chantier (rapport `lot-exercices`, §4, geste 14).
+- **La page de vérification (`/verifier`) n'est pas touchée** : elle montre les mêmes tableaux, en entier, sans page
+  ni largeurs fixes, et ne prend pas les largeurs resserrées (`questionsTable(record, rows, narrow)` : elle ne passe
+  pas `narrow`). Elle est identique à celle d'avant, image contre image. Ses propres défauts de repli, plus anciens
+  que ce chantier, sont au rapport.
+- UI §3.6 et §6 sont mis à jour : les largeurs, la règle des 100 px, le tableau par outil qui se poursuit, les
+  constantes recalibrées, et la vérification du débordement — qui se fait **en mode impression**, ou en mesurant le
+  pied de page, pas par `scrollHeight` à l'écran.
+
+Rapport : `docs/rapports/attestation-cinq-grandeurs.md`.
