@@ -822,7 +822,8 @@ ne peut pas forger ; sans cet en-tête (tests), une seule adresse « inconnue »
 **Conséquences.** `worker/acces.js` porte les règles (pur, testé), `base.js`
 le SQL. La connexion professeur a son propre verrou (D34). Une classe entière
 peut consulter ses matricules à volonté ; un robot qui en essaie des milliers
-est arrêté à cent.
+est arrêté à la limite — cent ici, **mille depuis D86** : à cent, la 101ᵉ
+identification d'une heure verrouillait tout le cégep.
 
 ## D37 — Correction d'identité après la réussite : l'attestation est annulée et réémise (2026-09-21, décidée)
 
@@ -3181,3 +3182,49 @@ perdus à l'impression.
   pied de page, pas par `scrollHeight` à l'écran.
 
 Rapport : `docs/rapports/attestation-cinq-grandeurs.md`.
+
+## D86 — La limite de débit passe de 100 à 1000 valeurs distinctes par adresse et par heure (2026-10-03, décidée)
+
+**Contexte.** D36 limite la consultation d'un matricule et la vérification d'un code à **100 valeurs distinctes par
+adresse IP et par heure**, et un refus **verrouille l'adresse 10 minutes**. Le site est en essai réel dans les
+classes, et tous les postes du cégep sortent par **une seule adresse IP** : la 101ᵉ identification d'une heure
+verrouille tout le cégep 10 minutes — plus personne ne s'identifie, plus personne ne vérifie un code. Trois choses
+rendent la borne de cent trop courte :
+
+1. le cégep compte **au plus 500 étudiants inscrits** (la limite théorique, de Thierry), et plusieurs groupes peuvent
+   se suivre dans la même heure ;
+2. **un matricule mal tapé compte comme une valeur distincte** : le serveur ne distingue pas une faute de frappe d'une
+   énumération, et chaque faute rapproche tout le cégep du verrou ;
+3. le coût d'un verrou est **une classe arrêtée**, alors que ce qu'il protège est mince : la consultation révèle un
+   prénom et une initiale (D23) ; la vérification, une attestation (D33), qu'il faudrait encore deviner parmi 30¹⁰
+   codes.
+
+Le diagnostic de production du 2026-10-03 (lecture seule) : la table `verrous` est vide — aucun verrou de débit n'a
+jamais été posé (un verrou de débit ne s'efface que par l'effacement des données de D46, qui n'a jamais eu lieu) ; la
+table `debit` n'a qu'une valeur, dans la tranche en cours. Les tranches passées étant effacées au fil de l'eau, le
+plus haut compte jamais atteint ne se lit pas ; ce que la base garde de l'essai (19 séances, 13 matricules depuis le
+2026-09-22 ; au plus 4 séances commencées dans une même heure) est très loin de cent.
+
+**Décision.** `DISTINCT_PER_HOUR` passe de **100 à 1000** : au plus 1000 matricules ou codes distincts par adresse
+et par heure ; la 1001ᵉ valeur est refusée (429) et verrouille l'adresse 10 minutes. Mille, c'est deux fois les 500
+inscrits : la marge pour les fautes de frappe et les reprises. **Tout le reste de D36 tient** : aucune limite sur le
+nombre de requêtes, une valeur déjà vue passe toujours, une valeur refusée n'est pas comptée comme vue, les compteurs
+en D1 par tranche horaire UTC, le verrou de 10 minutes. **Une seule constante pour les deux portées**, consultation
+et vérification : la vérification d'un code n'a pas de raison d'être plus serrée que la consultation, et deux
+constantes seraient deux choses à régler et à oublier.
+
+**Conséquences.**
+
+- `worker/acces.js` : la constante et son commentaire ; `worker/index.js` : le commentaire de `limitRate` ; SPEC §7.
+  Aucune migration : la table `debit` compte des lignes, la limite est dans le code.
+- Les tests dérivent de la constante au lieu d'un nombre écrit en dur : `tests/worker-acces.test.js` (sa valeur, le
+  seul endroit où le nombre est écrit), `tests/worker-api.test.js` (le test de consultation et celui des codes — le
+  refus de la valeur de trop, le verrou de 10 minutes, la valeur déjà vue qui passe, l'autre adresse non touchée,
+  l'heure suivante qui repart).
+- **La correction des séances en cours n'est pas touchée.** Le code change pour tout le monde au déploiement : une
+  adresse peut consulter dix fois plus de matricules distincts par heure avant d'être verrouillée.
+- Un robot qui essaie des milliers de matricules est arrêté à mille, pas à cent : à mille par heure, les dix millions
+  de matricules à sept chiffres demandent plus d'un an, et chaque heure n'en révèle que des prénoms et des initiales ;
+  les codes d'attestation (30¹⁰ possibles) restent hors de portée.
+
+Rapport : `docs/rapports/limite-debit.md`.

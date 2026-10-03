@@ -140,10 +140,11 @@ async function authenticate(request, env, latest, now) {
   return { session, data, exercise };
 }
 
-// --- Limites de débit par adresse (D36) ---------------------------------------------------------------
-// Consultation d'un matricule, vérification d'un code : au plus 100 valeurs DISTINCTES par adresse
-// et par heure, jamais de limite sur le nombre de requêtes (tout le cégep sort par une adresse).
-// La 101e valeur est refusée et verrouille l'adresse 10 minutes ; une valeur déjà vue passe toujours.
+// --- Limites de débit par adresse (D36, D86) ----------------------------------------------------------
+// Consultation d'un matricule, vérification d'un code : au plus DISTINCT_PER_HOUR valeurs DISTINCTES par
+// adresse et par heure (1000 depuis D86 ; acces.js), jamais de limite sur le nombre de requêtes (tout le
+// cégep sort par une adresse). La 1001e valeur est refusée et verrouille l'adresse 10 minutes ; une valeur
+// déjà vue passe toujours.
 
 const TOO_MANY_REQUESTS = 'Trop de demandes depuis cette adresse. Réessaie dans quelques minutes.';
 

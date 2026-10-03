@@ -1,4 +1,4 @@
-// Tests de worker/acces.js (décisions D34, D36) : adresse, limites de débit, verrou des connexions
+// Tests de worker/acces.js (décisions D34, D36, D86) : adresse, limites de débit, verrou des connexions
 // professeur, cookie de séance professeur.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,8 +16,8 @@ test('clientAddress : cf-connecting-ip, sinon « inconnue »', () => {
   assert.equal(clientAddress(new Request('https://q.example/', { headers: { 'x-forwarded-for': '203.0.113.7' } })), 'inconnue'); // forgeable : ignoré
 });
 
-test('limites de débit : 100 valeurs distinctes par heure, tranche horaire UTC, verrou de 10 minutes après un refus', () => {
-  assert.equal(DISTINCT_PER_HOUR, 100);
+test('limites de débit : 1000 valeurs distinctes par heure (D86 ; 100 jusque-là), tranche horaire UTC, verrou de 10 minutes après un refus', () => {
+  assert.equal(DISTINCT_PER_HOUR, 1000); // le seul endroit où le nombre est écrit : les tests de l'API en dérivent
   assert.equal(REFUSAL_LOCK_MS, 10 * MINUTE);
   assert.equal(hourSlot(NOW), '2026-09-21T13');
   assert.equal(hourSlot(new Date('2026-09-21T13:59:59.999Z')), '2026-09-21T13');

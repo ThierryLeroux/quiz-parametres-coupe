@@ -1062,19 +1062,19 @@ corrections d'identité, ni durées. Elle est soumise aux limites de débit
   une séance professeur se révoque en changeant la clé (`DEMARRAGE.md` §7), et
   expire d'elle-même au plus 12 h après.
 
-### Limites de débit par adresse (décision D36)
+### Limites de débit par adresse (décisions D36, D86)
 
 Consultation d'un matricule (`/api/consultation`) et vérification d'un code
-(`/api/verification`) : au plus **100 valeurs distinctes par adresse IP et par
-heure** (tranche horaire UTC), aucune limite sur le nombre de requêtes (tous les
-postes du cégep sortent par une seule adresse). La 101ᵉ valeur est refusée
-(429, `attendre_s`) et **verrouille l'adresse 10 minutes** ; une valeur déjà
-vue passe toujours ; une valeur refusée n'est pas comptée comme vue. Les
-compteurs vivent en D1 (tables `debit` et `verrous`), pas dans le service de
-limitation de Cloudflare : il compte des requêtes, pas des valeurs distinctes,
-et ne se teste pas sous `node --test` avec une horloge réglable. L'adresse est
-`cf-connecting-ip` ; sans cet en-tête (tests sous Node), une seule adresse
-« inconnue ». La connexion professeur a son propre verrou (ci-dessus).
+(`/api/verification`) : au plus **1000 valeurs distinctes par adresse IP et par
+heure** (tranche horaire UTC ; 100 avant D86), aucune limite sur le nombre de
+requêtes (tous les postes du cégep sortent par une seule adresse). La 1001ᵉ
+valeur est refusée (429, `attendre_s`) et **verrouille l'adresse 10 minutes** ;
+une valeur déjà vue passe toujours ; une valeur refusée n'est pas comptée comme
+vue. Les compteurs vivent en D1 (tables `debit` et `verrous`), pas dans le
+service de limitation de Cloudflare : il compte des requêtes, pas des valeurs
+distinctes, et ne se teste pas sous `node --test` avec une horloge réglable.
+L'adresse est `cf-connecting-ip` ; sans cet en-tête (tests sous Node), une seule
+adresse « inconnue ». La connexion professeur a son propre verrou (ci-dessus).
 
 L'ancien QR du classeur (`https://thierryleroux.github.io/tgm-fab/?data=…` :
 champs `;`-séparés, décalage César +4, base64, décodé par `legacy/index.htm`)

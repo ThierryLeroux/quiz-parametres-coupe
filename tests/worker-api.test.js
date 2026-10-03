@@ -6,6 +6,7 @@ import { MINUTE, SECONDE, serveurDeTest } from './aide-serveur.js';
 import { readFile } from 'node:fs/promises';
 import { canonical } from '../worker/attestation.js';
 import { signAttestation } from '../worker/crypto.js';
+import { DISTINCT_PER_HOUR } from '../worker/acces.js';
 import { lireFichier } from './aide.js';
 
 const M10 = 'm10-tournage-vc';
@@ -1496,37 +1497,46 @@ test('journal des corrections d’identité : la plus récente en premier, avant
   assert.ok(derniere.horodatage > premiere.horodatage);
 });
 
-// --- Limites de débit --------------------------------------------------------------------------------------------
+// --- Limites de débit (D36, D86) ---------------------------------------------------------------------------------
+// Les deux tests dérivent de DISTINCT_PER_HOUR (1000 depuis D86) : aucun nombre écrit en dur ici.
 
-test('limite de débit, consultation : 100 matricules distincts par adresse et par heure ; le 101e est refusé et verrouille 10 minutes ; un matricule déjà vu passe ; une autre adresse n’est pas touchée ; l’heure suivante repart', async () => {
+// Le n-ième matricule d'une série : sept chiffres tant que n < 100 000.
+const matriculeDeSerie = (serie, n) => String(serie * 100000 + n);
+
+test(`limite de débit, consultation : ${DISTINCT_PER_HOUR} matricules distincts par adresse et par heure ; le ${DISTINCT_PER_HOUR + 1}e est refusé et verrouille 10 minutes ; un matricule déjà vu passe ; une autre adresse n’est pas touchée ; l’heure suivante repart`, async () => {
   const serveur = serveurDeTest();
   const consulter = (matricule, adresse = '203.0.113.7') => serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule }, entetes: { 'cf-connecting-ip': adresse } });
   serveur.maintenant = new Date('2026-09-21T13:50:00.000Z');
+  const deTrop = matriculeDeSerie(24, DISTINCT_PER_HOUR);
 
-  for (let n = 0; n < 100; n += 1) assert.equal((await consulter(String(2400000 + n))).status, 200, `matricule ${n}`);
-  for (let n = 0; n < 100; n += 1) assert.equal((await consulter(String(2400000 + n))).status, 200); // déjà vus : autant de fois qu'on veut
-  assert.deepEqual(await consulter('2400100'), { status: 429, corps: { erreur: 'Trop de demandes depuis cette adresse. Réessaie dans quelques minutes.', attendre_s: 600 } });
-  assert.equal((await consulter('2400000')).status, 429); // verrouillé, même pour un matricule connu
-  assert.equal((await consulter('2400100', '198.51.100.9')).status, 200); // une autre adresse
+  for (let n = 0; n < DISTINCT_PER_HOUR; n += 1) assert.equal((await consulter(matriculeDeSerie(24, n))).status, 200, `matricule ${n}`);
+  for (let n = 0; n < DISTINCT_PER_HOUR; n += 1) assert.equal((await consulter(matriculeDeSerie(24, n))).status, 200); // déjà vus : autant de fois qu'on veut
+  assert.deepEqual(await consulter(deTrop), { status: 429, corps: { erreur: 'Trop de demandes depuis cette adresse. Réessaie dans quelques minutes.', attendre_s: 600 } });
+  assert.equal((await consulter(matriculeDeSerie(24, 0))).status, 429); // verrouillé, même pour un matricule connu
+  assert.equal((await consulter(deTrop, '198.51.100.9')).status, 200); // une autre adresse
   assert.equal((await consulter('123')).status, 400); // un matricule mal formé n'est pas compté
 
   serveur.avancer(10 * MINUTE); // 14:00 : nouvelle tranche horaire
-  assert.equal((await consulter('2400101')).status, 200);
-  for (let n = 0; n < 99; n += 1) assert.equal((await consulter(String(2500000 + n))).status, 200);
-  assert.equal((await consulter('2500099')).status, 429);
-  serveur.avancer(10 * MINUTE); // 14:10 : verrou levé, mais toujours 100 valeurs dans la tranche
-  assert.equal((await consulter('2400101')).status, 200); // déjà vu
-  assert.equal((await consulter('2500099')).status, 429); // nouveau → refusé et verrouillé de nouveau
+  const premierDeLHeureSuivante = matriculeDeSerie(24, DISTINCT_PER_HOUR + 1);
+  const deTropDeLHeureSuivante = matriculeDeSerie(25, DISTINCT_PER_HOUR - 1);
+  assert.equal((await consulter(premierDeLHeureSuivante)).status, 200);
+  for (let n = 0; n < DISTINCT_PER_HOUR - 1; n += 1) assert.equal((await consulter(matriculeDeSerie(25, n))).status, 200);
+  assert.equal((await consulter(deTropDeLHeureSuivante)).status, 429);
+  serveur.avancer(10 * MINUTE); // 14:10 : verrou levé, mais toujours DISTINCT_PER_HOUR valeurs dans la tranche
+  assert.equal((await consulter(premierDeLHeureSuivante)).status, 200); // déjà vu
+  assert.equal((await consulter(deTropDeLHeureSuivante)).status, 429); // nouveau → refusé et verrouillé de nouveau
   assert.equal(serveur.db.sqlite.prepare("SELECT COUNT(*) AS n FROM debit WHERE tranche = '2026-09-21T13'").get().n, 0); // la tranche passée est effacée
 });
 
-test('limite de débit, vérification : 100 codes distincts par adresse et par heure, puis 429 ; un code déjà vérifié passe', async () => {
+test(`limite de débit, vérification : ${DISTINCT_PER_HOUR} codes distincts par adresse et par heure, puis 429 ; un code déjà vérifié passe`, async () => {
   const serveur = serveurDeTest();
   const verifier = (code) => serveur.appel('POST', '/api/verification', { corps: { code }, entetes: { 'cf-connecting-ip': '203.0.113.7' } });
-  const codes = Array.from({ length: 101 }, (_, n) => `AAAAA${String(n).padStart(3, '0').replace(/0/g, 'X').replace(/1/g, 'Y')}ZZ`);
-  for (const code of codes.slice(0, 100)) assert.equal((await verifier(code)).status, 200, code);
-  assert.equal((await verifier(codes[100])).status, 429);
+  // DISTINCT_PER_HOUR + 1 codes bien formés, tous différents : le rang sur quatre chiffres, 0 et 1 (hors alphabet, D32) remplacés
+  const codes = Array.from({ length: DISTINCT_PER_HOUR + 1 }, (_, n) => `AAAA${String(n).padStart(4, '0').replace(/0/g, 'X').replace(/1/g, 'Y')}ZZ`);
+  assert.equal(new Set(codes).size, codes.length);
+  for (const code of codes.slice(0, DISTINCT_PER_HOUR)) assert.equal((await verifier(code)).status, 200, code);
+  assert.equal((await verifier(codes[DISTINCT_PER_HOUR])).status, 429);
   serveur.avancer(10 * MINUTE);
   assert.equal((await verifier(codes[0])).status, 200);
-  assert.equal((await verifier(codes[100])).status, 429);
+  assert.equal((await verifier(codes[DISTINCT_PER_HOUR])).status, 429);
 });

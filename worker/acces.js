@@ -18,12 +18,14 @@ export function clientAddress(request) {
   return request.headers.get('cf-connecting-ip') ?? 'inconnue';
 }
 
-// --- Limites de débit (D36) ----------------------------------------------------------------------------
-// Consultation d'un matricule et vérification d'un code : au plus 100 VALEURS DISTINCTES par
+// --- Limites de débit (D36, D86) -----------------------------------------------------------------------
+// Consultation d'un matricule et vérification d'un code : au plus 1000 VALEURS DISTINCTES par
 // adresse et par heure — pas de limite sur le nombre de requêtes, puisque tous les postes du cégep
-// sortent par une seule adresse. Un refus verrouille l'adresse 10 minutes.
+// sortent par une seule adresse. Un refus verrouille l'adresse 10 minutes : tout le cégep, donc.
+// D'où une limite large (D86) : 500 inscrits au plus, et un matricule mal tapé compte comme une
+// valeur distincte. UNE SEULE constante pour les deux portées, consultation et vérification.
 
-export const DISTINCT_PER_HOUR = 100;
+export const DISTINCT_PER_HOUR = 1000;
 export const REFUSAL_LOCK_MS = 10 * MINUTE;
 
 // La tranche horaire d'un instant, en UTC : « 2026-09-21T13 ».
