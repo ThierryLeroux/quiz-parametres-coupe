@@ -354,3 +354,12 @@ Rapport de session : `docs/rapports/attestation-cinq-grandeurs.md`. Branche `att
 - [x] Vérification : `npm test` (789), `test:api` (35 étapes) ; dans Chrome, à l'écran et en mode impression, les neuf attestations (7 à 20 pages avant, 2 à 4 après à cinq grandeurs ; rien ne déborde du pied de page ; aucun mot coupé ; mêmes cellules, même code, même QR, « valide ») ; l'estimation des lignes contre le réel pour tout le catalogue (1 349 rangs, une à cinq grandeurs) ; la page de vérification ; 390 px ; captures
 - [x] Documents : UI §3.6, §6 ; CLAUDE.md ; rapport, avec neuf points douteux
 - [ ] **Thierry** : relire, trancher les points douteux du rapport (dont le point 6 de D85), fusionner — hors période de labo : la page de l'attestation change au déploiement ; ensuite, le geste 14 du lot d'exercices
+
+## Chantier « limite de débit » — 1000 valeurs distinctes par adresse et par heure (décision D86)
+Rapport de session : `docs/rapports/limite-debit.md`. Branche `limite-debit`. **Rien ne touche la correction des séances en cours** ; le code du serveur change pour tout le monde au déploiement : une adresse est verrouillée à la 1001ᵉ valeur distincte de l'heure, au lieu de la 101ᵉ. À déployer hors des périodes de labo.
+
+- [x] Diagnostic de production, en lecture seule (`wrangler d1 execute --remote`) : la table `verrous` vide — aucun verrou de débit jamais posé —, la table `debit` à une seule valeur, dans la tranche en cours ; l'historique des tranches n'existe pas (effacées au fil de l'eau)
+- [x] `DISTINCT_PER_HOUR` de 100 à 1000 (`worker/acces.js` ; une seule constante pour la consultation et la vérification) ; commentaires (`acces.js`, `index.js` autour de `limitRate`) ; SPEC §7 ; D86, et le renvoi de D36 à D86
+- [x] Tests dérivés de la constante : `tests/worker-acces.test.js` (sa valeur), `tests/worker-api.test.js` (consultation : le refus de la valeur de trop, le verrou de 10 minutes, la valeur déjà vue qui passe, l'autre adresse non touchée, l'heure suivante qui repart ; vérification des codes) — 1,2 s pour le test de consultation
+- [x] Vérification : `npm test` (789), `test:api` (35 étapes) ; rapport, avec deux points douteux
+- [ ] **Thierry** : relire, fusionner et déployer le soir, hors cours
