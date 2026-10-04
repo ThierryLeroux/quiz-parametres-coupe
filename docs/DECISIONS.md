@@ -3301,5 +3301,5 @@ les écrans d'identification : « Il n'y a pas de lien « ← Retour » vers l'a
 - **La correction des séances en cours n'est pas touchée** : aucun fichier de `worker/`, aucune migration. Au
   déploiement, l'en-tête change pour tout le monde (un lien à la place d'un bloc inerte) ; une séance en cours n'en est
   pas affectée.
-- Documents : UI §2, §3.1, §3.2, §3.7, §3.8, §3.9 ; PLAN ; rapport `docs/rapports/navigation-accueil.md`, avec le
-  tableau « écran → chemin vers l'accueil, nombre de clics », avant et après.
+- Documents : UI §1 (la nouvelle sous-section « Barre du haut »), §2, §3.1, §3.2, §3.7, §3.8, §3.9 ; PLAN ; rapport
+  `docs/rapports/navigation-accueil.md`, avec le tableau « écran → chemin vers l'accueil, nombre de clics », avant et après.
