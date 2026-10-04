@@ -124,7 +124,7 @@
   .reglages.replie > :not(.entete) { display: none; }
 </style>
 </head>
-<body class="fx-avance fx-lueur">
+<body class="fx-avance fx-lueur fx-balayage">
 
 <div class="fond" aria-hidden="true">
   <div class="fond-image"></div>
@@ -160,7 +160,7 @@
   <div class="entete"><strong>Réglages de l'aperçu</strong> <button class="replier" type="button" id="replier">replier</button></div>
   <label><input type="checkbox" data-fx="fx-avance" checked> Avancée lente vers le point de fuite</label>
   <label><input type="checkbox" data-fx="fx-lueur" checked> Lueur au sol qui respire</label>
-  <label><input type="checkbox" data-fx="fx-balayage"> Ligne de balayage</label>
+  <label><input type="checkbox" data-fx="fx-balayage" checked> Ligne de balayage</label>
   <label>Voile <input type="range" id="voile" min="0" max="0.9" step="0.05" value="0.55"> <output id="voileVal">55 %</output></label>
   <label>Durée de l'avancée <input type="range" id="duree" min="20" max="120" step="10" value="60"> <output id="dureeVal">60 s</output></label>
   <label><input type="checkbox" id="sansContenu"> Masquer la page (voir le fond seul)</label>
