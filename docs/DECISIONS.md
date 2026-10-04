@@ -3321,3 +3321,76 @@ les écrans d'identification : « Il n'y a pas de lien « ← Retour » vers l'a
 5. **Accepté** : « ← Tous les exercices » sur « Le quiz n'a pas pu démarrer » reste tel quel, même depuis `/`.
 6. **Accepté** : le lien de l'identification 1 / 2 reste un bouton-lien (`showHome`), le logo un vrai lien.
 7. **Accepté** : `tests/aide-dom.js` est gardé, petit.
+
+## D88 — Un fond d'image animé derrière les pages des étudiants (2026-10-04, décidée ; la scène de l'attestation transparente est proposée, à confirmer par Thierry)
+
+**Contexte.** Le quiz a gardé de la feuille Quiz du classeur son univers « exercice » : fond nuit uni (`#05091a`), panneaux
+biseautés, contours lumineux (UI §1). Thierry a composé deux images d'atelier — un couloir de machines en perspective, un
+hexagone lumineux au sol —, l'une pour l'ordinateur et la tablette couchée (`Quiz_background_pc_r0.jpg`, 1399 × 752),
+l'autre pour le téléphone (`Quiz_background_phone_r2.jpg`, 768 × 1375), converties en WebP (77,6 et 62,7 Ko), et une
+maquette autonome (`reference/fond/apercu-fond.html`) qui montre le résultat voulu, avec un panneau de réglages pour
+l'essayer. Le fond doit servir l'ambiance sans nuire à la lecture — « lisibilité avant style » (UI §1) — et ne rien
+coûter aux pages qui ne sont pas celles des étudiants.
+
+**Décision.**
+
+1. **Trois couches et un voile**, fixés à la fenêtre, derrière la page, sans JavaScript (`site/css/fond.css`, les règles
+   de la maquette) : **l'image** du couloir — par défaut `fond-ordinateur.webp` (cadrée `center 45%`, origine `50% 48%` :
+   le point de fuite), et `fond-telephone.webp` quand l'écran est en hauteur (`max-aspect-ratio: 4/5` : téléphone,
+   tablette debout ; cadrée `center 60%`, origine `50% 70%`) — qui **avance lentement** vers le point de fuite (`scale`
+   1 → 1.08 en 60 s, `ease-in-out`, aller-retour) ; **la lueur au sol** sous l'hexagone, qui **respire** (opacité
+   0.15 → 0.55 → 0.15 en 9 s) ; **la ligne de balayage**, une bande lumineuse (18 vh, `mix-blend-mode: screen`) qui
+   **descend l'écran** en `translateY` (−20 vh → 105 vh), s'allume en haut et s'éteint en bas, 16 s linéaires par cycle
+   dont le dernier quart d'attente ; et **le voile** sombre par-dessus (`rgba(5, 9, 26, 0.55)`, épaissi vers les bords
+   par un dégradé radial) : c'est lui qui garde le texte lisible. **Les réglages vivent dans `tokens.css`** :
+   `--fond-voile: 0.55`, `--fond-duree-avance: 60s`, `--fond-duree-lueur: 9s`, `--fond-duree-balayage: 16s`.
+2. **Contraintes.** Aucun JavaScript. **Seuls `transform` et `opacity` sont animés** (le navigateur les compose sans
+   redessiner la page) ; pas de `filter: blur`, pas de `background-attachment: fixed` (qui ne marche pas sur iPhone).
+   **`prefers-reduced-motion: reduce` → l'image fixe**, aucune des trois animations (la lueur et la ligne restent à leur
+   opacité de départ, 0). **`@media print` → le fond disparaît** : l'attestation imprimée est exactement la même qu'avant
+   (fond blanc, même mise en page). **La couleur `--color-bg` reste dessous**, sur `body`, au cas où l'image ne charge pas.
+   Un test (`tests/ui-fond.test.js`) vérifie ces règles dans la feuille.
+3. **Pages concernées : celles des étudiants seulement** — `index.html` (l'accueil et tout le parcours : identification,
+   question, progression, écran de l'attestation) et `verifier.html`. **Pas de fond** sur `prof.html`,
+   `prof/editeur.html` ni `tables.html` (l'univers « documents » et l'espace professeur). **Branchement : la page le
+   porte** — un `<link>` vers `css/fond.css` et un `<div class="fond" aria-hidden="true">` à trois enfants, juste après
+   `<body>`. C'est la façon la plus simple et la plus lisible : le HTML de la page dit s'il y a un fond, sans script ni
+   classe à poser ; les règles se comparent une à une à la maquette ; et une classe sur `body` n'aurait rien ajouté (il
+   faudrait de toute façon les éléments des couches — ou quatre couches sur les deux seuls pseudo-éléments de `body`).
+   La couche est `aria-hidden` : décorative, muette pour un lecteur d'écran.
+4. **Empilement.** `.fond` est en `z-index: -1` dans le contexte de la racine : au-dessus du canevas (la couleur de
+   `body`), sous tout le contenu. Les panneaux et les boutons dessinent leur forme avec des pseudo-éléments en
+   `z-index: -1`, mais dans **leur** contexte d'empilement (`filter` sur `.panel`, `isolation: isolate` sur `.button`) :
+   ils restent opaques et au-dessus du fond, les cases aussi. La feuille des tables (`.sheets`, `position: fixed`,
+   `z-index: 10`, fond `--color-print-stage`) **couvre le fond entièrement**. La ligne de balayage est une couche de
+   `.fond` : **elle ne passe jamais par-dessus le contenu** ; et `.fond` étant un contexte d'empilement isolé, ses
+   fusions (`mix-blend-mode`) ne touchent que ses propres couches. **Ne jamais donner de fond à `<html>`** : la couleur
+   de `body` cesserait d'être reportée sur le canevas et se peindrait par-dessus l'image.
+5. **L'écran de l'attestation : la page lettre flotte sur le fond** (proposé, à confirmer par Thierry). La scène grise
+   (`--color-print-stage`) de `.attestation-stage` devient transparente sur les pages qui ont le fond : sinon le fond
+   n'y serait visible nulle part, la scène remplissant l'écran. Le gris reste sous les feuilles des tables (`.sheets`,
+   `/tables`). À l'impression, rien ne change. C'est une règle d'une ligne dans `fond.css`, à retirer si Thierry
+   préfère la scène grise.
+6. **Fichiers.** Les deux WebP sont copiés dans `site/img/fond/` — servis comme fichiers du site, pas par la table
+   `images` : ce n'est pas du contenu que la Gestion du contenu modifie ; les originaux JPG, les WebP et la maquette
+   restent dans `reference/fond/`, versionnés, comme `reference/lot-exercices/`. Le panneau « Réglages de l'aperçu » de
+   la maquette et son script **ne vont pas sur le site**. Un test vérifie que `site/img/fond/` contient exactement les
+   deux WebP, identiques à ceux de `reference/fond/`.
+7. **Poids.** Au premier chargement, une page des étudiants demande en plus `fond.css` (≈ 6 Ko) et **une seule** des
+   deux images — le navigateur ne charge que celle de son `@media` : 77,6 Ko sur ordinateur, 62,7 Ko sur téléphone —,
+   mises en cache ensuite.
+
+**Conséquences.**
+
+- `site/css/fond.css` (nouvelle feuille), `site/css/tokens.css` (les quatre variables `--fond-*`), `site/index.html` et
+  `site/verifier.html` (le `<link>` et la couche), `site/img/fond/` (les deux WebP), `reference/fond/` (originaux, WebP,
+  maquette).
+- Tests : `tests/ui-fond.test.js` — les pages qui portent le fond et celles qui ne le portent pas ; les trois animations
+  qui n'animent que `transform` et `opacity` ; ni `filter` ni `background-attachment` ; les durées et le voile venus de
+  `tokens.css` ; la couche fixée en `z-index -1` ; l'image du téléphone pour un écran en hauteur ; `animation: none` en
+  mouvement réduit ; `display: none` à l'impression ; les deux WebP identiques à la référence. Le rendu — l'empilement,
+  l'impression identique, le mouvement réduit — est vérifié dans Chrome, avant et après sur la même base (rapport).
+- **La correction des séances en cours n'est pas touchée** : aucun fichier de `worker/`, aucune migration. Au déploiement,
+  le fond apparaît pour tout le monde sur l'accueil, le quiz et `/verifier`.
+- Documents : UI §1 (le tableau des univers, la sous-section « Fond animé »), §3.6, §6 ; CLAUDE.md ; PLAN ; rapport
+  `docs/rapports/fond-anime.md`.

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperçu du fond animé</title>
+<style>
+  @font-face { font-family: 'IBM Plex Sans'; font-weight: 400; src: url('../../site/fonts/ibm-plex-sans-latin-400-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'IBM Plex Sans'; font-weight: 600; src: url('../../site/fonts/ibm-plex-sans-latin-600-normal.woff2') format('woff2'); }
+
+  :root {
+    --color-bg: #05091a;
+    --color-bg-header: #03060f;
+    --color-panel: #0b1430;
+    --color-text: #dde6f5;
+    --color-text-muted: #8aa0c6;
+    --color-accent: #2e9bff;
+    --color-accent-light: #4fc3f7;
+    --color-input-bg: #08102a;
+    --bevel: 14px;
+    --voile: 0.55;
+    --duree-avance: 60s;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font: 16px/1.5 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  /* ---------- Le fond : trois couches fixes, derrière tout ---------- */
+  .fond { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+
+  .fond-image {
+    position: absolute; inset: -2%;
+    background: var(--color-bg) url('fond-ordinateur.webp') center 45% / cover no-repeat;
+    transform-origin: 50% 48%;          /* le point de fuite du couloir */
+  }
+  @media (max-aspect-ratio: 4/5) {        /* écran en hauteur : téléphone, tablette debout */
+    .fond-image { background-image: url('fond-telephone.webp'); background-position: center 60%; transform-origin: 50% 70%; }
+  }
+
+  /* Voile sombre : c'est lui qui garde le texte lisible. */
+  .fond::after {
+    content: ''; position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 45%, transparent 0%, rgba(3, 6, 15, 0.35) 75%),
+      rgba(5, 9, 26, var(--voile));
+  }
+
+  /* Lueur au sol, sous l'hexagone */
+  .fond-lueur {
+    position: absolute; left: 50%; top: 62%; width: 70vmax; height: 35vmax;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(closest-side, rgba(79, 195, 247, 0.55), transparent);
+    mix-blend-mode: screen; opacity: 0;
+  }
+
+  /* Ligne de balayage holographique */
+  .fond-balayage {
+    position: absolute; left: 0; right: 0; top: 0; height: 18vh;
+    background: linear-gradient(to bottom, transparent, rgba(79, 195, 247, 0.10) 45%, rgba(143, 216, 255, 0.22) 50%, rgba(79, 195, 247, 0.10) 55%, transparent);
+    mix-blend-mode: screen; opacity: 0; transform: translateY(-20vh);
+  }
+
+  @keyframes avance  { from { transform: scale(1); } to { transform: scale(1.08); } }
+  @keyframes respire { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.55; } }
+  @keyframes balaye  { 0% { transform: translateY(-20vh); opacity: 0; } 8% { opacity: 1; } 60% { opacity: 1; } 75%, 100% { transform: translateY(105vh); opacity: 0; } }
+
+  body.fx-avance   .fond-image    { animation: avance var(--duree-avance) ease-in-out infinite alternate; }
+  body.fx-lueur    .fond-lueur    { animation: respire 9s ease-in-out infinite; }
+  body.fx-balayage .fond-balayage { animation: balaye 16s linear infinite; }
+
+  /* L'appareil demande moins d'animations : image fixe, rien ne bouge. */
+  @media (prefers-reduced-motion: reduce) {
+    .fond-image, .fond-lueur, .fond-balayage { animation: none !important; }
+  }
+  @media print { .fond { display: none; } }
+
+  /* ---------- Maquette de page, à l'image du site ---------- */
+  header {
+    display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 16px;
+    background: var(--color-bg-header);
+    border-bottom: 2px solid var(--color-accent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 33%, transparent);
+  }
+  header b { color: var(--color-accent-light); font-weight: 600; }
+  header small { display: block; color: var(--color-text-muted); font-size: 12px; }
+
+  main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 32px 16px; display: grid; gap: 24px; align-content: start; }
+  body.sans-contenu main, body.sans-contenu header { visibility: hidden; }
+
+  .panel { position: relative; padding: 20px 24px; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent)); }
+  .panel::before, .panel::after {
+    content: ''; position: absolute; z-index: -1;
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  }
+  .panel::before { --cut: var(--bevel); inset: 0; background: var(--color-accent); }
+  .panel::after { --cut: calc(var(--bevel) - 1px); inset: 2px; background: var(--color-panel); }
+  .eyebrow { color: var(--color-accent-light); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  h1 { color: var(--color-accent-light); font-weight: 600; font-size: 26px; margin: 4px 0 8px; line-height: 1.15; }
+  p { margin: 0 0 8px; }
+  .muted { color: var(--color-text-muted); }
+  label { display: block; margin-top: 12px; font-size: 14px; }
+  input[type=text] { width: 12em; padding: 8px 10px; font: inherit; color: var(--color-text); background: var(--color-input-bg); border: 1px solid var(--color-accent); }
+  .bouton { display: inline-block; margin-top: 16px; padding: 10px 20px; background: var(--color-accent); color: #03060f; font-weight: 600; border: 0; font: inherit; }
+
+  /* ---------- Réglages de l'aperçu (n'iront pas sur le site) ---------- */
+  .reglages {
+    position: fixed; right: 12px; bottom: 12px; z-index: 10; width: min(300px, calc(100vw - 24px));
+    padding: 12px 14px; font-size: 14px;
+    background: rgba(3, 6, 15, 0.92); border: 1px solid var(--color-accent-light); border-radius: 6px;
+  }
+  .reglages strong { color: var(--color-accent-light); }
+  .reglages label { margin-top: 6px; display: flex; gap: 8px; align-items: center; }
+  .reglages input[type=range] { flex: 1; }
+  .reglages output { min-width: 3.5em; text-align: right; font-variant-numeric: tabular-nums; }
+  .reglages .note { margin-top: 8px; font-size: 12px; color: var(--color-text-muted); }
+  .reglages button.replier { float: right; background: none; border: 0; color: var(--color-accent-light); font: inherit; cursor: pointer; }
+  .reglages.replie > :not(.entete) { display: none; }
+</style>
+</head>
+<body class="fx-avance fx-lueur">
+
+<div class="fond" aria-hidden="true">
+  <div class="fond-image"></div>
+  <div class="fond-lueur"></div>
+  <div class="fond-balayage"></div>
+</div>
+
+<header>
+  <div>
+    <b>Quiz — paramètres de coupe</b>
+    <small>Techniques de génie mécanique / Technique du génie de la maintenance industrielle · TGM-TMI</small>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="eyebrow">Exercice demandé par ton enseignant</div>
+    <h1>M10 — Tournage — Exercice 2</h1>
+    <p>Trouve la vitesse de coupe dans la table, puis calcule la vitesse de rotation.</p>
+    <p class="muted">Texte atténué : notes, pied de page. Il doit rester lisible sur le fond.</p>
+  </section>
+  <section class="panel">
+    <div class="eyebrow">Question 3 / 12</div>
+    <p>Foret Ø 1/2 po, acier rapide, acier 1018.</p>
+    <label>Vitesse de rotation N (tr/min)
+      <br><input type="text" value="(80*4)/0.5">
+    </label>
+    <button class="bouton" type="button">Vérifier</button>
+  </section>
+</main>
+
+<div class="reglages" id="reglages">
+  <div class="entete"><strong>Réglages de l'aperçu</strong> <button class="replier" type="button" id="replier">replier</button></div>
+  <label><input type="checkbox" data-fx="fx-avance" checked> Avancée lente vers le point de fuite</label>
+  <label><input type="checkbox" data-fx="fx-lueur" checked> Lueur au sol qui respire</label>
+  <label><input type="checkbox" data-fx="fx-balayage"> Ligne de balayage</label>
+  <label>Voile <input type="range" id="voile" min="0" max="0.9" step="0.05" value="0.55"> <output id="voileVal">55 %</output></label>
+  <label>Durée de l'avancée <input type="range" id="duree" min="20" max="120" step="10" value="60"> <output id="dureeVal">60 s</output></label>
+  <label><input type="checkbox" id="sansContenu"> Masquer la page (voir le fond seul)</label>
+  <div class="note">Rétrécis la fenêtre en hauteur pour voir l'image du téléphone. Si l'ordinateur demande moins d'animations (Windows : Paramètres → Accessibilité → Effets visuels), rien ne bouge : c'est voulu.</div>
+</div>
+
+<script>
+  document.querySelectorAll('[data-fx]').forEach(c => c.addEventListener('change', () => document.body.classList.toggle(c.dataset.fx, c.checked)));
+  const root = document.documentElement.style;
+  voile.addEventListener('input', () => { root.setProperty('--voile', voile.value); voileVal.textContent = Math.round(voile.value * 100) + ' %'; });
+  duree.addEventListener('input', () => { root.setProperty('--duree-avance', duree.value + 's'); dureeVal.textContent = duree.value + ' s'; });
+  sansContenu.addEventListener('change', () => document.body.classList.toggle('sans-contenu', sansContenu.checked));
+  const basculer = () => { reglages.classList.toggle('replie'); replier.textContent = reglages.classList.contains('replie') ? 'ouvrir' : 'replier'; };
+  replier.addEventListener('click', basculer);
+  if (innerWidth < 600) basculer();   // téléphone : les réglages commencent repliés
+</script>
+</body>
+</html>

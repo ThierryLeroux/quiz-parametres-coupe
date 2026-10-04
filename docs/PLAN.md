@@ -377,3 +377,15 @@ Rapport de session : `docs/rapports/navigation-accueil.md`. Branche `navigation-
 - [x] **Thierry** : relire, trancher les points douteux du rapport — les sept réponses sont à la fin de D87 (six propositions acceptées, le point 4 fait tout de suite)
 - [x] Suite au point 4 : la connexion de la Gestion du contenu ouverte sans cookie n'a pas de message, « Ta séance a expiré » seulement pour une séance qui était ouverte (`loginNotice`, `guarded`) ; tests ; capture 09 refaite ; `npm test` (802), `test:api`, Chrome (6 vérifications)
 - [ ] **Thierry** : fusionner et déployer le soir, hors cours
+
+## Chantier « fond animé » — un fond d'image animé derrière les pages des étudiants (décision D88)
+Rapport de session : `docs/rapports/fond-anime.md`. Branche `fond-anime`. **Rien ne touche la correction des séances en cours** : aucun fichier du serveur, aucune migration ; au déploiement, le fond apparaît pour tout le monde sur l'accueil, le quiz et `/verifier`.
+
+- [x] D88 ; tâches du chantier dans le PLAN
+- [x] `site/img/fond/` : les deux WebP de Thierry ; `reference/fond/` : les originaux JPG, les WebP et la maquette `apercu-fond.html`, versionnés
+- [x] `site/css/fond.css` : les trois couches (image, lueur, ligne de balayage) et le voile, les trois animations (`transform` et `opacity` seulement), l'image du téléphone pour un écran en hauteur, image fixe en mouvement réduit, rien à l'impression ; `tokens.css` : `--fond-voile`, `--fond-duree-avance`, `--fond-duree-lueur`, `--fond-duree-balayage` ; `index.html` et `verifier.html` : la feuille et la couche `.fond` ; la scène de l'attestation transparente (proposé)
+- [x] Test `tests/ui-fond.test.js` : les pages avec et sans fond, ce que la feuille anime, mouvement réduit, impression, les WebP identiques à la référence
+- [x] Vérification dans Chrome, avant (arbre de `main`) et après, sur la même base et le même port : accueil, question corrigée, feuilles des tables, attestation (écran et impression), `/verifier`, à 1366 × 768 et 390 × 844 ; mouvement réduit ; empilement par pixels témoins ; impression de l'attestation identique pixel pour pixel ; poids ; captures dans `captures/fond-anime/`
+- [x] `npm test` (806, dont 4 ajoutés), `npm run test:api` (35 étapes) ; Chrome : 47 vérifications après, aucune erreur console, aucune requête externe
+- [x] Documents : UI §1, §3.6, §6 ; CLAUDE.md ; rapport, avec huit points douteux
+- [ ] **Thierry** : relire, trancher les points douteux du rapport (dont la scène de l'attestation, D88 point 5), fusionner et déployer le soir, hors cours
