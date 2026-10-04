@@ -95,8 +95,8 @@ production).
 
 ## 4. Vérifications
 
-- `npm test` : **800** tests, `fail 0` (789 avant le chantier, 11 ajoutés).
-- `npm run test:api` : 35 étapes, exit 0.
+- `npm test` : **802** tests, `fail 0` (789 avant le chantier, 11 ajoutés ; puis 2 pour le point 4 des suites données).
+- `npm run test:api` : 35 étapes, exit 0 (relancé après le point 4).
 - **Chrome sans interface**, un serveur wrangler jetable en mode test (port 8796) et un second sans mode test (port
   8797), 13 étapes, **63 vérifications, aucune en échec**, aucune exception, aucune erreur console sauf les refus
   attendus (les 401 des pages de connexion à l'ouverture), aucune requête hors du site :
@@ -127,6 +127,11 @@ production).
   390 ; l'identification 1 / 2 (1280, 390) ; la connexion de `/prof` (1280, 390) ; la connexion de `/prof/editeur`
   (1280, 390) ; l'en-tête de la question (1280, 390) ; l'en-tête de l'attestation ; `/verifier` ; « Le quiz n'a pas pu
   démarrer » ; `attestation.pdf` ; `resultats.json` (les 63 vérifications, les requêtes, la console).
+- **Après le point 4** (`captures-connexion.mjs`, `resultats-connexion.json`) : 6 vérifications, aucune en échec — la
+  connexion de `/prof/editeur` ouverte sans cookie n'a pas de message, à 1280 et 390 px (capture `09-editeur-connexion`
+  refaite), les deux liens et le focus sur la clé ; une séance ouverte dont le cookie disparaît dit « Ta séance a
+  expiré : connecte-toi de nouveau. » au prochain onglet cliqué, que la page ait été rechargée avec son cookie ou non ;
+  « Se déconnecter » dit « Déconnecté. », et la page rouverte ensuite n'a pas de message ; `/prof` inchangé.
 
 ## 5. Points douteux, à trancher
 
@@ -158,7 +163,20 @@ production).
    construit, pas la mise en page). S'il grossit au point de refaire un navigateur, c'est le signe qu'il faut un vrai
    navigateur (Chrome, comme ici). **Proposition : garder, petit.**
 
-## 6. Ce que Thierry fait ensuite
+## 6. Suites données (réponses de Thierry, le 2026-10-03)
+
+Les sept points sont tranchés (fin de D87) : six propositions acceptées telles quelles, et le point 4 fait tout de
+suite sur la branche.
+
+- **Point 4** : `loginNotice(connected)` et `EXPIRED_NOTICE` dans `editeur-data.js` (purs, testés) ; `guarded` passe par
+  `loginNotice(state.connected)` sur un 401 et marque la séance ouverte dès qu'un appel réussit (la page rechargée avec
+  son cookie compte) ; `showLogin` la ferme ; le message n'est plus écrit qu'une fois (`uploadImage` reprend
+  `EXPIRED_NOTICE`). Le démarrage ne change pas de forme : `start()` passe par `showList`, donc par `guarded`. Tests :
+  `loginNotice` (`ui-editeur.test.js`) ; `editeur.js` qui passe par `loginNotice(state.connected)`, marque et ferme la
+  séance, et n'écrit plus le message hors commentaire (`ui-navigation.test.js`). Vérifié dans Chrome (§4), capture
+  refaite.
+
+## 7. Ce que Thierry fait ensuite
 
 Relire, fusionner et déployer **le soir, hors cours** : l'en-tête change pour tout le monde au déploiement, mais une
 séance en cours n'en est pas affectée.

@@ -3303,3 +3303,21 @@ les écrans d'identification : « Il n'y a pas de lien « ← Retour » vers l'a
   pas affectée.
 - Documents : UI §1 (la nouvelle sous-section « Barre du haut »), §2, §3.1, §3.2, §3.7, §3.8, §3.9 ; PLAN ; rapport
   `docs/rapports/navigation-accueil.md`, avec le tableau « écran → chemin vers l'accueil, nombre de clics », avant et après.
+
+**Réponses de Thierry au rapport (2026-10-03).** Les sept points, tranchés :
+
+1. **Accepté** : l'`aria-label` « Accueil — tous les exercices » reste le nom du lien de l'en-tête.
+2. **Accepté** : « Espace professeur », dans la barre de la Gestion du contenu, est protégé aussi (une seule écoute sur
+   la barre).
+3. **Accepté** : le `beforeunload` reste, en plus de la confirmation.
+4. **Accepté, fait tout de suite sur la branche** : au démarrage de la Gestion du contenu, un 401 ouvre la connexion
+   **sans message** ; « Ta séance a expiré : connecte-toi de nouveau. » ne se dit que pour une séance qui était ouverte
+   et expire en cours de travail. Règle pure `loginNotice(connected)` et `EXPIRED_NOTICE` dans `editeur-data.js` ;
+   `guarded` marque la séance ouverte (`state.connected`) dès qu'un appel réussit — la page rechargée avec son cookie
+   compte —, et l'écran de connexion la ferme ; « Se déconnecter » dit toujours « Déconnecté. ». Tests ajoutés
+   (`tests/ui-editeur.test.js`, `tests/ui-navigation.test.js`) ; capture `09-editeur-connexion` refaite à 1280 et
+   390 px ; dans Chrome, la page ouverte sans cookie n'a pas de message, et une séance ouverte dont le cookie disparaît
+   le dit au prochain clic, rechargement ou non.
+5. **Accepté** : « ← Tous les exercices » sur « Le quiz n'a pas pu démarrer » reste tel quel, même depuis `/`.
+6. **Accepté** : le lien de l'identification 1 / 2 reste un bouton-lien (`showHome`), le logo un vrai lien.
+7. **Accepté** : `tests/aide-dom.js` est gardé, petit.

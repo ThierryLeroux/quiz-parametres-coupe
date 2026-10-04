@@ -374,4 +374,6 @@ Rapport de session : `docs/rapports/navigation-accueil.md`. Branche `navigation-
 - [x] Tests (`tests/ui-navigation.test.js`, sur le DOM minuscule `tests/aide-dom.js`) : le lien de l'en-tête sur chaque page ; `showScreen` qui le garde ; le lien de l'identification 1 / 2 qui appelle `onHome` et laisse le jeton ; les liens des deux écrans de connexion ; la règle de confirmation
 - [x] Vérification : `npm test`, `test:api` ; Chrome à 1280 et 390 px — l'en-tête, l'identification 1 / 2, les deux écrans de connexion, le retour à une question en cours (même question, rien de compté), la confirmation de la Gestion du contenu, rien à l'impression de l'attestation et de `/tables` ; captures
 - [x] Documents : UI §2, §3.1, §3.2, §3.7, §3.8, §3.9 ; rapport, avec le tableau « écran → chemin vers l'accueil, nombre de clics » avant et après
-- [ ] **Thierry** : relire, fusionner et déployer le soir, hors cours
+- [x] **Thierry** : relire, trancher les points douteux du rapport — les sept réponses sont à la fin de D87 (six propositions acceptées, le point 4 fait tout de suite)
+- [x] Suite au point 4 : la connexion de la Gestion du contenu ouverte sans cookie n'a pas de message, « Ta séance a expiré » seulement pour une séance qui était ouverte (`loginNotice`, `guarded`) ; tests ; capture 09 refaite ; `npm test` (802), `test:api`, Chrome (6 vérifications)
+- [ ] **Thierry** : fusionner et déployer le soir, hors cours
