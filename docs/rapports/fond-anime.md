@@ -4,7 +4,7 @@
 > l'attestation ; aucun fichier de `worker/`, aucune migration. **Ce qui change pour tout le monde au déploiement** :
 > l'accueil, tout le parcours du quiz (identification, question, progression, écran de l'attestation) et `/verifier`
 > reçoivent le fond animé ; l'écran de l'attestation montre la page lettre sur le fond au lieu de la scène grise (point
-> proposé, §5.1) ; une page des étudiants pèse 65 à 83 Ko de plus au premier chargement (§3). **L'attestation imprimée
+> proposé, §5.1) ; une page des étudiants pèse 40 à 83 Ko de plus au premier chargement (§3). **L'attestation imprimée
 > est exactement la même** : vérifié pixel pour pixel (§4). L'espace professeur, la Gestion du contenu et `/tables` ne
 > changent pas.
 
@@ -31,9 +31,14 @@ rien ne change à la saisie, au clavier, à la lecture.
 ## 2. Ce qui a été fait
 
 1. **Les images.** Les deux WebP de Thierry copiés dans `site/img/fond/` (`fond-ordinateur.webp`, 1399 × 752, 77,6 Ko ;
-   `fond-telephone.webp`, 768 × 1376, 62,7 Ko — la r2). Les originaux JPG, les WebP et la maquette `apercu-fond.html`
-   restent dans `reference/fond/`, versionnés, comme `reference/lot-exercices/`. Les images sont des fichiers du site,
-   pas des lignes de la table `images` : ce n'est pas du contenu que la Gestion du contenu modifie (§5.6).
+   `fond-telephone.webp`, 768 × 1375, 37,7 Ko — tirée de la r2, WebP qualité 80). Les originaux JPG, les WebP et la
+   maquette `apercu-fond.html` restent dans `reference/fond/`, versionnés, comme `reference/lot-exercices/`. Les images
+   sont des fichiers du site, pas des lignes de la table `images` : ce n'est pas du contenu que la Gestion du contenu
+   modifie (§5.6). **Erreur de copie, corrigée** : la première version de la branche (jusqu'au commit `437e316`) portait,
+   dans les deux dossiers, un WebP tiré de l'ancienne image r0 du téléphone (768 × 1376, 62,7 Ko ; formules fausses
+   « Z * * N » et « π^π * Ø ») au lieu de la r2. Thierry l'a vu à la relecture ; le WebP a été refait depuis
+   `Quiz_background_phone_r2.jpg` (identique dans `site/img/fond/` et `reference/fond/` — le test le vérifie, et la r2 se
+   reconnaît à « F = fz * Z * N » en haut du panneau de droite), et les captures à 390 px refaites.
 2. **La feuille `site/css/fond.css`** : les règles de la maquette — `.fond` (fixé, `inset: 0`, `z-index: -1`,
    `overflow: hidden`, `pointer-events: none`), `.fond-image` (l'image en `cover`, `inset: -2%`, cadrée `center 45%`,
    origine `50% 48%` ; au `@media (max-aspect-ratio: 4/5)`, l'image du téléphone, `center 60%`, origine `50% 70%`),
@@ -88,7 +93,7 @@ les chargements suivants ne les redemandent pas.
 | Page et écran | Fichiers demandés en plus | Octets sur le réseau |
 |---|---|---|
 | Accueil ou `/verifier`, ordinateur (1366 × 768) | `css/fond.css` (5,2 Ko ; 2,3 Ko compressés) + `fond-ordinateur.webp` (77,6 Ko) | **≈ 80 Ko** |
-| Accueil ou `/verifier`, téléphone (390 × 844) | `css/fond.css` + `fond-telephone.webp` (62,7 Ko) | **≈ 65 Ko** |
+| Accueil ou `/verifier`, téléphone (390 × 844) | `css/fond.css` + `fond-telephone.webp` (37,7 Ko) | **≈ 40 Ko** |
 | Les écrans suivants du même parcours (identification, question, attestation) | rien : la même page, les fichiers déjà là | 0 |
 | `/prof`, `/prof/editeur`, `/tables` | rien | 0 |
 
@@ -103,19 +108,22 @@ bibliothèque QR, plus les modules JS (environ 300 Ko pour ceux de `index.html`)
 - **Dans Chrome (sans interface, protocole DevTools), deux passes sur la même base et le même port** — « avant » sur un
   arbre de travail git de `main`, « après » sur le dépôt —, avec une D1 jetable préparée une fois par l'API (Camille :
   une question du M10 en cours ; Zoé : le M10 réussi, son attestation `652AD-HSMVN`) et copiée pour chaque passe.
-  **47 vérifications après, toutes passées ; aucune erreur console, aucune exception, aucune requête externe.** À
-  1366 × 768 et à 390 × 844 :
+  **47 vérifications après, toutes passées ; aucune erreur console, aucune exception, aucune requête externe.** La
+  moitié à 390 × 844 a été **refaite après la correction de l'image du téléphone** (§2.1 ; 20 vérifications, toutes
+  passées, les captures `-390-apres` et `01b-accueil-390-balayage-apres` remplacées). À 1366 × 768 et à 390 × 844 :
   - **accueil** : la couche `.fond` est là, fixée, `z-index -1`, `pointer-events: none` ; l'image en usage est celle de
     l'ordinateur à 1366 et **celle du téléphone à 390** ; trois animations et rien d'autre (`document.getAnimations()`) ;
     une seule image demandée ; rien ne déborde de la fenêtre ;
   - **empilement par pixels témoins** (les captures décodées en Node) : un point dans la marge intérieure du premier
     panneau est `#0b1430` et un point de la barre du haut `#03060f`, avant comme après ; puis, les animations figées et
     **la ligne de balayage placée exprès au milieu du panneau** (`currentTime` de l'animation), le panneau et la barre
-    gardent leurs couleurs tandis que le vide à côté s'éclaircit (`#030c1b` → `#0c1829` à 1366, `#0b192a` → `#122437`
+    gardent leurs couleurs tandis que le vide à côté s'éclaircit (`#030c1b` → `#0c1829` à 1366, `#0d1a29` → `#152536`
     à 390) : la ligne passe sous le contenu, pas dessus ;
   - **question corrigée** (Camille reprend sa question ; en mode test la case Vc est préremplie ; « Vérifier » →
     « Bonne réponse ») : le panneau de l'outil `#0b1430`, la barre `#03060f`, la case corrigée `#0e2a20`, inchangés avec
-    la ligne de balayage posée dessus ;
+    la ligne de balayage posée dessus (le point témoin du panneau est dans sa marge basse : à 8 px de son bord gauche, à
+    390 px, on tombe dans le halo doré de la photo de l'outil — du contenu, un niveau de rouge sur 40 px de haut, relevé
+    en lisant la colonne de pixels —, pas dans le fond) ;
   - **feuilles des tables** : la couche couvre exactement la fenêtre (0, 0, 1366 × 768 et 390 × 844), opaque
     (`rgb(42, 47, 58)`), `z-index 10`, `body.sheets-open` ; **deux captures à 2,5 s d'écart sont identiques** (0 pixel
     différent sur 1 049 088 et 329 160) : rien du fond ne paraît ; à 1366, les coins de la fenêtre sont la barre ou la
@@ -150,9 +158,11 @@ bibliothèque QR, plus les modules JS (environ 300 Ko pour ceux de `index.html`)
    d'un écran à l'autre. **Proposition : garder ; si ça gêne sur un écran du labo, une bande sombre sous le pied**
    (`background: rgba(5, 9, 26, 0.6)` sur `.app-footer`) suffit, sans toucher au fond.
 3. **La ligne de balayage est discrète** sous le voile à 0.55 : neuf niveaux de plus environ sur le vide
-   (`#030c1b` → `#0c1829`), elle se voit en regardant, pas en lisant. La maquette la laissait **décochée par défaut**
-   (`body class="fx-avance fx-lueur"`) ; la demande dit « les trois effets ». **Proposition : garder telle quelle** ;
-   la rendre plus visible se fait dans les deux `rgba` de `.fond-balayage` (0.10 et 0.22), pas dans le voile.
+   (`#030c1b` → `#0c1829`), elle se voit en regardant, pas en lisant. La première maquette la laissait décochée par
+   défaut ; **la maquette la coche maintenant par défaut** (`body class="fx-avance fx-lueur fx-balayage"`, corrigé en
+   même temps que l'image du téléphone), comme la demande (« les trois effets ») : la référence et le site sont
+   d'accord. **Proposition : garder telle quelle** ; la rendre plus visible se fait dans les deux `rgba` de
+   `.fond-balayage` (0.10 et 0.22), pas dans le voile.
 4. **Le coût sur les vieux postes du labo et la batterie des téléphones.** Trois animations infinies, mais composées
    par le GPU (`transform`, `opacity`) ; la plus coûteuse est la lueur (un dégradé de 70 vmax en `mix-blend-mode:
    screen`). Sur le poste de Thierry, Chrome ne signale rien ; je n'ai pas de vieux poste pour mesurer. **Proposition :

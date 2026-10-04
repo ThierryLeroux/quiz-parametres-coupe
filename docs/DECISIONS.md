@@ -3327,7 +3327,7 @@ les écrans d'identification : « Il n'y a pas de lien « ← Retour » vers l'a
 **Contexte.** Le quiz a gardé de la feuille Quiz du classeur son univers « exercice » : fond nuit uni (`#05091a`), panneaux
 biseautés, contours lumineux (UI §1). Thierry a composé deux images d'atelier — un couloir de machines en perspective, un
 hexagone lumineux au sol —, l'une pour l'ordinateur et la tablette couchée (`Quiz_background_pc_r0.jpg`, 1399 × 752),
-l'autre pour le téléphone (`Quiz_background_phone_r2.jpg`, 768 × 1375), converties en WebP (77,6 et 62,7 Ko), et une
+l'autre pour le téléphone (`Quiz_background_phone_r2.jpg`, 768 × 1375), converties en WebP (77,6 et 37,7 Ko), et une
 maquette autonome (`reference/fond/apercu-fond.html`) qui montre le résultat voulu, avec un panneau de réglages pour
 l'essayer. Le fond doit servir l'ambiance sans nuire à la lecture — « lisibilité avant style » (UI §1) — et ne rien
 coûter aux pages qui ne sont pas celles des étudiants.
@@ -3377,7 +3377,7 @@ coûter aux pages qui ne sont pas celles des étudiants.
    la maquette et son script **ne vont pas sur le site**. Un test vérifie que `site/img/fond/` contient exactement les
    deux WebP, identiques à ceux de `reference/fond/`.
 7. **Poids.** Au premier chargement, une page des étudiants demande en plus `fond.css` (≈ 6 Ko) et **une seule** des
-   deux images — le navigateur ne charge que celle de son `@media` : 77,6 Ko sur ordinateur, 62,7 Ko sur téléphone —,
+   deux images — le navigateur ne charge que celle de son `@media` : 77,6 Ko sur ordinateur, 37,7 Ko sur téléphone —,
    mises en cache ensuite.
 
 **Conséquences.**
