@@ -12,8 +12,17 @@
   <link rel="stylesheet" href="css/question.css">
   <link rel="stylesheet" href="css/sheets.css">
   <link rel="stylesheet" href="css/attestation.css">
+  <link rel="stylesheet" href="css/fond.css">
 </head>
 <body>
+  <!-- Le fond animé (décision D88, css/fond.css) : trois couches fixées derrière la page, sans JavaScript ; décoratif,
+       caché aux lecteurs d'écran. Il disparaît à l'impression et se fige si l'appareil demande moins d'animations. -->
+  <div class="fond" aria-hidden="true">
+    <div class="fond-image"></div>
+    <div class="fond-lueur"></div>
+    <div class="fond-balayage"></div>
+  </div>
+
   <!-- Une seule page : js/ui/main.js remplace le contenu de <main> selon l'écran (UI §2). -->
   <header class="app-header no-print">
     <!-- Le logo et le titre : un seul lien vers l'accueil, tous les exercices (décision D87). showScreen ne change que le texte du titre. -->

@@ -1,0 +1,104 @@
+/* Le fond animé des pages des étudiants (docs/UI.md §1, décision D88) : trois couches fixées à la fenêtre, derrière
+   la page — l'image du couloir d'atelier, la lueur au sol, la ligne de balayage — et un voile sombre par-dessus, pour
+   que le texte reste lisible. Aucun JavaScript : les pages qui chargent cette feuille et portent
+   <div class="fond" aria-hidden="true"> ont le fond (index.html, tout le parcours de l'étudiant ; verifier.html) ;
+   les autres (espace professeur, Gestion du contenu, /tables : l'univers « documents ») ne la chargent pas.
+   Seuls transform et opacity sont animés : le navigateur les compose sans redessiner la page (pas de filter: blur,
+   pas de background-attachment: fixed, qui ne marche pas sur iPhone). Les réglages (voile, durées) sont dans
+   tokens.css (--fond-*). Maquette de référence : reference/fond/apercu-fond.html.
+
+   Empilement : .fond est en z-index -1 dans le contexte de la racine, donc au-dessus de la couleur de fond de la page
+   (--color-bg, posée sur body et reportée sur le canevas : elle reste dessous si l'image ne charge pas) et sous tout
+   le contenu — en-tête, panneaux, boutons, cases, feuilles des tables (.sheets, z-index 10), pied. Les panneaux et les
+   boutons dessinent leur forme avec des pseudo-éléments en z-index -1, mais dans LEUR contexte d'empilement (filter sur
+   .panel, isolation sur .button) : ils ne passent pas sous le fond. Ne jamais donner de fond à <html> : la couleur de
+   body cesserait d'être reportée sur le canevas et se peindrait par-dessus l'image. */
+
+.fond {
+  position: fixed;
+  inset: 0;
+  z-index: -1; /* fait aussi de .fond un groupe isolé : les fusions (mix-blend-mode) des couches restent entre elles */
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* L'image : un peu plus grande que la fenêtre (inset -2 %), pour que l'avancée (scale 1 → 1.08) ne découvre jamais un
+   bord. L'origine de la transformation est le point de fuite du couloir : on avance vers lui, lentement, puis on revient
+   (alternate). */
+.fond-image {
+  position: absolute;
+  inset: -2%;
+  background: var(--color-bg) url('../img/fond/fond-ordinateur.webp') center 45% / cover no-repeat;
+  transform-origin: 50% 48%;
+  animation: fond-avance var(--fond-duree-avance) ease-in-out infinite alternate;
+}
+
+/* Écran en hauteur (téléphone, tablette debout) : l'image dessinée pour lui, son cadrage et son point de fuite. */
+@media (max-aspect-ratio: 4/5) {
+  .fond-image {
+    background-image: url('../img/fond/fond-telephone.webp');
+    background-position: center 60%;
+    transform-origin: 50% 70%;
+  }
+}
+
+/* La lueur au sol, sous l'hexagone du couloir, qui respire (opacité 0.15 → 0.55 → 0.15). */
+.fond-lueur {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  width: 70vmax;
+  height: 35vmax;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(79, 195, 247, 0.55), transparent);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: fond-respire var(--fond-duree-lueur) ease-in-out infinite;
+}
+
+/* La ligne de balayage : une bande lumineuse qui descend l'écran, s'allume en haut et s'éteint en bas, puis attend
+   avant de repartir (les 25 % de la fin du cycle). Dans .fond, donc toujours sous le contenu. */
+.fond-balayage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18vh;
+  background: linear-gradient(to bottom, transparent, rgba(79, 195, 247, 0.10) 45%, rgba(143, 216, 255, 0.22) 50%, rgba(79, 195, 247, 0.10) 55%, transparent);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translateY(-20vh);
+  animation: fond-balaye var(--fond-duree-balayage) linear infinite;
+}
+
+/* Le voile sombre, par-dessus les trois couches (::after se peint après les enfants) : c'est lui qui garde le texte
+   lisible. Un dégradé radial l'épaissit vers les bords, là où sont le pied de page et les marges. */
+.fond::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 0%, rgba(3, 6, 15, 0.35) 75%),
+    rgba(5, 9, 26, var(--fond-voile));
+}
+
+@keyframes fond-avance { from { transform: scale(1); } to { transform: scale(1.08); } }
+@keyframes fond-respire { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.55; } }
+@keyframes fond-balaye { 0% { transform: translateY(-20vh); opacity: 0; } 8% { opacity: 1; } 60% { opacity: 1; } 75%, 100% { transform: translateY(105vh); opacity: 0; } }
+
+/* L'appareil demande moins d'animations (Windows : Paramètres → Accessibilité → Effets visuels ; iPhone : Réduire les
+   animations) : l'image fixe, rien ne bouge — ni la lueur ni la ligne, qui restent à leur opacité de départ, 0. */
+@media (prefers-reduced-motion: reduce) {
+  .fond-image,
+  .fond-lueur,
+  .fond-balayage { animation: none; }
+}
+
+/* L'écran de l'attestation : la page lettre flotte sur le fond. Le gris de la scène (--color-print-stage, base.css) ne
+   sert que là où il n'y a pas de fond — les feuilles des tables, /tables. À l'impression, rien ne change (base.css). */
+.attestation-stage { background: none; }
+
+/* À l'impression, le fond disparaît : la page blanche de base.css, l'attestation telle quelle. */
+@media print {
+  .fond { display: none; }
+}
