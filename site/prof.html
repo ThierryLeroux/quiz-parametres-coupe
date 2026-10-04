@@ -14,10 +14,11 @@
   <!-- Espace professeur (décisions D34, D35 ; UI §3.8) : js/ui/prof.js. Aucun secret ici : le serveur
        ne répond qu'avec le cookie de séance posé à la connexion. -->
   <header class="app-header no-print">
-    <div class="app-brand">
+    <!-- Le logo et le titre : un seul lien vers l'accueil, tous les exercices (décision D87). showScreen ne change que le texte du titre. -->
+    <a class="app-brand" href="/" aria-label="Accueil — tous les exercices" title="Accueil — tous les exercices">
       <img class="app-logo" src="img/logo-cvm.png" alt="Cégep du Vieux Montréal">
       <div class="app-title" id="header-title">Espace professeur</div>
-    </div>
+    </a>
     <div class="app-aside" id="header-aside">Techniques de génie mécanique</div>
   </header>
 

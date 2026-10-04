@@ -8,7 +8,7 @@
 import { deleteSession, listIdentityCorrections, listSessions, purgeStudentData, resetNip, resetSession, teacherLogin, teacherLogout } from '../api.js';
 import { el, showScreen } from './dom.js';
 import {
-  PURGE_WORD, SESSION_COLUMNS, canAct, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, purgeIntro, purgeSummary,
+  LOGIN_LINKS, PURGE_WORD, SESSION_COLUMNS, canAct, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, purgeIntro, purgeSummary,
   resetConfirmation, roleLabel, sessionCells, sortSessions,
 } from './prof-data.js';
 import { serverErrorMessage } from './text.js';
@@ -60,6 +60,8 @@ function showLogin(notice = '') {
       el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration, ou clé de consultation (lecture seule). Cinq essais, puis un délai croissant.")])),
       el('div', { class: 'form-actions' }, [status, button]),
     ]),
+    // Le retour à l'accueil (D87), visible aussi après « Se déconnecter ».
+    el('div', { class: 'form-links' }, LOGIN_LINKS.map(({ label, href }) => el('a', { class: 'button-link', href }, label))),
   ]));
   showScreen(main, screen, { title: 'Espace professeur', aside: 'Techniques de génie mécanique' }, '#cle');
 }

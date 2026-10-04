@@ -10,7 +10,30 @@ import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterial
 import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey, sameTitleExercises, titleKey } from '../exercice.js';
 import { COPY_PRESENTATION_FIELDS } from '../presentation-exercice.js';
 import { exerciseLink } from './home-data.js';
-import { formatDateStamp } from './text.js';
+import { HOME_LINK_LABEL, formatDateStamp } from './text.js';
+
+// --- Quitter la page (D87) --------------------------------------------------------------------------------------------
+
+// Les liens sous le formulaire de connexion : l'espace professeur, puis l'accueil.
+export const LOGIN_LINKS = [{ label: '← Espace professeur', href: '/prof' }, { label: HOME_LINK_LABEL, href: '/' }];
+
+// La question posée avant de quitter une page qui a des modifications non enregistrées (leave(), et les liens de la
+// barre du haut : le logo vers l'accueil, « Espace professeur »).
+export const LEAVE_CONFIRMATION = 'Des modifications ne sont pas enregistrées. Quitter la page et les perdre ?';
+
+// Le message de l'écran de connexion quand le serveur refuse le cookie (401) : « Ta séance a expiré » seulement pour une
+// séance qui était ouverte et expire en cours de travail ; à l'ouverture de la page sans cookie, la connexion s'ouvre
+// sans message, comme celle de l'espace professeur (D87, point 4).
+//   connected : une séance professeur était ouverte (connexion réussie, ou un appel qui a réussi après un rechargement)
+export const EXPIRED_NOTICE = 'Ta séance a expiré : connecte-toi de nouveau.';
+export const loginNotice = (connected) => (connected ? EXPIRED_NOTICE : '');
+
+// Un clic sur un lien de la barre du haut quitte la page : faut-il d'abord poser LEAVE_CONFIRMATION ? Oui s'il y a des
+// modifications non enregistrées — sauf si le clic ouvre un autre onglet (Ctrl, Maj ou ⌘) : la page reste, rien à demander.
+//   dirty : state.dirty ; keys : { ctrlKey, metaKey, shiftKey } de l'événement
+export function confirmsBeforeLeaving(dirty, { ctrlKey = false, metaKey = false, shiftKey = false } = {}) {
+  return Boolean(dirty) && !ctrlKey && !metaKey && !shiftKey;
+}
 
 // Les grandeurs, dans l'ordre de l'écran, avec leur libellé court.
 export const FIELD_CHOICES = [

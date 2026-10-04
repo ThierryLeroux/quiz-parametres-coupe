@@ -73,8 +73,10 @@ async function enter(opening) {
 }
 
 // 1/2 : le matricule seul ; le serveur dit s'il a une séance pour cet exercice.
+// « ← Page de l'exercice » (D87) : showHome, qui ne touche ni au jeton gardé ni au serveur.
 function showMatricule(notice = '', matricule = '') {
   renderMatricule(main, { exercise, notice, matricule }, {
+    onHome: showHome,
     onSubmit: async (typed) => {
       try {
         const found = await lookupSession(typed, exercise.id);

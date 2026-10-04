@@ -58,6 +58,7 @@ export function convertDecimalCommas(root) {
 //   header : { title, aside } — aside : texte ou éléments à droite de la barre
 export function showScreen(main, screen, { title, aside = '' }, focus = 'h1') {
   main.replaceChildren(screen);
+  // Seul le TEXTE du titre change : le logo et le titre restent le lien vers l'accueil de la page (D87).
   document.querySelector('#header-title').textContent = title;
   document.querySelector('#header-aside').replaceChildren(...[aside].flat());
   document.title = title;

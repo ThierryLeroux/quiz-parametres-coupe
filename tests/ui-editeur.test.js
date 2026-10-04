@@ -8,6 +8,7 @@ import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
   exerciseHistoryLabel, liveTitleConflicts, presentationPreview, renameDone, renamePrompt, bankHistoryLabel, bankToolDiff, twinTitlesNote, twinTitlesWarning,
   cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, lostChangesTitle, publishTablesLabel, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
+  EXPIRED_NOTICE, loginNotice,
 } from '../site/js/ui/editeur-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
@@ -25,6 +26,13 @@ const opsByName = data.operationByName;
 const at = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi).toISOString();
 
 const ROW = { id: 'm10-tournage-vc', titre: 'M10', modifie: false, derniere_version: 2, publie_le: at(2026, 9, 24, 13, 5), archive_le: null, seances: 3, versions: [{ numero: 2, seances: 1 }, { numero: 1, seances: 2 }], liste: true };
+
+test('loginNotice (D87, point 4) : « Ta séance a expiré » seulement pour une séance qui était ouverte ; à l’ouverture sans cookie, rien', () => {
+  assert.equal(EXPIRED_NOTICE, 'Ta séance a expiré : connecte-toi de nouveau.');
+  assert.equal(loginNotice(true), EXPIRED_NOTICE);
+  assert.equal(loginNotice(false), '');
+  assert.equal(loginNotice(undefined), '');
+});
 
 test('exerciseState, versionLabel, sessionsLabel : l’état en clair', () => {
   assert.equal(exerciseState(ROW), 'À jour');

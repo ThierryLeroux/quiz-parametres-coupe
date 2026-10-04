@@ -8,7 +8,7 @@
 
 import { el, showScreen } from './dom.js';
 import { exerciseLink, homeGroups, materialGroups, questionLines, streakText, toolRows } from './home-data.js';
-import { DEPARTMENT_SHORT, exerciseMeta, exerciseSummary, listedExerciseMeta } from './text.js';
+import { DEPARTMENT_SHORT, HOME_LINK_LABEL, exerciseMeta, exerciseSummary, listedExerciseMeta } from './text.js';
 
 const TITLE = 'Quiz — paramètres de coupe';
 
@@ -100,7 +100,7 @@ export function renderHome(main, { exercise, data, local, archived = false }, ac
 
   const screen = el('div', { class: 'screen' }, [
     // Retour à l'accueil (D71) : une simple navigation — aucune séance n'est créée, modifiée ni effacée, ni ici ni sur le serveur.
-    el('div', { class: 'description-nav' }, [el('a', { class: 'button-link', href: location.pathname }, '← Tous les exercices'), copy.button]),
+    el('div', { class: 'description-nav' }, [el('a', { class: 'button-link', href: location.pathname }, HOME_LINK_LABEL), copy.button]),
     copy.note,
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, exercise.cours ? `${exercise.cours} · exercice` : 'Exercice'),
@@ -151,13 +151,15 @@ export function renderHomeList(main, listed, unknownId) {
   showScreen(main, screen, { title: TITLE, aside: DEPARTMENT_SHORT });
 }
 
-// Le quiz n'a pas pu démarrer : catalogue ou exercice illisible ou invalide.
+// Le quiz n'a pas pu démarrer : catalogue ou exercice illisible ou invalide. Sous le message, le retour à l'accueil (D87) :
+// la même navigation que celui de la page de l'exercice.
 export function renderLoadError(main, error) {
   const screen = el('div', { class: 'screen' }, el('section', { class: 'panel panel--wrong' }, [
     el('div', { class: 'eyebrow' }, 'Erreur'),
     el('h1', { tabindex: '-1' }, "Le quiz n'a pas pu démarrer"),
     el('p', { class: 'small' }, 'Recharge la page. Si le problème persiste, montre ce message à ton enseignant :'),
     el('pre', { class: 'error-detail muted smaller' }, error.message),
+    el('div', { class: 'form-links' }, el('a', { class: 'button-link', href: location.pathname }, HOME_LINK_LABEL)),
   ]));
   showScreen(main, screen, { title: TITLE });
 }

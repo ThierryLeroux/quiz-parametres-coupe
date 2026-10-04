@@ -28,6 +28,7 @@ import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js
 import {
   archiveConfirmation, bankPassageLines, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseHistoryLabel, exerciseState, exerciseTablesImpact, exportFileName, factorSource, forcedBadge,
   liveTitleConflicts, presentationPreview, renameDone, renamePrompt, bankHistoryLabel, twinTitlesNote, twinTitlesWarning, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  EXPIRED_NOTICE, LEAVE_CONFIRMATION, LOGIN_LINKS, confirmsBeforeLeaving, loginNotice,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -44,19 +45,31 @@ function freeId(wanted, taken) {
 }
 
 const state = {
-  connected: false,
+  connected: false, // une séance professeur est ouverte (connexion réussie, ou un appel qui a réussi après un rechargement) : un 401 dit alors « Ta séance a expiré »
   images: { outil: null, operation: null, classe: null }, // les fiches des images de la base, par usage (chargées à la demande)
   dirty: false, // des modifications non enregistrées sur la page courante
 };
 
+// Quitter la page avec des modifications non enregistrées : le navigateur demande (son texte à lui) pour ce que la page
+// ne contrôle pas — bouton Précédent, onglet fermé, adresse retapée.
 window.addEventListener('beforeunload', (event) => {
   if (state.dirty) event.preventDefault();
+});
+
+// Les liens de la barre du haut quittent la page aussi (le logo vers l'accueil, D87 ; « Espace professeur ») : la même
+// confirmation que leave(), dans les mots de la page ; confirmée, state.dirty tombe et beforeunload n'a plus rien à
+// demander ; refusée, le clic est annulé. Un clic qui ouvre un autre onglet (Ctrl, Maj, ⌘) ne quitte pas la page.
+document.querySelector('.app-header').addEventListener('click', (event) => {
+  if (!event.target.closest('a[href]') || !confirmsBeforeLeaving(state.dirty, event)) return;
+  if (window.confirm(LEAVE_CONFIRMATION)) state.dirty = false;
+  else event.preventDefault();
 });
 
 // --- Connexion ----------------------------------------------------------------------------------------------------
 
 function showLogin(notice = '') {
   state.dirty = false;
+  state.connected = false;
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const input = el('input', { id: 'cle', name: 'cle', type: 'text', class: 'input-secret', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': 'cle-note' });
   const button = el('button', { class: 'button', type: 'submit' }, 'Se connecter');
@@ -87,16 +100,22 @@ function showLogin(notice = '') {
       el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration. Cinq essais, puis un délai croissant.")])),
       el('div', { class: 'form-actions' }, [status, button]),
     ]),
+    // Les retours (D87) : l'espace professeur, l'accueil.
+    el('div', { class: 'form-links' }, LOGIN_LINKS.map(({ label, href }) => el('a', { class: 'button-link', href }, label))),
   ]));
   showScreen(main, screen, { title: TITLE, aside: 'TGM-TMI' }, '#cle');
 }
 
-// Un appel à la Gestion du contenu : un 401 ramène à la connexion, un 403 dit que la clé ne permet pas d'éditer.
+// Un appel à la Gestion du contenu : un 401 ramène à la connexion — avec « Ta séance a expiré » seulement si une séance
+// était ouverte (loginNotice) ; à l'ouverture de la page sans cookie, la connexion s'ouvre sans message (D87, point 4) —,
+// un 403 dit que la clé ne permet pas d'éditer. Un appel qui réussit prouve la séance ouverte (la page rechargée avec son cookie).
 async function guarded(action) {
   try {
-    return await action();
+    const result = await action();
+    state.connected = true;
+    return result;
   } catch (error) {
-    if (error.status === 401) { showLogin('Ta séance a expiré : connecte-toi de nouveau.'); return null; }
+    if (error.status === 401) { showLogin(loginNotice(state.connected)); return null; }
     if (error.status === 403) { showLogin(serverErrorMessage(error)); return null; }
     throw error;
   }
@@ -106,7 +125,7 @@ function headerAside() {
   return [
     el('span', {}, 'admin'),
     el('a', { class: 'button-link', href: '/prof' }, 'Espace professeur'),
-    el('button', { class: 'button-link', type: 'button', onclick: async () => { await teacherLogout().catch(() => {}); state.connected = false; showLogin('Déconnecté.'); } }, 'Se déconnecter'),
+    el('button', { class: 'button-link', type: 'button', onclick: async () => { await teacherLogout().catch(() => {}); showLogin('Déconnecté.'); } }, 'Se déconnecter'),
   ];
 }
 
@@ -118,7 +137,7 @@ function tabs(current) {
 
 // Quitter la page courante : si des modifications ne sont pas enregistrées, demander d'abord.
 function leave(open, ...args) {
-  if (state.dirty && !window.confirm('Des modifications ne sont pas enregistrées. Quitter la page et les perdre ?')) return;
+  if (state.dirty && !window.confirm(LEAVE_CONFIRMATION)) return;
   state.dirty = false;
   open(...args);
 }
@@ -452,7 +471,7 @@ function toolForm(tool, ctx) {
 async function uploadImage(file, usage) {
   const body = await prepareUpload(file, usage);
   const result = await guarded(() => editorImageUpload(body));
-  if (result === null) throw new Error('Ta séance a expiré : connecte-toi de nouveau.');
+  if (result === null) throw new Error(EXPIRED_NOTICE);
   rememberImage(result.image);
   return { ...result.image, existante: result.existante, retires: result.retires };
 }
@@ -2159,7 +2178,7 @@ async function showImages(notice = '', filters = { usage: '', query: '' }) {
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
 }
 
-// --- Démarrage : on essaie la liste ; un 401 ramène à la connexion, un 403 la refuse --------------------------------
+// --- Démarrage : on essaie la liste ; sans cookie (401), la connexion s'ouvre sans message (guarded, loginNotice) ; un 403 la refuse --
 
 async function start() {
   try {

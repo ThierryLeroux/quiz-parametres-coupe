@@ -2,7 +2,10 @@
 // séances, filtre, tri, recherche, export CSV, journal des corrections d'identité. Fonctions PURES,
 // sans DOM, testées sous Node ; prof.js ne fait que les mettre à l'écran.
 
-import { formatDateStamp } from './text.js';
+import { HOME_LINK_LABEL, formatDateStamp } from './text.js';
+
+// Les liens sous le formulaire de connexion (D87) : le retour à l'accueil, visible aussi après « Se déconnecter ».
+export const LOGIN_LINKS = [{ label: HOME_LINK_LABEL, href: '/' }];
 
 // Les colonnes du tableau, dans l'ordre. `key` sert au tri et à l'export.
 export const SESSION_COLUMNS = [
