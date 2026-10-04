@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { fakeStorage, installDom } from './aide-dom.js';
 import { HEADER_LINK_NAME, HOME_LINK_LABEL } from '../site/js/ui/text.js';
 import { LOGIN_LINKS as PROF_LOGIN_LINKS } from '../site/js/ui/prof-data.js';
-import { LEAVE_CONFIRMATION, LOGIN_LINKS as EDITOR_LOGIN_LINKS, confirmsBeforeLeaving } from '../site/js/ui/editeur-data.js';
+import { LEAVE_CONFIRMATION, LOGIN_LINKS as EDITOR_LOGIN_LINKS, confirmsBeforeLeaving, loginNotice } from '../site/js/ui/editeur-data.js';
 import { SESSION_KEY, loadSession } from '../site/js/session.js';
 import { el, showScreen } from '../site/js/ui/dom.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from '../site/js/ui/identification-screen.js';
@@ -151,6 +151,25 @@ test('editeur.js : leave() et les liens de la barre du haut posent la même ques
   assert.match(source, /window\.addEventListener\('beforeunload'/);
   assert.match(source, /document\.querySelector\('\.app-header'\)\.addEventListener\('click'/);
   assert.match(source, /confirmsBeforeLeaving\(state\.dirty, event\)/);
+});
+
+// --- Réponses de Thierry au rapport (D87, point 4) ------------------------------------------------------------------------
+
+test('editeur.js : à l’ouverture sans cookie, la connexion s’ouvre sans message ; « Ta séance a expiré » seulement pour une séance qui était ouverte (guarded, loginNotice)', async () => {
+  const source = await lire('site/js/ui/editeur.js');
+  // Le message n'est écrit qu'une fois, dans editeur-data.js (les commentaires peuvent le citer) ; editeur.js passe par
+  // loginNotice(state.connected).
+  assert.doesNotMatch(source.replace(/\/\/[^\n]*/g, ''), /Ta séance a expiré/);
+  assert.match(source, /if \(error\.status === 401\) \{ showLogin\(loginNotice\(state\.connected\)\); return null; \}/);
+  // Un appel qui réussit prouve la séance ouverte (la page rechargée avec son cookie) ; l'écran de connexion la ferme.
+  const guarded = source.slice(source.indexOf('async function guarded'), source.indexOf('function headerAside'));
+  assert.match(guarded, /const result = await action\(\);\s*state\.connected = true;\s*return result;/);
+  const login = source.slice(source.indexOf('function showLogin'), source.indexOf('async function guarded'));
+  assert.match(login, /state\.connected = false;/);
+  // Le démarrage passe par showList, donc par guarded : un 401 sans séance ouverte n'a pas de message.
+  const start = source.slice(source.indexOf('async function start'));
+  assert.match(start, /await showList\(\);/);
+  assert.equal(loginNotice(false), '');
 });
 
 // --- Le DOM minuscule lui-même ------------------------------------------------------------------------------------------
