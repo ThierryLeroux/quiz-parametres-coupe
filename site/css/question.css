@@ -125,9 +125,9 @@
   margin: 0;
 }
 
-/* L'image de chaleur : la lueur de la classe ISO de la question, comme la photo de l'outil (--panel-color est
-   posée par le panneau, depuis les couleurs des tables, applyTableColors) ; et un fondu des bords, sur
-   --fondu-bords de chaque côté (deux dégradés croisés : intersection), le centre pleinement opaque. 10 % :
+/* L'image de chaleur : sans lueur (D89 : le halo coloré de la classe brouillait la lecture du schéma — il reste
+   sur la photo de l'outil) ; un fondu des bords, sur --fondu-bords de chaque côté (deux dégradés croisés :
+   intersection), le centre pleinement opaque. 10 % :
    la zone chaude reste à plus de 22 % de chaque bord sur les six images, et la queue du copeau, qui sort du
    cadre en haut, perd moins de 4 % de ses pixels colorés sous la moitié de son opacité. */
 .material-image img {
@@ -137,7 +137,6 @@
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 0 var(--glow) var(--panel-color));
   -webkit-mask-image: var(--fondu-x), var(--fondu-y);
   -webkit-mask-composite: source-in;
   mask-image: var(--fondu-x), var(--fondu-y);

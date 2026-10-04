@@ -3394,3 +3394,17 @@ coûter aux pages qui ne sont pas celles des étudiants.
   le fond apparaît pour tout le monde sur l'accueil, le quiz et `/verifier`.
 - Documents : UI §1 (le tableau des univers, la sous-section « Fond animé »), §3.6, §6 ; CLAUDE.md ; PLAN ; rapport
   `docs/rapports/fond-anime.md`.
+
+## D89 — L'image de chaleur perd sa lueur de couleur ; le fondu des bords reste (2026-10-04, décidée)
+
+**Contexte.** D67 a donné à l'image de chaleur du panneau du matériau la lueur de la classe ISO de la question
+(`drop-shadow(0 0 var(--glow) var(--panel-color))`), comme la photo de l'outil. Thierry constate que ce halo coloré
+autour du schéma de copeaux le rend difficile à comprendre.
+
+**Décision.** Remplace la puce « Lueur » de D67 : `.material-image img` n'a **plus de `filter`**. Le **fondu des bords**
+(`mask-image`, 10 % de chaque côté) est conservé tel quel, ainsi que la largeur bornée et la légende. La photo de
+l'outil (`.tool-photo`) garde sa lueur ; le panneau garde sa couleur de classe (contour, badge, halo du panneau).
+
+**Conséquences.** `site/css/question.css` (la ligne `filter` et le commentaire) ; UI §3.3. Rien ne touche la
+correction des séances en cours : aucun fichier de `worker/`, aucune migration ; au déploiement, l'image de chaleur
+apparaît sans halo pour tout le monde.
