@@ -28,6 +28,7 @@ import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js
 import {
   archiveConfirmation, bankPassageLines, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseHistoryLabel, exerciseState, exerciseTablesImpact, exportFileName, factorSource, forcedBadge,
   liveTitleConflicts, presentationPreview, renameDone, renamePrompt, bankHistoryLabel, twinTitlesNote, twinTitlesWarning, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
+  LEAVE_CONFIRMATION, LOGIN_LINKS, confirmsBeforeLeaving,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
@@ -49,8 +50,19 @@ const state = {
   dirty: false, // des modifications non enregistrées sur la page courante
 };
 
+// Quitter la page avec des modifications non enregistrées : le navigateur demande (son texte à lui) pour ce que la page
+// ne contrôle pas — bouton Précédent, onglet fermé, adresse retapée.
 window.addEventListener('beforeunload', (event) => {
   if (state.dirty) event.preventDefault();
+});
+
+// Les liens de la barre du haut quittent la page aussi (le logo vers l'accueil, D87 ; « Espace professeur ») : la même
+// confirmation que leave(), dans les mots de la page ; confirmée, state.dirty tombe et beforeunload n'a plus rien à
+// demander ; refusée, le clic est annulé. Un clic qui ouvre un autre onglet (Ctrl, Maj, ⌘) ne quitte pas la page.
+document.querySelector('.app-header').addEventListener('click', (event) => {
+  if (!event.target.closest('a[href]') || !confirmsBeforeLeaving(state.dirty, event)) return;
+  if (window.confirm(LEAVE_CONFIRMATION)) state.dirty = false;
+  else event.preventDefault();
 });
 
 // --- Connexion ----------------------------------------------------------------------------------------------------
@@ -87,6 +99,8 @@ function showLogin(notice = '') {
       el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration. Cinq essais, puis un délai croissant.")])),
       el('div', { class: 'form-actions' }, [status, button]),
     ]),
+    // Les retours (D87) : l'espace professeur, l'accueil.
+    el('div', { class: 'form-links' }, LOGIN_LINKS.map(({ label, href }) => el('a', { class: 'button-link', href }, label))),
   ]));
   showScreen(main, screen, { title: TITLE, aside: 'TGM-TMI' }, '#cle');
 }
@@ -118,7 +132,7 @@ function tabs(current) {
 
 // Quitter la page courante : si des modifications ne sont pas enregistrées, demander d'abord.
 function leave(open, ...args) {
-  if (state.dirty && !window.confirm('Des modifications ne sont pas enregistrées. Quitter la page et les perdre ?')) return;
+  if (state.dirty && !window.confirm(LEAVE_CONFIRMATION)) return;
   state.dirty = false;
   open(...args);
 }

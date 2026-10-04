@@ -24,12 +24,19 @@ body {
   box-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 33%, transparent);
 }
 
+/* Le logo et le titre forment un seul lien vers l'accueil (D87). Au repos, rien ne le distingue de l'ancien bloc :
+   la couleur du texte, pas de soulignement ; au survol, le titre passe au bleu clair des liens ; au clavier, le
+   contour de focus commun (base.css). */
 .app-brand {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
+  color: inherit;
+  text-decoration: none;
 }
+
+.app-brand:hover .app-title { color: var(--color-accent-light); }
 
 .app-logo {
   flex: none;
@@ -257,8 +264,14 @@ body {
 /* Un seul champ (matricule, NIP) : il ne s'étire pas sur toute la largeur. */
 .form-grid.form-grid--single { grid-template-columns: minmax(0, 280px); }
 
-/* Liens sous un formulaire : « Ce n'est pas moi », « Mauvais matricule », « Annuler ». */
-.form-links { margin-top: var(--space-2); }
+/* Liens sous un formulaire : « Ce n'est pas moi », « Mauvais matricule », « Annuler », « ← Page de l'exercice » ; sur
+   une connexion, les retours vers l'accueil et l'espace professeur (D87) — plusieurs sur un rang, à la ligne au besoin. */
+.form-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-5);
+  margin-top: var(--space-2);
+}
 .form-links:empty { display: none; }
 
 /* Le matricule à vérifier avant de créer une séance (D23) : en gros, en chasse fixe. */

@@ -101,7 +101,8 @@ function formScreen(main, exercise, { eyebrow, title, intro, fields, labels = {}
   showScreen(main, screen, { title: exercise.titre, aside: `version ${exercise.version}` }, `#${firstEmpty}`);
 }
 
-// 1/2 — le matricule seul.   actions : { onSubmit(matricule) }
+// 1/2 — le matricule seul.   actions : { onSubmit(matricule), onHome }
+//   onHome : « ← Page de l'exercice » (D87) — retour à la page de l'exercice, sans rien toucher : ni le jeton gardé, ni le serveur
 export function renderMatricule(main, { exercise, notice = '', matricule = '' }, actions) {
   formScreen(main, exercise, {
     eyebrow: 'Identification · 1 / 2',
@@ -113,6 +114,7 @@ export function renderMatricule(main, { exercise, notice = '', matricule = '' },
     submitLabel: 'Continuer',
     validate: (values) => ({ matricule: matriculeError(values.matricule) }),
     onSubmit: (values) => actions.onSubmit(values.matricule),
+    links: [{ label: "← Page de l'exercice", onclick: actions.onHome }],
   });
 }
 

@@ -16,6 +16,13 @@ const FIELD_NAMES = {
 export const DEPARTMENT_LINES = ['Techniques de génie mécanique', 'Technique du génie de la maintenance industrielle', '(fiabilité des systèmes de production)'];
 export const DEPARTMENT_SHORT = 'TGM-TMI';
 
+// Les chemins vers l'accueil (D87). Le logo et le titre de la barre du haut forment, sur chaque page, un seul lien
+// vers l'accueil : HEADER_LINK_NAME est son nom accessible (aria-label) et son indice au survol (title). Partout où
+// un lien ramène à l'accueil en toutes lettres, c'est HOME_LINK_LABEL (la page de l'exercice, D71 ; la connexion de
+// l'espace professeur et de la Gestion du contenu ; « Le quiz n'a pas pu démarrer »).
+export const HEADER_LINK_NAME = 'Accueil — tous les exercices';
+export const HOME_LINK_LABEL = '← Tous les exercices';
+
 // Signature au pied des feuilles de référence et de l'attestation (D30) : « TGM-TMI — TLP — 2026 ».
 // L'année est celle du jour d'impression.
 export function sheetSignature(date = new Date()) {

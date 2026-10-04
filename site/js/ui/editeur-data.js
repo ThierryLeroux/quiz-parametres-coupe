@@ -10,7 +10,23 @@ import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterial
 import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey, sameTitleExercises, titleKey } from '../exercice.js';
 import { COPY_PRESENTATION_FIELDS } from '../presentation-exercice.js';
 import { exerciseLink } from './home-data.js';
-import { formatDateStamp } from './text.js';
+import { HOME_LINK_LABEL, formatDateStamp } from './text.js';
+
+// --- Quitter la page (D87) --------------------------------------------------------------------------------------------
+
+// Les liens sous le formulaire de connexion : l'espace professeur, puis l'accueil.
+export const LOGIN_LINKS = [{ label: '← Espace professeur', href: '/prof' }, { label: HOME_LINK_LABEL, href: '/' }];
+
+// La question posée avant de quitter une page qui a des modifications non enregistrées (leave(), et les liens de la
+// barre du haut : le logo vers l'accueil, « Espace professeur »).
+export const LEAVE_CONFIRMATION = 'Des modifications ne sont pas enregistrées. Quitter la page et les perdre ?';
+
+// Un clic sur un lien de la barre du haut quitte la page : faut-il d'abord poser LEAVE_CONFIRMATION ? Oui s'il y a des
+// modifications non enregistrées — sauf si le clic ouvre un autre onglet (Ctrl, Maj ou ⌘) : la page reste, rien à demander.
+//   dirty : state.dirty ; keys : { ctrlKey, metaKey, shiftKey } de l'événement
+export function confirmsBeforeLeaving(dirty, { ctrlKey = false, metaKey = false, shiftKey = false } = {}) {
+  return Boolean(dirty) && !ctrlKey && !metaKey && !shiftKey;
+}
 
 // Les grandeurs, dans l'ordre de l'écran, avec leur libellé court.
 export const FIELD_CHOICES = [

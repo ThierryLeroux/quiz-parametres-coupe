@@ -13,10 +13,11 @@
 <body>
   <!-- Page publique de vérification d'une attestation (décision D33, UI §3.7) : js/ui/verifier.js. -->
   <header class="app-header no-print">
-    <div class="app-brand">
+    <!-- Le logo et le titre : un seul lien vers l'accueil, tous les exercices (décision D87). showScreen ne change que le texte du titre. -->
+    <a class="app-brand" href="/" aria-label="Accueil — tous les exercices" title="Accueil — tous les exercices">
       <img class="app-logo" src="img/logo-cvm.png" alt="Cégep du Vieux Montréal">
       <div class="app-title" id="header-title">Vérification d'une attestation</div>
-    </div>
+    </a>
     <div class="app-aside" id="header-aside">Techniques de génie mécanique</div>
   </header>
 
