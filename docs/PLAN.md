@@ -363,3 +363,15 @@ Rapport de session : `docs/rapports/limite-debit.md`. Branche `limite-debit`. **
 - [x] Tests dérivés de la constante : `tests/worker-acces.test.js` (sa valeur), `tests/worker-api.test.js` (consultation : le refus de la valeur de trop, le verrou de 10 minutes, la valeur déjà vue qui passe, l'autre adresse non touchée, l'heure suivante qui repart ; vérification des codes) — 1,2 s pour le test de consultation
 - [x] Vérification : `npm test` (789), `test:api` (35 étapes) ; rapport, avec deux points douteux
 - [ ] **Thierry** : relire, fusionner et déployer le soir, hors cours
+
+## Chantier I11 « navigation vers l'accueil » — revenir à l'accueil depuis n'importe quelle page (décision D87)
+Rapport de session : `docs/rapports/navigation-accueil.md`. Branche `navigation-accueil`. **Rien ne touche la correction des séances en cours** : aucun fichier du serveur, aucune migration ; l'en-tête des cinq pages change pour tout le monde au déploiement (un lien à la place d'un bloc inerte).
+
+- [x] D87 ; tâches du chantier dans le PLAN
+- [ ] L'en-tête des cinq pages : le logo et le titre, un seul lien vers l'accueil, nom accessible « Accueil — tous les exercices », apparence inchangée au repos, titre bleu clair au survol, focus visible ; `showScreen` garde le lien ; `HOME_LINK_LABEL` et `HEADER_LINK_NAME` (`text.js`)
+- [ ] Identification 1 / 2 : « ← Page de l'exercice » (`onHome` → `showHome`, sans rien toucher) ; « Le quiz n'a pas pu démarrer » : « ← Tous les exercices »
+- [ ] Connexion de `/prof` : « ← Tous les exercices » ; connexion de `/prof/editeur` : « ← Espace professeur » et « ← Tous les exercices » (`LOGIN_LINKS`, purs) ; Gestion du contenu : les liens de la barre du haut passent par la confirmation de `leave()` quand des modifications ne sont pas enregistrées (`confirmsBeforeLeaving`), le `beforeunload` reste
+- [ ] Tests (`tests/ui-navigation.test.js`, sur le DOM minuscule `tests/aide-dom.js`) : le lien de l'en-tête sur chaque page ; `showScreen` qui le garde ; le lien de l'identification 1 / 2 qui appelle `onHome` et laisse le jeton ; les liens des deux écrans de connexion ; la règle de confirmation
+- [ ] Vérification : `npm test`, `test:api` ; Chrome à 1280 et 390 px — l'en-tête, l'identification 1 / 2, les deux écrans de connexion, le retour à une question en cours (même question, rien de compté), la confirmation de la Gestion du contenu, rien à l'impression de l'attestation et de `/tables` ; captures
+- [ ] Documents : UI §2, §3.1, §3.2, §3.7, §3.8, §3.9 ; rapport, avec le tableau « écran → chemin vers l'accueil, nombre de clics » avant et après
+- [ ] **Thierry** : relire, fusionner et déployer le soir, hors cours

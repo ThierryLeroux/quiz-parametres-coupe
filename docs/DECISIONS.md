@@ -3228,3 +3228,78 @@ constantes seraient deux choses à régler et à oublier.
   les codes d'attestation (30¹⁰ possibles) restent hors de portée.
 
 Rapport : `docs/rapports/limite-debit.md`.
+
+## D87 — Revenir à l'accueil depuis n'importe quelle page : le logo et le titre de l'en-tête en lien, et des liens de retour sur les écrans qui n'en avaient pas (2026-10-03, décidée)
+
+**Contexte.** Le constat de Thierry, relevé dans le code de `main` (`e8738bc`) : le logo du cégep et le titre de
+l'en-tête ne sont des liens sur aucune page, et plusieurs écrans n'ont **aucun chemin vers l'accueil** — l'identification
+1 / 2 ; l'identification 2 / 2 (seulement vers le 1 / 2) ; « Le quiz n'a pas pu démarrer » ; `/verifier` ;
+`/tables?version=` ; `/prof` (connexion et tableau) ; `/prof/editeur` (sa connexion n'a même pas de lien vers `/prof`).
+Depuis les écrans de la séance (Question, Attestation), l'accueil est à deux clics (« Quitter » ou « Terminer », puis
+« ← Tous les exercices » de la page de l'exercice, D71). Cas vécu : après « Se déconnecter » de l'espace professeur,
+il n'y a aucun moyen d'aller essayer un exercice comme un étudiant, sinon retaper l'adresse. UI §3.2 disait même, pour
+les écrans d'identification : « Il n'y a pas de lien « ← Retour » vers l'accueil sur ces écrans ».
+
+**Décision.**
+
+1. **Le logo du cégep et le titre de l'en-tête forment un seul lien vers l'accueil** (`/`), sur les cinq pages :
+   `index.html`, `prof.html`, `prof/editeur.html`, `tables.html`, `verifier.html`. Son nom accessible est
+   **« Accueil — tous les exercices »** (`aria-label`, et le même texte en `title`, l'indice au survol de la souris).
+   **Apparence inchangée au repos** : pas de soulignement, la couleur du texte ; au survol, le titre passe au bleu clair
+   des liens ; au clavier, le contour de focus commun à toute la page (`:focus-visible`). `showScreen` ne remplace que
+   le **texte** de `#header-title` : le lien survit à chaque changement d'écran (un test le vérifie).
+2. **Ce lien est une simple navigation**, comme « ← Tous les exercices » (D71) : il ne crée, ne modifie ni n'efface
+   aucune séance, ni sur le serveur ni dans le navigateur ; **le jeton gardé reste**. Un étudiant qui quitte ainsi une
+   question en cours et revient par l'accueil, puis la page de son exercice et « Reprendre, <prénom> », **retrouve la
+   même question** : le serveur la mémorise et la rend telle quelle tant qu'elle n'est pas corrigée (`POST
+   /api/question`, SPEC §7 : « on ne passe pas une question »), **sans nouveau tirage et sans rien de compté** — seule
+   une correction (`POST /api/correction`) change les compteurs. **La saisie non vérifiée est perdue**, comme avec
+   « Quitter » : elle n'existait que dans la page.
+3. **Gestion du contenu : le lien respecte la protection des modifications non enregistrées.** Un clic sur un lien de
+   la barre du haut — le logo, et aussi **« Espace professeur »**, qui quittait la page sans rien demander — avec
+   `state.dirty` (le brouillon d'un exercice, d'un outil ou des tables, **ou un panneau « Présentation » non appliqué**,
+   que `syncDirty` compte déjà) pose **la même confirmation que `leave()`** (« Des modifications ne sont pas
+   enregistrées. Quitter la page et les perdre ? ») ; confirmée, `state.dirty` passe à faux et la navigation suit, sans
+   seconde question ; refusée, le clic est annulé. Un clic qui ouvre un autre onglet (Ctrl, Maj ou ⌘) ne quitte pas la
+   page : rien n'est demandé. **Le `beforeunload` existant reste**, filet pour ce que la page ne contrôle pas (bouton
+   Précédent, onglet fermé, adresse retapée). Il ne suffisait pas seul : son texte est celui du navigateur, dans sa
+   langue, pas celui de la page ; Chrome ne le montre qu'après une interaction avec la page, et Safari sur iPhone ne le
+   montre jamais. Le plus sûr, c'est les deux.
+4. **Identification 1 / 2 : le lien « ← Page de l'exercice »** sous le formulaire, qui ramène à la page de l'exercice
+   (`showHome`) sans rien toucher — ni le jeton, ni le serveur. Il **remplace la règle de UI §3.2** « Il n'y a pas de
+   lien « ← Retour » vers l'accueil sur ces écrans ». Les écrans 2 / 2 gardent « Ce n'est pas moi » et « Mauvais
+   matricule » (vers le 1 / 2, qui a maintenant le lien) ; « Corriger mon identité » garde « Annuler ». Le logo, en
+   plus, mène à l'accueil depuis les quatre écrans.
+5. **Espace professeur : sur l'écran de connexion de `/prof`** (donc aussi après « Se déconnecter »), un lien visible
+   **« ← Tous les exercices »** vers l'accueil, en plus du logo. **Sur la connexion de `/prof/editeur`** : **« ← Espace
+   professeur »** (`/prof`) et **« ← Tous les exercices »** (`/`). Rien ne change aux deux clés ni aux rôles (D44).
+6. **« Le quiz n'a pas pu démarrer » : « ← Tous les exercices »** sous le message, vers l'accueil (`location.pathname`,
+   comme le lien de D71).
+7. **Ne sont pas touchés** : les couleurs des tables (D61), le bouton d'effacement des données (D46), la correction,
+   l'attestation. **Rien de tout cela ne s'imprime** : l'en-tête est `no-print` ; vérifié sur l'attestation et sur
+   `/tables` en mode impression.
+8. Le libellé **« ← Tous les exercices »** est le même partout où un lien y ramène (`HOME_LINK_LABEL`, `text.js`), et
+   le nom du lien de l'en-tête est `HEADER_LINK_NAME` : un test vérifie que les cinq pages le portent.
+
+**Conséquences.**
+
+- `site/index.html`, `prof.html`, `prof/editeur.html`, `tables.html`, `verifier.html` : le `<div class="app-brand">`
+  devient un `<a class="app-brand" href="/" aria-label title>` ; `app.css` : `.app-brand` garde sa mise en page, prend
+  `color: inherit` et `text-decoration: none`, et son survol colore le titre ; `.form-links` devient une rangée (deux
+  liens sur la connexion de la Gestion du contenu).
+- `site/js/ui/text.js` : `HOME_LINK_LABEL`, `HEADER_LINK_NAME` ; `home-screen.js` : le lien de D71 prend le libellé
+  commun, « Le quiz n'a pas pu démarrer » reçoit le sien ; `identification-screen.js` : `renderMatricule` reçoit
+  `onHome` et montre « ← Page de l'exercice » ; `main.js` : `onHome: showHome`.
+- `prof-data.js` et `editeur-data.js` : `LOGIN_LINKS`, les liens de chaque écran de connexion (purs, testés) ;
+  `editeur-data.js` : `LEAVE_CONFIRMATION` (le texte de `leave()`, qui le partage) et `confirmsBeforeLeaving(dirty,
+  touches)` ; `editeur.js` : une écoute des clics sur les liens de la barre du haut.
+- Tests : `tests/ui-navigation.test.js` — le lien de l'en-tête sur chaque page, `showScreen` qui le garde, le lien de
+  l'identification 1 / 2 (il appelle `onHome` et ne touche pas au jeton), les liens des deux écrans de connexion, la
+  règle de confirmation. Les écrans se testent sur un **DOM minuscule écrit pour les tests** (`tests/aide-dom.js` :
+  éléments, attributs, écouteurs, `querySelector` simple), sans dépendance (D3) : c'est le DOM construit qu'on regarde,
+  pas le code qui le construit.
+- **La correction des séances en cours n'est pas touchée** : aucun fichier de `worker/`, aucune migration. Au
+  déploiement, l'en-tête change pour tout le monde (un lien à la place d'un bloc inerte) ; une séance en cours n'en est
+  pas affectée.
+- Documents : UI §2, §3.1, §3.2, §3.7, §3.8, §3.9 ; PLAN ; rapport `docs/rapports/navigation-accueil.md`, avec le
+  tableau « écran → chemin vers l'accueil, nombre de clics », avant et après.
