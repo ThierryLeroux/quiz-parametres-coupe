@@ -3408,3 +3408,53 @@ l'outil (`.tool-photo`) garde sa lueur ; le panneau garde sa couleur de classe (
 **Conséquences.** `site/css/question.css` (la ligne `filter` et le commentaire) ; UI §3.3. Rien ne touche la
 correction des séances en cours : aucun fichier de `worker/`, aucune migration ; au déploiement, l'image de chaleur
 apparaît sans halo pour tout le monde.
+
+## D90 — `/verifier` : la liste des questions réussies en fiches, pas en colonnes ; le tableau par outil en fiches sous 480 px (2026-10-05, décidée)
+
+**Contexte.** Thierry, en scannant le QR d'une attestation sur son téléphone : la liste « Questions réussies qui
+comptent » de `/verifier` est illisible, ses colonnes tombent à deux ou trois caractères. Reproduit dans Chrome à
+390 px avec une attestation à cinq grandeurs (29 questions) : une lettre par ligne dans chaque colonne, un rang de
+plus de 600 px de haut. Cause : dans `attestation.css`, `.verify-result .attestation-questions td` hérite
+d'`overflow-wrap: anywhere` (la règle de la page lettre, D43) et y ajoute `white-space: normal`, qui l'emporte aussi
+sur le `nowrap` de `td.num` : le navigateur peut écraser chaque colonne presque à zéro et couper un nombre
+n'importe où. Sur ordinateur, le panneau fait au plus 680 px (`.screen`) : à quatre ou cinq grandeurs, « 0.0010 »
+ou « 2560 » y sont coupés aussi (« 0. / 00 / 10 »). D41 demande que `/verifier` montre la liste « complète, rien
+de tronqué » ; D85 l'avait laissée en colonnes, sans largeurs fixes, et notait ses défauts de repli au rapport.
+
+**Décision** (Thierry, 2026-10-05). Précise D41 pour `/verifier` : la liste est complète et rien n'est tronqué,
+**mais en fiches plutôt qu'en colonnes**.
+
+1. **Sur `/verifier` seulement**, chaque question réussie est une **fiche « libellé : valeur »**, dans le style du
+   bloc d'informations (`factsGrid`) : la fiche s'ouvre sur « Question n » (gras) à gauche et la date et l'heure à
+   droite ; puis, sur toute la largeur, Outil, Matière d'outil, Matériau usiné ; puis les grandeurs évaluées, deux
+   par ligne (« Vc (pi/min) 300 », « fz (po/dent) 0.004 »). Un trait sépare les fiches. Quand le panneau a la
+   place (ordinateur), deux fiches côte à côte (`auto-fill`, `minmax(260px, 1fr)`).
+2. **Le tableau des opérations** garde ses quatre colonnes, sauf **sous 480 px**, où il devient lui aussi une fiche
+   par outil (Opération, Outil, Plage de dimensions, Réussites de suite).
+3. **Le moyen.** `operationsTable` et `questionsTable` (`attestation-screen.js`) posent sur chaque `<td>` un
+   attribut `data-label` égal au texte de l'en-tête de sa colonne (pour une grandeur, `column.label` :
+   « Vc (pi/min) ») ; le tableau par outil reçoit la classe `attestation-operations`. En CSS, sous
+   `.verify-result` : la table, `tbody`, `tr` et `td` quittent la mise en page de tableau — `tbody` en grille de
+   fiches, chaque `tr` de questions en grille à deux colonnes, chaque `td` en `flex` (le libellé à gauche, la
+   valeur à droite ; quand les deux ne tiennent pas côte à côte, la valeur passe dessous, toujours à droite) ; le
+   libellé vient de `td::before { content: attr(data-label) }`, en `--color-text-muted` et `--font-text` (pas la
+   chasse fixe des `td.num`) ; le `td` du N° en ligne 1, colonne 1, avec « Question » ; le `td.stamp` en ligne 1,
+   colonne 2, sans libellé, en 12 px ; les `td.num` des grandeurs en `grid-column: auto` (deux par ligne), les
+   autres sur toute la largeur ; `overflow-wrap: normal` partout dans les fiches. Le `<thead>` reste dans le DOM,
+   caché à l'œil (1 × 1 px, `clip-path: inset(50%)`), pour les lecteurs d'écran — Chrome garde d'ailleurs les
+   rôles de tableau (table, row, cell, columnheader) et met les libellés générés dans l'arbre d'accessibilité.
+   Sous 480 px, les mêmes règles pour `.attestation-operations`.
+4. **Rien ne change à l'attestation imprimée ni à son écran** : tout le CSS nouveau est sous `.verify-result` ;
+   les `data-label` posés sur la page lettre n'y affichent rien (`::before` : `none`, cellules de tableau) ;
+   `PAGE_LAYOUT`, les largeurs et la pagination (D85) ne bougent pas, et le test qui compare les largeurs
+   d'`attestation.css` à `PAGE_LAYOUT` passe tel quel. Vérifié dans Chrome, avant (arbre de `main`) et après, sur
+   la même base et le même port : l'attestation à deux et à cinq grandeurs, à l'écran et en mode impression, est
+   identique pixel pour pixel.
+5. **Rien ne touche la correction ni ce que l'attestation contient** : aucun fichier de `worker/`, aucune migration ;
+   l'enregistrement, son code, sa signature et l'adresse du QR sont les mêmes. C'est de l'affichage seulement ; au
+   déploiement, `/verifier` montre les fiches à tout le monde, pour toute attestation, anciennes comprises.
+
+**Conséquences.** `attestation-screen.js` (`data-label`, `attestation-operations`) ; `attestation.css` (la section
+`/verifier`) ; `tests/ui-verifier.test.js` (sur `tests/aide-dom.js` : chaque `<td>` porte le texte de son en-tête,
+à deux et à cinq grandeurs, en largeurs ordinaires et resserrées ; les règles qui lisent `data-label` sont sous
+`.verify-result` seulement) ; UI §3.7 ; CLAUDE.md. Rapport : `docs/rapports/verifier-fiches.md`.

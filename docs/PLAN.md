@@ -389,3 +389,14 @@ Rapport de session : `docs/rapports/fond-anime.md`. Branche `fond-anime`. **Rien
 - [x] `npm test` (806, dont 4 ajoutés), `npm run test:api` (35 étapes) ; Chrome : 47 vérifications après, aucune erreur console, aucune requête externe
 - [x] Documents : UI §1, §3.6, §6 ; CLAUDE.md ; rapport, avec huit points douteux
 - [ ] **Thierry** : relire, trancher les points douteux du rapport (dont la scène de l'attestation, D88 point 5), fusionner et déployer le soir, hors cours
+
+## Correctif « /verifier en fiches » — la liste des questions réussies lisible sur téléphone (décision D90)
+Rapport de session : `docs/rapports/verifier-fiches.md`. Branche `verifier-fiches`. **Rien ne touche la correction ni ce que l'attestation contient** : aucun fichier du serveur, aucune migration ; de l'affichage seulement, sur `/verifier`.
+
+- [x] D90 ; tâche dans le PLAN
+- [x] `attestation-screen.js` : chaque `<td>` d'`operationsTable` et de `questionsTable` porte `data-label` (le texte de l'en-tête de sa colonne ; `column.label` pour une grandeur) ; le tableau par outil reçoit la classe `attestation-operations`
+- [x] `attestation.css`, sous `.verify-result` seulement : la liste des questions en fiches (grille de fiches, « Question n » et la date en tête, Outil / Matière / Matériau sur toute la largeur, les grandeurs deux par ligne, un trait entre les fiches, deux fiches de front sur ordinateur, `overflow-wrap: normal`, en-tête caché à l'œil) ; le tableau par outil en fiches sous 480 px
+- [x] Test `tests/ui-verifier.test.js` (sur le DOM minuscule `tests/aide-dom.js`) : les `data-label` des deux tableaux, à deux et à cinq grandeurs, en largeurs ordinaires et resserrées ; les règles CSS sous `.verify-result` seulement ; le test des largeurs de `PAGE_LAYOUT` inchangé et vert
+- [x] Vérification dans Chrome, avant (arbre de `main`) et après, sur la même base et le même port : `/verifier` à 390 et 1280 px avec une attestation à deux grandeurs, une à cinq, une annulée (panneau doré), un enregistrement d'avant D41 (sans questions) ; aucun débordement à 390 px ; l'attestation à l'écran et en mode impression identique pixel pour pixel ; aucune erreur console ; captures dans `captures/verifier-fiches/`
+- [x] Documents : UI §3.7 ; CLAUDE.md ; rapport
+- [ ] **Thierry** : relire, trancher les points douteux du rapport, fusionner et déployer hors cours
