@@ -14,12 +14,23 @@ import {
 import { qrSvg } from './qr.js';
 import { DEPARTMENT_LINES, studentLine } from './text.js';
 
+// Chaque cellule des deux tableaux porte le texte de l'en-tête de sa colonne (data-label) : la page de vérification
+// (D90, attestation.css sous .verify-result) rend les rangs en fiches « libellé : valeur » et l'écrit devant la valeur.
+// Sur la page lettre de l'attestation, l'attribut n'affiche rien.
+const OPERATION_HEADERS = ['Opération', 'Outil', 'Plage de dimensions', 'Réussites de suite'];
+
 // Le tableau des opérations effectuées, aussi utilisé par la page de vérification.
 //   rows : les lignes à mettre dans ce tableau (une page, ou toutes pour la vérification)
 export function operationsTable(record, rows = attestationRows(record)) {
-  return el('table', { class: 'attestation-table' }, [
-    el('thead', {}, el('tr', {}, [el('th', {}, 'Opération'), el('th', {}, 'Outil'), el('th', {}, 'Plage de dimensions'), el('th', { class: 'num' }, 'Réussites de suite')])),
-    el('tbody', {}, rows.map((row) => el('tr', {}, [el('td', {}, row.operation), el('td', {}, row.outil), el('td', {}, row.plage), el('td', { class: 'num' }, row.reussites)]))),
+  const [operation, outil, plage, reussites] = OPERATION_HEADERS;
+  return el('table', { class: 'attestation-table attestation-operations' }, [
+    el('thead', {}, el('tr', {}, [el('th', {}, operation), el('th', {}, outil), el('th', {}, plage), el('th', { class: 'num' }, reussites)])),
+    el('tbody', {}, rows.map((row) => el('tr', {}, [
+      el('td', { 'data-label': operation }, row.operation),
+      el('td', { 'data-label': outil }, row.outil),
+      el('td', { 'data-label': plage }, row.plage),
+      el('td', { class: 'num', 'data-label': reussites }, row.reussites),
+    ]))),
   ]);
 }
 
@@ -42,12 +53,12 @@ export function questionsTable(record, rows = questionRows(record), narrow = fal
       head({}, 'Date et heure', ['Date', 'et heure']),
     ])),
     el('tbody', {}, rows.map((row) => el('tr', {}, [
-      el('td', { class: 'num' }, row.numero),
-      el('td', {}, row.outil),
-      el('td', {}, row.materiau_outil),
-      el('td', {}, row.materiau),
-      ...row.reponses.map((value) => el('td', { class: 'num' }, value)),
-      el('td', { class: 'stamp' }, row.horodatage),
+      el('td', { class: 'num', 'data-label': 'N°' }, row.numero),
+      el('td', { 'data-label': 'Outil' }, row.outil),
+      el('td', { 'data-label': "Matière d'outil" }, row.materiau_outil),
+      el('td', { 'data-label': 'Matériau usiné' }, row.materiau),
+      ...row.reponses.map((value, i) => el('td', { class: 'num', 'data-label': columns[i].label }, value)),
+      el('td', { class: 'stamp', 'data-label': 'Date et heure' }, row.horodatage),
     ]))),
   ]);
 }

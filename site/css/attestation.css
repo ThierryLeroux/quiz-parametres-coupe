@@ -192,24 +192,134 @@
 .verify-form .field { flex: 1 1 240px; }
 .verify-form input { font-family: var(--font-number); font-size: var(--text-lg); letter-spacing: 0.08em; text-transform: uppercase; }
 
-/* Le résultat : le même bloc d'informations et le même tableau que l'attestation, sur fond nuit. */
-.verify-result .attestation-fact { border-bottom-color: color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
+/* Le résultat : le même bloc d'informations et le même tableau par outil que l'attestation, sur fond nuit. */
+.verify-result { --verify-rule: color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
+.verify-result .attestation-fact { border-bottom-color: var(--verify-rule); }
 .verify-result .attestation-fact-label { color: var(--color-text-muted); }
 .verify-result .table-wrap { overflow-x: auto; }
 .verify-result .attestation-table { margin-top: var(--space-3); font-size: var(--text-sm); }
 .verify-result .attestation-table th { border-bottom-color: var(--color-text); }
-.verify-result .attestation-table td { border-bottom-color: color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
+.verify-result .attestation-table td { border-bottom-color: var(--verify-rule); }
 .verify-result .attestation-subtitle { margin-top: var(--space-4); border-bottom-color: var(--color-text); color: var(--color-text); }
-/* Sur la page de vérification, la liste complète : les lignes peuvent se replier, rien n'est tronqué. */
-.verify-result .attestation-questions { table-layout: auto; font-size: var(--text-sm); }
-.verify-result .attestation-questions th,
-.verify-result .attestation-questions td { white-space: normal; line-height: 1.35; padding: 4px 6px; }
-.verify-result .attestation-questions th:nth-child(n) { width: auto; }
-.verify-result .attestation-questions td.stamp { white-space: nowrap; font-size: var(--text-sm); }
 .verify-result p + .attestation-facts { margin-top: var(--space-4); }
+
+/* La liste des questions réussies (D41, D90) : complète, rien de tronqué — mais en fiches, jamais en colonnes. En
+   colonnes, à quatre ou cinq grandeurs, le panneau (680 px au plus) coupait « 0.004 » et, sur téléphone, chaque
+   colonne tombait à deux ou trois caractères. Une fiche par question, dans le style du bloc d'informations : chaque
+   <td> est une ligne « libellé : valeur », le libellé étant le texte de l'en-tête de sa colonne, que la cellule porte
+   (data-label, attestation-screen.js) ; la fiche s'ouvre sur « Question n » à gauche et la date et l'heure à droite ;
+   puis l'outil, sa matière et le matériau usiné sur toute la largeur ; puis les grandeurs évaluées, deux par ligne.
+   Un trait sépare les fiches ; quand le panneau a la place (ordinateur), deux fiches côte à côte. L'en-tête du
+   tableau reste dans le DOM pour les lecteurs d'écran, caché à l'œil. Rien de ceci ne touche la page lettre de
+   l'attestation : tout est sous .verify-result. */
+.verify-result .attestation-questions { display: block; table-layout: auto; font-size: var(--text-sm); }
+.verify-result .attestation-questions tbody {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  column-gap: var(--space-5);
+}
+.verify-result .attestation-questions tr {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  column-gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--verify-rule);
+}
+/* Une ligne de fiche : le libellé à gauche, atténué, en police de texte (pas la chasse fixe des nombres) ; la valeur à
+   droite ; quand les deux ne tiennent pas côte à côte, la valeur passe dessous, toujours à droite. Un texte se replie
+   entre les mots. */
+.verify-result .attestation-questions td {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: var(--space-3);
+  grid-column: 1 / -1;
+  padding: 2px 0;
+  border-bottom: none;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: normal;
+  line-height: 1.35;
+}
+.verify-result .attestation-questions td::before {
+  content: attr(data-label);
+  flex: none;
+  margin-right: auto;
+  color: var(--color-text-muted);
+  font-family: var(--font-text);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+/* « Question n », en gras, à gauche de la première ligne. */
+.verify-result .attestation-questions td:first-child {
+  grid-row: 1;
+  grid-column: 1;
+  justify-content: flex-start;
+  column-gap: 0.35em;
+  font-weight: 700;
+  text-align: left;
+}
+.verify-result .attestation-questions td:first-child::before { content: 'Question'; margin-right: 0; color: inherit; font-weight: inherit; }
+/* La date et l'heure, à droite de la première ligne, sans libellé, en 12 px (en 13 px, elles ne tiennent pas dans la
+   demi-fiche de l'ordinateur) ; elles se replient (la date, puis l'heure) sur un écran plus étroit qu'un téléphone. */
+.verify-result .attestation-questions td.stamp { grid-row: 1; grid-column: 2; color: var(--color-text-muted); font-size: var(--text-xs); white-space: normal; }
+.verify-result .attestation-questions td.stamp::before { content: none; }
+/* Les grandeurs évaluées : deux par ligne. */
+.verify-result .attestation-questions td.num:not(:first-child) { grid-column: auto; white-space: nowrap; }
+/* L'en-tête, caché à l'œil, lu par les lecteurs d'écran. */
+.verify-result .attestation-questions thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 @media (max-width: 480px) {
   .attestation-facts { grid-template-columns: minmax(0, 1fr); }
+
+  /* Le tableau par outil, en fiches lui aussi sous 480 px (D90) : une fiche par outil, les mêmes lignes « libellé :
+     valeur » que les questions, dans l'ordre des colonnes (Opération, Outil, Plage de dimensions, Réussites de suite). */
+  .verify-result .attestation-operations,
+  .verify-result .attestation-operations tbody { display: block; }
+  .verify-result .attestation-operations tr {
+    display: block;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--verify-rule);
+  }
+  .verify-result .attestation-operations td {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    column-gap: var(--space-3);
+    padding: 2px 0;
+    border-bottom: none;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: normal;
+    line-height: 1.35;
+  }
+  .verify-result .attestation-operations td::before {
+    content: attr(data-label);
+    flex: none;
+    margin-right: auto;
+    color: var(--color-text-muted);
+    font-family: var(--font-text);
+    font-weight: 400;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .verify-result .attestation-operations thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 /* --- Impression : la page seule, sur une feuille lettre (UI §6) --------------------------------------------------- */
