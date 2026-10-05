@@ -3458,3 +3458,33 @@ de tronqué » ; D85 l'avait laissée en colonnes, sans largeurs fixes, et notai
 `/verifier`) ; `tests/ui-verifier.test.js` (sur `tests/aide-dom.js` : chaque `<td>` porte le texte de son en-tête,
 à deux et à cinq grandeurs, en largeurs ordinaires et resserrées ; les règles qui lisent `data-label` sont sous
 `.verify-result` seulement) ; UI §3.7 ; CLAUDE.md. Rapport : `docs/rapports/verifier-fiches.md`.
+
+**Retouches (Thierry, 2026-10-05, branche `verifier-retouches` ; affichage seulement, rien ne touche la correction ni ce
+que l'attestation contient).**
+
+1. **Un tableau en fiches se colle sous son titre.** Entre « Questions réussies qui comptent » et la première fiche, il
+   y avait 33 px (13 px sous le titre, 12 px de marge au-dessus du tableau, 8 px de marge intérieure en haut de la
+   première fiche) contre 17 px et un trait entre deux fiches. Sous `.verify-result`, un tableau en fiches (la liste
+   des questions toujours, le tableau par outil sous 480 px) n'a plus de marge au-dessus, et l'espace entre deux
+   rangées de fiches vient de la grille (`row-gap: 8px`) plutôt que du haut de chaque fiche (`padding: 0 0 8px`) :
+   la première rangée — les deux premières fiches, sur ordinateur — n'a rien au-dessus. L'écart du titre au texte
+   de la première fiche est de 13 px, celui de deux fiches reste de 17 px, trait compris. Le tableau par outil en
+   colonnes (au-dessus de 480 px) ne change pas.
+2. **Le bloc d'informations, sur une seule colonne, où une date ne se coupe jamais.** À 1280 px, les deux colonnes
+   faisaient 296 px chacune (le panneau fait 680 px au plus, 620 px utiles) et « Début de l'exercice » comme
+   « Réussite de l'exercice » passaient sur deux lignes (57 px au lieu de 33) : la valeur se coupait entre la date
+   et l'heure. Il faut 313 px pour qu'une telle ligne tienne : deux colonnes ne le peuvent nulle part dans ce
+   panneau, même entre 481 et 640 px. Sur `/verifier`, le bloc est donc **sur une seule colonne à toute largeur**
+   (`.verify-result .attestation-facts { grid-template-columns: minmax(0, 1fr) }`) : neuf lignes de pleine largeur,
+   le libellé à gauche et la valeur à droite comme dans les fiches dessous, chacune sur une ligne de 1280 à 390 px.
+   Et **une date et heure ne se coupe jamais** : `attestationFacts` marque ses deux dates (`stamp: true`),
+   `factsGrid` leur donne la classe `attestation-fact--stamp`, et sous `.verify-result` leur valeur est `flex: none;
+   white-space: nowrap` — si la place manque (téléphone de moins de 390 px), c'est le libellé qui se replie, à
+   gauche. La page lettre garde ses deux colonnes et ignore la classe.
+3. **La page lettre de l'attestation n'est pas touchée** : tout le CSS nouveau est sous `.verify-result`,
+   `PAGE_LAYOUT` ne bouge pas ; l'attestation à l'écran et en mode impression est identique pixel pour pixel. Le
+   repli de la date n'existe pas sur la page lettre (à 12 px, ses colonnes de 255 px suffisent) : le point 5 du
+   rapport `verifier-fiches` se trompait en le disant.
+
+Conséquences : `attestation-data.js` (`stamp`), `attestation-screen.js` (`factsGrid`), `attestation.css` ;
+`tests/ui-verifier.test.js`, `tests/ui-attestation.test.js` ; UI §3.7. Rapport : `docs/rapports/verifier-retouches.md`.

@@ -399,4 +399,12 @@ Rapport de session : `docs/rapports/verifier-fiches.md`. Branche `verifier-fiche
 - [x] Test `tests/ui-verifier.test.js` (sur le DOM minuscule `tests/aide-dom.js`) : les `data-label` des deux tableaux, à deux et à cinq grandeurs, en largeurs ordinaires et resserrées ; les règles CSS sous `.verify-result` seulement ; le test des largeurs de `PAGE_LAYOUT` inchangé et vert
 - [x] Vérification dans Chrome, avant (arbre de `main`) et après, sur la même base et le même port : `/verifier` à 390 et 1280 px avec une attestation à deux grandeurs, une à cinq, une annulée (panneau doré), un enregistrement d'avant D41 (sans questions) ; aucun débordement à 390 px ; l'attestation à l'écran et en mode impression identique pixel pour pixel ; aucune erreur console ; captures dans `captures/verifier-fiches/`
 - [x] Documents : UI §3.7 ; CLAUDE.md ; rapport
-- [ ] **Thierry** : relire, trancher les points douteux du rapport, fusionner et déployer hors cours
+- [x] **Thierry** : relire, fusionner (fait le 2026-10-05) ; deux retouches demandées, ci-dessous
+
+Retouches (branche `verifier-retouches`, rapport `docs/rapports/verifier-retouches.md` ; affichage seulement) :
+- [x] Un tableau en fiches se colle sous son titre : plus de marge au-dessus, la première rangée sans marge intérieure du haut, l'espace entre les rangées par `row-gap` (questions toujours, outils sous 480 px) ; le tableau par outil en colonnes inchangé
+- [x] Le bloc d'informations sur une seule colonne sur `/verifier`, une date et heure jamais coupée (`stamp` dans `attestationFacts`, `attestation-fact--stamp`, `flex: none; white-space: nowrap` sous `.verify-result`) ; la page lettre garde ses deux colonnes
+- [x] Tests : `attestationFacts` (les dates marquées), `factsGrid`, les règles CSS sous `.verify-result` ; `npm test` 811, 0 échec
+- [x] Vérification dans Chrome, avant (1710cc0) et après : les écarts titre → première fiche et fiche → fiche (questions à 390 et 1280 px, outils à 390 px), les hauteurs des lignes du bloc à 1280, 1024, 768, 480 et 390 px, l'attestation à l'écran et à l'impression identique pixel pour pixel, aucune erreur console ; captures dans `captures/verifier-retouches/`
+- [x] Documents : UI §3.7 ; D90 (retouches en fin d'entrée) ; rapport
+- [ ] **Thierry** : relire, fusionner et déployer hors cours
