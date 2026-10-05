@@ -63,9 +63,10 @@ export function questionsTable(record, rows = questionRows(record), narrow = fal
   ]);
 }
 
-// Le bloc d'informations : deux colonnes de « libellé : valeur », aussi utilisé par la vérification.
+// Le bloc d'informations : deux colonnes de « libellé : valeur », aussi utilisé par la vérification (qui n'en fait qu'une).
+// Une date et heure (fact.stamp) est marquée : sur /verifier, elle ne se coupe jamais entre la date et l'heure.
 export function factsGrid(record) {
-  return el('div', { class: 'attestation-facts' }, attestationFacts(record).map((fact) => el('div', { class: 'attestation-fact' }, [
+  return el('div', { class: 'attestation-facts' }, attestationFacts(record).map((fact) => el('div', { class: fact.stamp ? 'attestation-fact attestation-fact--stamp' : 'attestation-fact' }, [
     el('span', { class: 'attestation-fact-label' }, fact.label),
     el('span', { class: fact.mono ? 'attestation-fact-value mono' : 'attestation-fact-value' }, fact.value),
   ])));

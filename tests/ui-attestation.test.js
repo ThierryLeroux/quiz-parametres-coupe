@@ -37,7 +37,7 @@ test('formatDateStamp : « 2026-09-21 13:05 », avec ou sans secondes, à l’he
   assert.equal(formatDateStamp(new Date(2026, 0, 3, 8, 4).toISOString()), '2026-01-03 08:04');
 });
 
-test('attestationFacts : le bloc d’informations, dans l’ordre, dates mises en forme, matricule en chasse fixe', () => {
+test('attestationFacts : le bloc d’informations, dans l’ordre, dates mises en forme et marquées (stamp), matricule en chasse fixe', () => {
   assert.deepEqual(attestationFacts(RECORD), [
     { label: 'Exercice', value: 'M10 — Tournage : vitesse de coupe' },
     { label: "Version de l'exercice", value: 'r0' },
@@ -45,8 +45,8 @@ test('attestationFacts : le bloc d’informations, dans l’ordre, dates mises e
     { label: 'Prénom', value: 'Zoé' },
     { label: 'Nom', value: "D'Amours Lévesque" },
     { label: 'Matricule', value: '2412345', mono: true },
-    { label: "Début de l'exercice", value: '2026-09-21 13:05' },
-    { label: "Réussite de l'exercice", value: '2026-09-21 13:48' },
+    { label: "Début de l'exercice", value: '2026-09-21 13:05', stamp: true },
+    { label: "Réussite de l'exercice", value: '2026-09-21 13:48', stamp: true },
     { label: 'Questions réussies', value: '15' },
   ]);
 });

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { installDom } from './aide-dom.js';
 import { questionColumns, questionRows } from '../site/js/ui/attestation-data.js';
-import { operationsTable, questionsTable } from '../site/js/ui/attestation-screen.js';
+import { factsGrid, operationsTable, questionsTable } from '../site/js/ui/attestation-screen.js';
 
 installDom({ url: 'http://localhost/verifier' });
 
@@ -103,4 +103,31 @@ test('attestation.css : les fiches de /verifier lisent data-label sous .verify-r
   assert.doesNotMatch(css.slice(0, css.indexOf('@media (max-width: 480px)')), /attestation-operations/);
   // Un texte se replie entre les mots dans les fiches (overflow-wrap: anywhere est la règle de la page lettre).
   assert.equal((css.match(/overflow-wrap: normal;/g) ?? []).length, 2);
+});
+
+test('factsGrid : les deux dates du bloc d’informations sont marquées (attestation-fact--stamp), rien d’autre ; le matricule en chasse fixe', () => {
+  const facts = factsGrid(RECORD).querySelectorAll('.attestation-fact');
+  assert.equal(facts.length, 9);
+  assert.deepEqual(facts.filter((fact) => fact.classList.contains('attestation-fact--stamp')).map((fact) => fact.querySelector('.attestation-fact-label').textContent), ["Début de l'exercice", "Réussite de l'exercice"]);
+  assert.deepEqual(facts.filter((fact) => fact.querySelector('.attestation-fact-value.mono')).map((fact) => fact.querySelector('.attestation-fact-label').textContent), ['Matricule']);
+  assert.equal(facts[6].querySelector('.attestation-fact-value').textContent, facts[6].querySelector('.attestation-fact-value').textContent.trim()); // la valeur, telle quelle
+});
+
+test('attestation.css, retouche de D90 : sur /verifier, un tableau en fiches se colle sous son titre, et le bloc d’informations est sur une colonne où une date ne se coupe pas', () => {
+  const css = readFileSync(new URL('../site/css/attestation.css', import.meta.url), 'utf8');
+  const mobile = css.slice(css.indexOf('@media (max-width: 480px)'), css.indexOf('@media print'));
+  // Les fiches : pas de marge au-dessus du tableau, la première rangée sans marge intérieure du haut, l'espace entre les rangées par la grille.
+  assert.match(css, /\.verify-result \.attestation-questions \{ display: block; margin-top: 0;/);
+  assert.match(css, /\.verify-result \.attestation-questions tbody \{\n  display: grid;\n  grid-template-columns: repeat\(auto-fill, minmax\(260px, 1fr\)\);\n  gap: var\(--space-2\) var\(--space-5\);\n\}/);
+  assert.match(css, /\.verify-result \.attestation-questions tr \{\n(?:  [^\n]*\n)*?  padding: 0 0 var\(--space-2\);\n  border-bottom: 1px solid var\(--verify-rule\);/);
+  assert.match(mobile, /\.verify-result \.attestation-operations \{ display: block; margin-top: 0; \}/);
+  assert.match(mobile, /\.verify-result \.attestation-operations tbody \{ display: grid; row-gap: var\(--space-2\); \}/);
+  assert.match(mobile, /\.verify-result \.attestation-operations tr \{\n    display: block;\n    padding: 0 0 var\(--space-2\);/);
+  // Le tableau par outil en colonnes garde sa marge au-dessus (la règle commune), hors de la zone des fiches.
+  assert.match(css, /^\.verify-result \.attestation-table \{ margin-top: var\(--space-3\); font-size: var\(--text-sm\); \}$/m);
+  // Le bloc d'informations : une colonne, les dates jamais coupées ; tout sous .verify-result, la page lettre garde ses deux colonnes.
+  assert.match(css, /^\.verify-result \.attestation-facts \{ grid-template-columns: minmax\(0, 1fr\); \}$/m);
+  assert.match(css, /^\.verify-result \.attestation-fact--stamp \.attestation-fact-value \{ flex: none; white-space: nowrap; \}$/m);
+  assert.deepEqual(css.split('}').filter((rule) => rule.includes('attestation-fact--stamp')).map((rule) => rule.slice(0, rule.indexOf('{')).trim()), ['.verify-result .attestation-fact--stamp .attestation-fact-value']);
+  assert.match(css, /^\.attestation-facts \{\n  flex: 1 1 auto;\n  display: grid;\n  grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/m); // la page lettre
 });

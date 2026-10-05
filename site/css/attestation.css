@@ -196,6 +196,12 @@
 .verify-result { --verify-rule: color-mix(in srgb, var(--color-text-muted) 40%, transparent); }
 .verify-result .attestation-fact { border-bottom-color: var(--verify-rule); }
 .verify-result .attestation-fact-label { color: var(--color-text-muted); }
+/* Le bloc d'informations, sur une seule colonne (retouche de D90) : le panneau (620 px utiles sur ordinateur) n'en loge
+   pas deux où « Réussite de l'exercice   2026-10-05 12:21 » tienne sur une ligne. Une date et heure ne se coupe jamais
+   entre la date et l'heure : si la place manque (téléphone étroit), c'est le libellé qui se replie, à gauche. La page
+   lettre de l'attestation garde ses deux colonnes. */
+.verify-result .attestation-facts { grid-template-columns: minmax(0, 1fr); }
+.verify-result .attestation-fact--stamp .attestation-fact-value { flex: none; white-space: nowrap; }
 .verify-result .table-wrap { overflow-x: auto; }
 .verify-result .attestation-table { margin-top: var(--space-3); font-size: var(--text-sm); }
 .verify-result .attestation-table th { border-bottom-color: var(--color-text); }
@@ -211,19 +217,22 @@
    puis l'outil, sa matière et le matériau usiné sur toute la largeur ; puis les grandeurs évaluées, deux par ligne.
    Un trait sépare les fiches ; quand le panneau a la place (ordinateur), deux fiches côte à côte. L'en-tête du
    tableau reste dans le DOM pour les lecteurs d'écran, caché à l'œil. Rien de ceci ne touche la page lettre de
-   l'attestation : tout est sous .verify-result. */
-.verify-result .attestation-questions { display: block; table-layout: auto; font-size: var(--text-sm); }
+   l'attestation : tout est sous .verify-result.
+   Un tableau en fiches se colle sous son titre (retouche de D90) : pas de marge au-dessus, et la première rangée de
+   fiches n'a pas de marge intérieure du haut — l'écart du titre à la première fiche est à peu près celui qui sépare
+   deux fiches. L'espace entre deux rangées vient de la grille (row-gap), pas du haut de chaque fiche. */
+.verify-result .attestation-questions { display: block; margin-top: 0; table-layout: auto; font-size: var(--text-sm); }
 .verify-result .attestation-questions tbody {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  column-gap: var(--space-5);
+  gap: var(--space-2) var(--space-5);
 }
 .verify-result .attestation-questions tr {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
   column-gap: var(--space-3);
-  padding: var(--space-2) 0;
+  padding: 0 0 var(--space-2);
   border-bottom: 1px solid var(--verify-rule);
 }
 /* Une ligne de fiche : le libellé à gauche, atténué, en police de texte (pas la chasse fixe des nombres) ; la valeur à
@@ -283,11 +292,11 @@
 
   /* Le tableau par outil, en fiches lui aussi sous 480 px (D90) : une fiche par outil, les mêmes lignes « libellé :
      valeur » que les questions, dans l'ordre des colonnes (Opération, Outil, Plage de dimensions, Réussites de suite). */
-  .verify-result .attestation-operations,
-  .verify-result .attestation-operations tbody { display: block; }
+  .verify-result .attestation-operations { display: block; margin-top: 0; }
+  .verify-result .attestation-operations tbody { display: grid; row-gap: var(--space-2); }
   .verify-result .attestation-operations tr {
     display: block;
-    padding: var(--space-2) 0;
+    padding: 0 0 var(--space-2);
     border-bottom: 1px solid var(--verify-rule);
   }
   .verify-result .attestation-operations td {

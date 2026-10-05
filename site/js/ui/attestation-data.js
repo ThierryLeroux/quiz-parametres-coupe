@@ -19,7 +19,9 @@ export function exerciseVersionLabel(revision) {
 }
 
 // Lignes du bloc d'informations, dans l'ordre d'affichage : [libellé, valeur].
-//   mono : la valeur s'écrit en chasse fixe (matricule, code)
+//   mono  : la valeur s'écrit en chasse fixe (matricule, code)
+//   stamp : la valeur est une date et heure — sur /verifier, elle ne se coupe jamais entre la date et l'heure (D90, retouche) ;
+//           si la place manque, c'est le libellé qui se replie
 export function attestationFacts(record) {
   return [
     { label: 'Exercice', value: record.exercice.titre },
@@ -28,8 +30,8 @@ export function attestationFacts(record) {
     { label: 'Prénom', value: record.etudiant.prenom },
     { label: 'Nom', value: record.etudiant.nom },
     { label: 'Matricule', value: record.etudiant.matricule, mono: true },
-    { label: "Début de l'exercice", value: formatDateStamp(record.debut) },
-    { label: "Réussite de l'exercice", value: formatDateStamp(record.reussite_le) },
+    { label: "Début de l'exercice", value: formatDateStamp(record.debut), stamp: true },
+    { label: "Réussite de l'exercice", value: formatDateStamp(record.reussite_le), stamp: true },
     { label: 'Questions réussies', value: String(record.questions_reussies) },
   ];
 }
