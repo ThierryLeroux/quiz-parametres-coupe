@@ -299,15 +299,12 @@ function dimensionRange(tool, entry) {
   return labels.length === 1 ? labels[0] : `${labels[0]} à ${labels.at(-1)}`;
 }
 
-// L'état de la séance : qui, quel exercice, où il en est, la question en attente.
-// Le prénom et le nom sont ceux de la première visite (D21).
-//   options : { testMode, now } — testMode est transmis à questionView (D26) ; now sert à attendre_s
-// Chaque outil de la progression porte aussi son opération et sa plage de dimensions : c'est ce que
-// l'attestation liste (D30), et qui fera partie du contenu signé au jalon 5.
-// attendre_s : secondes avant que la prochaine correction soit acceptée (cadence, SPEC §7) — le
-// navigateur en fait un compte à rebours ; 0 sans horloge, ou en mode test.
-export function sessionView(session, exercise, data, options = {}) {
-  const question = isQuestionValid(session.question_courante, session.compteurs, exercise, data) ? session.question_courante : null;
+// La progression telle qu'on la montre : un rang par outil de l'exercice, dans son ordre, avec son opération et sa
+// plage de dimensions — c'est ce que l'attestation liste (D30) et signe —, les réussites de suite plafonnées aux
+// réussites exigées ; le nombre d'outils terminés ; le total des questions réussies. La même pour une séance et
+// pour une démo (D92).
+//   counters : { reussites, totalReussies } (la colonne compteurs)
+export function progressionView(counters, exercise, data) {
   const tools = exercise.outils.map((entry) => {
     const tool = data.outils.find((candidate) => candidate.id === entry.id);
     return {
@@ -315,21 +312,31 @@ export function sessionView(session, exercise, data, options = {}) {
       nom: tool.nom,
       operation: tool.operation,
       plage: dimensionRange(tool, entry),
-      reussites: Math.min(session.compteurs.reussites[entry.id] ?? 0, entry.reussites_requises),
+      reussites: Math.min(counters.reussites[entry.id] ?? 0, entry.reussites_requises),
       requises: entry.reussites_requises,
     };
   });
+  return {
+    outils: tools,
+    outils_termines: tools.filter((tool) => tool.reussites >= tool.requises).length,
+    total_reussies: counters.totalReussies,
+  };
+}
+
+// L'état de la séance : qui, quel exercice, où il en est, la question en attente.
+// Le prénom et le nom sont ceux de la première visite (D21).
+//   options : { testMode, now } — testMode est transmis à questionView (D26) ; now sert à attendre_s
+// attendre_s : secondes avant que la prochaine correction soit acceptée (cadence, SPEC §7) — le
+// navigateur en fait un compte à rebours ; 0 sans horloge, ou en mode test.
+export function sessionView(session, exercise, data, options = {}) {
+  const question = isQuestionValid(session.question_courante, session.compteurs, exercise, data) ? session.question_courante : null;
   return {
     etudiant: { prenom: session.prenom, nom: session.nom, matricule: session.matricule },
     exercice: { id: exercise.id, titre: exercise.titre, version: exercise.version },
     debut: session.debut,
     reussite_le: session.reussite_le,
     attendre_s: options.now ? cadenceWait(session, options.now, options) : 0,
-    progression: {
-      outils: tools,
-      outils_termines: tools.filter((tool) => tool.reussites >= tool.requises).length,
-      total_reussies: session.compteurs.totalReussies,
-    },
+    progression: progressionView(session.compteurs, exercise, data),
     question: question === null ? null : questionView(question, exercise, data, options),
   };
 }

@@ -17,6 +17,11 @@ export function requestedExerciseId(search) {
   return new URLSearchParams(search).get('exercice') || null;
 }
 
+// L'adresse demande-t-elle le mode démo de l'exercice (D92) ? « ?exercice=<id>&demo=1 » (le bouton Démo de l'accueil).
+export function demoRequested(search) {
+  return new URLSearchParams(search).has('demo');
+}
+
 // Ce que le serveur rend d'une version d'exercice (GET /api/exercice) → { data, exercise, version, archived } :
 // le catalogue au format de loadData (assembleData : les tables de la version et les copies d'outils)
 // et l'exercice au format du moteur.

@@ -44,7 +44,12 @@ export class FakeElement {
   get className() { return this.getAttribute('class') ?? ''; }
   get classList() {
     const list = () => this.className.split(/\s+/).filter(Boolean);
-    return { contains: (name) => list().includes(name) };
+    const write = (names) => this.setAttribute('class', names.join(' '));
+    return {
+      contains: (name) => list().includes(name),
+      add: (...names) => write([...new Set([...list(), ...names])]),
+      remove: (...names) => write(list().filter((name) => !names.includes(name))),
+    };
   }
   get dataset() { return Object.fromEntries([...this.attributes].filter(([name]) => name.startsWith('data-')).map(([name, value]) => [name.slice(5), value])); }
   get hidden() { return this.hasAttribute('hidden'); }
@@ -81,6 +86,14 @@ export class FakeElement {
   remove() {
     if (this.parentNode) this.parentNode.childNodes = this.parentNode.childNodes.filter((node) => node !== this);
     this.parentNode = null;
+  }
+  // Insère des frères juste avant ce nœud (le bandeau du corrigé devant la rangée des boutons, question-screen.js).
+  before(...nodes) {
+    const parent = this.parentNode;
+    if (!parent) return;
+    const adopted = nodes.map((node) => parent.adopt(node));
+    const at = parent.childNodes.indexOf(this);
+    parent.childNodes.splice(at, 0, ...adopted);
   }
 
   addEventListener(type, listener) {

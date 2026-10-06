@@ -18,12 +18,13 @@ export function clientAddress(request) {
   return request.headers.get('cf-connecting-ip') ?? 'inconnue';
 }
 
-// --- Limites de débit (D36, D86) -----------------------------------------------------------------------
-// Consultation d'un matricule et vérification d'un code : au plus 1000 VALEURS DISTINCTES par
-// adresse et par heure — pas de limite sur le nombre de requêtes, puisque tous les postes du cégep
-// sortent par une seule adresse. Un refus verrouille l'adresse 10 minutes : tout le cégep, donc.
-// D'où une limite large (D86) : 500 inscrits au plus, et un matricule mal tapé compte comme une
-// valeur distincte. UNE SEULE constante pour les deux portées, consultation et vérification.
+// --- Limites de débit (D36, D86, D92) --------------------------------------------------------------------
+// Consultation d'un matricule, vérification d'un code, démos commencées (D92) : au plus 1000 VALEURS
+// DISTINCTES par adresse et par heure — pas de limite sur le nombre de requêtes, puisque tous les
+// postes du cégep sortent par une seule adresse. Un refus verrouille l'adresse 10 minutes pour cette
+// portée seule (les verrous sont par portée et adresse) : tout le cégep, donc. D'où une limite large
+// (D86) : 500 inscrits au plus, et un matricule mal tapé compte comme une valeur distincte. UNE SEULE
+// constante pour les trois portées.
 
 export const DISTINCT_PER_HOUR = 1000;
 export const REFUSAL_LOCK_MS = 10 * MINUTE;
@@ -75,7 +76,7 @@ export const canAct = (role) => role === ADMIN;
 export const PURGE_WORD = 'EFFACER';
 
 // Ce que le journal des actions note d'un effacement :
-// « 3 séances · 40 corrections · 1 correction d'identité · 3 attestations · 12 compteurs de débit · 1 verrou · 4 entrées du journal anonymisées ».
+// « 3 séances · 40 corrections · 1 correction d'identité · 3 attestations · 2 démos · 12 compteurs de débit · 1 verrou · 4 entrées du journal anonymisées ».
 export function purgeDetails(counts) {
   const plural = (count, one, many) => `${count} ${count > 1 ? many : one}`; // en français, zéro reste au singulier
   return [
@@ -83,6 +84,7 @@ export function purgeDetails(counts) {
     plural(counts.corrections, 'correction', 'corrections'),
     plural(counts.corrections_identite, "correction d'identité", "corrections d'identité"),
     plural(counts.attestations, 'attestation', 'attestations'),
+    plural(counts.demos ?? 0, 'démo', 'démos'), // D92 : les démos en cours, jetables, partent avec le reste
     plural(counts.debit, 'compteur de débit', 'compteurs de débit'),
     plural(counts.verrous, 'verrou', 'verrous'),
     plural(counts.journal_anonymise, 'entrée du journal anonymisée', 'entrées du journal anonymisées'),

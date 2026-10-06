@@ -31,26 +31,35 @@ export function recordResult(progress, toolId, success) {
   };
 }
 
-// Outils encore à évaluer, prêts pour generateQuestion (question.js) : ceux de l'exercice
-// dont le compteur est sous reussites_requises. Si l'exercice restreint les dimensions, les
-// matériaux d'outil (pour un outil, ou pour tout l'exercice : D40) ou les groupes de matériaux
-// d'un outil, l'outil retourné est une COPIE qui ne contient que les choix permis ; le catalogue
-// n'est pas modifié.
+// Un outil de l'exercice, prêt pour generateQuestion (question.js). Si l'exercice restreint les
+// dimensions, les matériaux d'outil (pour un outil, ou pour tout l'exercice : D40) ou les groupes
+// de matériaux d'un outil, l'outil retourné est une COPIE qui ne contient que les choix permis ;
+// le catalogue n'est pas modifié.
+function restrictedTool(exercise, data, entry) {
+  const tool = data.outils.find((o) => o.id === entry.id);
+  if (!tool) throw new Error(`Exercice « ${exercise.id} » : l'outil « ${entry.id} » n'existe pas dans le catalogue`);
+  // Une restriction absente laisse tous les choix de l'outil.
+  return {
+    ...tool,
+    dimensions: entry.dimensions ? tool.dimensions.filter((d) => entry.dimensions.includes(d.libelle)) : tool.dimensions,
+    materiaux_outil: allowedToolMaterials(exercise, entry, tool),
+    groupes_materiaux_usinables: allowedGroups(exercise, entry, tool),
+  };
+}
+
+// Tous les outils de l'exercice, dans son ordre, avec leurs restrictions — sans regarder les
+// compteurs : le mode démo (D92) tire parmi eux sur l'outil choisi, ou à 100 %.
+export function restrictedTools(exercise, data) {
+  return exercise.outils.map((entry) => restrictedTool(exercise, data, entry));
+}
+
+// Outils encore à évaluer, prêts pour generateQuestion : ceux de l'exercice dont le compteur est
+// sous reussites_requises, avec leurs restrictions.
 export function eligibleTools(exercise, data, progress) {
   checkSameExercise(exercise, progress);
   return exercise.outils
     .filter((entry) => (progress.reussites[entry.id] ?? 0) < entry.reussites_requises)
-    .map((entry) => {
-      const tool = data.outils.find((o) => o.id === entry.id);
-      if (!tool) throw new Error(`Exercice « ${exercise.id} » : l'outil « ${entry.id} » n'existe pas dans le catalogue`);
-      // Une restriction absente laisse tous les choix de l'outil.
-      return {
-        ...tool,
-        dimensions: entry.dimensions ? tool.dimensions.filter((d) => entry.dimensions.includes(d.libelle)) : tool.dimensions,
-        materiaux_outil: allowedToolMaterials(exercise, entry, tool),
-        groupes_materiaux_usinables: allowedGroups(exercise, entry, tool),
-      };
-    });
+    .map((entry) => restrictedTool(exercise, data, entry));
 }
 
 // L'exercice est réussi quand chaque outil a atteint ses réussites requises.

@@ -83,18 +83,25 @@ const pageFooter = (record, number, total) => el('footer', { class: 'attestation
   el('span', {}, pageLabel(number, total)),
 ]);
 
+// Le filigrane « SPÉCIMEN » d'un spécimen (D92, 9.3) : en travers de chaque page, à l'écran et à l'impression ;
+// décoratif, le titre de la page et la vérification disent déjà ce que c'est.
+const watermark = () => el('div', { class: 'attestation-watermark', 'aria-hidden': 'true' }, 'SPÉCIMEN');
+
 // Les pages lettre de l'attestation : la première avec le QR, le bloc d'informations et le tableau
 // par outil ; la liste des questions réussies commence dessous. Les deux tableaux continuent, au
 // besoin, sur les pages suivantes, avec leur titre et leur en-tête (attestation-data.js décide de la coupe).
 //   attestation : { attestation (l'enregistrement), code, url_verification } rendus par GET /api/attestation
 //   host        : l'adresse du site, pour la mention de vérification
-export function attestationPages({ attestation: record, code, url_verification: url }, host) {
+//   specimen    : un spécimen du mode démo (D92) : chaque page porte la classe attestation--specimen et le filigrane
+export function attestationPages({ attestation: record, code, url_verification: url }, host, { specimen = false } = {}) {
   const listed = hasQuestions(record);
   const answerColumns = questionColumns(record).length;
   const { narrow } = questionWidths(answerColumns);
   const pages = paginateAttestation(attestationRows(record), listed ? questionRows(record) : [], answerColumns);
   const total = pages.length;
   const titles = tableTitles(pages, record.questions?.length ?? 0);
+  const pageClass = (continued) => `print-page attestation${continued ? ' attestation--continued' : ''}${specimen ? ' attestation--specimen' : ''}`;
+  const mark = () => (specimen ? watermark() : '');
   // Ce qu'une page porte des deux tableaux, dans l'ordre : le tableau par outil, sa note, la liste des questions.
   const tables = (page, i) => [
     ...(titles[i].tools === null ? [] : [el('h2', { class: 'attestation-subtitle' }, titles[i].tools), operationsTable(record, page.tools)]),
@@ -102,7 +109,8 @@ export function attestationPages({ attestation: record, code, url_verification: 
     ...(titles[i].questions === null ? [] : [el('h2', { class: 'attestation-subtitle' }, titles[i].questions)]),
     ...(page.questions.length > 0 ? [questionsTable(record, page.questions, narrow)] : []),
   ];
-  const first = el('article', { class: 'print-page attestation' }, [
+  const first = el('article', { class: pageClass(false) }, [
+    mark(),
     pageHeader(),
     el('h1', { class: 'attestation-title', tabindex: '-1' }, "Attestation de réussite — calcul de paramètres d'usinage"),
     el('div', { class: 'attestation-head' }, [
@@ -116,7 +124,8 @@ export function attestationPages({ attestation: record, code, url_verification: 
     ...tables(pages[0], 0),
     pageFooter(record, 1, total),
   ]);
-  const rest = pages.slice(1).map((page, i) => el('article', { class: 'print-page attestation attestation--continued' }, [
+  const rest = pages.slice(1).map((page, i) => el('article', { class: pageClass(true) }, [
+    mark(),
     pageHeader(),
     el('p', { class: 'attestation-continuation' }, continuationLine(record, code)),
     ...tables(page, i + 1),

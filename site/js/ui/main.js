@@ -2,10 +2,16 @@
 // Le navigateur affiche ; la séance vit sur le serveur de correction (D19). Ici on ne fait
 // qu'appeler app.js (choix de l'exercice), api.js (le serveur) et session.js (le jeton local).
 
-import { loadApp, loadExerciseVersion } from '../app.js';
-import { createSession, getAttestation, lookupSession, nextQuestion, resumeSession, signOut, submitAnswers, updateIdentity } from '../api.js';
+import { demoRequested, loadApp, loadExerciseVersion } from '../app.js';
+import {
+  chooseDemoTool, createSession, demoQuestion, getAttestation, getSpecimen, lookupSession, nextQuestion, resumeSession, signOut, startDemo, submitAnswers,
+  submitDemoAnswers, updateIdentity,
+} from '../api.js';
 import { clearSession, loadSession, saveSession, sessionFor } from '../session.js';
 import { renderAttestation, renderAttestationError } from './attestation-screen.js';
+import { DEMO_EXPIRED_NOTICE, demoToolGroups } from './demo-data.js';
+import { renderDemoChooser, renderSpecimen } from './demo-screen.js';
+import { toolRows } from './home-data.js';
 import { renderHome, renderHomeList, renderLoadError } from './home-screen.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from './identification-screen.js';
 import { applyTableColors, convertDecimalCommas } from './dom.js';
@@ -174,6 +180,103 @@ async function openQuestion(jeton) {
   }
 }
 
+// --- Le mode démo (D92) : une séance anonyme, sans identification, sans trace durable ------------------------------
+// Son jeton reste ici, en mémoire de la page : rien dans le navigateur ; recharger la page ramène au choix de l'outil.
+let demoToken = null;
+
+// Le choix de l'outil : à l'entrée (la démo commence au choix), ou en cours de démo (« Changer d'outil »).
+function showDemoChooser({ notice = '', chosen = null, inSession = false } = {}) {
+  renderDemoChooser(main, { exercise, groups: demoToolGroups(toolRows(exercise, data)), chosen, notice, inSession }, {
+    onChoose: (toolId) => (inSession ? changeDemoTool(toolId) : openDemo(toolId)),
+    onSpecimen: showSpecimen,
+    onBack: resumeDemo,
+  });
+}
+
+// Commence la démo sur l'outil choisi (ou au hasard) ; retourne le message à afficher, ou null.
+async function openDemo(toolId) {
+  try {
+    const { jeton, demo } = await startDemo(exercise.id, toolId);
+    demoToken = jeton;
+    await ensureVersion(demo);
+    showDemo(demo);
+    return null;
+  } catch (error) {
+    return serverErrorMessage(error);
+  }
+}
+
+// Change l'outil des prochaines questions ; retourne le message à afficher, ou null.
+async function changeDemoTool(toolId) {
+  try {
+    const { demo } = await chooseDemoTool(demoToken, exercise.id, toolId);
+    showDemo(demo);
+    return null;
+  } catch (error) {
+    if (error.status === 401) return demoExpired();
+    return serverErrorMessage(error);
+  }
+}
+
+// Le serveur ne reconnaît plus la démo (24 h sans activité) : on en commence une autre.
+function demoExpired() {
+  demoToken = null;
+  showDemoChooser({ notice: DEMO_EXPIRED_NOTICE });
+  return null;
+}
+
+// Redemande au serveur la question en attente de la démo (retour du spécimen ou du choix de l'outil) et l'affiche.
+async function resumeDemo() {
+  if (demoToken === null) {
+    showDemoChooser();
+    return null;
+  }
+  try {
+    const { demo } = await demoQuestion(demoToken, exercise.id);
+    await ensureVersion(demo);
+    showDemo(demo);
+    return null;
+  } catch (error) {
+    if (error.status === 401) return demoExpired();
+    return serverErrorMessage(error);
+  }
+}
+
+// La question de la démo : l'écran Question du vrai exercice, en mode démo.
+function showDemo(demo) {
+  renderQuestion(main, { seance: demo, data, labels, demo: true }, {
+    onQuit: showHome,
+    onTables: (sheet) => reference.open(sheet),
+    onChooseTool: () => showDemoChooser({ chosen: demo.outil_choisi, inSession: true }),
+    onSpecimen: showSpecimen,
+    onNext: showDemo,
+    onCheck: async (answers) => {
+      try {
+        const { correction, demo: next } = await submitDemoAnswers(demoToken, exercise.id, answers);
+        return { correction, seance: next };
+      } catch (error) {
+        if (error.status === 401) return demoExpired();
+        if (error.status === 409) {
+          // Plus de question à corriger ici (autre onglet) : on redemande où en est la démo.
+          const message = await resumeDemo();
+          return message === null ? null : { message };
+        }
+        return { message: serverErrorMessage(error), attendre_s: error.details?.attendre_s };
+      }
+    },
+  });
+}
+
+// Le spécimen d'attestation (D92, point 9), composé par le serveur ; « Retour à la démo » redemande la question en attente.
+async function showSpecimen() {
+  try {
+    const specimen = await getSpecimen(exercise.id);
+    renderSpecimen(main, { exercise, specimen }, { onBack: resumeDemo });
+  } catch (error) {
+    showDemoChooser({ notice: serverErrorMessage(error), inSession: demoToken !== null });
+  }
+}
+
 async function start() {
   try {
     const app = await loadApp(location.search);
@@ -184,6 +287,11 @@ async function start() {
     }
     useExercise(app);
     archived = app.archived;
+    // Le mode démo (D92) : « &demo=1 » ouvre le choix de l'outil, sans formulaire ; un exercice archivé n'en a pas.
+    if (demoRequested(location.search) && !archived) {
+      showDemoChooser();
+      return;
+    }
     showHome();
   } catch (error) {
     renderLoadError(main, error);

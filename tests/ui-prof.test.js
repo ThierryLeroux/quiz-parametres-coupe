@@ -118,10 +118,10 @@ test('effacement (D46) : le même mot que le serveur ; l’annonce dit ce qui pa
   assert.match(purgeIntro(3), /journal des actions reste, anonymisé \(matricules, noms et codes remplacés par « — »\)/);
   assert.match(purgeIntro(3), /compteurs de débit et les verrous/);
   assert.match(purgeIntro(3), /exercices, la banque d'outils et les données de référence ne sont jamais touchés/);
-  assert.equal(purgeSummary({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2, debit: 12, verrous: 1, journal_anonymise: 4 }),
-    "Effacé : 3 séances, 40 corrections, 1 correction d'identité, 2 attestations, 12 compteurs de débit et 1 verrou ; journal des actions gardé, 4 entrées anonymisées.");
+  assert.equal(purgeSummary({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2, demos: 2, debit: 12, verrous: 1, journal_anonymise: 4 }),
+    "Effacé : 3 séances, 40 corrections, 1 correction d'identité, 2 attestations, 2 démos, 12 compteurs de débit et 1 verrou ; journal des actions gardé, 4 entrées anonymisées.");
   assert.equal(purgeSummary({ seances: 0, corrections: 0, corrections_identite: 0, attestations: 0, debit: 0, verrous: 0, journal_anonymise: 0 }),
-    "Effacé : 0 séance, 0 correction, 0 correction d'identité, 0 attestation, 0 compteur de débit et 0 verrou ; journal des actions gardé, 0 entrée anonymisée.");
+    "Effacé : 0 séance, 0 correction, 0 correction d'identité, 0 attestation, 0 démo, 0 compteur de débit et 0 verrou ; journal des actions gardé, 0 entrée anonymisée.");
 });
 
 test('nipResetConfirmation : nomme l’étudiant et l’exercice, dit que la progression ne change pas', () => {

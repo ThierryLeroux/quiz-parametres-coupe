@@ -1,11 +1,12 @@
-// Tests de site/js/ui/home-data.js (D71, D91) et de l'écran de l'accueil (home-screen.js, sur le DOM minuscule de
-// aide-dom.js) : les cartes de cours, les démos rattachées à leur exercice, la page de description d'un exercice —
-// composée, comme dans le navigateur, à partir de ce que le serveur publie (GET /api/exercice).
+// Tests de site/js/ui/home-data.js (D71, D91, D92) et de l'écran de l'accueil (home-screen.js, sur le DOM minuscule de
+// aide-dom.js) : les cartes de cours, le bouton Démo de chaque rangée (le mode démo, D92), la page de description d'un
+// exercice — composée, comme dans le navigateur, à partir de ce que le serveur publie (GET /api/exercice).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { assembleExercise } from '../site/js/app.js';
-import { NO_COURSE_NAME, OTHERS_TITLE, attachDemos, courseAnchor, exerciseHref, exerciseLink, gradedFields, homeCards, homeGroups, materialGroups, questionLines, splitCourse, streakText, toolRows } from '../site/js/ui/home-data.js';
+import { NO_COURSE_NAME, OTHERS_TITLE, courseAnchor, exerciseHref, exerciseLink, gradedFields, homeCards, homeGroups, materialGroups, questionLines, splitCourse, streakText, toolRows } from '../site/js/ui/home-data.js';
 import { DEMO_NOTE, HOME_STEPS, HOME_TITLE, NO_EXERCISE_NOTICE, TEACHER_LINK_LABEL, renderHomeList, unknownExerciseNotice } from '../site/js/ui/home-screen.js';
+import { demoHref } from '../site/js/ui/demo-data.js';
 import { countText } from '../site/js/ui/text.js';
 import { installDom } from './aide-dom.js';
 import { serveurDeTest } from './aide-serveur.js';
@@ -15,24 +16,17 @@ const publie = async (id) => assembleExercise((await serveur.appel('GET', `/api/
 const m10 = await publie('m10-tournage-vc');
 const vcRpm = await publie('m10-tournage-vc-rpm');
 
-// La liste de l'accueil telle que GET /api/exercices la rend en production (lot du 29 sept., D84), dans l'ordre des
-// rangs : chaque démo juste avant son exercice.
+// La liste de l'accueil telle que GET /api/exercices la rend en production (lot du 29 sept., D84 ; les sept
+// exercices de démo archivés, D92), dans l'ordre des rangs.
 const DEUX = ['vc', 'n'];
 const CINQ = ['vc', 'fz', 'n', 'f', 'vf'];
 const LOT = [
-  { id: 'demo-m10-tournage-vc-rpm-2', titre: "Tournage — Démo de l'exercice 2", cours: 'M10 — Tournage', nombre_outils: 1, champs_evalues: DEUX },
   { id: 'm10-tournage-vc-rpm-2', titre: 'Tournage — Exercice 2', cours: 'M10 — Tournage', nombre_outils: 13, champs_evalues: DEUX },
-  { id: 'demo-m10-tournage-avances', titre: "Tournage — Démo de l'exercice 3", cours: 'M10 — Tournage', nombre_outils: 1, champs_evalues: CINQ },
   { id: 'm10-tournage-avances', titre: 'Tournage — Exercice 3', cours: 'M10 — Tournage', nombre_outils: 9, champs_evalues: CINQ },
-  { id: 'demo-m10-fraisage-vc-rpm', titre: "Fraisage — Démo de l'exercice 2", cours: 'M10 — Fraisage', nombre_outils: 1, champs_evalues: DEUX },
   { id: 'm10-fraisage-vc-rpm', titre: 'Fraisage — Exercice 2', cours: 'M10 — Fraisage', nombre_outils: 13, champs_evalues: DEUX },
-  { id: 'demo-m10-fraisage-avances', titre: "Fraisage — Démo de l'exercice 3", cours: 'M10 — Fraisage', nombre_outils: 1, champs_evalues: CINQ },
   { id: 'm10-fraisage-avances', titre: 'Fraisage — Exercice 3', cours: 'M10 — Fraisage', nombre_outils: 6, champs_evalues: CINQ },
-  { id: 'demo-m30-fraisage-cn', titre: 'M30 — Démo : fraisage CN', cours: 'M30', nombre_outils: 1, champs_evalues: CINQ },
   { id: 'm30-fraisage-cn', titre: 'M30 — Fraisage CN : paramètres de coupe', cours: 'M30', nombre_outils: 18, champs_evalues: CINQ },
-  { id: 'demo-m40-tournage-cn', titre: 'M40 — Démo : tournage CN', cours: 'M40', nombre_outils: 1, champs_evalues: CINQ },
   { id: 'm40-tournage-cn', titre: 'M40 — Tournage CN : paramètres de coupe', cours: 'M40', nombre_outils: 15, champs_evalues: CINQ },
-  { id: 'demo-f50-synthese', titre: 'F50 — Démo : synthèse', cours: 'F50', nombre_outils: 1, champs_evalues: CINQ },
   { id: 'f50-synthese', titre: 'F50 — Synthèse du fraisage et du tournage', cours: 'F50', nombre_outils: 35, champs_evalues: CINQ },
 ];
 
@@ -62,31 +56,7 @@ test('exerciseLink et exerciseHref (D71) : le lien de la page d’un exercice, a
   assert.equal(exerciseHref('a b'), '?exercice=a%20b');
 });
 
-// --- Accueil : les démos rattachées, les cartes (D91) -----------------------------------------------------------------
-
-test('attachDemos (D91) : « demo-<id> » s’accroche à « <id> » quand les deux sont dans la liste ; l’ordre des rangs est conservé', () => {
-  const rows = attachDemos(LOT);
-  assert.deepEqual(rows.map((r) => r.id), ['m10-tournage-vc-rpm-2', 'm10-tournage-avances', 'm10-fraisage-vc-rpm', 'm10-fraisage-avances', 'm30-fraisage-cn', 'm40-tournage-cn', 'f50-synthese']);
-  assert.deepEqual(rows.map((r) => r.demo?.id), ['demo-m10-tournage-vc-rpm-2', 'demo-m10-tournage-avances', 'demo-m10-fraisage-vc-rpm', 'demo-m10-fraisage-avances', 'demo-m30-fraisage-cn', 'demo-m40-tournage-cn', 'demo-f50-synthese']);
-  // L'entrée de l'exercice est gardée telle quelle (titre, cours, nombre d'outils, grandeurs), la démo entière dessous.
-  assert.deepEqual(rows[0], { ...LOT[1], demo: LOT[0] });
-  // La démo après son exercice dans la liste : même résultat ; la rangée garde la place de l'exercice.
-  const inversee = attachDemos([LOT[1], LOT[0], LOT[3]]);
-  assert.deepEqual(inversee.map((r) => [r.id, r.demo?.id ?? null]), [['m10-tournage-vc-rpm-2', 'demo-m10-tournage-vc-rpm-2'], ['m10-tournage-avances', null]]);
-  assert.deepEqual(attachDemos([]), []);
-});
-
-test('attachDemos (D91) : une démo orpheline (exercice archivé ou retiré de l’accueil) ou sans la convention reste une rangée ordinaire, avec son titre', () => {
-  const orpheline = attachDemos([LOT[0], LOT[3]]); // la démo de l'exercice 2, sans l'exercice 2
-  assert.deepEqual(orpheline.map((r) => [r.id, r.titre, r.demo]), [['demo-m10-tournage-vc-rpm-2', "Tournage — Démo de l'exercice 2", null], ['m10-tournage-avances', 'Tournage — Exercice 3', null]]);
-  // Sans la convention : « m30-demo », « demo_m30 », « demo-m30-fraisage » (un autre identifiant) restent des rangées.
-  const sans = attachDemos([{ id: 'm30-demo', titre: 'Démo du M30', cours: 'M30' }, { id: 'demo_m30', titre: 'Démo', cours: 'M30' }, { id: 'demo-m30-fraisage', titre: 'Démo', cours: 'M30' }, LOT[9]]);
-  assert.deepEqual(sans.map((r) => [r.id, r.demo]), [['m30-demo', null], ['demo_m30', null], ['demo-m30-fraisage', null], ['m30-fraisage-cn', null]]);
-  // Une démo dont le cours diffère de celui de son exercice s'accroche quand même : c'est l'exercice qui range la rangée.
-  const autreCours = attachDemos([{ ...LOT[0], cours: 'M99' }, LOT[1]]);
-  assert.deepEqual(autreCours.map((r) => [r.id, r.cours, r.demo?.id]), [['m10-tournage-vc-rpm-2', 'M10 — Tournage', 'demo-m10-tournage-vc-rpm-2']]);
-  assert.deepEqual(homeGroups(autreCours).map((g) => g.title), ['M10 — Tournage']);
-});
+// --- Accueil : les cartes (D91), le bouton Démo de chaque rangée (D92) ----------------------------------------------
 
 test('splitCourse (D91) : le sigle et le nom, coupés au premier « — » ; sans tiret, tout est le sigle', () => {
   assert.deepEqual(splitCourse('M10 — Tournage'), { code: 'M10', name: 'Tournage' });
@@ -116,7 +86,7 @@ test('gradedFields (D91) : les grandeurs évaluées dans l’ordre Vc, fz, N, f,
   assert.deepEqual(gradedFields([]), []);
 });
 
-test('homeCards (D91) : une carte par cours, dans l’ordre des rangs ; le compte sans les démos ; chaque rangée nommée en toutes lettres, avec sa démo', () => {
+test('homeCards (D91, D92) : une carte par cours, dans l’ordre des rangs ; chaque rangée nommée en toutes lettres, avec le bouton Démo de son mode démo', () => {
   const cards = homeCards(LOT);
   assert.deepEqual(cards.map((c) => [c.id, c.code, c.name, c.count, c.rows.length]), [
     ['cours-m10-tournage', 'M10', 'Tournage', '2 exercices', 2],
@@ -132,17 +102,20 @@ test('homeCards (D91) : une carte par cours, dans l’ordre des rangs ; le compt
   assert.deepEqual(row.fields.map((f) => f.symbol), ['Vc', 'N']);
   assert.equal(row.tools, '13 outils');
   assert.equal(row.name, 'Tournage — Exercice 2 — à trouver : vitesse de coupe, vitesse de rotation — 13 outils');
-  assert.deepEqual(row.demo, { id: 'demo-m10-tournage-vc-rpm-2', href: '?exercice=demo-m10-tournage-vc-rpm-2', title: "Tournage — Démo de l'exercice 2", name: "Démo : Tournage — Démo de l'exercice 2", hint: "Tournage — Démo de l'exercice 2 — une seule question, à faire au projecteur" });
+  // Le bouton Démo (D92) : le mode démo de l'exercice, nommé et expliqué en toutes lettres.
+  assert.deepEqual(row.demo, { href: '?exercice=m10-tournage-vc-rpm-2&demo=1', name: 'Démo : Tournage — Exercice 2', hint: "Tournage — Exercice 2 — mode démo : des questions à volonté sur l'outil de ton choix, sans identification ; rien n'est gardé" });
+  assert.equal(row.demo.href, demoHref('m10-tournage-vc-rpm-2'));
+  assert.ok(cards.every((c) => c.rows.every((r) => r.demo.href === `?exercice=${r.id}&demo=1`)));
   assert.equal(cards[4].rows[0].name, "F50 — Synthèse du fraisage et du tournage — à trouver : vitesse de coupe, avance par dent, vitesse de rotation, avance totale par révolution, vitesse d'avance — 35 outils");
   // Un seul outil : « 1 outil » ; le pluriel vient de countText.
-  assert.equal(homeCards([LOT[0]])[0].rows[0].tools, '1 outil');
+  assert.equal(homeCards([{ ...LOT[0], nombre_outils: 1 }])[0].rows[0].tools, '1 outil');
   assert.equal(countText(0, 'exercice'), '0 exercice');
 });
 
 test('homeCards (D91) : « Autres exercices » et le groupe sans titre font une carte sans sigle ; un serveur d’avant (sans nombre d’outils ni grandeurs) donne une rangée au titre seul', () => {
   const mixte = homeCards([{ id: 'a', titre: 'A', cours: 'M10' }, { id: 'b', titre: 'B', cours: null, nombre_outils: 4, champs_evalues: ['vc'] }]);
   assert.deepEqual(mixte.map((c) => [c.id, c.title, c.code, c.name, c.count]), [['cours-m10', 'M10', 'M10', null, '1 exercice'], ['cours-autres-exercices', 'Autres exercices', null, 'Autres exercices', '1 exercice']]);
-  assert.deepEqual(mixte[0].rows[0], { id: 'a', href: '?exercice=a', title: 'A', fields: [], tools: null, name: 'A', demo: null });
+  assert.deepEqual(mixte[0].rows[0], { id: 'a', href: '?exercice=a', title: 'A', fields: [], tools: null, name: 'A', demo: { href: '?exercice=a&demo=1', name: 'Démo : A', hint: "A — mode démo : des questions à volonté sur l'outil de ton choix, sans identification ; rien n'est gardé" } });
   assert.equal(mixte[1].rows[0].name, 'B — à trouver : vitesse de coupe — 4 outils');
   const sansCours = homeCards([{ id: 'a', titre: 'A', nombre_outils: 2, champs_evalues: ['fz'] }]);
   assert.deepEqual(sansCours.map((c) => [c.id, c.title, c.code, c.name, c.count]), [['cours-exercices', null, null, NO_COURSE_NAME, '1 exercice']]);
@@ -183,7 +156,8 @@ test('renderHomeList (D91) : l’en-tête sur le fond (sur-titre, h1 au focus, t
   const teacher = screen.querySelector('section.panel.home-teacher');
   assert.equal(teacher.querySelector('.eyebrow').textContent, 'Enseignants');
   assert.equal(teacher.querySelector('p').textContent, DEMO_NOTE);
-  assert.equal(DEMO_NOTE, "« Démo » : une seule question de l'exercice, à faire au projecteur avec le groupe.");
+  assert.equal(DEMO_NOTE, "« Démo » : l'exercice sans identification — des questions à volonté sur l'outil de ton choix et un exemple d'attestation ; rien n'est gardé.");
+  assert.doesNotMatch(DEMO_NOTE, /une seule question/); // D92 : plus une démo-exercice d'une question
   const link = teacher.querySelector('a.button-outline[href="/prof"]');
   assert.equal(link.textContent, TEACHER_LINK_LABEL);
   assert.equal(TEACHER_LINK_LABEL, 'Espace professeur →');
@@ -194,13 +168,13 @@ test('renderHomeList (D91) : l’en-tête sur le fond (sur-titre, h1 au focus, t
   assert.equal(document.querySelector('#header-aside').textContent, 'TGM-TMI');
 });
 
-test('renderHomeList (D91) : une rangée par exercice — le lien couvre la rangée, nommé en toutes lettres ; les pastilles avec leur nom ; la démo en lien à part ; jamais de lien dans un lien', () => {
+test('renderHomeList (D91, D92) : une rangée par exercice — le lien couvre la rangée, nommé en toutes lettres ; les pastilles avec leur nom ; le bouton Démo en lien à part, vers le mode démo ; jamais de lien dans un lien', () => {
   renderHomeList(main, LOT, null);
   const rows = main.querySelectorAll('.course-card .ex-rows li.ex-row');
   assert.ok(rows.every((r) => r.parentNode.classList.contains('ex-rows')));
   assert.equal(rows.length, 7);
   assert.equal(main.querySelectorAll('a a').length, 0);
-  assert.equal(main.querySelectorAll('.course-card a').length, 14); // 7 rangées + 7 démos : aucune rangée pour une démo rattachée
+  assert.equal(main.querySelectorAll('.course-card a').length, 14); // 7 rangées + 7 boutons Démo
   assert.deepEqual(texts('.course-card .ex-title'), ['Tournage — Exercice 2', 'Tournage — Exercice 3', 'Fraisage — Exercice 2', 'Fraisage — Exercice 3', 'M30 — Fraisage CN : paramètres de coupe', 'M40 — Tournage CN : paramètres de coupe', 'F50 — Synthèse du fraisage et du tournage']);
   const first = rows[0];
   const mainLink = first.querySelector('a.ex-main');
@@ -212,10 +186,11 @@ test('renderHomeList (D91) : une rangée par exercice — le lien couvre la rang
   assert.deepEqual(mainLink.querySelectorAll('.qty').map((q) => [q.textContent, q.getAttribute('title')]), [['Vc', 'vitesse de coupe'], ['N', 'vitesse de rotation']]);
   assert.match(mainLink.querySelector('.ex-facts').textContent, /·13 outils$/);
   const demo = first.querySelector('a.ex-demo');
-  assert.equal(demo.getAttribute('href'), '?exercice=demo-m10-tournage-vc-rpm-2');
-  assert.equal(demo.getAttribute('aria-label'), "Démo : Tournage — Démo de l'exercice 2");
-  assert.equal(demo.getAttribute('title'), "Tournage — Démo de l'exercice 2 — une seule question, à faire au projecteur");
+  assert.equal(demo.getAttribute('href'), '?exercice=m10-tournage-vc-rpm-2&demo=1'); // le mode démo de l'exercice (D92)
+  assert.equal(demo.getAttribute('aria-label'), 'Démo : Tournage — Exercice 2');
+  assert.equal(demo.getAttribute('title'), "Tournage — Exercice 2 — mode démo : des questions à volonté sur l'outil de ton choix, sans identification ; rien n'est gardé");
   assert.equal(demo.textContent, 'Démo'); // la majuscule vient de la feuille de style
+  assert.deepEqual(rows.map((r) => r.querySelector('a.ex-demo').getAttribute('href')), LOT.map((e) => `?exercice=${e.id}&demo=1`));
   const svg = demo.querySelector('svg');
   assert.ok(svg && svg.getAttribute('aria-hidden') === 'true' && svg.querySelector('rect') && svg.querySelector('path'));
   assert.equal(demo.parentNode, first); // la démo est un frère du lien de la rangée, pas un enfant
@@ -224,10 +199,13 @@ test('renderHomeList (D91) : une rangée par exercice — le lien couvre la rang
   assert.match(rows[6].querySelector('.ex-facts').textContent, /35 outils$/);
 });
 
-test('renderHomeList (D91) : une démo orpheline ou sans convention fait une rangée ordinaire, sans bouton « Démo »', () => {
-  renderHomeList(main, [LOT[0], LOT[3], { id: 'm30-demo', titre: 'Démo du M30', cours: 'M30' }], null);
+test('renderHomeList (D92) : toute rangée a son bouton Démo, convention « demo-<id> » ou non — un ancien exercice de démo encore publié est une rangée comme une autre', () => {
+  renderHomeList(main, [{ id: 'demo-m10-tournage-vc-rpm-2', titre: "Tournage — Démo de l'exercice 2", cours: 'M10 — Tournage', nombre_outils: 1, champs_evalues: DEUX }, LOT[1], { id: 'm30-demo', titre: 'Démo du M30', cours: 'M30' }], null);
   const rows = main.querySelectorAll('li.ex-row');
-  assert.deepEqual(rows.map((r) => [r.querySelector('.ex-title').textContent, r.querySelector('.ex-demo') === null]), [["Tournage — Démo de l'exercice 2", true], ['Tournage — Exercice 3', true], ['Démo du M30', true]]);
+  assert.deepEqual(rows.map((r) => [r.querySelector('.ex-title').textContent, r.querySelector('.ex-demo').getAttribute('href')]), [
+    ["Tournage — Démo de l'exercice 2", '?exercice=demo-m10-tournage-vc-rpm-2&demo=1'], ['Tournage — Exercice 3', '?exercice=m10-tournage-avances&demo=1'], ['Démo du M30', '?exercice=m30-demo&demo=1'],
+  ]);
+  assert.equal(main.querySelector('.course-count').textContent, '2 exercices'); // les rangées comptent toutes
   // Sans nombre d'outils ni grandeurs (serveur d'avant) : le titre seul, ni « À trouver » ni pastille.
   assert.equal(rows[2].querySelector('.ex-facts'), null);
   assert.equal(rows[2].querySelector('a.ex-main').getAttribute('aria-label'), 'Démo du M30');

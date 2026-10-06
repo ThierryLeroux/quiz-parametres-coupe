@@ -429,6 +429,64 @@ body {
   .ex-demo { transition: none; }
 }
 
+/* --- Le mode démo : le choix de l'outil (UI §3.10, D92) ---------------------------------------------------- */
+
+/* « Au hasard » et sa note, sur une ligne. */
+.demo-random-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+/* Une opération : son pictogramme sur une pastille blanche et son nom, puis ses outils. */
+.demo-group { margin-top: var(--space-4); }
+
+.demo-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+}
+
+/* Un bouton par outil : le nom tel que la progression l'écrit, la plage de dimensions dessous ; cible de 44 px. */
+.demo-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.demo-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: var(--color-panel-row);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.demo-tool:hover { border-color: var(--color-accent-light); background: color-mix(in srgb, var(--color-accent-light) 15%, transparent); }
+.demo-tool:disabled { opacity: 0.6; cursor: default; }
+.demo-tool--current { border-color: var(--color-gold); }
+.demo-tool-name { font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-tool { transition: none; }
+}
+
 /* --- Page de description d'un exercice (UI §3.1, D71) ----------------------------------------------------- */
 
 /* « ← Tous les exercices » à gauche, « Copier le lien » à droite. */

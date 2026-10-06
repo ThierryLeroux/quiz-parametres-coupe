@@ -6,6 +6,8 @@
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
 import { EXPRESSION_MAX_LENGTH } from '../expression.js';
+import { DEMO_ASIDE, DEMO_DONE, demoTitle } from './demo-data.js';
+import { demoBanner } from './demo-screen.js';
 import { el, pointDecimalComma, showScreen } from './dom.js';
 import {
   CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, gapExplanation, helpLine, initialFocus, insertInCase,
@@ -26,15 +28,22 @@ function optionalImage(src, className) {
   return image;
 }
 
-const header = (seance, actions) => ({
-  title: seance.exercice.titre,
+// La barre du haut : le titre de l'exercice, l'étudiant, les tables, « Corriger mon identité », Quitter. En mode démo
+// (D92) : « Démo — <titre> », le rappel, les tables, « Changer d'outil », Quitter — ni identité, ni correction d'identité.
+const header = (seance, actions, demo) => ({
+  title: demo ? demoTitle(seance.exercice.titre) : seance.exercice.titre,
   aside: [
-    el('span', {}, studentLine(seance)),
+    el('span', {}, demo ? DEMO_ASIDE : studentLine(seance)),
     actions.onTables ? el('button', { class: 'button-outline', type: 'button', onclick: () => actions.onTables('vc') }, 'Tables de référence') : '',
-    el('button', { class: 'button-link', type: 'button', onclick: actions.onIdentity }, 'Corriger mon identité'),
+    demo
+      ? el('button', { class: 'button-link', type: 'button', onclick: actions.onChooseTool }, "Changer d'outil")
+      : el('button', { class: 'button-link', type: 'button', onclick: actions.onIdentity }, 'Corriger mon identité'),
     el('button', { class: 'button-link', type: 'button', onclick: actions.onQuit }, 'Quitter'),
   ],
 });
+
+// « Démo réussie » (D92, point 7) : à 100 %, et on peut continuer.
+const doneBanner = () => el('div', { class: 'banner banner--gold banner--demo-done', role: 'status' }, [el('strong', {}, DEMO_DONE.title), el('p', {}, DEMO_DONE.text)]);
 
 // Sur téléphone (la progression est sous le formulaire), les opérations terminées sont repliées (UI §3.3, D81).
 // La mise en page de question.css passe en deux colonnes à 1000 px.
@@ -186,15 +195,17 @@ function materialPanel(question, data) {
   ]);
 }
 
-//   seance  : l'état renvoyé par le serveur, avec seance.question
+//   seance  : l'état renvoyé par le serveur, avec seance.question — ou l'état d'une démo (D92), de la même forme
 //   data    : le catalogue (loadData) — pour la famille d'avance de l'opération, dans l'aide
 //   labels  : noms à afficher des outils de l'exercice (toolLabels)
-//   actions : { onCheck(answers), onNext(seance), onTables(feuille), onIdentity, onQuit }
+//   demo    : le mode démo (D92) : le bandeau, la barre sans identité, « Démo réussie » à 100 %, « Question suivante » toujours
+//   actions : { onCheck(answers), onNext(seance), onTables(feuille), onIdentity, onQuit } — en démo, onChooseTool et
+//             onSpecimen à la place d'onIdentity
 //     onCheck  : async — fait corriger ; retourne { correction, seance }, ou { message, attendre_s } si le
 //                serveur refuse (attendre_s : la cadence, en secondes), ou null si un autre écran a pris la place
 //     onNext   : affiche la suite (question suivante ou réussite) à partir de la séance reçue
 //     onTables : ouvre les feuilles de référence PAR-DESSUS l'écran : la saisie en cours n'est pas perdue
-export function renderQuestion(main, { seance, data, labels }, actions) {
+export function renderQuestion(main, { seance, data, labels, demo = false }, actions) {
   const { question } = seance;
   const family = feedFamily(data.operationByName.get(question.outil.operation));
   const metric = questionIsMetric(question, data); // le rappel « mm / 25.4 » des aides (D70)
@@ -390,13 +401,16 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
       el('p', {}, [rest.join(' — ').replace(/^./, (letter) => letter.toUpperCase()), ' ', gapExplanation(correction)]),
     ]);
     // La question suivante est arrivée avec la correction : ce que l'étudiant a passé à lire le corrigé compte déjà.
-    const nextButton = el('button', { class: 'button', type: 'button', onclick: () => actions.onNext({ ...next, attendre_s: remainingWait(next.attendre_s, Date.now() - correctedAt) }) }, next.reussite_le === null ? 'Question suivante' : 'Voir le résultat');
+    // En démo, les questions ne s'arrêtent jamais (D92).
+    const nextButton = el('button', { class: 'button', type: 'button', onclick: () => actions.onNext({ ...next, attendre_s: remainingWait(next.attendre_s, Date.now() - correctedAt) }) }, demo || next.reussite_le === null ? 'Question suivante' : 'Voir le résultat');
     title.textContent = 'Question — corrigée';
     help.hidden = true;
     reminder.hidden = true;
     if (testBanner) testBanner.hidden = true;
     actionsRow.replaceChildren(nextButton);
     actionsRow.before(banner);
+    // « Démo réussie » dès la question qui complète la démo, puis tant qu'elle reste à 100 % (doneNote, ci-dessous).
+    if (demo && next.reussie && !doneNote) actionsRow.before(doneBanner());
     // La progression d'après la correction, comparée à celle d'avant « Vérifier » : ce que la question a gagné (vert)
     // ou perdu (rouge) dans la barre de son opération ; l'outil remis à zéro y passe en rouge (D81).
     progressSlot.replaceChildren(progressPanel(next.progression, labels, { previous: seance.progression, resetId: correction.reussie ? null : correction.outil.id }, data));
@@ -436,8 +450,13 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
   }
 
   const total = seance.progression.total_reussies;
+  // Le mode démo (D92) : le bandeau discret mais constant au-dessus des panneaux, et « Démo réussie » tant que la démo est à 100 %.
+  const demoNote = demo ? demoBanner(seance.exercice.id, actions) : '';
+  const doneNote = demo && seance.reussie ? doneBanner() : '';
   const screen = el('div', { class: 'screen screen--wide question-layout' }, [
     el('div', { class: 'question-main' }, [
+      demoNote,
+      doneNote,
       el('div', { class: 'question-head' }, [title, el('div', { class: 'muted smaller' }, `${total} question${total > 1 ? 's' : ''} réussie${total > 1 ? 's' : ''}`)]),
       testBanner,
       el('div', { class: 'question-cards' }, [toolPanel(question, data), materialPanel(question, data)]),
@@ -451,5 +470,5 @@ export function renderQuestion(main, { seance, data, labels }, actions) {
 
   // À chaque nouvelle question, sur ordinateur, la première case à saisir reçoit le focus ; sur écran tactile, le titre,
   // et la page part du haut : le clavier ne s'ouvre pas avant que l'étudiant ait lu les données (initialFocus).
-  showScreen(main, screen, header(seance, actions), initialFocus(question, touch));
+  showScreen(main, screen, header(seance, actions, demo), initialFocus(question, touch));
 }

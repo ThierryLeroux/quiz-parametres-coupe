@@ -68,10 +68,12 @@ test('cookie professeur : charge signable de 12 h, relue tant qu’elle n’est 
 
 test('effacement (D46) : le mot exigé, et le détail des nombres pour le journal, au singulier comme au pluriel', () => {
   assert.equal(PURGE_WORD, 'EFFACER');
-  assert.equal(purgeDetails({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2, debit: 12, verrous: 1, journal_anonymise: 4 }),
-    "3 séances · 40 corrections · 1 correction d'identité · 2 attestations · 12 compteurs de débit · 1 verrou · 4 entrées du journal anonymisées");
-  assert.equal(purgeDetails({ seances: 1, corrections: 0, corrections_identite: 0, attestations: 1, debit: 0, verrous: 0, journal_anonymise: 1 }),
-    "1 séance · 0 correction · 0 correction d'identité · 1 attestation · 0 compteur de débit · 0 verrou · 1 entrée du journal anonymisée");
+  assert.equal(purgeDetails({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2, demos: 2, debit: 12, verrous: 1, journal_anonymise: 4 }),
+    "3 séances · 40 corrections · 1 correction d'identité · 2 attestations · 2 démos · 12 compteurs de débit · 1 verrou · 4 entrées du journal anonymisées");
+  assert.equal(purgeDetails({ seances: 1, corrections: 0, corrections_identite: 0, attestations: 1, demos: 1, debit: 0, verrous: 0, journal_anonymise: 1 }),
+    "1 séance · 0 correction · 0 correction d'identité · 1 attestation · 1 démo · 0 compteur de débit · 0 verrou · 1 entrée du journal anonymisée");
+  // Les démos (D92) : comptées avec le reste ; un compte absent (un ancien appel) vaut zéro.
+  assert.match(purgeDetails({ seances: 0, corrections: 0, corrections_identite: 0, attestations: 0, debit: 0, verrous: 0, journal_anonymise: 0 }), /0 attestation · 0 démo · 0 compteur/);
 });
 
 test('anonymizedDetails (D46) : matricule, nom et codes d’attestation → « — » dans les actions qui nomment un étudiant ; le reste ne change pas', () => {

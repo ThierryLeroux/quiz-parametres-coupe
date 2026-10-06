@@ -1,13 +1,14 @@
-// L'accueil unique et la page de description d'un exercice (UI §3.1, décisions D71 et D91).
-//   renderHomeList : l'accueil (/, sans ?exercice=) — une carte par cours, une rangée par exercice publié avec sa
-//                    démo, et la seule porte professeur ; avec l'avis de D18 quand l'adresse nomme un exercice qui
-//                    n'existe pas
+// L'accueil unique et la page de description d'un exercice (UI §3.1, décisions D71, D91 et D92).
+//   renderHomeList : l'accueil (/, sans ?exercice=) — une carte par cours, une rangée par exercice publié avec son
+//                    bouton Démo (le mode démo de l'exercice, D92), et la seule porte professeur ; avec l'avis de D18
+//                    quand l'adresse nomme un exercice qui n'existe pas
 //   renderHome     : la page d'un exercice (?exercice=<id>, le lien diffusé sur Léa) — un seul bouton pour commencer
 //                    (« Reprendre, <prénom> » si ce navigateur garde un jeton de cet exercice, « Commencer ou
 //                    reprendre » sinon), puis ce que l'exercice demande : questions, outils, matériaux
 // Ce qu'on montre est décidé par home-data.js et text.js (purs, testés) : ici, on construit le DOM.
 
 import { el, showScreen } from './dom.js';
+import { DEMO_NOTE } from './demo-data.js';
 import { exerciseLink, homeCards, materialGroups, questionLines, streakText, toolRows } from './home-data.js';
 import { DEPARTMENT_SHORT, HOME_LINK_LABEL, exerciseMeta, exerciseSummary } from './text.js';
 
@@ -17,8 +18,8 @@ const TITLE = 'Quiz — paramètres de coupe';
 export const HOME_EYEBROW = 'Exercices · paramètres de coupe';
 export const HOME_TITLE = 'Quel exercice fais-tu ?';
 export const HOME_STEPS = ['Ton cours', "L'exercice indiqué sur Léa", 'Ton matricule et ton NIP'];
-// La porte professeur, compacte : la note sur les démos et le bouton au contour.
-export const DEMO_NOTE = '« Démo » : une seule question de l\'exercice, à faire au projecteur avec le groupe.';
+// La porte professeur, compacte : la note sur le mode démo (DEMO_NOTE, demo-data.js) et le bouton au contour.
+export { DEMO_NOTE };
 export const TEACHER_LINK_LABEL = 'Espace professeur →';
 export const NO_EXERCISE_NOTICE = "Aucun exercice n'est offert pour l'instant.";
 export const unknownExerciseNotice = (id) => `L'exercice « ${id} » n'existe pas — vérifie le lien sur Léa.`;
@@ -144,7 +145,7 @@ function projectorIcon() {
 
 // Une rangée d'exercice (D91) : le lien couvre toute la rangée — le titre, la flèche, puis « À trouver » et une pastille
 // par grandeur évaluée, et le nombre d'outils ; son nom accessible dit tout cela en toutes lettres (row.name). Le bouton
-// « Démo », à droite, est un lien à part : jamais de lien dans un lien.
+// « Démo », à droite, est un lien à part vers le mode démo de l'exercice (D92) : jamais de lien dans un lien.
 //   row : une rangée de homeCards
 function exerciseRow(row) {
   const facts = row.fields.length === 0 && row.tools === null ? '' : el('span', { class: 'ex-facts' }, [
@@ -159,7 +160,7 @@ function exerciseRow(row) {
       el('span', { class: 'ex-go', 'aria-hidden': 'true' }, '›'),
       facts,
     ]),
-    row.demo === null ? '' : el('a', { class: 'ex-demo', href: row.demo.href, 'aria-label': row.demo.name, title: row.demo.hint }, [projectorIcon(), 'Démo']),
+    el('a', { class: 'ex-demo', href: row.demo.href, 'aria-label': row.demo.name, title: row.demo.hint }, [projectorIcon(), 'Démo']),
   ]);
 }
 
@@ -180,8 +181,8 @@ function courseCard(card) {
 }
 
 // L'accueil unique (D71, D91) : les exercices offerts — publiés, non archivés, proposés à l'accueil —, une carte par
-// cours, chaque démo rattachée à son exercice, et la seule porte professeur. Aussi quand l'adresse nomme un exercice qui
-// n'existe pas (D18). L'en-tête est posé sur le fond, sans panneau ; les avis, eux, sont dans un panneau, sous le titre.
+// cours, chaque rangée avec son bouton Démo (D92), et la seule porte professeur. Aussi quand l'adresse nomme un exercice
+// qui n'existe pas (D18). L'en-tête est posé sur le fond, sans panneau ; les avis, eux, sont dans un panneau, sous le titre.
 //   listed    : [{ id, titre, cours, nombre_outils, champs_evalues }, …] (GET /api/exercices)
 //   unknownId : ce que l'adresse demandait et qui n'existe pas, ou null si elle ne demandait rien
 export function renderHomeList(main, listed, unknownId) {

@@ -176,6 +176,27 @@
 
 .attestation-continuation { font-size: 11px; font-weight: 700; }
 
+/* Le spécimen du mode démo (D92, 9.3) : le filigrane « SPÉCIMEN » en travers de chaque page, à l'écran et à
+   l'impression (print-color-adjust est déjà posé sur .print-page), par-dessus le contenu, assez pâle pour le laisser
+   lisible. La page n'est pas rognée : le mot tient dans sa largeur une fois tourné. */
+.attestation--specimen { position: relative; }
+
+.attestation-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  transform: rotate(-30deg);
+  color: rgba(200, 30, 30, 0.16);
+  font-size: 90px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
 .attestation-footer {
   display: flex;
   justify-content: space-between;

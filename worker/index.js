@@ -1,13 +1,15 @@
-// Serveur du quiz : un Worker Cloudflare (décisions D19 à D23, D31 à D36, D47 à D49 ; API décrite dans SPEC §7).
+// Serveur du quiz : un Worker Cloudflare (décisions D19 à D23, D31 à D36, D47 à D49, D92 ; API décrite dans SPEC §7).
 //   /api/…               → le serveur de correction, en JSON
+//   /api/demo/…          → le mode démo (D92) : une séance anonyme, sans trace durable, et le spécimen d'attestation
 //   /api/prof/…          → l'espace professeur, derrière un cookie de séance signé
 //   /api/prof/editeur/…  → la Gestion du contenu (exercices, banque, tables, images, sauvegarde), rôle admin seulement
 //   le reste             → les fichiers de site/, servis tels quels (liaison ASSETS de wrangler.jsonc)
 //
 // Ce fichier ne fait que recevoir les requêtes et enchaîner les étapes. Les règles du quiz sont
 // dans seance.js, celles de l'attestation dans attestation.js, celles de l'accès (limites de débit,
-// verrous, cookie professeur) dans acces.js, celles de la Gestion du contenu dans editeur.js, le SQL dans
-// base.js, la cryptographie dans crypto.js, le chargement des exercices depuis la base dans catalogue.js.
+// verrous, cookie professeur) dans acces.js, celles de la Gestion du contenu dans editeur.js, celles du mode démo
+// dans demo.js et celles du spécimen dans specimen.js, le SQL dans base.js, la cryptographie dans crypto.js, le
+// chargement des exercices depuis la base dans catalogue.js.
 
 import pkg from '../package.json' with { type: 'json' };
 import { validateData, validateTables } from '../site/js/data.js';
@@ -21,7 +23,11 @@ import {
 import { buildAttestation, canonical, claimsMatch, claimsOnlyCode, formatCode, newCode, readClaims, verificationUrl } from './attestation.js';
 import * as base from './base.js';
 import { assembleDraft, loadExercisePresentation, loadLatest, loadPresentation, loadVersion, tablesOf } from './catalogue.js';
-import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession } from './crypto.js';
+import { hashNip, hashToken, newToken, sameSecret, sameText, signAttestation, signProfSession, signSpecimen } from './crypto.js';
+import { demoToolChoice, demoView, drawDemoQuestion, expiredBefore, isDemoExpired, isDemoQuestionValid } from './demo.js';
+import {
+  buildSpecimen, isSpecimenCode, newSeed, readSpecimenClaims, specimenClaimsMatch, specimenClaimsOnlyCode, specimenDates, specimenRequest, specimenUrl,
+} from './specimen.js';
 import {
   EXPORT_FORMAT, bankImageCheck, bankPassage, bankPassageSummary, cascadeCandidates, cascadePlan, cleanDraft, cleanTables, cleanTool, importDetails, importPlan, importWord, isExerciseId, isToolId, previewQuestions, sameContent,
 } from './editeur.js';
@@ -140,11 +146,11 @@ async function authenticate(request, env, latest, now) {
   return { session, data, exercise };
 }
 
-// --- Limites de débit par adresse (D36, D86) ----------------------------------------------------------
-// Consultation d'un matricule, vérification d'un code : au plus DISTINCT_PER_HOUR valeurs DISTINCTES par
-// adresse et par heure (1000 depuis D86 ; acces.js), jamais de limite sur le nombre de requêtes (tout le
-// cégep sort par une adresse). La 1001e valeur est refusée et verrouille l'adresse 10 minutes ; une valeur
-// déjà vue passe toujours.
+// --- Limites de débit par adresse (D36, D86, D92) ------------------------------------------------------
+// Consultation d'un matricule, vérification d'un code, démos commencées (D92) : au plus DISTINCT_PER_HOUR
+// valeurs DISTINCTES par adresse et par heure (1000 depuis D86 ; acces.js), jamais de limite sur le nombre
+// de requêtes (tout le cégep sort par une adresse). La 1001e valeur est refusée et verrouille l'adresse
+// 10 minutes pour cette portée seule ; une valeur déjà vue passe toujours.
 
 const TOO_MANY_REQUESTS = 'Trop de demandes depuis cette adresse. Réessaie dans quelques minutes.';
 
@@ -492,8 +498,12 @@ async function attestation(request, env, { now, randomBytes }) {
 // invalide (signature invalide ou contenu modifié). Une attestation ne se vérifie pas à moitié : si
 // l'adresse porte autre chose que le code, tout doit correspondre. Rien ne sort de plus que
 // l'attestation imprimée. Limite de débit sur les codes distincts.
+// Le code d'un spécimen du mode démo (D92, point 9) prend un autre chemin : verificationSpecimen, deux issues de plus
+// (specimen, specimen_code). Une vraie attestation ne passe jamais par là, un spécimen jamais par ici.
 async function verification(request, env, { now }) {
-  const claims = readClaims(await readBody(request));
+  const body = await readBody(request);
+  if (isSpecimenCode(body.code)) return verificationSpecimen(request, env, body, now);
+  const claims = readClaims(body);
   if (claims === null) throw new HttpError(400, 'Le code doit avoir 10 caractères (lettres et chiffres, sans O, I, 0 ni 1).');
   await limitRate(request, env, 'verification', claims.code, now);
 
@@ -506,6 +516,149 @@ async function verification(request, env, { now }) {
   if (!genuine) return json({ resultat: 'invalide' });
   if (row.annulee_le !== null) return json({ resultat: 'annulee', attestation: row.enregistrement, annulee_le: row.annulee_le, motif: row.annulation_motif });
   return json({ resultat: 'valide', attestation: row.enregistrement });
+}
+
+// La vérification d'un spécimen (D92, 9.4 à 9.6) : rien n'est enregistré, le spécimen est RECOMPOSÉ à partir de ce
+// que l'adresse porte (la version de l'exercice, la graine, les dates, le titre), signé de nouveau sous la sous-clé
+// des spécimens, et comparé champ par champ à l'adresse. Le code seul (tapé à la main) : specimen_code — « scanne son
+// QR ». Tout le reste : specimen (avec l'enregistrement recomposé), ou invalide — un seul caractère changé dans
+// l'adresse recompose autre chose, ou ne correspond plus.
+async function verificationSpecimen(request, env, body, now) {
+  const claims = readSpecimenClaims(body);
+  await limitRate(request, env, 'verification', claims.code, now);
+  if (specimenClaimsOnlyCode(claims)) return json({ resultat: 'specimen_code' });
+  const wanted = specimenRequest(claims);
+  const version = wanted !== null && isExerciseId(wanted.exercice) ? await base.findVersion(env.DB, wanted.exercice, wanted.revision) : null;
+  if (version === null) return json({ resultat: 'invalide' });
+  const { data, exercise } = await loadVersion(env.DB, version.id);
+  const record = buildSpecimen({ ...exercise, titre: wanted.titre }, data, { seed: wanted.seed, debut: wanted.debut, reussite: wanted.reussite });
+  const expected = await signSpecimen(env.CLE_SECRETE, canonical(record));
+  if (!sameText(expected, claims.signature) || !specimenClaimsMatch(record, claims)) return json({ resultat: 'invalide' });
+  return json({ resultat: 'specimen', attestation: record });
+}
+
+// --- Le mode démo : /api/demo/… (D92) ------------------------------------------------------------------------
+// Une séance ANONYME, sans identification, qui ne laisse aucune trace durable : son état vit dans la table demos
+// (jamais dans seances, corrections ni attestations), 24 h au plus après sa dernière activité. Le serveur tire la
+// question et la corrige exactement comme pour une séance (seance.js) ; les règles propres à la démo sont dans
+// demo.js. Un jeton de démo n'ouvre aucune route de séance (elles ne lisent que seances), et inversement.
+
+const DEMO_EXPIRED = "Cette démo n'existe plus : commence-en une autre.";
+
+// La démo du jeton présenté, avec sa version d'exercice épinglée. Jeton absent, inconnu, expiré ou d'un autre
+// exercice → 401 : le navigateur ramène au choix de l'outil. Un appel accepté repousse l'expiration.
+async function authenticateDemo(request, env, latest, now) {
+  const [, token] = (request.headers.get('authorization') ?? '').match(/^Bearer ([A-Za-z0-9_-]{20,100})$/) ?? [];
+  const demo = token ? await base.findDemoByToken(env.DB, await hashToken(token)) : null;
+  if (demo === null || demo.exercice_id !== latest.exercise.id || isDemoExpired(demo, now)) throw new HttpError(401, DEMO_EXPIRED);
+  await base.touchDemo(env.DB, demo.id, now.toISOString());
+  const { data, exercise } = await loadVersion(env.DB, demo.version_id);
+  return { demo, data, exercise };
+}
+
+// La démo telle que le serveur la montre : demoView, avec la présentation en vigueur de l'exercice par-dessus (D78 :
+// le titre de la barre, la photo et la note de l'outil de la question), comme une séance.
+const shownDemo = (demo, exercise, data, options, presentation) => presentSessionView(demoView(demo, exercise, data, options), presentation);
+
+// L'outil choisi, lu dans le corps de la requête : null (au hasard) ou un outil de l'exercice ; 400 sinon.
+function demoChoice(body, exercise) {
+  const chosen = demoToolChoice(body.outil, exercise);
+  if (chosen === undefined) throw new HttpError(400, "Cet outil n'est pas dans l'exercice.");
+  return chosen;
+}
+
+// --- POST /api/demo/creation — { exercice, outil } : une démo sur la version en vigueur, sa première question tirée.
+// Limite de débit sur les démos commencées (portée « demo », à elle seule) ; les démos expirées sont effacées ici.
+async function demoCreation(request, env, { now, random }) {
+  const body = await readBody(request);
+  const latest = await findExercise(env, body.exercice);
+  if (latest.archived) throw new HttpError(400, ARCHIVED_EXERCISE);
+  const { data, exercise, version } = latest;
+  const chosen = demoChoice(body, exercise);
+  const token = newToken();
+  const tokenHash = await hashToken(token);
+  await limitRate(request, env, 'demo', tokenHash, now);
+  await base.deleteExpiredDemos(env.DB, expiredBefore(now));
+  const id = await base.createDemo(env.DB, {
+    jeton_hache: tokenHash,
+    exercice_id: exercise.id,
+    version_id: version.id,
+    outil_choisi: chosen,
+    compteurs: emptyCounters(),
+    question_courante: drawDemoQuestion(emptyCounters(), exercise, data, random, chosen),
+    creee_le: now.toISOString(),
+  });
+  const demo = await base.findDemoById(env.DB, id);
+  return json({ jeton: token, demo: shownDemo(demo, exercise, data, viewOptions(request, env, now), await livePresentation(env, latest)) });
+}
+
+// --- POST /api/demo/question — { exercice } : la question en attente, tirée au besoin ; jamais null.
+async function demoQuestion(request, env, { now, random }) {
+  const body = await readBody(request);
+  const latest = await findExercise(env, body.exercice);
+  let { demo, data, exercise } = await authenticateDemo(request, env, latest, now);
+  if (!isDemoQuestionValid(demo.question_courante, exercise, data, demo.outil_choisi)) {
+    await base.saveDemoQuestion(env.DB, demo, drawDemoQuestion(demo.compteurs, exercise, data, random, demo.outil_choisi), demo.outil_choisi);
+    demo = await base.findDemoById(env.DB, demo.id);
+  }
+  return json({ demo: shownDemo(demo, exercise, data, viewOptions(request, env, now), await livePresentation(env, latest)) });
+}
+
+// --- POST /api/demo/outil — { exercice, outil } : l'outil des prochaines questions (D92, point 6). Choisir un outil
+// remplace la question en attente si elle n'est pas de cet outil (rien n'est compté) ; « Au hasard » la garde.
+async function demoOutil(request, env, { now, random }) {
+  const body = await readBody(request);
+  const latest = await findExercise(env, body.exercice);
+  let { demo, data, exercise } = await authenticateDemo(request, env, latest, now);
+  const chosen = demoChoice(body, exercise);
+  const question = isDemoQuestionValid(demo.question_courante, exercise, data, chosen) ? demo.question_courante : drawDemoQuestion(demo.compteurs, exercise, data, random, chosen);
+  await base.saveDemoQuestion(env.DB, demo, question, chosen);
+  demo = await base.findDemoById(env.DB, demo.id);
+  return json({ demo: shownDemo(demo, exercise, data, viewOptions(request, env, now), await livePresentation(env, latest)) });
+}
+
+// --- POST /api/demo/correction — { exercice, saisies } : la même correction qu'une séance (gradeQuestion,
+// correctionView), la même cadence ; les compteurs continuent, la question suivante est toujours tirée (à 100 %,
+// parmi tous les outils) ; rien n'est journalisé.
+async function demoCorrection(request, env, { now, random }) {
+  const body = await readBody(request);
+  const latest = await findExercise(env, body.exercice);
+  const { demo, data, exercise } = await authenticateDemo(request, env, latest, now);
+  if (!isDemoQuestionValid(demo.question_courante, exercise, data, demo.outil_choisi)) throw new HttpError(409, "Aucune question n'attend de correction.");
+  const wait = cadenceWait(demo, now, viewOptions(request, env, now));
+  if (wait > 0) throw new HttpError(429, `Attends encore ${wait} s avant de faire corriger ta réponse.`, { attendre_s: wait });
+
+  const asked = demo.question_courante;
+  const answers = cleanAnswers(body.saisies);
+  const before = demo.compteurs.reussites[asked.tool.id] ?? 0;
+  const graded = gradeQuestion(asked, answers, demo.compteurs, exercise, data);
+  const next = drawDemoQuestion(graded.counters, exercise, data, random, demo.outil_choisi);
+  const recorded = await base.recordDemoCorrection(env.DB, demo, { compteurs: graded.counters, question_suivante: next, horodatage: now.toISOString() });
+  if (!recorded) throw new HttpError(429, 'Une correction de cette question est déjà en cours.', { attendre_s: 1 });
+  const updated = await base.findDemoById(env.DB, demo.id);
+  return json({
+    correction: correctionView(asked, answers, graded.result, before, graded.counters, data, maskedFields(exercise)),
+    demo: shownDemo(updated, exercise, data, viewOptions(request, env, now), await livePresentation(env, latest)),
+  });
+}
+
+// --- GET /api/demo/specimen?exercice=<id> — un spécimen d'attestation (D92, point 9), composé à la volée pour la
+// version en vigueur de l'exercice, jamais enregistré, signé sous la sous-clé des spécimens. Sans jeton : il ne
+// dépend d'aucune démo. Même forme que GET /api/attestation, avec `specimen: true`.
+async function demoSpecimen(request, env, { now, random }) {
+  const latest = await findExercise(env, new URL(request.url).searchParams.get('exercice'));
+  if (latest.archived) throw new HttpError(400, ARCHIVED_EXERCISE);
+  const { data, exercise } = latest;
+  const record = buildSpecimen(withLiveTitle(exercise, await livePresentation(env, latest)), data, { seed: newSeed(random), ...specimenDates(now, exercise) });
+  const signature = await signSpecimen(env.CLE_SECRETE, canonical(record));
+  return json({
+    attestation: record,
+    code: formatCode(record.code),
+    signature,
+    url_verification: specimenUrl(new URL(request.url).origin, record, signature),
+    annulee_le: null,
+    specimen: true,
+  });
 }
 
 // --- Espace professeur : /api/prof/… (D34, D35, D44) ------------------------------------------------------
@@ -1747,6 +1900,11 @@ const ROUTES = {
   'POST /api/deconnexion': deconnexion,
   'GET /api/attestation': attestation,
   'POST /api/verification': verification,
+  'POST /api/demo/creation': demoCreation,
+  'POST /api/demo/question': demoQuestion,
+  'POST /api/demo/outil': demoOutil,
+  'POST /api/demo/correction': demoCorrection,
+  'GET /api/demo/specimen': demoSpecimen,
   'POST /api/prof/connexion': profConnexion,
   'POST /api/prof/deconnexion': profDeconnexion,
   'GET /api/prof/seances': profSeances,

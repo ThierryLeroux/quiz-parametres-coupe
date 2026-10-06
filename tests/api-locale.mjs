@@ -253,6 +253,36 @@ try {
     assert.equal((await appel('POST', '/api/verification', { corps: { code: 'ABC' } })).status, 400);
   });
 
+  await etape('mode démo (D92) : une démo sans identification, sa question corrigée comme une séance, l’outil changé ; le spécimen d’attestation composé, vérifié par son QR (« specimen ») et par son code (« specimen_code »), invalide modifié ; rien dans seances', async () => {
+    const creation = await appel('POST', '/api/demo/creation', { corps: { exercice: M10, outil: null } });
+    assert.equal(creation.status, 200, JSON.stringify(creation.corps));
+    const { jeton, demo } = creation.corps;
+    assert.equal(demo.demo, true);
+    assert.equal('etudiant' in demo, false);
+    assert.ok(demo.question);
+    await sleep(1200);
+    const correction = await appel('POST', '/api/demo/correction', { jeton, corps: { exercice: M10, saisies: { vc: bonneVc(demo.question) } } });
+    assert.equal(correction.status, 200, JSON.stringify(correction.corps));
+    assert.equal(correction.corps.correction.reussie, true);
+    assert.equal(correction.corps.demo.progression.total_reussies, 1);
+    assert.ok(correction.corps.demo.question, 'la question suivante est tirée');
+    const outil = await appel('POST', '/api/demo/outil', { jeton, corps: { exercice: M10, outil: 'mclnr' } });
+    assert.equal(outil.status, 200, JSON.stringify(outil.corps));
+    assert.deepEqual([outil.corps.demo.outil_choisi, outil.corps.demo.question.outil.id], ['mclnr', 'mclnr']);
+    assert.equal((await appel('GET', `/api/seance?exercice=${M10}`, { jeton })).status, 401); // un jeton de démo n'ouvre aucune route de séance
+    // Le spécimen : jamais enregistré, signé à part, vérifiable par son adresse.
+    const specimen = await appel('GET', `/api/demo/specimen?exercice=${M10}`);
+    assert.equal(specimen.status, 200, JSON.stringify(specimen.corps));
+    assert.equal(specimen.corps.code, 'SPECI-MEN00');
+    assert.equal(specimen.corps.attestation.questions.length, 15);
+    assert.ok(specimen.corps.url_verification.startsWith(`${ORIGIN}/verifier?specimen=1&`), specimen.corps.url_verification);
+    const claims = Object.fromEntries(new URL(specimen.corps.url_verification).searchParams);
+    assert.deepEqual((await appel('POST', '/api/verification', { corps: claims })).corps, { resultat: 'specimen', attestation: specimen.corps.attestation });
+    assert.deepEqual((await appel('POST', '/api/verification', { corps: { code: 'SPECI-MEN00' } })).corps, { resultat: 'specimen_code' });
+    assert.deepEqual((await appel('POST', '/api/verification', { corps: { ...claims, graine: String(Number(claims.graine) + 1) } })).corps, { resultat: 'invalide' });
+    assert.deepEqual((await appel('POST', '/api/verification', { corps: { ...claims, titre: `${claims.titre}x` } })).corps, { resultat: 'invalide' });
+  });
+
   await etape('connexion professeur : clé fausse → 401 ; sans cookie → 401 ; bonne clé → cookie de séance', async () => {
     assert.equal((await appel('POST', '/api/prof/connexion', { corps: { cle: 'mauvaise' } })).status, 401);
     assert.equal((await appel('GET', '/api/prof/seances')).status, 401);
@@ -375,6 +405,7 @@ try {
     assert.equal(status, 200, JSON.stringify(corps));
     assert.equal(corps.efface, true);
     assert.equal(corps.nombres.seances, avant.seances.length);
+    assert.equal(corps.nombres.demos, 1); // la démo de l'étape du mode démo (D92), effacée avec le reste
     // Les 22 corrections d'Alex sont parties avec sa séance (D45) ; restent celles de Camille (2) et de Zoé (15) ; ses deux attestations, elles, étaient restées.
     assert.ok(corps.nombres.corrections >= 17 && corps.nombres.attestations === 2, JSON.stringify(corps.nombres));
     const apres = (await appel('GET', '/api/prof/seances', { cookie })).corps;

@@ -132,6 +132,38 @@ export function verifyAttestation(claims, request) {
   return call('POST', '/api/verification', { body: claims }, request);
 }
 
+// --- Le mode démo (D92) : une séance anonyme, sans trace durable ; son jeton reste en mémoire de la page ------------------
+
+// Commence une démo de l'exercice, sur l'outil choisi (un identifiant d'outil de l'exercice, ou null : au hasard) :
+// { jeton, demo } — la première question est déjà tirée. Erreurs : 400 exercice inconnu, archivé ou outil hors de
+// l'exercice ; 429 trop de démos commencées depuis cette adresse.
+export function startDemo(exerciseId, toolId, request) {
+  return call('POST', '/api/demo/creation', { body: { exercice: exerciseId, outil: toolId } }, request);
+}
+
+// La question en attente de la démo, tirée au besoin : { demo }. Erreur : 401 la démo n'existe plus (24 h sans activité).
+export function demoQuestion(jeton, exerciseId, request) {
+  return call('POST', '/api/demo/question', { jeton, body: { exercice: exerciseId } }, request);
+}
+
+// L'outil des prochaines questions (ou null : au hasard) : { demo } — la question en attente est remplacée si elle n'est
+// pas de cet outil. Erreurs : 400 outil hors de l'exercice ; 401.
+export function chooseDemoTool(jeton, exerciseId, toolId, request) {
+  return call('POST', '/api/demo/outil', { jeton, body: { exercice: exerciseId, outil: toolId } }, request);
+}
+
+// Fait corriger la question en attente de la démo : { correction, demo } — demo porte déjà la question suivante.
+// Erreurs : 429 cadence ; 409 aucune question à corriger ; 401.
+export function submitDemoAnswers(jeton, exerciseId, answers, request) {
+  return call('POST', '/api/demo/correction', { jeton, body: { exercice: exerciseId, saisies: answers } }, request);
+}
+
+// Un spécimen d'attestation de l'exercice (D92, point 9), composé à la volée, jamais enregistré, sans jeton :
+// { attestation, code, signature, url_verification, annulee_le: null, specimen: true }. Erreur : 400 exercice inconnu ou archivé.
+export function getSpecimen(exerciseId, request) {
+  return call('GET', `/api/demo/specimen?exercice=${encodeURIComponent(exerciseId)}`, {}, request);
+}
+
 // --- Espace professeur (D34, D35) : la séance est un cookie HttpOnly posé par le serveur -----------------------------
 
 // Connexion par la clé d'administration : { enseignant, expire_le }. Erreurs : 401 clé incorrecte ; 429 trop d'essais.

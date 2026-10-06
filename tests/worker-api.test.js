@@ -1436,9 +1436,11 @@ test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séanc
   for (const matricule of ['2412345', '2498765']) await serveur.appel('POST', '/api/consultation', { corps: { exercice: M10, matricule }, entetes: { 'cf-connecting-ip': '203.0.113.7' } });
   await serveur.appel('POST', '/api/verification', { corps: { code: codes[0] }, entetes: { 'cf-connecting-ip': '203.0.113.7' } });
   assert.equal((await serveur.appel('POST', '/api/prof/connexion', { corps: { cle: 'mauvaise' }, entetes: { 'cf-connecting-ip': '198.51.100.9' } })).status, 401);
+  // Une démo en cours (D92) : jetable, elle part avec le reste ; la commencer compte une valeur de débit (portée demo).
+  assert.equal((await serveur.appel('POST', '/api/demo/creation', { corps: { exercice: M10 }, entetes: { 'cf-connecting-ip': '203.0.113.7' } })).status, 200);
   const compte = (table) => serveur.db.sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
-  const comptes = () => [compte('seances'), compte('corrections'), compte('corrections_identite'), compte('attestations'), compte('debit'), compte('verrous')];
-  assert.deepEqual(comptes(), [3, 16, 1, 2, 3, 1]);
+  const comptes = () => [compte('seances'), compte('corrections'), compte('corrections_identite'), compte('attestations'), compte('demos'), compte('debit'), compte('verrous')];
+  assert.deepEqual(comptes(), [3, 16, 1, 2, 1, 4, 1]);
   const journalAvant = serveur.journalEnseignant();
   assert.deepEqual(journalAvant.map((l) => [l.action, l.seance_id]), [['connexion', null], ['remise_a_zero', alexId], ['reinitialisation_nip', alexId], ['connexion_refusee', null]]);
   assert.equal(journalAvant[1].details, `${M10} · 2498765 · Alex Roy`);
@@ -1448,19 +1450,19 @@ test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séanc
     const refus = await serveur.appel('POST', '/api/prof/effacement', { corps, entetes });
     assert.deepEqual([refus.status, refus.corps.erreur], [400, 'Pour effacer, la requête doit porter le mot EFFACER.'], JSON.stringify(corps));
   }
-  assert.deepEqual(comptes(), [3, 16, 1, 2, 3, 1]);
+  assert.deepEqual(comptes(), [3, 16, 1, 2, 1, 4, 1]);
   assert.deepEqual(serveur.journalEnseignant(), journalAvant);
 
   serveur.avancer(MINUTE);
-  const nombres = { seances: 3, corrections: 16, corrections_identite: 1, attestations: 2, debit: 3, verrous: 1, journal_anonymise: 2 };
+  const nombres = { seances: 3, corrections: 16, corrections_identite: 1, attestations: 2, demos: 1, debit: 4, verrous: 1, journal_anonymise: 2 };
   assert.deepEqual(await serveur.appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, entetes }), { status: 200, corps: { efface: true, nombres } });
-  assert.deepEqual(comptes(), [0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(comptes(), [0, 0, 0, 0, 0, 0, 0]);
   // Le journal des actions reste entier, détaché des séances, et ses détails ne nomment plus personne : date, enseignant, action, exercice et nombres restent.
   const journal = serveur.journalEnseignant();
   assert.deepEqual(journal.map((l) => [l.action, l.seance_id, l.enseignant, l.horodatage]), [...journalAvant.map((l) => [l.action, null, l.enseignant, l.horodatage]), ['effacement', null, 'admin', serveur.maintenant.toISOString()]]);
   assert.deepEqual(journal.map((l) => l.details), [
     'adresse 203.0.113.7, rôle admin', `${M10} · — · —`, `${M10} · — · —`, 'adresse 198.51.100.9, échec 1',
-    "3 séances · 16 corrections · 1 correction d'identité · 2 attestations · 3 compteurs de débit · 1 verrou · 2 entrées du journal anonymisées",
+    "3 séances · 16 corrections · 1 correction d'identité · 2 attestations · 1 démo · 4 compteurs de débit · 1 verrou · 2 entrées du journal anonymisées",
   ]);
   assert.equal(JSON.stringify(journal).includes('2498765'), false);
   assert.equal(JSON.stringify(journal).includes('Roy'), false);
@@ -1475,8 +1477,8 @@ test('effacement des données des étudiants (D46) : mot EFFACER exigé ; séanc
   const { seance } = await commencer(serveur);
   assert.equal(seance.progression.total_reussies, 0);
   // (Trois compteurs de débit depuis : les deux codes vérifiés et le matricule consulté ci-dessus.)
-  assert.deepEqual((await serveur.appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, entetes })).corps.nombres, { seances: 1, corrections: 0, corrections_identite: 0, attestations: 0, debit: 3, verrous: 0, journal_anonymise: 0 });
-  assert.equal(serveur.journalEnseignant().at(-1).details, "1 séance · 0 correction · 0 correction d'identité · 0 attestation · 3 compteurs de débit · 0 verrou · 0 entrée du journal anonymisée");
+  assert.deepEqual((await serveur.appel('POST', '/api/prof/effacement', { corps: { confirmation: 'EFFACER' }, entetes })).corps.nombres, { seances: 1, corrections: 0, corrections_identite: 0, attestations: 0, demos: 0, debit: 3, verrous: 0, journal_anonymise: 0 });
+  assert.equal(serveur.journalEnseignant().at(-1).details, "1 séance · 0 correction · 0 correction d'identité · 0 attestation · 0 démo · 3 compteurs de débit · 0 verrou · 0 entrée du journal anonymisée");
 });
 
 test('journal des corrections d’identité : la plus récente en premier, avant/après, matricule actuel et exercice de la séance', async () => {

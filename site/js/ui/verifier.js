@@ -24,11 +24,12 @@ const input = el('input', {
 });
 const button = el('button', { class: 'button', type: 'submit' }, 'Vérifier');
 
-// Le résultat : titre et explication selon l'issue, puis l'enregistrement complet s'il y en a un.
+// Le résultat : titre et explication selon l'issue, puis l'enregistrement complet s'il y en a un — celui d'un spécimen
+// du mode démo (D92) aussi, recomposé par le serveur, sous sa bannière.
 function showResult(response) {
   const { tone, title, text } = verificationOutcome(response);
   const record = response.attestation;
-  result.replaceChildren(el('section', { class: `panel panel--${tone} verify-result` }, [
+  result.replaceChildren(el('section', { class: `panel panel--${tone} verify-result${response.resultat === 'specimen' ? ' verify-result--specimen' : ''}` }, [
     el('div', { class: 'eyebrow' }, 'Résultat'),
     el('h2', {}, title),
     el('p', { class: 'small' }, text),

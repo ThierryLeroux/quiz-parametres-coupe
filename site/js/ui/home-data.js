@@ -4,6 +4,7 @@
 // ce qui est à trouver.
 
 import { allowedGroups, allowedToolMaterials, courseKey } from '../exercice.js';
+import { demoHint, demoHref, demoName } from './demo-data.js';
 import { toolLabels } from './rules.js';
 import { operationPictoOf, toolPhotoUrl } from './sheets-data.js';
 import { countText, fieldName } from './text.js';
@@ -42,19 +43,6 @@ export function homeGroups(exercises) {
   return [...groups.values(), ...(others.length === 0 ? [] : [{ title: OTHERS_TITLE, exercises: others }])];
 }
 
-// Les démos rattachées à leur exercice (D91). Par convention, la démo d'un exercice « <id> » a l'identifiant
-// « demo-<id> » : quand les deux sont dans la liste reçue, la démo n'a plus sa propre rangée et devient le bouton
-// « Démo » de la rangée de son exercice. Une démo dont l'exercice n'est pas dans la liste (archivé, retiré de
-// l'accueil) ou qui ne suit pas la convention reste une entrée ordinaire. L'ordre des rangs reste celui de la
-// liste reçue (D51). Retourne les entrées gardées, chacune avec `demo` : l'entrée de sa démo, ou null.
-//   listed : [{ id, titre, cours, nombre_outils, champs_evalues }, …] (GET /api/exercices)
-export function attachDemos(listed) {
-  const ids = new Set(listed.map((entry) => entry.id));
-  const exerciseOf = (entry) => (String(entry.id).startsWith('demo-') && ids.has(entry.id.slice(5)) ? entry.id.slice(5) : null);
-  const demos = new Map(listed.filter((entry) => exerciseOf(entry) !== null).map((entry) => [exerciseOf(entry), entry]));
-  return listed.filter((entry) => exerciseOf(entry) === null).map((entry) => ({ ...entry, demo: demos.get(entry.id) ?? null }));
-}
-
 // Le sigle et le nom d'un cours, coupé au premier « — » : « M10 — Tournage » → M10 / Tournage ; « M30 » → M30, sans
 // nom ; un cours sans tiret garde tout comme sigle. Retourne { code, name } — name vaut null sans nom.
 export function splitCourse(course) {
@@ -83,29 +71,23 @@ export function gradedFields(champs) {
 // Une rangée de l'accueil : ce que la rangée d'un exercice écrit et nomme.
 //   href   : le lien de sa page ; fields : ses pastilles ; tools : « 13 outils » (null si le serveur ne le dit pas)
 //   name   : le nom accessible du lien — « Tournage — Exercice 2 — à trouver : vitesse de coupe, vitesse de rotation — 13 outils »
-//   demo   : { id, href, title, name, hint } — le bouton « Démo » (nom accessible « Démo : <titre> », indice
-//            « <titre> — une seule question, à faire au projecteur »), ou null
+//   demo   : { href, name, hint } — le bouton « Démo », qui ouvre le mode démo de l'exercice (D92 : chaque exercice
+//            publié en a un) ; nom accessible « Démo : <titre> », indice « <titre> — mode démo : … »
 function homeRow(entry) {
   const fields = gradedFields(entry.champs_evalues);
   const tools = Number.isInteger(entry.nombre_outils) ? countText(entry.nombre_outils, 'outil') : null;
   const name = [entry.titre, ...(fields.length === 0 ? [] : [`à trouver : ${fields.map((f) => f.name).join(', ')}`]), ...(tools === null ? [] : [tools])].join(' — ');
-  const demo = entry.demo === null || entry.demo === undefined ? null : {
-    id: entry.demo.id,
-    href: exerciseHref(entry.demo.id),
-    title: entry.demo.titre,
-    name: `Démo : ${entry.demo.titre}`,
-    hint: `${entry.demo.titre} — une seule question, à faire au projecteur`,
-  };
+  const demo = { href: demoHref(entry.id), name: demoName(entry.titre), hint: demoHint(entry.titre) };
   return { id: entry.id, href: exerciseHref(entry.id), title: entry.titre, fields, tools, name, demo };
 }
 
-// Les cartes de l'accueil (D91) : une par groupe de homeGroups, les démos rattachées à leur exercice.
+// Les cartes de l'accueil (D91) : une par groupe de homeGroups, chaque rangée avec son bouton « Démo » (D92).
 // Retourne [{ id, title, code, name, count, rows }] :
 //   id    : l'ancre de la carte (courseAnchor) ; title : le titre du groupe (null sans aucun cours)
 //   code  : le sigle encadré (null pour « Autres exercices » et pour le groupe sans titre) ; name : le nom à côté
-//   count : « 2 exercices », sans compter les démos rattachées ; rows : les rangées (homeRow), dans l'ordre des rangs
+//   count : « 2 exercices » ; rows : les rangées (homeRow), dans l'ordre des rangs
 export function homeCards(listed) {
-  return homeGroups(attachDemos(listed)).map(({ title, exercises }) => {
+  return homeGroups(listed).map(({ title, exercises }) => {
     const { code, name } = title === null ? { code: null, name: NO_COURSE_NAME } : title === OTHERS_TITLE ? { code: null, name: title } : splitCourse(title);
     return { id: courseAnchor(title), title, code, name, count: countText(exercises.length, 'exercice'), rows: exercises.map(homeRow) };
   });

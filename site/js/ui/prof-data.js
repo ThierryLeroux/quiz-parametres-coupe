@@ -153,10 +153,10 @@ export const PURGE_WORD = 'EFFACER';
 // Ce que la page d'effacement annonce, avant : « La base contient 3 séances. … »
 export function purgeIntro(sessionCount) {
   const count = sessionCount === 0 ? 'aucune séance' : `${sessionCount} séance${sessionCount > 1 ? 's' : ''}`;
-  return `La base contient ${count}. L'effacement supprime toutes les séances, leurs journaux de corrections, les corrections d'identité et les attestations, ainsi que les compteurs de débit et les verrous par adresse, sans retour. Les anciens codes d'attestation répondront ensuite « aucune attestation ne correspond ». Le journal des actions reste, anonymisé (matricules, noms et codes remplacés par « — »), et note les nombres effacés. Les exercices, la banque d'outils et les données de référence ne sont jamais touchés.`;
+  return `La base contient ${count}. L'effacement supprime toutes les séances, leurs journaux de corrections, les corrections d'identité et les attestations, les démos en cours, ainsi que les compteurs de débit et les verrous par adresse, sans retour. Les anciens codes d'attestation répondront ensuite « aucune attestation ne correspond ». Le journal des actions reste, anonymisé (matricules, noms et codes remplacés par « — »), et note les nombres effacés. Les exercices, la banque d'outils et les données de référence ne sont jamais touchés.`;
 }
 
-// Ce que la page dit après : « Effacé : 3 séances, 40 corrections, 1 correction d'identité, 2 attestations, 12 compteurs de débit et 1 verrou ; journal des actions gardé, 4 entrées anonymisées. »
+// Ce que la page dit après : « Effacé : 3 séances, 40 corrections, 1 correction d'identité, 2 attestations, 1 démo, 12 compteurs de débit et 1 verrou ; journal des actions gardé, 4 entrées anonymisées. »
 export function purgeSummary(nombres) {
   const plural = (count, one, many) => `${count} ${count > 1 ? many : one}`; // en français, zéro reste au singulier
   const erased = [
@@ -164,6 +164,7 @@ export function purgeSummary(nombres) {
     plural(nombres.corrections, 'correction', 'corrections'),
     plural(nombres.corrections_identite, "correction d'identité", "corrections d'identité"),
     plural(nombres.attestations, 'attestation', 'attestations'),
+    plural(nombres.demos ?? 0, 'démo', 'démos'), // les démos en cours (D92), jetables
     plural(nombres.debit, 'compteur de débit', 'compteurs de débit'),
   ];
   return `Effacé : ${erased.join(', ')} et ${plural(nombres.verrous, 'verrou', 'verrous')} ; journal des actions gardé, ${plural(nombres.journal_anonymise, 'entrée anonymisée', 'entrées anonymisées')}.`;

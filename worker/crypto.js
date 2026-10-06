@@ -1,7 +1,7 @@
 // Cryptographie du serveur (décision D22), avec l'API Web Crypto — la même dans un Worker
 // Cloudflare et sous Node : rien à installer.
 //
-//   CLE_SECRETE ──HKDF──► une sous-clé par usage : « nip », « attestation », « prof »
+//   CLE_SECRETE ──HKDF──► une sous-clé par usage : « nip », « attestation », « prof », « specimen »
 //   NIP    : stocké comme HMAC-SHA-256(sous-clé « nip », matricule + NIP). Pas de hachage lent :
 //            un NIP de 4 à 6 chiffres est trop court pour qu'il serve ; la protection vient du
 //            secret, que la base ne contient pas.
@@ -51,6 +51,10 @@ export const signAttestation = (secret, canonicalText) => sign(secret, 'attestat
 
 // Signature de la charge du cookie de séance professeur (D34, acces.js).
 export const signProfSession = (secret, payload) => sign(secret, 'prof', payload);
+
+// Signature d'un spécimen d'attestation du mode démo (D92, specimen.js) : sur sa sérialisation canonique, sous une
+// sous-clé réservée aux spécimens — distincte de celle des attestations, qu'elle ne peut donc jamais contrefaire.
+export const signSpecimen = (secret, canonicalText) => sign(secret, 'specimen', canonicalText);
 
 // La clé d'administration présentée est-elle la bonne ? Les deux sont hachées avant la comparaison
 // en temps constant : la durée ne dit rien, pas même la longueur de la clé.

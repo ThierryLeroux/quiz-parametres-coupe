@@ -449,6 +449,34 @@
 
 .banner--test strong { color: var(--color-gold); font-size: inherit; }
 
+/* Le mode démo (D92, UI §3.10) : un bandeau discret mais constant au-dessus des panneaux — « Démo — rien n'est gardé »,
+   le lien vers le vrai exercice, le bouton du spécimen — ; et « Démo réussie », doré, à 100 %. */
+.banner--demo {
+  align-items: center;
+  margin: 0 0 var(--space-4);
+  border-color: var(--color-accent-light);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-text-muted);
+}
+
+.banner--demo strong { color: var(--color-accent-light); font-size: inherit; }
+.banner--demo p { flex: 1 1 200px; margin: 0; }
+
+.banner-demo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.banner--gold {
+  border-color: var(--color-gold);
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+}
+
+.banner--gold strong { color: var(--color-gold); }
+.banner--demo-done { margin: 0 0 var(--space-4); }
+
 /* Le rouge de la classe K, #FF0000 sur les feuilles, manque de contraste sur fond nuit : il est
    éclairci ICI seulement (UI §1) ; la couleur des feuilles ne change pas. */
 .material-card { --iso-k: var(--iso-k-night); }

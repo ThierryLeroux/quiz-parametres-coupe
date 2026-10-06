@@ -6,6 +6,7 @@ import { handle } from '../worker/index.js';
 import { computeParameters } from '../site/js/calcul.js';
 import { formatParameters } from '../site/js/format.js';
 import { CODE_ALPHABET } from '../worker/attestation.js';
+import { hashToken } from '../worker/crypto.js';
 import { fausseD1 } from './aide-d1.js';
 import { aleaAGraine } from './aide.js';
 import { assembleData } from '../site/js/data.js';
@@ -98,9 +99,22 @@ export function serveurDeTest({ graine = 2026, secret = 'secret-de-test', cleAdm
     // Les bonnes réponses de la question mémorisée, telles qu'affichées par le corrigé — calculées
     // avec le catalogue de la version épinglée à la séance.
     bonnesReponses(matricule = '2412345', exercice = 'm10-tournage-vc') {
-      const ligne = this.seance(matricule, exercice);
+      return this.bonnesReponsesDe(this.seance(matricule, exercice));
+    },
+    bonnesReponsesDe(ligne) {
       const version = this.db.sqlite.prepare('SELECT numero FROM versions_exercice WHERE id = ?').get(ligne.version_id);
-      return formatParameters(computeParameters(JSON.parse(ligne.question_courante), this.catalogue(exercice, version?.numero ?? null)));
+      return formatParameters(computeParameters(JSON.parse(ligne.question_courante), this.catalogue(ligne.exercice_id, version?.numero ?? null)));
+    },
+    // La ligne d'une démo (D92), telle qu'en base, par son jeton ; et les bonnes réponses de sa question en attente.
+    async demo(jeton) {
+      const ligne = this.db.sqlite.prepare('SELECT * FROM demos WHERE jeton_hache = ?').get(await hashToken(jeton));
+      return ligne === undefined ? null : { ...ligne };
+    },
+    async bonnesReponsesDemo(jeton) {
+      return this.bonnesReponsesDe(await this.demo(jeton));
+    },
+    demos() {
+      return this.db.sqlite.prepare('SELECT * FROM demos ORDER BY id').all().map((row) => ({ ...row }));
     },
   };
   forgetAssembled(); // une autre base : les versions gardées en mémoire ne valent plus

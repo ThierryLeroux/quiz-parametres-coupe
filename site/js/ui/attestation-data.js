@@ -248,8 +248,10 @@ export function attestationFooter(record) {
 }
 
 // Nom du fichier PDF proposé par le navigateur (c'est le titre de la page pendant l'impression) :
-// « Attestation-m10-tournage-vc-Tremblay-Camille », sans accent ni espace.
+// « Attestation-m10-tournage-vc-Tremblay-Camille », sans accent ni espace. Un spécimen du mode démo (D92) :
+// « Specimen-attestation-m10-tournage-vc », jamais « Attestation-… » — au pied de page aussi.
 export function attestationFileName(record) {
+  if (record.specimen === true) return `Specimen-attestation-${record.exercice.id}`;
   const plain = (text) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `Attestation-${record.exercice.id}-${plain(record.etudiant.nom)}-${plain(record.etudiant.prenom)}`;
 }
@@ -282,13 +284,15 @@ function cancellationText(result) {
   return `Cette attestation a été annulée${when} : ${reason}. Voici l'enregistrement tel qu'il était.`;
 }
 
-// Titre et explication de chaque issue de la vérification (SPEC §8, D33).
+// Titre et explication de chaque issue de la vérification (SPEC §8, D33 ; les deux issues d'un spécimen du mode démo, D92).
 export function verificationOutcome(result) {
   const outcomes = {
     valide: { tone: 'correct', title: 'Attestation valide', text: "Le serveur de correction détient cette attestation, et sa signature est authentique. Voici l'enregistrement tel qu'il le détient." },
     annulee: { tone: 'gold', title: 'Attestation annulée', text: cancellationText(result) },
     aucune: { tone: 'wrong', title: 'Aucune attestation ne correspond', text: 'Aucune attestation ne porte ce code. Vérifie le code sur le document ; un O ou un I ne peuvent pas y figurer.' },
     invalide: { tone: 'wrong', title: 'Signature invalide ou contenu modifié', text: "Ce que l'adresse du QR prétend ne correspond pas à ce que le serveur détient : le document a été fabriqué ou retouché." },
+    specimen: { tone: 'gold', title: 'SPÉCIMEN — exemple sans valeur', text: "Ce document est un spécimen d'attestation produit par le mode démo : il n'atteste aucune réussite. Sa signature de spécimen est authentique ; voici ce qu'elle couvre, recomposé par le serveur." },
+    specimen_code: { tone: 'gold', title: "Code d'un spécimen", text: "Ce code est celui d'un spécimen d'attestation, un exemple sans valeur produit par le mode démo. Scanne son code QR pour en vérifier la signature." },
   };
   return outcomes[result.resultat] ?? { tone: 'wrong', title: 'Réponse inattendue', text: "Le serveur a répondu quelque chose d'inconnu." };
 }

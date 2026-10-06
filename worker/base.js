@@ -250,13 +250,79 @@ export async function deleteSession(db, seanceId, now, entry) {
   ]);
 }
 
+// --- Démos (D92) : une séance anonyme, sans trace durable ----------------------------------------------------------
+// Une ligne de la table demos, colonnes JSON décodées comme une séance (compteurs, question_courante, question_brute).
+
+function decodeDemo(row) {
+  if (row === null) return null;
+  return {
+    ...row,
+    compteurs: JSON.parse(row.compteurs),
+    question_courante: row.question_courante === null ? null : JSON.parse(row.question_courante),
+    question_brute: row.question_courante,
+  };
+}
+
+// Crée une démo, épinglée à une version publiée, avec sa première question ; retourne son identifiant.
+//   d : { jeton_hache, exercice_id, version_id, outil_choisi, compteurs, question_courante, creee_le }
+export async function createDemo(db, d) {
+  const { meta } = await db.prepare(`
+    INSERT INTO demos (jeton_hache, exercice_id, version_id, outil_choisi, compteurs, question_courante, creee_le, derniere_activite)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(d.jeton_hache, d.exercice_id, d.version_id, d.outil_choisi, JSON.stringify(d.compteurs), d.question_courante === null ? null : JSON.stringify(d.question_courante), d.creee_le, d.creee_le)
+    .run();
+  return meta.last_row_id;
+}
+
+export async function findDemoByToken(db, tokenHash) {
+  return decodeDemo(await db.prepare('SELECT * FROM demos WHERE jeton_hache = ?').bind(tokenHash).first());
+}
+
+export async function findDemoById(db, id) {
+  return decodeDemo(await db.prepare('SELECT * FROM demos WHERE id = ?').bind(id).first());
+}
+
+// Chaque appel accepté repousse l'expiration de la démo.
+export async function touchDemo(db, id, now) {
+  await db.prepare('UPDATE demos SET derniere_activite = ? WHERE id = ?').bind(now, id).run();
+}
+
+// Mémorise la question tirée et l'outil choisi, seulement si la question mémorisée est encore celle qu'on a lue.
+// Retourne false sinon (une autre requête a tiré avant nous : c'est sa question qui vaut).
+export async function saveDemoQuestion(db, demo, question, chosen) {
+  const { meta } = await db.prepare('UPDATE demos SET question_courante = ?, outil_choisi = ? WHERE id = ? AND question_courante IS ?')
+    .bind(JSON.stringify(question), chosen, demo.id, demo.question_brute)
+    .run();
+  return meta.changes === 1;
+}
+
+// Enregistre une correction de démo : les compteurs, la question suivante et l'heure de la correction — sans journal
+// (aucune trace, D92) —, seulement si la démo n'a pas changé depuis sa lecture. Retourne false sinon.
+//   c : { compteurs, question_suivante, horodatage }
+export async function recordDemoCorrection(db, demo, c) {
+  const { meta } = await db.prepare(`
+    UPDATE demos SET compteurs = ?, question_courante = ?, derniere_correction = ?
+    WHERE id = ? AND derniere_correction IS ? AND question_courante IS ?`)
+    .bind(JSON.stringify(c.compteurs), JSON.stringify(c.question_suivante), c.horodatage, demo.id, demo.derniere_correction, demo.question_brute)
+    .run();
+  return meta.changes === 1;
+}
+
+// Efface les démos expirées : celles dont la dernière activité remonte à `before` ou avant (la même borne
+// qu'isDemoExpired, demo.js). Retourne le nombre effacé.
+export async function deleteExpiredDemos(db, before) {
+  const { meta } = await db.prepare('DELETE FROM demos WHERE derniere_activite <= ?').bind(before).run();
+  return meta.changes;
+}
+
 // --- Effacement des données des étudiants (D46) ---------------------------------------------------------------
 
-// Ce qu'il y a à effacer : { seances, corrections, corrections_identite, attestations, debit, verrous }.
+// Ce qu'il y a à effacer : { seances, corrections, corrections_identite, attestations, demos, debit, verrous }.
 export async function countStudentData(db) {
   return db.prepare(`
     SELECT (SELECT COUNT(*) FROM seances) AS seances, (SELECT COUNT(*) FROM corrections) AS corrections,
            (SELECT COUNT(*) FROM corrections_identite) AS corrections_identite, (SELECT COUNT(*) FROM attestations) AS attestations,
+           (SELECT COUNT(*) FROM demos) AS demos,
            (SELECT COUNT(*) FROM debit) AS debit, (SELECT COUNT(*) FROM verrous) AS verrous`).first();
 }
 
@@ -267,7 +333,7 @@ export async function listTeacherLog(db) {
 }
 
 // Efface toutes les séances, journaux de corrections, corrections d'identité et attestations, les
-// compteurs de débit et les verrous ; anonymise les détails du journal des actions — qui reste, ses
+// démos (D92), les compteurs de débit et les verrous ; anonymise les détails du journal des actions — qui reste, ses
 // lignes détachées des séances (ON DELETE SET NULL) — et y inscrit l'action ; en un seul lot. Les
 // exercices et le catalogue ne sont pas en base : jamais touchés.
 //   anonymized : [{ id, details }] — les lignes du journal à réécrire (acces.js, anonymizedDetails)
@@ -279,6 +345,7 @@ export async function purgeStudentData(db, anonymized, entry) {
     db.prepare('DELETE FROM corrections_identite'),
     db.prepare('DELETE FROM corrections'),
     db.prepare('DELETE FROM seances'),
+    db.prepare('DELETE FROM demos'),
     db.prepare('DELETE FROM debit'),
     db.prepare('DELETE FROM verrous'),
     db.prepare('INSERT INTO journal_enseignant (horodatage, enseignant, seance_id, action, details) VALUES (?, ?, NULL, ?, ?)')
@@ -665,9 +732,10 @@ export async function archiveExercise(db, id, archiveLe, entry) {
 }
 
 // Supprime un exercice, ses versions et sa présentation avec son historique (D78) — l'appelant a vérifié qu'aucune
-// séance ne s'y rattache.
+// séance ne s'y rattache. Ses démos (D92), jetables, partent avec lui.
 export async function deleteExercise(db, id, entry) {
   await db.batch([
+    db.prepare('DELETE FROM demos WHERE exercice_id = ?').bind(id),
     db.prepare('DELETE FROM versions_exercice WHERE exercice_id = ?').bind(id),
     db.prepare('DELETE FROM presentation_exercices WHERE exercice_id = ?').bind(id),
     db.prepare('DELETE FROM presentation_exercices_historique WHERE exercice_id = ?').bind(id),
