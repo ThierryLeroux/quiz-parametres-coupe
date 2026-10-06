@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiz — paramètres de coupe</title>
+<link rel="stylesheet" href="../../site/css/tokens.css"><link rel="stylesheet" href="../../site/css/base.css"><link rel="stylesheet" href="../../site/css/app.css"><link rel="stylesheet" href="../../site/css/fond.css">
+<!-- Maquette de l'accueil lisible (D91, à confirmer). Ouvrir directement dans Chrome depuis reference/accueil/ : elle lit les feuilles de site/css/.
+     Données : la liste de l'accueil en production (lot du 29 sept.), avec les noms de cours actuels. -->
+<style>
+/* ===== Maquette « accueil r1 » : ce qui s'ajouterait à app.css ===== */
+.screen--home { max-width: 1040px; gap: var(--space-5); }
+
+/* En-tête de l'accueil : posé sur le fond, sans panneau */
+.home-hero { display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--space-1); }
+.home-hero h1 { margin: 0; font-size: clamp(1.75rem, 6vw, 2.5rem); text-shadow: 0 0 18px #05091a, 0 0 4px #05091a; }
+.home-hero .home-lead { max-width: 60ch; color: var(--color-text); font-size: 0.9375rem; text-shadow: 0 0 8px #05091a, 0 0 2px #05091a; }
+
+/* Les trois étapes : où on en est dans le parcours */
+.home-steps { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: var(--space-1) 0 0; padding: 0; list-style: none; font-size: var(--text-sm); color: var(--color-text); }
+.home-steps li { display: flex; align-items: center; gap: var(--space-2); text-shadow: 0 0 6px #05091a; }
+.home-steps b { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--color-accent-light); color: var(--color-accent-light); font-family: var(--font-number); font-size: var(--text-xs); font-weight: 500; background: #05091acc; }
+
+/* Raccourcis vers chaque cours */
+.course-jump { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.course-jump a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--space-4); border: 1px solid color-mix(in srgb, var(--color-accent-light) 60%, transparent); background: #0b1430e6; color: var(--color-text); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.03em; text-decoration: none; }
+.course-jump a:hover { border-color: var(--color-accent-light); color: var(--color-accent-light); background: #10204a; }
+
+/* Une carte par cours, deux par rangée sur ordinateur */
+.course-grid { display: grid; gap: var(--space-5); align-items: start; }
+@media (min-width: 900px) { .course-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.course-card { scroll-margin-top: var(--space-4); }
+.course-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+.course-code { padding: 2px 10px; border: var(--border) solid var(--color-accent-light); color: var(--color-accent-light); font-family: var(--font-number); font-size: 1.375rem; font-weight: 500; letter-spacing: 0.06em; line-height: 1.3; }
+.course-name { color: var(--color-text); font-size: 1.25rem; font-weight: 600; letter-spacing: 0.02em; }
+.course-count { margin-left: auto; color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
+
+/* Une rangée par exercice : toute la rangée est le lien ; la démo, à droite, à part */
+.ex-rows { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.ex-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent); background: #0f1b3d; transition: border-color .15s, box-shadow .15s; }
+.ex-row:hover, .ex-row:focus-within { border-color: var(--color-accent-light); box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-light) 35%, transparent); }
+.ex-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); row-gap: 6px; padding: var(--space-3) var(--space-4); color: var(--color-text); text-decoration: none; }
+.ex-main:hover { color: var(--color-text); background: color-mix(in srgb, var(--color-accent-light) 7%, transparent); }
+.ex-title { font-size: 1.0625rem; font-weight: 600; line-height: 1.25; }
+.ex-main:hover .ex-title { color: var(--color-link-hover); }
+.ex-go { grid-row: span 2; color: var(--color-accent-light); font-size: 1.5rem; line-height: 1; }
+.ex-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--color-text-muted); font-size: var(--text-xs); }
+.ex-label { margin-right: 2px; }
+.qty { display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 5px; border: 1px solid color-mix(in srgb, var(--color-accent-light) 55%, transparent); color: var(--color-accent-light); font-family: var(--font-number); font-size: 0.8125rem; font-weight: 500; }
+.ex-sep { margin: 0 2px; }
+.ex-demo { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 64px; padding: 0 var(--space-3); border-left: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent); color: var(--color-text-muted); font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; }
+.ex-demo svg { width: 18px; height: 18px; }
+.ex-demo:hover { color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 8%, transparent); }
+
+/* Ordinateur : toutes les cartes se voient d'un coup d'œil, les raccourcis ne servent plus */
+@media (min-width: 900px) { .course-jump { display: none; } }
+/* Téléphone : moins de marges emboîtées, pastilles plus serrées */
+@media (max-width: 639px) {
+  .app-main .course-card { padding: var(--space-4) 14px; }
+  .ex-main { padding: var(--space-3); column-gap: var(--space-2); }
+  .qty { min-width: 24px; padding: 0 4px; font-size: 0.75rem; }
+  .ex-facts { gap: 4px; }
+  .ex-demo { min-width: 54px; padding: 0 var(--space-2); }
+}
+.home-teacher2 .button-outline { text-decoration: none; }
+/* Porte professeur : une ligne compacte */
+.home-teacher2 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.home-teacher2 .eyebrow { flex: none; }
+.home-teacher2 p { flex: 1 1 320px; }
+</style>
+</head>
+<body>
+<div class="fond" aria-hidden="true"><div class="fond-image"></div><div class="fond-lueur"></div><div class="fond-balayage"></div></div>
+<header class="app-header no-print">
+  <a class="app-brand" href="#"><img class="app-logo" src="../../site/img/logo-cvm.png" alt="Cégep du Vieux Montréal"><div class="app-title">Quiz — paramètres de coupe</div></a>
+  <div class="app-aside">TGM-TMI</div>
+</header>
+<main class="app-main" id="app"></main>
+<footer class="app-footer no-print">
+  <div class="app-department"><div>Techniques de génie mécanique</div><div>Technique du génie de la maintenance industrielle</div><div>(fiabilité des systèmes de production)</div></div>
+  <div>TGM-TMI · Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session.</div>
+</footer>
+<script>
+// Liste de l'accueil telle que GET /api/exercices la renvoie en production (lot du 29 sept., catalogue exercices.md),
+// dans l'ordre des rangs : chaque démo juste avant son exercice.
+const T = ['vc', 'n'];
+const ALL = ['vc', 'fz', 'n', 'f', 'vf'];
+window.LISTE = [
+  { id: 'demo-m10-tournage-vc-rpm-2', titre: "Tournage — Démo de l'exercice 2", cours: 'M10 — Tournage', nombre_outils: 1, champs_evalues: T },
+  { id: 'm10-tournage-vc-rpm-2', titre: 'Tournage — Exercice 2', cours: 'M10 — Tournage', nombre_outils: 13, champs_evalues: T },
+  { id: 'demo-m10-tournage-avances', titre: "Tournage — Démo de l'exercice 3", cours: 'M10 — Tournage', nombre_outils: 1, champs_evalues: ALL },
+  { id: 'm10-tournage-avances', titre: 'Tournage — Exercice 3', cours: 'M10 — Tournage', nombre_outils: 9, champs_evalues: ALL },
+  { id: 'demo-m10-fraisage-vc-rpm', titre: "Fraisage — Démo de l'exercice 2", cours: 'M10 — Fraisage', nombre_outils: 1, champs_evalues: T },
+  { id: 'm10-fraisage-vc-rpm', titre: 'Fraisage — Exercice 2', cours: 'M10 — Fraisage', nombre_outils: 13, champs_evalues: T },
+  { id: 'demo-m10-fraisage-avances', titre: "Fraisage — Démo de l'exercice 3", cours: 'M10 — Fraisage', nombre_outils: 1, champs_evalues: ALL },
+  { id: 'm10-fraisage-avances', titre: 'Fraisage — Exercice 3', cours: 'M10 — Fraisage', nombre_outils: 6, champs_evalues: ALL },
+  { id: 'demo-m30-fraisage-cn', titre: 'M30 — Démo : fraisage CN', cours: 'M30', nombre_outils: 1, champs_evalues: ALL },
+  { id: 'm30-fraisage-cn', titre: 'M30 — Fraisage CN : paramètres de coupe', cours: 'M30', nombre_outils: 18, champs_evalues: ALL },
+  { id: 'demo-m40-tournage-cn', titre: 'M40 — Démo : tournage CN', cours: 'M40', nombre_outils: 1, champs_evalues: ALL },
+  { id: 'm40-tournage-cn', titre: 'M40 — Tournage CN : paramètres de coupe', cours: 'M40', nombre_outils: 15, champs_evalues: ALL },
+  { id: 'demo-f50-synthese', titre: 'F50 — Démo : synthèse', cours: 'F50', nombre_outils: 1, champs_evalues: ALL },
+  { id: 'f50-synthese', titre: 'F50 — Synthèse du fraisage et du tournage', cours: 'F50', nombre_outils: 35, champs_evalues: ALL },
+];
+window.NOMS = { vc: 'vitesse de coupe', fz: 'avance par dent', n: 'vitesse de rotation', f: 'avance totale par révolution', vf: "vitesse d'avance" };
+window.SYMBOLES = { vc: 'Vc', fz: 'fz', n: 'N', f: 'f', vf: 'Vf' };
+</script>
+<script>
+const ORDRE = ['vc', 'fz', 'n', 'f', 'vf'];
+// Les exercices par cours, dans l'ordre des rangs ; une démo « demo-<id> » s'accroche à son exercice.
+const ids = new Set(LISTE.map((e) => e.id));
+const demos = new Map();
+for (const e of LISTE) if (e.id.startsWith('demo-') && ids.has(e.id.slice(5))) demos.set(e.id.slice(5), e);
+const groups = new Map();
+for (const e of LISTE) {
+  if (demos.has(e.id.slice(5)) && e.id.startsWith('demo-')) continue;
+  if (!groups.has(e.cours)) groups.set(e.cours, []);
+  groups.get(e.cours).push(e);
+}
+const slug = (s) => 'cours-' + s.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const split = (c) => { const [code, ...rest] = c.split(' — '); return { code, name: rest.join(' — ') }; };
+const projo = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4M8 20h8M10 8.5v4l3.5-2z"/></svg>';
+const row = (e) => {
+  const d = demos.get(e.id);
+  const qty = ORDRE.filter((k) => e.champs_evalues.includes(k)).map((k) => `<span class="qty" title="${NOMS[k]}">${SYMBOLES[k]}</span>`).join('');
+  return `<li class="ex-row">
+    <a class="ex-main" href="#"><span class="ex-title">${e.titre}</span><span class="ex-go" aria-hidden="true">›</span>
+      <span class="ex-facts"><span class="ex-label">À trouver</span>${qty}<span class="ex-sep">·</span>${e.nombre_outils} outils</span></a>
+    ${d ? `<a class="ex-demo" href="#" title="${d.titre} — une seule question, à faire au projecteur">${projo}Démo</a>` : ''}
+  </li>`;
+};
+document.getElementById('app').innerHTML = `<div class="screen screen--home">
+<section class="home-hero">
+  <div class="eyebrow">Exercices · paramètres de coupe</div>
+  <h1>Quel exercice fais-tu ?</h1>
+  <ol class="home-steps"><li><b>1</b>Ton cours</li><li><b>2</b>L'exercice indiqué sur Léa</li><li><b>3</b>Ton matricule et ton NIP</li></ol>
+  <nav class="course-jump" aria-label="Aller à un cours">${[...groups.keys()].map((c) => `<a href="#${slug(c)}">${c}</a>`).join('')}</nav>
+</section>
+<div class="course-grid">
+${[...groups].map(([c, ex]) => { const { code, name } = split(c); return `<section class="panel course-card" id="${slug(c)}">
+  <h2 class="course-head"><span class="course-code">${code}</span>${name ? `<span class="course-name">${name}</span>` : ''}<span class="course-count">${ex.length} exercice${ex.length > 1 ? 's' : ''}</span></h2>
+  <ul class="ex-rows">${ex.map(row).join('')}</ul></section>`; }).join('')}
+</div>
+<section class="panel home-teacher2"><div class="eyebrow">Enseignants</div>
+  <p class="small muted">« Démo » : une seule question de l'exercice, à faire au projecteur avec le groupe.</p>
+  <a class="button-outline" href="#">Espace professeur →</a></section>
+</div>`;
+</script></body></html>

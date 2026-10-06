@@ -3488,3 +3488,77 @@ que l'attestation contient).**
 
 Conséquences : `attestation-data.js` (`stamp`), `attestation-screen.js` (`factsGrid`), `attestation.css` ;
 `tests/ui-verifier.test.js`, `tests/ui-attestation.test.js` ; UI §3.7. Rapport : `docs/rapports/verifier-retouches.md`.
+
+## D91 — L'accueil lisible au premier coup d'œil : une carte par cours, une rangée par exercice avec sa démo (2026-10-06, décidée)
+
+**Contexte.** Depuis le lot d'exercices (D84), l'accueil de la production empile **quatorze liens soulignés** — sept
+exercices et sept démos — dans un seul panneau de 680 px, chacun suivi d'une longue ligne « 13 outils · champs
+évalués : vitesse de coupe, avance par dent, vitesse de rotation, avance totale par révolution, vitesse d'avance »
+(D71). Les intertitres de cours (D71) n'y suffisent plus : rien ne distingue, au premier regard, le cours, l'exercice
+et sa démo, et l'étudiant lit deux fois chaque titre. La maquette de référence, approuvée par Thierry, est
+`reference/accueil/apercu-accueil.html` (elle lit les feuilles de `site/css/` et la liste de la production).
+
+**Décision** (Thierry, 2026-10-06). L'accueil (`/`, sans `?exercice=`) se lit d'un coup d'œil : une carte par cours,
+une rangée par exercice, la démo dans la rangée de son exercice. Rien ne change au serveur, à `GET /api/exercices`,
+à la page d'un exercice (`renderHome`), à la correction ni au fond animé (D88).
+
+1. **Les démos rattachées à leur exercice** (pur, `home-data.js`, `attachDemos`). Par convention, la démo d'un
+   exercice « <id> » a l'identifiant « demo-<id> » (c'est ainsi que le lot les nomme, D84). Quand les deux sont dans
+   la liste reçue, la démo n'a plus sa propre rangée : elle devient le bouton **Démo** de la rangée de son exercice.
+   Une démo dont l'exercice n'est pas dans la liste (archivé, retiré de l'accueil) ou qui ne suit pas la convention
+   reste une rangée ordinaire, avec son titre. L'ordre des rangs reste celui de la liste reçue (D51) — la rangée
+   garde la place de l'exercice, que sa démo le précède ou le suive — et le regroupement par cours de `homeGroups`
+   (`courseKey`, « Autres exercices ») ne change pas ; une démo rangée sous un autre cours que son exercice s'accroche
+   quand même : c'est l'exercice qui range la rangée.
+2. **Une carte par cours** (le panneau biseauté, `homeCards`) : grille à **deux colonnes à partir de 900 px**, une
+   colonne en dessous ; l'écran d'accueil fait **1040 px** (`.screen--home` ; les autres écrans gardent 680). En-tête
+   de carte en `h2` : le **sigle encadré** en chasse fixe et le **nom** à côté, obtenus en coupant le cours au premier
+   « — » (`splitCourse`, pur : « M10 — Tournage » → M10 / Tournage ; « M30 » → M30 sans nom ; un cours sans tiret
+   garde tout comme sigle ; un trait d'union n'est pas le tiret). À droite, « 2 exercices », sans compter les démos
+   rattachées. Le groupe « Autres exercices » : une carte avec ce titre en nom, sans sigle encadré ; le groupe sans
+   titre (aucun cours nulle part) : une carte nommée « Exercices », sans sigle. Chaque carte porte une **ancre stable
+   tirée du cours** (`courseAnchor` : « cours-m10-tournage », « cours-m30 », « cours-autres-exercices »,
+   « cours-exercices ») et un `scroll-margin-top`.
+3. **La rangée d'exercice** : **le lien couvre toute la rangée** — le titre en 17 px, texte clair, bleu clair au
+   survol, la flèche « › » à droite —, avec dessous « À trouver » puis **une pastille par grandeur évaluée**, dans
+   l'ordre Vc, fz, N, f, Vf (`gradedFields`), puis « · 13 outils » (d'un seul tenant : s'il passe à la ligne, le point
+   médian le suit). Chaque pastille a son nom complet en indice (`title`) et le lien a un **nom accessible complet**
+   (`aria-label` : « Tournage — Exercice 2 — à trouver : vitesse de coupe, vitesse de rotation — 13 outils »). Une
+   entrée d'un serveur d'avant D71 (sans nombre d'outils ni grandeurs) donne une rangée au titre seul. Le bouton
+   **Démo** est un **lien séparé**, à droite, séparé par un filet : un pictogramme de projecteur (SVG en ligne,
+   construit par le DOM, décoratif) et « DÉMO », atténué, **doré au survol**, cible d'au moins 44 px, nom accessible
+   « Démo : <titre de la démo> », indice « <titre> — une seule question, à faire au projecteur ». **Jamais de lien dans
+   un lien** : la rangée est un `li` à deux liens frères.
+4. **L'en-tête de l'accueil, sans panneau, posé sur le fond** (une ombre portée du texte, `text-shadow`, le garde
+   lisible, comme dans la maquette) : le sur-titre « Exercices · paramètres de coupe », le `h1` « Quel exercice
+   fais-tu ? » (qui garde le focus de `showScreen`), puis trois étapes numérotées — « Ton cours », « L'exercice indiqué
+   sur Léa », « Ton matricule et ton NIP » (une liste ordonnée ; le numéro encadré est décoratif, `aria-hidden`).
+   L'avis de D18 (« L'exercice « … » n'existe pas — vérifie le lien sur Léa. ») et « Aucun exercice n'est offert pour
+   l'instant. » restent, **sous le `h1`, dans un panneau** (`.home-notice`) pour rester lisibles sur l'image. La
+   consigne « Choisis l'exercice indiqué sur Léa par ton enseignant ; sa page dit ce qu'il demande… » disparaît : les
+   trois étapes la disent.
+5. **Raccourcis vers les cours** : une rangée de liens vers l'ancre de chaque carte (`nav`, « Aller à un cours »),
+   affichée **sous 900 px seulement** ; sur ordinateur, toutes les cartes se voient d'un coup d'œil. Avec une seule
+   carte, pas de raccourci (rien à sauter).
+6. **Porte professeur compacte** : un panneau d'une ligne — « Enseignants », la note « « Démo » : une seule question de
+   l'exercice, à faire au projecteur avec le groupe. » et le bouton au contour **Espace professeur →** (sans
+   soulignement, `/prof`). La phrase sur les deux clés disparaît de l'accueil : la connexion de `/prof` la dit déjà
+   (D44, §3.8).
+7. **Téléphone** (390 et 360 px) : marges intérieures des cartes resserrées (`var(--space-4) 14px`), pastilles plus
+   serrées, colonne Démo d'environ 54 px, aucun défilement de côté. **Focus clavier visible** sur les rangées, les démos
+   et les raccourcis (le contour commun de `base.css`, dessiné à l'intérieur de la rangée, qui s'allume déjà par
+   `:focus-within`) ; **rien ne bouge de plus en `prefers-reduced-motion`** (les transitions de la rangée et de la démo
+   sont retirées). Les couleurs viennent de `tokens.css` (`--color-panel-row`, la rangée, un ton plus clair que le
+   panneau ; tout le reste par `color-mix` des couleurs existantes) : aucune couleur en dur dans la section.
+8. **Rien ne touche la correction** : aucun fichier de `worker/`, aucune migration ; `GET /api/exercices` rend la même
+   liste. C'est de l'affichage seulement ; au déploiement, l'accueil change pour tout le monde, séances en cours
+   comprises (elles ne passent pas par l'accueil).
+
+**Conséquences.** `home-data.js` (`attachDemos`, `splitCourse`, `courseAnchor`, `gradedFields`, `homeCards`,
+`exerciseHref`, `OTHERS_TITLE`, `NO_COURSE_NAME`) ; `home-screen.js` (`renderHomeList` réécrit : `HOME_EYEBROW`,
+`HOME_TITLE`, `HOME_STEPS`, `DEMO_NOTE`, `TEACHER_LINK_LABEL`, `NO_EXERCISE_NOTICE`, `unknownExerciseNotice`) ;
+`text.js` (`countText` exporté ; `listedExerciseMeta` retirée, plus rien ne l'écrivait) ; `app.css` (la section de
+l'accueil ; les règles `.exercise-list`, `.home-course`, `.home-group` retirées) ; `tokens.css`
+(`--color-panel-row`) ; `tests/aide-dom.js` (`createElementNS`) ; `tests/ui-home.test.js` (les règles pures et
+l'écran sur le DOM minuscule) ; UI §3.1 ; CLAUDE.md ; `reference/accueil/apercu-accueil.html` versionnée.
+Rapport : `docs/rapports/accueil-lisible.md`.
