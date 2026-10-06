@@ -6,12 +6,20 @@
 import { allowedGroups, allowedToolMaterials, courseKey } from '../exercice.js';
 import { toolLabels } from './rules.js';
 import { operationPictoOf, toolPhotoUrl } from './sheets-data.js';
-import { fieldName } from './text.js';
+import { countText, fieldName } from './text.js';
 
 // Le lien d'un exercice, celui qu'on donne sur Léa : il mène à sa page de description (D71).
 export const exerciseLink = (origin, id) => `${origin}/?exercice=${encodeURIComponent(id)}`;
 
+// Le même lien, relatif, tel que l'accueil l'écrit dans ses rangées.
+export const exerciseHref = (id) => `?exercice=${encodeURIComponent(id)}`;
+
 // --- Accueil -------------------------------------------------------------------------------------------------------
+
+// Le titre du groupe des exercices sans cours, quand d'autres en ont un.
+export const OTHERS_TITLE = 'Autres exercices';
+// Le nom de la seule carte quand aucun exercice n'a de cours (homeGroups rend alors un groupe sans titre).
+export const NO_COURSE_NAME = 'Exercices';
 
 // Les exercices de l'accueil regroupés par cours, dans l'ordre des rangs (celui de la liste reçue) : un groupe
 // par clé de cours (courseKey : « m10 » et « M-10 » vont avec « M10 »), sous l'écriture du premier exercice du
@@ -31,12 +39,79 @@ export function homeGroups(exercises) {
     groups.get(key).exercises.push(entry);
   }
   if (groups.size === 0) return others.length === 0 ? [] : [{ title: null, exercises: others }];
-  return [...groups.values(), ...(others.length === 0 ? [] : [{ title: 'Autres exercices', exercises: others }])];
+  return [...groups.values(), ...(others.length === 0 ? [] : [{ title: OTHERS_TITLE, exercises: others }])];
+}
+
+// Les démos rattachées à leur exercice (D91). Par convention, la démo d'un exercice « <id> » a l'identifiant
+// « demo-<id> » : quand les deux sont dans la liste reçue, la démo n'a plus sa propre rangée et devient le bouton
+// « Démo » de la rangée de son exercice. Une démo dont l'exercice n'est pas dans la liste (archivé, retiré de
+// l'accueil) ou qui ne suit pas la convention reste une entrée ordinaire. L'ordre des rangs reste celui de la
+// liste reçue (D51). Retourne les entrées gardées, chacune avec `demo` : l'entrée de sa démo, ou null.
+//   listed : [{ id, titre, cours, nombre_outils, champs_evalues }, …] (GET /api/exercices)
+export function attachDemos(listed) {
+  const ids = new Set(listed.map((entry) => entry.id));
+  const exerciseOf = (entry) => (String(entry.id).startsWith('demo-') && ids.has(entry.id.slice(5)) ? entry.id.slice(5) : null);
+  const demos = new Map(listed.filter((entry) => exerciseOf(entry) !== null).map((entry) => [exerciseOf(entry), entry]));
+  return listed.filter((entry) => exerciseOf(entry) === null).map((entry) => ({ ...entry, demo: demos.get(entry.id) ?? null }));
+}
+
+// Le sigle et le nom d'un cours, coupé au premier « — » : « M10 — Tournage » → M10 / Tournage ; « M30 » → M30, sans
+// nom ; un cours sans tiret garde tout comme sigle. Retourne { code, name } — name vaut null sans nom.
+export function splitCourse(course) {
+  const text = String(course ?? '').trim();
+  const at = text.indexOf('—');
+  if (at === -1) return { code: text, name: null };
+  return { code: text.slice(0, at).trim(), name: text.slice(at + 1).trim() || null };
+}
+
+// L'ancre d'une carte de cours, stable et tirée du cours : « M10 — Tournage » → « cours-m10-tournage » ; sans titre,
+// « cours-exercices ». Deux cours différents à l'accueil (clés courseKey différentes) donnent deux ancres différentes.
+export function courseAnchor(title) {
+  const slug = String(title ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `cours-${slug || 'exercices'}`;
+}
+
+const FIELDS = [['vc', 'Vc'], ['fz', 'fz'], ['n', 'N'], ['f', 'f'], ['vf', 'Vf']];
+
+// Les grandeurs évaluées d'un exercice, dans l'ordre de l'écran (Vc, fz, N, f, Vf) : [{ key, symbol, name }].
+//   champs : champs_evalues (['vc', 'n']) ; autre chose qu'une liste (réponse d'un serveur d'avant) → aucune
+export function gradedFields(champs) {
+  if (!Array.isArray(champs)) return [];
+  return FIELDS.filter(([key]) => champs.includes(key)).map(([key, symbol]) => ({ key, symbol, name: fieldName(key) }));
+}
+
+// Une rangée de l'accueil : ce que la rangée d'un exercice écrit et nomme.
+//   href   : le lien de sa page ; fields : ses pastilles ; tools : « 13 outils » (null si le serveur ne le dit pas)
+//   name   : le nom accessible du lien — « Tournage — Exercice 2 — à trouver : vitesse de coupe, vitesse de rotation — 13 outils »
+//   demo   : { id, href, title, name, hint } — le bouton « Démo » (nom accessible « Démo : <titre> », indice
+//            « <titre> — une seule question, à faire au projecteur »), ou null
+function homeRow(entry) {
+  const fields = gradedFields(entry.champs_evalues);
+  const tools = Number.isInteger(entry.nombre_outils) ? countText(entry.nombre_outils, 'outil') : null;
+  const name = [entry.titre, ...(fields.length === 0 ? [] : [`à trouver : ${fields.map((f) => f.name).join(', ')}`]), ...(tools === null ? [] : [tools])].join(' — ');
+  const demo = entry.demo === null || entry.demo === undefined ? null : {
+    id: entry.demo.id,
+    href: exerciseHref(entry.demo.id),
+    title: entry.demo.titre,
+    name: `Démo : ${entry.demo.titre}`,
+    hint: `${entry.demo.titre} — une seule question, à faire au projecteur`,
+  };
+  return { id: entry.id, href: exerciseHref(entry.id), title: entry.titre, fields, tools, name, demo };
+}
+
+// Les cartes de l'accueil (D91) : une par groupe de homeGroups, les démos rattachées à leur exercice.
+// Retourne [{ id, title, code, name, count, rows }] :
+//   id    : l'ancre de la carte (courseAnchor) ; title : le titre du groupe (null sans aucun cours)
+//   code  : le sigle encadré (null pour « Autres exercices » et pour le groupe sans titre) ; name : le nom à côté
+//   count : « 2 exercices », sans compter les démos rattachées ; rows : les rangées (homeRow), dans l'ordre des rangs
+export function homeCards(listed) {
+  return homeGroups(attachDemos(listed)).map(({ title, exercises }) => {
+    const { code, name } = title === null ? { code: null, name: NO_COURSE_NAME } : title === OTHERS_TITLE ? { code: null, name: title } : splitCourse(title);
+    return { id: courseAnchor(title), title, code, name, count: countText(exercises.length, 'exercice'), rows: exercises.map(homeRow) };
+  });
 }
 
 // --- Page de description d'un exercice -------------------------------------------------------------------------------
-
-const FIELDS = [['vc', 'Vc'], ['fz', 'fz'], ['n', 'N'], ['f', 'f'], ['vf', 'Vf']];
 
 // « a », « a et b », « a, b et c ».
 const joined = (items) => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} et ${items.at(-1)}`);

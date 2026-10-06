@@ -31,8 +31,9 @@ export function sheetSignature(date = new Date()) {
 
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juill.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-// « 1 outil », « 9 outils », « 0 réussite » : en français, 0 et 1 sont au singulier.
-const count = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+// « 1 outil », « 9 outils », « 0 réussite », « 2 exercices » : en français, 0 et 1 sont au singulier.
+export const countText = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+const count = countText;
 
 // « champ évalué : vitesse de coupe », « champs évalués : vitesse de coupe, vitesse de rotation ».
 function evaluatedFields(champs) {
@@ -43,11 +44,6 @@ function evaluatedFields(champs) {
 // Ligne sous le titre de l'exercice : « version r0 · 9 outils · champ évalué : vitesse de coupe »
 export function exerciseMeta(exercise) {
   return `version ${exercise.version} · ${count(exercise.outils.length, 'outil')} · ${evaluatedFields(exercise.champs_evalues)}`;
-}
-
-// Ligne sous un exercice de l'accueil (D71), d'après GET /api/exercices : « 9 outils · champ évalué : vitesse de coupe ».
-export function listedExerciseMeta(entry) {
-  return `${count(entry.nombre_outils, 'outil')} · ${evaluatedFields(entry.champs_evalues)}`;
 }
 
 // Les grandeurs d'un champ d'exercice (vc, fz, n, f, vf), en toutes lettres (D71).

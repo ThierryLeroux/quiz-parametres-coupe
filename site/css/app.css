@@ -136,15 +136,6 @@ body {
   font-weight: 500;
 }
 
-.exercise-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: var(--space-4) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
 /* Détail d'une erreur de chargement : garde les sauts de ligne du message. */
 .error-detail {
   margin: var(--space-3) 0 0;
@@ -152,28 +143,291 @@ body {
   font-family: var(--font-number);
 }
 
-.exercise-list a {
+/* --- Accueil unique : une carte par cours, une rangée par exercice, la porte professeur (UI §3.1, D71, D91) ---- */
+
+/* L'accueil est plus large que les autres écrans : deux cartes de front sur ordinateur. */
+.screen--home { max-width: 1040px; }
+
+/* L'en-tête de l'accueil, posé sur le fond, sans panneau : une ombre portée garde le texte lisible sur l'image. */
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-1);
+  text-shadow: 0 0 6px var(--color-bg);
+}
+
+.screen--home .home-hero h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
+  text-shadow: 0 0 18px var(--color-bg), 0 0 4px var(--color-bg);
+}
+
+/* Les avis (« L'exercice « … » n'existe pas », « Aucun exercice… ») : dans un panneau, pour rester lisibles sur le fond. */
+.home-notice { text-shadow: none; }
+
+/* Les trois étapes du parcours : un numéro encadré, puis le texte. */
+.home-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.home-steps li {
   display: flex;
   align-items: center;
-  min-height: 44px;
-  font-weight: 600;
+  gap: var(--space-2);
 }
 
-/* --- Accueil unique : les exercices par cours, la porte professeur (UI §3.1, D71) -------------------- */
-
-.exercise-list li { display: flex; flex-direction: column; }
-.exercise-list li .muted { margin-top: -6px; }
-
-.home-course {
-  margin: var(--space-5) 0 0;
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+.home-step-number {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--color-accent-light);
+  background: color-mix(in srgb, var(--color-bg) 80%, transparent);
   color: var(--color-accent-light);
-  font-size: var(--text-lg);
-  letter-spacing: 0.04em;
+  font-family: var(--font-number);
+  font-size: var(--text-xs);
+  font-weight: 500;
 }
 
-.home-group .exercise-list { margin-top: var(--space-3); }
+/* Les raccourcis vers chaque carte de cours, sur une colonne (téléphone) ; cachés à partir de 900 px, où toutes
+   les cartes se voient d'un coup d'œil. Cible tactile de 44 px. */
+.course-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  text-shadow: none;
+}
+
+.course-jump a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-accent-light) 60%, transparent);
+  background: color-mix(in srgb, var(--color-panel) 90%, transparent);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+}
+
+.course-jump a:hover {
+  border-color: var(--color-accent-light);
+  background: var(--color-panel-row);
+  color: var(--color-accent-light);
+}
+
+/* Une carte par cours : le panneau biseauté ; deux par rangée à partir de 900 px. */
+.course-grid {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.course-card { scroll-margin-top: var(--space-4); }
+
+/* L'en-tête de la carte : le sigle encadré en chasse fixe, le nom à côté, le nombre d'exercices à droite. */
+.course-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.course-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+  margin: 0;
+}
+
+.course-code {
+  padding: 2px 10px;
+  border: var(--border) solid var(--color-accent-light);
+  color: var(--color-accent-light);
+  font-family: var(--font-number);
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.course-name {
+  color: var(--color-text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.course-count {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* Une rangée par exercice : toute la rangée est le lien ; la démo, à droite, est un lien à part, séparé par un filet. */
+.ex-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ex-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: var(--color-panel-row);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ex-row:hover,
+.ex-row:focus-within {
+  border-color: var(--color-accent-light);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-light) 35%, transparent);
+}
+
+.ex-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: 6px;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.ex-main:hover {
+  background: color-mix(in srgb, var(--color-accent-light) 7%, transparent);
+  color: var(--color-text);
+}
+
+.ex-title {
+  font-size: 1.0625rem; /* 17 px */
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.ex-main:hover .ex-title { color: var(--color-link-hover); }
+
+.ex-go {
+  grid-row: span 2;
+  color: var(--color-accent-light);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+/* « À trouver », une pastille par grandeur évaluée, « · 13 outils ». */
+.ex-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.ex-label { margin-right: 2px; }
+
+.qty {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--color-accent-light) 55%, transparent);
+  color: var(--color-accent-light);
+  font-family: var(--font-number);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.ex-tools { white-space: nowrap; }
+.ex-sep { margin: 0 6px 0 2px; }
+
+/* Le bouton « Démo » : le pictogramme de projecteur et le mot, atténués ; dorés au survol ; cible d'au moins 44 px. */
+.ex-demo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 64px;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-left: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.ex-demo svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ex-demo:hover {
+  background: color-mix(in srgb, var(--color-gold) 8%, transparent);
+  color: var(--color-gold);
+}
+
+/* Le contour de focus (base.css) se dessine à l'intérieur de la rangée, qui s'allume déjà (focus-within). */
+.ex-main:focus-visible,
+.ex-demo:focus-visible { outline-offset: -3px; }
+
+/* La porte professeur : une ligne — « Enseignants », la note sur les démos, le bouton au contour. */
+.home-teacher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.home-teacher .eyebrow { flex: none; }
+.home-teacher p { flex: 1 1 320px; }
+.home-teacher .button-outline { text-decoration: none; }
+
+/* Ordinateur : deux cartes de front, et les raccourcis ne servent plus. */
+@media (min-width: 900px) {
+  .course-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .course-jump { display: none; }
+}
+
+/* Téléphone : moins de marges emboîtées, pastilles plus serrées, colonne Démo d'environ 54 px. */
+@media (max-width: 639px) {
+  .app-main .course-card { padding: var(--space-4) 14px; }
+  .ex-main { padding: var(--space-3); column-gap: var(--space-2); }
+  .qty { min-width: 24px; padding: 0 4px; font-size: 0.75rem; }
+  .ex-facts { gap: 4px; }
+  .ex-demo { min-width: 54px; padding: 0 var(--space-2); }
+}
+
+/* Moins d'animations : rien ne glisse ni ne s'allume en fondu. */
+@media (prefers-reduced-motion: reduce) {
+  .ex-row,
+  .ex-demo { transition: none; }
+}
 
 /* --- Page de description d'un exercice (UI §3.1, D71) ----------------------------------------------------- */
 

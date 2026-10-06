@@ -1,10 +1,13 @@
-// Tests de site/js/ui/home-data.js (D71) : l'accueil unique, regroupé par cours, et la page de description d'un
-// exercice — composée, comme dans le navigateur, à partir de ce que le serveur publie (GET /api/exercice).
+// Tests de site/js/ui/home-data.js (D71, D91) et de l'écran de l'accueil (home-screen.js, sur le DOM minuscule de
+// aide-dom.js) : les cartes de cours, les démos rattachées à leur exercice, la page de description d'un exercice —
+// composée, comme dans le navigateur, à partir de ce que le serveur publie (GET /api/exercice).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { assembleExercise } from '../site/js/app.js';
-import { exerciseLink, homeGroups, materialGroups, questionLines, streakText, toolRows } from '../site/js/ui/home-data.js';
-import { listedExerciseMeta } from '../site/js/ui/text.js';
+import { NO_COURSE_NAME, OTHERS_TITLE, attachDemos, courseAnchor, exerciseHref, exerciseLink, gradedFields, homeCards, homeGroups, materialGroups, questionLines, splitCourse, streakText, toolRows } from '../site/js/ui/home-data.js';
+import { DEMO_NOTE, HOME_STEPS, HOME_TITLE, NO_EXERCISE_NOTICE, TEACHER_LINK_LABEL, renderHomeList, unknownExerciseNotice } from '../site/js/ui/home-screen.js';
+import { countText } from '../site/js/ui/text.js';
+import { installDom } from './aide-dom.js';
 import { serveurDeTest } from './aide-serveur.js';
 
 const serveur = serveurDeTest();
@@ -12,7 +15,28 @@ const publie = async (id) => assembleExercise((await serveur.appel('GET', `/api/
 const m10 = await publie('m10-tournage-vc');
 const vcRpm = await publie('m10-tournage-vc-rpm');
 
-// --- Accueil ---------------------------------------------------------------------------------------------------------
+// La liste de l'accueil telle que GET /api/exercices la rend en production (lot du 29 sept., D84), dans l'ordre des
+// rangs : chaque démo juste avant son exercice.
+const DEUX = ['vc', 'n'];
+const CINQ = ['vc', 'fz', 'n', 'f', 'vf'];
+const LOT = [
+  { id: 'demo-m10-tournage-vc-rpm-2', titre: "Tournage — Démo de l'exercice 2", cours: 'M10 — Tournage', nombre_outils: 1, champs_evalues: DEUX },
+  { id: 'm10-tournage-vc-rpm-2', titre: 'Tournage — Exercice 2', cours: 'M10 — Tournage', nombre_outils: 13, champs_evalues: DEUX },
+  { id: 'demo-m10-tournage-avances', titre: "Tournage — Démo de l'exercice 3", cours: 'M10 — Tournage', nombre_outils: 1, champs_evalues: CINQ },
+  { id: 'm10-tournage-avances', titre: 'Tournage — Exercice 3', cours: 'M10 — Tournage', nombre_outils: 9, champs_evalues: CINQ },
+  { id: 'demo-m10-fraisage-vc-rpm', titre: "Fraisage — Démo de l'exercice 2", cours: 'M10 — Fraisage', nombre_outils: 1, champs_evalues: DEUX },
+  { id: 'm10-fraisage-vc-rpm', titre: 'Fraisage — Exercice 2', cours: 'M10 — Fraisage', nombre_outils: 13, champs_evalues: DEUX },
+  { id: 'demo-m10-fraisage-avances', titre: "Fraisage — Démo de l'exercice 3", cours: 'M10 — Fraisage', nombre_outils: 1, champs_evalues: CINQ },
+  { id: 'm10-fraisage-avances', titre: 'Fraisage — Exercice 3', cours: 'M10 — Fraisage', nombre_outils: 6, champs_evalues: CINQ },
+  { id: 'demo-m30-fraisage-cn', titre: 'M30 — Démo : fraisage CN', cours: 'M30', nombre_outils: 1, champs_evalues: CINQ },
+  { id: 'm30-fraisage-cn', titre: 'M30 — Fraisage CN : paramètres de coupe', cours: 'M30', nombre_outils: 18, champs_evalues: CINQ },
+  { id: 'demo-m40-tournage-cn', titre: 'M40 — Démo : tournage CN', cours: 'M40', nombre_outils: 1, champs_evalues: CINQ },
+  { id: 'm40-tournage-cn', titre: 'M40 — Tournage CN : paramètres de coupe', cours: 'M40', nombre_outils: 15, champs_evalues: CINQ },
+  { id: 'demo-f50-synthese', titre: 'F50 — Démo : synthèse', cours: 'F50', nombre_outils: 1, champs_evalues: CINQ },
+  { id: 'f50-synthese', titre: 'F50 — Synthèse du fraisage et du tournage', cours: 'F50', nombre_outils: 35, champs_evalues: CINQ },
+];
+
+// --- Accueil : les groupes (D71) ---------------------------------------------------------------------------------------
 
 test('homeGroups (D71) : un groupe par cours, dans l’ordre des rangs, un même cours écrit autrement dans le même groupe ; sans cours, « Autres exercices » en dernier', () => {
   const liste = [
@@ -23,6 +47,7 @@ test('homeGroups (D71) : un groupe par cours, dans l’ordre des rangs, un même
     { id: 'e', titre: 'E' }, // réponse d'un serveur d'avant : pas de cours
   ];
   assert.deepEqual(homeGroups(liste).map((g) => [g.title, g.exercises.map((e) => e.id)]), [['M10', ['a', 'c']], ['M20', ['d']], ['Autres exercices', ['b', 'e']]]);
+  assert.equal(OTHERS_TITLE, 'Autres exercices');
   // L'écriture du groupe est celle du premier exercice du groupe dans l'ordre des rangs.
   assert.equal(homeGroups([{ id: 'c', cours: ' m10 ' }, { id: 'a', cours: 'M10' }])[0].title, 'm10');
   // Aucun cours : un seul groupe, sans titre (l'accueil d'avant) ; aucune entrée : aucun groupe.
@@ -30,11 +55,236 @@ test('homeGroups (D71) : un groupe par cours, dans l’ordre des rangs, un même
   assert.deepEqual(homeGroups([]), []);
 });
 
-test('listedExerciseMeta et exerciseLink (D71) : la ligne sous un exercice de l’accueil ; le lien de sa page', () => {
-  assert.equal(listedExerciseMeta({ nombre_outils: 9, champs_evalues: ['vc'] }), '9 outils · champ évalué : vitesse de coupe');
-  assert.equal(listedExerciseMeta({ nombre_outils: 1, champs_evalues: ['vc', 'n'] }), '1 outil · champs évalués : vitesse de coupe, vitesse de rotation');
+test('exerciseLink et exerciseHref (D71) : le lien de la page d’un exercice, absolu pour Léa, relatif dans les rangées', () => {
   assert.equal(exerciseLink('https://quiz-parametres-coupe.tgm-tmi.workers.dev', 'm10-tournage-vc'), 'https://quiz-parametres-coupe.tgm-tmi.workers.dev/?exercice=m10-tournage-vc');
   assert.equal(exerciseLink('http://localhost:8787', 'a b'), 'http://localhost:8787/?exercice=a%20b');
+  assert.equal(exerciseHref('demo-m30-fraisage-cn'), '?exercice=demo-m30-fraisage-cn');
+  assert.equal(exerciseHref('a b'), '?exercice=a%20b');
+});
+
+// --- Accueil : les démos rattachées, les cartes (D91) -----------------------------------------------------------------
+
+test('attachDemos (D91) : « demo-<id> » s’accroche à « <id> » quand les deux sont dans la liste ; l’ordre des rangs est conservé', () => {
+  const rows = attachDemos(LOT);
+  assert.deepEqual(rows.map((r) => r.id), ['m10-tournage-vc-rpm-2', 'm10-tournage-avances', 'm10-fraisage-vc-rpm', 'm10-fraisage-avances', 'm30-fraisage-cn', 'm40-tournage-cn', 'f50-synthese']);
+  assert.deepEqual(rows.map((r) => r.demo?.id), ['demo-m10-tournage-vc-rpm-2', 'demo-m10-tournage-avances', 'demo-m10-fraisage-vc-rpm', 'demo-m10-fraisage-avances', 'demo-m30-fraisage-cn', 'demo-m40-tournage-cn', 'demo-f50-synthese']);
+  // L'entrée de l'exercice est gardée telle quelle (titre, cours, nombre d'outils, grandeurs), la démo entière dessous.
+  assert.deepEqual(rows[0], { ...LOT[1], demo: LOT[0] });
+  // La démo après son exercice dans la liste : même résultat ; la rangée garde la place de l'exercice.
+  const inversee = attachDemos([LOT[1], LOT[0], LOT[3]]);
+  assert.deepEqual(inversee.map((r) => [r.id, r.demo?.id ?? null]), [['m10-tournage-vc-rpm-2', 'demo-m10-tournage-vc-rpm-2'], ['m10-tournage-avances', null]]);
+  assert.deepEqual(attachDemos([]), []);
+});
+
+test('attachDemos (D91) : une démo orpheline (exercice archivé ou retiré de l’accueil) ou sans la convention reste une rangée ordinaire, avec son titre', () => {
+  const orpheline = attachDemos([LOT[0], LOT[3]]); // la démo de l'exercice 2, sans l'exercice 2
+  assert.deepEqual(orpheline.map((r) => [r.id, r.titre, r.demo]), [['demo-m10-tournage-vc-rpm-2', "Tournage — Démo de l'exercice 2", null], ['m10-tournage-avances', 'Tournage — Exercice 3', null]]);
+  // Sans la convention : « m30-demo », « demo_m30 », « demo-m30-fraisage » (un autre identifiant) restent des rangées.
+  const sans = attachDemos([{ id: 'm30-demo', titre: 'Démo du M30', cours: 'M30' }, { id: 'demo_m30', titre: 'Démo', cours: 'M30' }, { id: 'demo-m30-fraisage', titre: 'Démo', cours: 'M30' }, LOT[9]]);
+  assert.deepEqual(sans.map((r) => [r.id, r.demo]), [['m30-demo', null], ['demo_m30', null], ['demo-m30-fraisage', null], ['m30-fraisage-cn', null]]);
+  // Une démo dont le cours diffère de celui de son exercice s'accroche quand même : c'est l'exercice qui range la rangée.
+  const autreCours = attachDemos([{ ...LOT[0], cours: 'M99' }, LOT[1]]);
+  assert.deepEqual(autreCours.map((r) => [r.id, r.cours, r.demo?.id]), [['m10-tournage-vc-rpm-2', 'M10 — Tournage', 'demo-m10-tournage-vc-rpm-2']]);
+  assert.deepEqual(homeGroups(autreCours).map((g) => g.title), ['M10 — Tournage']);
+});
+
+test('splitCourse (D91) : le sigle et le nom, coupés au premier « — » ; sans tiret, tout est le sigle', () => {
+  assert.deepEqual(splitCourse('M10 — Tournage'), { code: 'M10', name: 'Tournage' });
+  assert.deepEqual(splitCourse('M30'), { code: 'M30', name: null });
+  assert.deepEqual(splitCourse('Usinage CNC'), { code: 'Usinage CNC', name: null });
+  assert.deepEqual(splitCourse('M10 — Tournage — avancé'), { code: 'M10', name: 'Tournage — avancé' });
+  assert.deepEqual(splitCourse('M10—Tournage'), { code: 'M10', name: 'Tournage' });
+  assert.deepEqual(splitCourse(' M10 — '), { code: 'M10', name: null });
+  assert.deepEqual(splitCourse('M10 - Tournage'), { code: 'M10 - Tournage', name: null }); // un trait d'union n'est pas le tiret
+});
+
+test('courseAnchor (D91) : une ancre stable tirée du cours ; deux cours de l’accueil ont deux ancres', () => {
+  assert.equal(courseAnchor('M10 — Tournage'), 'cours-m10-tournage');
+  assert.equal(courseAnchor('M30'), 'cours-m30');
+  assert.equal(courseAnchor('Génie mécanique — Été'), 'cours-genie-mecanique-ete');
+  assert.equal(courseAnchor('Autres exercices'), 'cours-autres-exercices');
+  assert.equal(courseAnchor(null), 'cours-exercices');
+  const ancres = homeGroups(LOT).map((g) => courseAnchor(g.title));
+  assert.deepEqual(ancres, ['cours-m10-tournage', 'cours-m10-fraisage', 'cours-m30', 'cours-m40', 'cours-f50']);
+  assert.equal(new Set(ancres).size, ancres.length);
+});
+
+test('gradedFields (D91) : les grandeurs évaluées dans l’ordre Vc, fz, N, f, Vf, avec leur nom complet ; rien sans liste', () => {
+  assert.deepEqual(gradedFields(['n', 'vc']).map((f) => f.symbol), ['Vc', 'N']);
+  assert.deepEqual(gradedFields(CINQ).map((f) => [f.key, f.symbol, f.name]), [['vc', 'Vc', 'vitesse de coupe'], ['fz', 'fz', 'avance par dent'], ['n', 'N', 'vitesse de rotation'], ['f', 'f', 'avance totale par révolution'], ['vf', 'Vf', "vitesse d'avance"]]);
+  assert.deepEqual(gradedFields(undefined), []);
+  assert.deepEqual(gradedFields([]), []);
+});
+
+test('homeCards (D91) : une carte par cours, dans l’ordre des rangs ; le compte sans les démos ; chaque rangée nommée en toutes lettres, avec sa démo', () => {
+  const cards = homeCards(LOT);
+  assert.deepEqual(cards.map((c) => [c.id, c.code, c.name, c.count, c.rows.length]), [
+    ['cours-m10-tournage', 'M10', 'Tournage', '2 exercices', 2],
+    ['cours-m10-fraisage', 'M10', 'Fraisage', '2 exercices', 2],
+    ['cours-m30', 'M30', null, '1 exercice', 1],
+    ['cours-m40', 'M40', null, '1 exercice', 1],
+    ['cours-f50', 'F50', null, '1 exercice', 1],
+  ]);
+  assert.deepEqual(cards.map((c) => c.title), ['M10 — Tournage', 'M10 — Fraisage', 'M30', 'M40', 'F50']);
+  const row = cards[0].rows[0];
+  assert.equal(row.href, '?exercice=m10-tournage-vc-rpm-2');
+  assert.equal(row.title, 'Tournage — Exercice 2');
+  assert.deepEqual(row.fields.map((f) => f.symbol), ['Vc', 'N']);
+  assert.equal(row.tools, '13 outils');
+  assert.equal(row.name, 'Tournage — Exercice 2 — à trouver : vitesse de coupe, vitesse de rotation — 13 outils');
+  assert.deepEqual(row.demo, { id: 'demo-m10-tournage-vc-rpm-2', href: '?exercice=demo-m10-tournage-vc-rpm-2', title: "Tournage — Démo de l'exercice 2", name: "Démo : Tournage — Démo de l'exercice 2", hint: "Tournage — Démo de l'exercice 2 — une seule question, à faire au projecteur" });
+  assert.equal(cards[4].rows[0].name, "F50 — Synthèse du fraisage et du tournage — à trouver : vitesse de coupe, avance par dent, vitesse de rotation, avance totale par révolution, vitesse d'avance — 35 outils");
+  // Un seul outil : « 1 outil » ; le pluriel vient de countText.
+  assert.equal(homeCards([LOT[0]])[0].rows[0].tools, '1 outil');
+  assert.equal(countText(0, 'exercice'), '0 exercice');
+});
+
+test('homeCards (D91) : « Autres exercices » et le groupe sans titre font une carte sans sigle ; un serveur d’avant (sans nombre d’outils ni grandeurs) donne une rangée au titre seul', () => {
+  const mixte = homeCards([{ id: 'a', titre: 'A', cours: 'M10' }, { id: 'b', titre: 'B', cours: null, nombre_outils: 4, champs_evalues: ['vc'] }]);
+  assert.deepEqual(mixte.map((c) => [c.id, c.title, c.code, c.name, c.count]), [['cours-m10', 'M10', 'M10', null, '1 exercice'], ['cours-autres-exercices', 'Autres exercices', null, 'Autres exercices', '1 exercice']]);
+  assert.deepEqual(mixte[0].rows[0], { id: 'a', href: '?exercice=a', title: 'A', fields: [], tools: null, name: 'A', demo: null });
+  assert.equal(mixte[1].rows[0].name, 'B — à trouver : vitesse de coupe — 4 outils');
+  const sansCours = homeCards([{ id: 'a', titre: 'A', nombre_outils: 2, champs_evalues: ['fz'] }]);
+  assert.deepEqual(sansCours.map((c) => [c.id, c.title, c.code, c.name, c.count]), [['cours-exercices', null, null, NO_COURSE_NAME, '1 exercice']]);
+  assert.equal(sansCours[0].rows[0].name, 'A — à trouver : avance par dent — 2 outils');
+  assert.deepEqual(homeCards([]), []);
+});
+
+// --- L'écran de l'accueil, sur le DOM minuscule (D91) ------------------------------------------------------------------
+
+const { main, document } = installDom({ url: 'http://localhost/' });
+const texts = (selector) => main.querySelectorAll(selector).map((node) => node.textContent);
+
+test('renderHomeList (D91) : l’en-tête sur le fond (sur-titre, h1 au focus, trois étapes), cinq cartes ancrées, les raccourcis, la porte professeur compacte', () => {
+  renderHomeList(main, LOT, null);
+  const screen = main.querySelector('.screen.screen--home');
+  assert.ok(screen);
+  const hero = screen.querySelector('.home-hero');
+  assert.ok(hero && !hero.classList.contains('panel')); // sans panneau
+  assert.equal(hero.querySelector('.eyebrow').textContent, 'Exercices · paramètres de coupe');
+  assert.equal(hero.querySelector('h1').textContent, HOME_TITLE);
+  assert.equal(document.activeElement, hero.querySelector('h1'));
+  assert.deepEqual(HOME_STEPS, ['Ton cours', "L'exercice indiqué sur Léa", 'Ton matricule et ton NIP']);
+  assert.deepEqual(hero.querySelectorAll('.home-steps li').map((li) => li.textContent), ['1Ton cours', "2L'exercice indiqué sur Léa", '3Ton matricule et ton NIP']);
+  assert.ok(hero.querySelectorAll('.home-steps .home-step-number').every((n) => n.getAttribute('aria-hidden') === 'true')); // la liste est numérotée pour les lecteurs d'écran
+  assert.equal(hero.querySelector('.home-notice'), null);
+  // Les raccourcis : un lien par carte, vers son ancre, dans l'ordre.
+  const jump = hero.querySelector('nav.course-jump');
+  assert.equal(jump.getAttribute('aria-label'), 'Aller à un cours');
+  assert.deepEqual(jump.querySelectorAll('a').map((a) => [a.getAttribute('href'), a.textContent]), [['#cours-m10-tournage', 'M10 — Tournage'], ['#cours-m10-fraisage', 'M10 — Fraisage'], ['#cours-m30', 'M30'], ['#cours-m40', 'M40'], ['#cours-f50', 'F50']]);
+  // Les cartes : des panneaux, dans une grille, chacune avec son ancre, son h2 (sigle, nom) et son compte.
+  const cards = screen.querySelectorAll('.course-grid section.panel.course-card');
+  assert.ok(cards.every((c) => c.parentNode === screen.querySelector('.course-grid')));
+  assert.deepEqual(cards.map((c) => c.id), ['cours-m10-tournage', 'cours-m10-fraisage', 'cours-m30', 'cours-m40', 'cours-f50']);
+  assert.deepEqual(cards.map((c) => [c.querySelector('h2 .course-code')?.textContent ?? null, c.querySelector('h2 .course-name')?.textContent ?? null, c.querySelector('.course-count').textContent]), [['M10', 'Tournage', '2 exercices'], ['M10', 'Fraisage', '2 exercices'], ['M30', null, '1 exercice'], ['M40', null, '1 exercice'], ['F50', null, '1 exercice']]);
+  assert.ok(cards.every((c) => c.getAttribute('aria-labelledby') === c.querySelector('h2').id));
+  assert.equal(main.querySelectorAll('h2').length, 5);
+  // La porte professeur : une seule, le bouton au contour vers /prof, la note sur les démos, plus de phrase sur les clés.
+  const teacher = screen.querySelector('section.panel.home-teacher');
+  assert.equal(teacher.querySelector('.eyebrow').textContent, 'Enseignants');
+  assert.equal(teacher.querySelector('p').textContent, DEMO_NOTE);
+  assert.equal(DEMO_NOTE, "« Démo » : une seule question de l'exercice, à faire au projecteur avec le groupe.");
+  const link = teacher.querySelector('a.button-outline[href="/prof"]');
+  assert.equal(link.textContent, TEACHER_LINK_LABEL);
+  assert.equal(TEACHER_LINK_LABEL, 'Espace professeur →');
+  assert.doesNotMatch(main.textContent, /clé/);
+  assert.deepEqual(main.querySelectorAll('a[href="/prof"]').length, 1);
+  // La barre du haut et le titre de l'onglet.
+  assert.equal(document.querySelector('#header-title').textContent, 'Quiz — paramètres de coupe');
+  assert.equal(document.querySelector('#header-aside').textContent, 'TGM-TMI');
+});
+
+test('renderHomeList (D91) : une rangée par exercice — le lien couvre la rangée, nommé en toutes lettres ; les pastilles avec leur nom ; la démo en lien à part ; jamais de lien dans un lien', () => {
+  renderHomeList(main, LOT, null);
+  const rows = main.querySelectorAll('.course-card .ex-rows li.ex-row');
+  assert.ok(rows.every((r) => r.parentNode.classList.contains('ex-rows')));
+  assert.equal(rows.length, 7);
+  assert.equal(main.querySelectorAll('a a').length, 0);
+  assert.equal(main.querySelectorAll('.course-card a').length, 14); // 7 rangées + 7 démos : aucune rangée pour une démo rattachée
+  assert.deepEqual(texts('.course-card .ex-title'), ['Tournage — Exercice 2', 'Tournage — Exercice 3', 'Fraisage — Exercice 2', 'Fraisage — Exercice 3', 'M30 — Fraisage CN : paramètres de coupe', 'M40 — Tournage CN : paramètres de coupe', 'F50 — Synthèse du fraisage et du tournage']);
+  const first = rows[0];
+  const mainLink = first.querySelector('a.ex-main');
+  assert.equal(mainLink.getAttribute('href'), '?exercice=m10-tournage-vc-rpm-2');
+  assert.equal(mainLink.getAttribute('aria-label'), 'Tournage — Exercice 2 — à trouver : vitesse de coupe, vitesse de rotation — 13 outils');
+  assert.ok(mainLink.querySelector('.ex-title') && mainLink.querySelector('.ex-go[aria-hidden="true"]'));
+  assert.equal(mainLink.querySelector('.ex-go').textContent, '›');
+  assert.equal(mainLink.querySelector('.ex-facts .ex-label').textContent, 'À trouver');
+  assert.deepEqual(mainLink.querySelectorAll('.qty').map((q) => [q.textContent, q.getAttribute('title')]), [['Vc', 'vitesse de coupe'], ['N', 'vitesse de rotation']]);
+  assert.match(mainLink.querySelector('.ex-facts').textContent, /·13 outils$/);
+  const demo = first.querySelector('a.ex-demo');
+  assert.equal(demo.getAttribute('href'), '?exercice=demo-m10-tournage-vc-rpm-2');
+  assert.equal(demo.getAttribute('aria-label'), "Démo : Tournage — Démo de l'exercice 2");
+  assert.equal(demo.getAttribute('title'), "Tournage — Démo de l'exercice 2 — une seule question, à faire au projecteur");
+  assert.equal(demo.textContent, 'Démo'); // la majuscule vient de la feuille de style
+  const svg = demo.querySelector('svg');
+  assert.ok(svg && svg.getAttribute('aria-hidden') === 'true' && svg.querySelector('rect') && svg.querySelector('path'));
+  assert.equal(demo.parentNode, first); // la démo est un frère du lien de la rangée, pas un enfant
+  // Les cinq grandeurs, dans l'ordre Vc, fz, N, f, Vf.
+  assert.deepEqual(rows[6].querySelectorAll('.qty').map((q) => q.textContent), ['Vc', 'fz', 'N', 'f', 'Vf']);
+  assert.match(rows[6].querySelector('.ex-facts').textContent, /35 outils$/);
+});
+
+test('renderHomeList (D91) : une démo orpheline ou sans convention fait une rangée ordinaire, sans bouton « Démo »', () => {
+  renderHomeList(main, [LOT[0], LOT[3], { id: 'm30-demo', titre: 'Démo du M30', cours: 'M30' }], null);
+  const rows = main.querySelectorAll('li.ex-row');
+  assert.deepEqual(rows.map((r) => [r.querySelector('.ex-title').textContent, r.querySelector('.ex-demo') === null]), [["Tournage — Démo de l'exercice 2", true], ['Tournage — Exercice 3', true], ['Démo du M30', true]]);
+  // Sans nombre d'outils ni grandeurs (serveur d'avant) : le titre seul, ni « À trouver » ni pastille.
+  assert.equal(rows[2].querySelector('.ex-facts'), null);
+  assert.equal(rows[2].querySelector('a.ex-main').getAttribute('aria-label'), 'Démo du M30');
+});
+
+test('renderHomeList (D91) : les avis sous le h1, dans un panneau — l’exercice inconnu (D18), aucun exercice offert ; sans cartes, ni grille ni raccourcis', () => {
+  renderHomeList(main, LOT, 'm10-inconnu');
+  const afterH1 = () => { const hero = main.querySelector('.home-hero'); const notice = hero.querySelector('section.panel.home-notice'); assert.ok(hero.children.indexOf(notice) > hero.children.indexOf(hero.querySelector('h1'))); return notice; };
+  let notice = afterH1();
+  assert.deepEqual(notice.querySelectorAll('p').map((p) => p.textContent), ["L'exercice « m10-inconnu » n'existe pas — vérifie le lien sur Léa."]);
+  assert.equal(unknownExerciseNotice('x'), "L'exercice « x » n'existe pas — vérifie le lien sur Léa.");
+  assert.equal(main.querySelectorAll('.course-card').length, 5);
+  renderHomeList(main, [], null);
+  notice = afterH1();
+  assert.deepEqual(notice.querySelectorAll('p').map((p) => p.textContent), [NO_EXERCISE_NOTICE]);
+  assert.equal(NO_EXERCISE_NOTICE, "Aucun exercice n'est offert pour l'instant.");
+  assert.equal(main.querySelectorAll('.course-card').length, 0);
+  assert.equal(main.querySelector('.course-jump'), null);
+  assert.ok(main.querySelector('.home-teacher a[href="/prof"]')); // la porte professeur reste
+  renderHomeList(main, [], 'x');
+  assert.deepEqual(texts('.home-notice p'), ["L'exercice « x » n'existe pas — vérifie le lien sur Léa.", NO_EXERCISE_NOTICE]);
+  // Une seule carte : pas de raccourci (rien à sauter).
+  renderHomeList(main, [LOT[0], LOT[1]], null);
+  assert.equal(main.querySelector('.course-jump'), null);
+  assert.equal(main.querySelectorAll('.course-card').length, 1);
+});
+
+test('renderHomeList (D91) : « Autres exercices » et le groupe sans titre, une carte sans sigle encadré', () => {
+  renderHomeList(main, [{ id: 'a', titre: 'A', cours: 'M10', nombre_outils: 1, champs_evalues: ['vc'] }, { id: 'b', titre: 'B', cours: null, nombre_outils: 2, champs_evalues: ['vc'] }], null);
+  const cards = main.querySelectorAll('.course-card');
+  assert.deepEqual(cards.map((c) => [c.id, c.querySelector('.course-code')?.textContent ?? null, c.querySelector('.course-name')?.textContent ?? null]), [['cours-m10', 'M10', null], ['cours-autres-exercices', null, 'Autres exercices']]);
+  assert.deepEqual(main.querySelectorAll('.course-jump a').map((a) => a.textContent), ['M10', 'Autres exercices']);
+  renderHomeList(main, [{ id: 'b', titre: 'B', nombre_outils: 2, champs_evalues: ['vc'] }], null);
+  assert.deepEqual(main.querySelectorAll('.course-card').map((c) => [c.id, c.querySelector('.course-code'), c.querySelector('.course-name').textContent]), [['cours-exercices', null, NO_COURSE_NAME]]);
+});
+
+test('app.css (D91) : l’accueil fait 1040 px, deux colonnes de cartes et les raccourcis cachés à partir de 900 px ; les couleurs viennent de tokens.css ; rien ne bouge en mouvement réduit', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../site/css/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.screen--home \{ max-width: 1040px; \}/);
+  assert.match(css, /\.screen \{[^}]*max-width: 680px;/); // les autres écrans gardent 680
+  const desktop = css.slice(css.indexOf('@media (min-width: 900px)'), css.indexOf('/* Téléphone : moins de marges'));
+  assert.match(desktop, /\.course-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+  assert.match(desktop, /\.course-jump \{ display: none; \}/);
+  assert.match(css, /\.course-card \{ scroll-margin-top: var\(--space-4\); \}/);
+  assert.match(css, /\.ex-title \{\s*font-size: 1\.0625rem;/); // 17 px
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reduced, /\.ex-row,\s*\.ex-demo \{ transition: none; \}/);
+  // Aucune couleur en dur dans la section de l'accueil : tout vient des variables de tokens.css.
+  const section = css.slice(css.indexOf('/* --- Accueil unique'), css.indexOf('/* --- Page de description'));
+  assert.doesNotMatch(section, /#[0-9a-f]{3,8}\b/i);
+  const tokens = await readFile(new URL('../site/css/tokens.css', import.meta.url), 'utf8');
+  assert.match(tokens, /--color-panel-row: #0f1b3d;/);
+  // Le téléphone : la colonne Démo d'environ 54 px, les marges des cartes resserrées.
+  const phone = section.slice(section.indexOf('@media (max-width: 639px)'));
+  assert.match(phone, /\.ex-demo \{ min-width: 54px;/);
+  assert.match(phone, /\.app-main \.course-card \{ padding: var\(--space-4\) 14px; \}/);
 });
 
 // --- Page de description ---------------------------------------------------------------------------------------------

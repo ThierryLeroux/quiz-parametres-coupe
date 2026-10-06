@@ -173,6 +173,7 @@ export function installDom({ url = 'http://localhost/?exercice=m10-tournage-vc',
     title: '',
     activeElement: null,
     createElement: (tag) => new FakeElement(tag),
+    createElementNS: (_namespace, tag) => new FakeElement(tag), // un <svg> construit par le DOM (qr.js, le pictogramme de démo de l'accueil)
     createTextNode: (text) => new FakeText(text),
     querySelector: (selector) => html.querySelector(selector),
     querySelectorAll: (selector) => html.querySelectorAll(selector),

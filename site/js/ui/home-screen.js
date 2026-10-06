@@ -1,16 +1,27 @@
-// L'accueil unique et la page de description d'un exercice (UI §3.1, décision D71).
-//   renderHomeList : l'accueil (/, sans ?exercice=) — les exercices publiés, regroupés par cours, et la seule porte
-//                    professeur ; avec l'avis de D18 quand l'adresse nomme un exercice qui n'existe pas
+// L'accueil unique et la page de description d'un exercice (UI §3.1, décisions D71 et D91).
+//   renderHomeList : l'accueil (/, sans ?exercice=) — une carte par cours, une rangée par exercice publié avec sa
+//                    démo, et la seule porte professeur ; avec l'avis de D18 quand l'adresse nomme un exercice qui
+//                    n'existe pas
 //   renderHome     : la page d'un exercice (?exercice=<id>, le lien diffusé sur Léa) — un seul bouton pour commencer
 //                    (« Reprendre, <prénom> » si ce navigateur garde un jeton de cet exercice, « Commencer ou
 //                    reprendre » sinon), puis ce que l'exercice demande : questions, outils, matériaux
 // Ce qu'on montre est décidé par home-data.js et text.js (purs, testés) : ici, on construit le DOM.
 
 import { el, showScreen } from './dom.js';
-import { exerciseLink, homeGroups, materialGroups, questionLines, streakText, toolRows } from './home-data.js';
-import { DEPARTMENT_SHORT, HOME_LINK_LABEL, exerciseMeta, exerciseSummary, listedExerciseMeta } from './text.js';
+import { exerciseLink, homeCards, materialGroups, questionLines, streakText, toolRows } from './home-data.js';
+import { DEPARTMENT_SHORT, HOME_LINK_LABEL, exerciseMeta, exerciseSummary } from './text.js';
 
 const TITLE = 'Quiz — paramètres de coupe';
+
+// L'en-tête de l'accueil (D91) : le sur-titre, le titre, les trois étapes du parcours.
+export const HOME_EYEBROW = 'Exercices · paramètres de coupe';
+export const HOME_TITLE = 'Quel exercice fais-tu ?';
+export const HOME_STEPS = ['Ton cours', "L'exercice indiqué sur Léa", 'Ton matricule et ton NIP'];
+// La porte professeur, compacte : la note sur les démos et le bouton au contour.
+export const DEMO_NOTE = '« Démo » : une seule question de l\'exercice, à faire au projecteur avec le groupe.';
+export const TEACHER_LINK_LABEL = 'Espace professeur →';
+export const NO_EXERCISE_NOTICE = "Aucun exercice n'est offert pour l'instant.";
+export const unknownExerciseNotice = (id) => `L'exercice « ${id} » n'existe pas — vérifie le lien sur Léa.`;
 
 // Image décorative qui disparaît si elle manque (outil ou opération sans image) ; son cadre blanc, vide, s'efface aussi.
 function optionalImage(src, className) {
@@ -118,34 +129,83 @@ export function renderHome(main, { exercise, data, local, archived = false }, ac
   showScreen(main, screen, { title: TITLE, aside: DEPARTMENT_SHORT });
 }
 
-// L'accueil unique (D71) : les exercices offerts, par cours — publiés, non archivés, proposés à l'accueil — et la seule
-// porte professeur. Aussi quand l'adresse nomme un exercice qui n'existe pas (D18).
+// Le pictogramme de projecteur du bouton « Démo » : un SVG en ligne, construit par le DOM (jamais innerHTML), décoratif.
+function projectorIcon() {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  for (const [name, value] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.6', 'aria-hidden': 'true', focusable: 'false' })) svg.setAttribute(name, value);
+  const screen = document.createElementNS(NS, 'rect');
+  for (const [name, value] of Object.entries({ x: '3', y: '4', width: '18', height: '12', rx: '1' })) screen.setAttribute(name, value);
+  const stand = document.createElementNS(NS, 'path');
+  stand.setAttribute('d', 'M12 16v4M8 20h8M10 8.5v4l3.5-2z');
+  svg.append(screen, stand);
+  return svg;
+}
+
+// Une rangée d'exercice (D91) : le lien couvre toute la rangée — le titre, la flèche, puis « À trouver » et une pastille
+// par grandeur évaluée, et le nombre d'outils ; son nom accessible dit tout cela en toutes lettres (row.name). Le bouton
+// « Démo », à droite, est un lien à part : jamais de lien dans un lien.
+//   row : une rangée de homeCards
+function exerciseRow(row) {
+  const facts = row.fields.length === 0 && row.tools === null ? '' : el('span', { class: 'ex-facts' }, [
+    row.fields.length === 0 ? '' : el('span', { class: 'ex-label' }, 'À trouver'),
+    ...row.fields.map((field) => el('span', { class: 'qty', title: field.name }, field.symbol)),
+    // « · 13 outils » d'un seul tenant : s'il passe à la ligne, le point médian le suit.
+    row.tools === null ? '' : el('span', { class: 'ex-tools' }, [row.fields.length > 0 ? el('span', { class: 'ex-sep' }, '·') : '', row.tools]),
+  ]);
+  return el('li', { class: 'ex-row' }, [
+    el('a', { class: 'ex-main', href: row.href, 'aria-label': row.name }, [
+      el('span', { class: 'ex-title' }, row.title),
+      el('span', { class: 'ex-go', 'aria-hidden': 'true' }, '›'),
+      facts,
+    ]),
+    row.demo === null ? '' : el('a', { class: 'ex-demo', href: row.demo.href, 'aria-label': row.demo.name, title: row.demo.hint }, [projectorIcon(), 'Démo']),
+  ]);
+}
+
+// Une carte de cours (D91) : le panneau biseauté, l'en-tête en h2 (le sigle encadré, le nom), le nombre d'exercices à
+// droite, puis une rangée par exercice. L'ancre de la carte est stable (courseAnchor) : les raccourcis y mènent.
+//   card : une carte de homeCards
+function courseCard(card) {
+  return el('section', { class: 'panel course-card', id: card.id, 'aria-labelledby': `${card.id}-titre` }, [
+    el('div', { class: 'course-head' }, [
+      el('h2', { class: 'course-title', id: `${card.id}-titre` }, [
+        card.code === null ? '' : el('span', { class: 'course-code' }, card.code),
+        card.name === null ? '' : el('span', { class: 'course-name' }, card.name),
+      ]),
+      el('span', { class: 'course-count' }, card.count),
+    ]),
+    el('ul', { class: 'ex-rows' }, card.rows.map(exerciseRow)),
+  ]);
+}
+
+// L'accueil unique (D71, D91) : les exercices offerts — publiés, non archivés, proposés à l'accueil —, une carte par
+// cours, chaque démo rattachée à son exercice, et la seule porte professeur. Aussi quand l'adresse nomme un exercice qui
+// n'existe pas (D18). L'en-tête est posé sur le fond, sans panneau ; les avis, eux, sont dans un panneau, sous le titre.
 //   listed    : [{ id, titre, cours, nombre_outils, champs_evalues }, …] (GET /api/exercices)
 //   unknownId : ce que l'adresse demandait et qui n'existe pas, ou null si elle ne demandait rien
 export function renderHomeList(main, listed, unknownId) {
-  const groups = homeGroups(listed);
-  const screen = el('div', { class: 'screen' }, [
-    el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, 'Exercices'),
-      el('h1', { tabindex: '-1' }, 'Quel exercice fais-tu ?'),
-      unknownId === null ? '' : el('p', { class: 'small' }, `L'exercice « ${unknownId} » n'existe pas — vérifie le lien sur Léa.`),
-      el('p', { class: 'muted small' }, "Choisis l'exercice indiqué sur Léa par ton enseignant ; sa page dit ce qu'il demande avant que tu commences."),
-      groups.length === 0 ? el('p', { class: 'small' }, "Aucun exercice n'est offert pour l'instant.") : '',
-      ...groups.map(({ title, exercises }) => el('section', { class: 'home-group' }, [
-        title === null ? '' : el('h2', { class: 'home-course' }, title),
-        el('ul', { class: 'exercise-list' }, exercises.map((entry) => el('li', {}, [
-          el('a', { href: `?exercice=${encodeURIComponent(entry.id)}` }, entry.titre),
-          Number.isInteger(entry.nombre_outils) && Array.isArray(entry.champs_evalues) ? el('div', { class: 'muted smaller' }, listedExerciseMeta(entry)) : '',
-        ]))),
-      ])),
+  const cards = homeCards(listed);
+  const notices = [
+    ...(unknownId === null ? [] : [unknownExerciseNotice(unknownId)]),
+    ...(cards.length === 0 ? [NO_EXERCISE_NOTICE] : []),
+  ];
+  const screen = el('div', { class: 'screen screen--home' }, [
+    el('section', { class: 'home-hero' }, [
+      el('div', { class: 'eyebrow' }, HOME_EYEBROW),
+      el('h1', { tabindex: '-1' }, HOME_TITLE),
+      notices.length === 0 ? '' : el('section', { class: 'panel home-notice' }, notices.map((text) => el('p', { class: 'small' }, text))),
+      el('ol', { class: 'home-steps' }, HOME_STEPS.map((step, i) => el('li', {}, [el('span', { class: 'home-step-number', 'aria-hidden': 'true' }, String(i + 1)), step]))),
+      // Les raccourcis vers les cartes, utiles quand elles se suivent sur une colonne (téléphone) : la feuille de style
+      // les cache à partir de 900 px, où toutes les cartes se voient d'un coup d'œil. Une seule carte : rien à sauter.
+      cards.length < 2 ? '' : el('nav', { class: 'course-jump', 'aria-label': 'Aller à un cours' }, cards.map((card) => el('a', { href: `#${card.id}` }, card.title ?? card.name))),
     ]),
-    // Une seule porte professeur (D71) : la clé saisie décide de ce qu'on voit (D44).
+    el('div', { class: 'course-grid' }, cards.map(courseCard)),
+    // Une seule porte professeur (D71) : la clé saisie décide de ce qu'on voit (D44) — la connexion de /prof le dit.
     el('section', { class: 'panel home-teacher' }, [
       el('div', { class: 'eyebrow' }, 'Enseignants'),
-      el('p', { class: 'small' }, [
-        el('a', { href: '/prof' }, 'Espace professeur'),
-        " — la clé d'administration ouvre les réussites, les actions et la Gestion du contenu ; la clé de consultation, les réussites en lecture seule.",
-      ]),
+      el('p', { class: 'small muted' }, DEMO_NOTE),
+      el('a', { class: 'button-outline', href: '/prof' }, TEACHER_LINK_LABEL),
     ]),
   ]);
   showScreen(main, screen, { title: TITLE, aside: DEPARTMENT_SHORT });

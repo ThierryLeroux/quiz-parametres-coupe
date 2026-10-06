@@ -25,6 +25,7 @@
   --color-bg: #05091a;            /* fond de la page */
   --color-bg-header: #03060f;     /* barre du haut */
   --color-panel: #0b1430;         /* intérieur d'un panneau */
+  --color-panel-row: #0f1b3d;     /* une rangée d'exercice à l'accueil : un ton plus clair que le panneau (D91) */
   --color-text: #dde6f5;
   --color-text-muted: #8aa0c6;    /* texte atténué : notes, pied de page */
   --color-accent: #2e9bff;        /* contours, boutons */
