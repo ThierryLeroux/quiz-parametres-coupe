@@ -3562,3 +3562,150 @@ l'accueil ; les règles `.exercise-list`, `.home-course`, `.home-group` retirée
 (`--color-panel-row`) ; `tests/aide-dom.js` (`createElementNS`) ; `tests/ui-home.test.js` (les règles pures et
 l'écran sur le DOM minuscule) ; UI §3.1 ; CLAUDE.md ; `reference/accueil/apercu-accueil.html` versionnée.
 Rapport : `docs/rapports/accueil-lisible.md`.
+
+## D92 — Le mode démo : chaque exercice publié se joue sans identification, à volonté, sur l'outil de son choix, avec un spécimen d'attestation signé à part (2026-10-06, décidée)
+
+**Contexte.** La démo sert à bien des choses : expliquer la démarche au projecteur, faire un test réel rapide, servir
+de repère au professeur qui donne le cours rarement, laisser les collègues explorer le quiz, montrer l'attestation et
+la remise sur Léa, laisser l'étudiant s'échauffer ou réviser, et reproduire un problème signalé. Jusqu'ici, une démo
+était **un exercice comme un autre, d'une seule question** (D84, point 7 : `demo-<id>`, une copie d'outil, une
+réussite), que l'accueil rattachait à la rangée de son exercice par sa convention de nom (D91, `attachDemos`). Pour
+tout cela, entrer nom, prénom, matricule et NIP est trop long, et une seule question tirée au hasard ne montre qu'un
+outil. L'explication de la démarche reste le rôle du professeur : le site pose la question et corrige, sans animation
+explicative.
+
+**Décision** (Thierry, 2026-10-06). **La démo devient un mode de chaque exercice publié.** Elle remplace la
+démo-exercice de D84 (point 7) et le rattachement `attachDemos` de D91 (point 1).
+
+1. **Un mode, offert partout.** Chaque exercice publié et non archivé a son mode démo, à l'adresse
+   `/?exercice=<id>&demo=1`. Il utilise **la version publiée en vigueur** de l'exercice et ses tables, comme une
+   vraie séance (D47) : une démo commencée est épinglée à sa version jusqu'à sa fin. Aucun réglage ne le désactive
+   pour l'instant ; rien n'empêche d'en ajouter un plus tard (un champ de présentation, D78). Un exercice archivé
+   refuse la démo comme il refuse une nouvelle séance (400 « Cet exercice n'est plus offert »).
+2. **Les sept exercices de démo du lot (D84) disparaissent de l'accueil par un geste de Thierry**, dans la Gestion du
+   contenu : **Archiver**, un par un (proposé, à confirmer). Archivés, ils ne sont plus à l'accueil et n'acceptent
+   plus de nouvelle séance ; leurs séances déjà commencées — celles du professeur, au projecteur — se reprennent
+   encore, et leurs attestations restent vérifiables (D47). S'il veut les faire disparaître de l'espace professeur,
+   il supprime ces séances (D45) : leurs attestations répondent alors « annulée — séance supprimée ». Ni migration
+   qui touche le contenu, ni règle du serveur sur le préfixe « demo- » : le code ne connaît plus cette convention.
+   Tant qu'ils ne sont pas archivés, ils s'affichent comme des exercices ordinaires, chacun avec son propre bouton
+   Démo — sans effet fâcheux, mais inutiles : à archiver le soir même du déploiement.
+3. **L'accueil (D91).** Chaque rangée d'exercice garde son bouton **Démo**, qui ouvre maintenant le mode démo de cet
+   exercice (`demoHref`) — nom accessible « Démo : <titre> », indice « <titre> — mode démo : des questions à volonté
+   sur l'outil de ton choix, sans identification ; rien n'est gardé ». `attachDemos` et la convention « demo-<id> »
+   sont retirés ; « 2 exercices » compte les rangées, tout simplement. La note de la porte professeur devient :
+   « « Démo » : l'exercice sans identification — des questions à volonté sur l'outil de ton choix et un exemple
+   d'attestation ; rien n'est gardé. »
+4. **Aucune identification, et c'est le serveur qui décide.** Un clic sur Démo mène à l'écran de démo, sans
+   formulaire. Les démos ont **leurs propres routes**, `/api/demo/*`, et **leur propre jeton** (32 octets, haché en
+   base, comme celui d'une séance) : une séance anonyme n'existe qu'en mode démo. **Un vrai exercice exige toujours
+   l'identification, quoi qu'envoie le navigateur** : les routes d'une séance (`/api/seance`, `/api/question`,
+   `/api/correction`, `/api/attestation`…) ne lisent que la table `seances`, un jeton de démo y vaut 401 ; les routes
+   de démo ne lisent que la table `demos`, un jeton de séance y vaut 401. Rien d'une démo n'est écrit dans `seances`,
+   `corrections`, `corrections_identite` ni `attestations`.
+5. **Aucune trace durable.** L'état d'une démo (il en faut un : le serveur tire la question et la corrige, jamais le
+   navigateur, SPEC §7) vit dans la table **`demos`** (migration `0013`) : le jeton haché, l'exercice, sa version
+   épinglée, l'outil choisi, les compteurs, la question en attente, l'heure de la dernière correction (pour la
+   cadence), la création et la dernière activité — **aucune donnée personnelle, pas même l'adresse**. Une démo
+   **expire 24 h après sa dernière activité** : le serveur la refuse (401), et l'efface à la prochaine création de
+   démo ; l'**effacement des données des étudiants (D46) les compte et les efface aussi** (« n démos » dans le
+   journal des actions et à l'écran). Une démo n'apparaît ni dans les réussites de `/prof`, ni dans l'export CSV
+   (ils lisent `seances`), et ne crée aucune attestation. Le navigateur ne garde rien non plus : le jeton de démo
+   reste en mémoire de la page ; recharger la page ramène au choix de l'outil. **Limite de débit** : une portée à
+   elle, `demo`, sous la même constante que les deux autres (D86 : `DISTINCT_PER_HOUR`, 1000) — **au plus 1000
+   démos commencées par adresse et par heure** (chaque démo commencée est une valeur distincte : l'empreinte de son
+   jeton), deux fois les 500 inscrits du cégep ; la 1001ᵉ est refusée (429) et verrouille **la portée `demo` seule**
+   10 minutes : les verrous sont par (portée, adresse), **un refus ne touche jamais la consultation d'un matricule ni
+   la vérification d'un code** (un test le vérifie). Les questions et les corrections d'une démo ne se comptent pas ;
+   la **cadence de 10 s** entre deux corrections tient, comme dans le vrai exercice (levée en mode test, en local).
+6. **Le choix de l'outil.** En entrant dans la démo, **la liste des outils de l'exercice regroupés par opération**
+   (le pictogramme et le nom de l'opération, puis un bouton par outil : son nom tel que la progression l'écrit et sa
+   plage de dimensions), plus **« Au hasard »**. Le choix part avec la création (`POST /api/demo/creation`, `outil`
+   : un identifiant d'outil de l'exercice, ou `null`), qui tire aussitôt la première question. **On peut changer
+   d'outil entre deux questions** (« Changer d'outil » dans la barre du haut, `POST /api/demo/outil`) : choisir un
+   outil **remplace la question en attente** si elle n'est pas de cet outil (rien n'est compté : on ne « passe »
+   pas une question, on en demande une d'un autre outil) ; « Au hasard » garde la question en attente. Un outil
+   choisi est tiré avec les restrictions de l'exercice (ses dimensions, matières et matériaux permis), comme au
+   hasard.
+7. **Des questions à volonté.** « Question suivante » ne s'arrête jamais. **Correction, corrigé, calcul en une ligne
+   et saisie des calculs (D82) sont ceux du vrai exercice** : le même `gradeQuestion`, la même `correctionView`, la
+   même question figée par le serveur. **Le panneau de progression fonctionne comme dans le vrai exercice** (D81),
+   avec les mêmes compteurs de réussites de suite (une mauvaise réponse remet l'outil à zéro). Au hasard, le tirage
+   se fait parmi les outils encore à évaluer, comme une séance ; **à 100 %** (tous les outils à leurs réussites
+   exigées), **un message « Démo réussie »** — « Tous les outils ont leurs réussites de suite : dans le vrai
+   exercice, l'attestation s'afficherait ici. Tu peux continuer. » —, et le tirage **continue parmi tous les outils**
+   de l'exercice ; les compteurs continuent aussi (un échec fait redescendre la progression sous 100 %, et le message
+   s'en va).
+8. **Un bandeau discret mais constant**, au-dessus des panneaux de la question et sur l'écran du choix de l'outil :
+   « **Démo** — rien n'est gardé : ni séance, ni attestation. », le lien **Faire le vrai exercice** (la page de
+   l'exercice, `?exercice=<id>`) et le bouton **Voir un exemple d'attestation**. La barre du haut dit « Démo —
+   <titre> » et, à droite, « Démo · rien n'est gardé », Tables de référence, Changer d'outil, Quitter (vers la page
+   de l'exercice) — ni identité, ni « Corriger mon identité ».
+9. **Un spécimen d'attestation**, ouvert par « Voir un exemple d'attestation », disponible en tout temps dans la
+   démo (sur l'écran du choix, sur la question, sur le corrigé) :
+   9.1. **Le serveur le compose à la volée** (`GET /api/demo/specimen?exercice=<id>`, `worker/specimen.js`) pour la
+        version en vigueur de l'exercice, **avec le vrai moteur** : une identité fictive évidente — prénom
+        « Exemple », nom « SPÉCIMEN », matricule « 0000000 » —, et, pour chaque outil, **le nombre de réussites
+        exigé en questions tirées comme si tout avait été réussi** : les questions sont tirées par `drawQuestion`
+        et jugées par `gradeQuestion` avec les bonnes réponses au format d'affichage, jusqu'à la réussite, puis
+        l'enregistrement est composé par `buildAttestation` comme pour une vraie — mêmes outils, même liste des
+        questions (D41), mêmes réponses normalisées (D43). Les horodatages s'échelonnent de `debut` à `reussite_le`
+        (45 s par question). **Le titre et le cours sont ceux en vigueur** (D78). Le tirage vient d'une **graine**
+        (`graine`, un entier, générateur mulberry32) tirée au hasard à chaque spécimen et **inscrite dans
+        l'enregistrement** : le même exercice, la même version, la même graine et les mêmes dates redonnent
+        exactement le même spécimen — c'est ce qui permet de le vérifier sans l'enregistrer (9.4).
+   9.2. **Il n'est jamais enregistré.** Il est signé sur sa sérialisation canonique (D32) avec une **sous-clé
+        distincte de `CLE_SECRETE`, réservée aux spécimens** (« specimen », HKDF comme les autres, `signSpecimen`).
+        **Son code est `SPECI-MEN00`** (`SPECIMEN00`), une forme qu'aucune vraie attestation ne peut avoir :
+        l'alphabet des codes (D32) n'a ni I ni 0, et `parseCode` le refuse. L'enregistrement porte
+        `specimen: true` et `graine` : sa forme canonique ne peut pas être celle d'une vraie attestation.
+   9.3. **Même mise en page qu'une vraie attestation** (`attestationPages`, UI §3.6), avec un **filigrane
+        « SPÉCIMEN »** en travers de chaque page, à l'écran et à l'impression ; au-dessus, une consigne qui dit ce
+        que c'est, **Enregistrer en PDF** (pour montrer la remise sur Léa ; le fichier s'appelle
+        `Specimen-attestation-<exercice>`) et « ← Retour à la démo ».
+   9.4. **Son QR porte une adresse `/verifier` marquée spécimen** : `specimen=1`, les champs d'une vraie adresse
+        (exercice, matricule, nom, prénom, réussite, révision, questions, code), plus **ce qu'il faut pour le
+        recomposer** — `graine`, `debut`, `titre` —, puis la signature. `/verifier` recompose le spécimen à partir
+        de l'adresse (la version nommée par `revision`, la graine, les dates, le titre) et **vérifie la signature
+        avec la sous-clé des spécimens** sur la forme canonique recomposée, puis compare chaque champ de l'adresse
+        à l'enregistrement : le résultat est **`specimen`**, affiché sous une bannière dorée **« SPÉCIMEN — exemple
+        sans valeur »**, avec le contenu complet (bloc d'informations, tableau des outils, liste des questions),
+        comme une attestation valide. **Un seul caractère modifié dans l'adresse donne « invalide »**, comme pour
+        une vraie : la graine, une date ou le titre changés recomposent un autre enregistrement ; un autre champ ne
+        correspond plus. Une version d'exercice que le serveur n'a plus (exercice supprimé) : invalide aussi.
+   9.5. **Le code d'un spécimen tapé à la main** (`SPECI-MEN00`, sans le reste de l'adresse) répond **`specimen_code`** :
+        « Ce code est celui d'un spécimen d'attestation, un exemple sans valeur produit par le mode démo. Scanne son
+        code QR pour en vérifier la signature. » — rien n'est recomposé.
+   9.6. **Un spécimen ne passe jamais pour une vraie attestation, ni l'inverse** (tests) : la vérification d'une
+        vraie attestation cherche son code en base et vérifie la sous-clé « attestation » ; celle d'un spécimen est
+        choisie par son code et vérifie la sous-clé « specimen » sur un enregistrement recomposé. Une vraie adresse
+        dont le code devient celui d'un spécimen, un spécimen dont le code devient un vrai code, une signature de
+        l'une sous l'autre : invalide, ou « aucune ».
+10. **Rien ne change pour les vrais exercices** : identification, reprise, correction, attestations, `/verifier` pour
+    une vraie attestation, mode test, espace professeur. Le mode test (D26) vaut aussi pour une démo, en local
+    seulement, par la même règle (le serveur joint `reponses_test` et lève la cadence).
+
+**Conséquences.**
+
+- **Serveur** : `migrations/0013_demos.sql` ; `worker/demo.js` (pur, testé : le tirage d'une démo — au hasard parmi
+  les outils à évaluer, tous à 100 %, ou l'outil choisi —, la validité de la question en attente, l'expiration, la vue
+  envoyée au navigateur) ; `worker/specimen.js` (pur, testé : la graine, la composition par le vrai moteur, le code,
+  l'adresse du QR, la lecture et la comparaison des champs) ; `worker/crypto.js` (`signSpecimen`) ; `worker/base.js`
+  (la table `demos`, l'effacement, `deleteExercise` qui emporte les démos d'un exercice supprimé) ;
+  `worker/acces.js` (« n démos » dans `purgeDetails`) ; `site/js/progression.js` (`restrictedTools`, les copies
+  restreintes de tous les outils, dont `eligibleTools` se sert) ; `worker/index.js` : les routes `/api/demo/*` et le
+  cas spécimen de `POST /api/verification`.
+- **Site** : `site/js/api.js` ; `site/js/app.js` (`demoRequested`) ; `site/js/ui/demo-data.js` (pur, testé : le lien,
+  les textes, les outils par opération) ; `site/js/ui/demo-screen.js` (le choix de l'outil, le bandeau, le spécimen) ;
+  `question-screen.js` (le mode démo : la barre, le bandeau, « Démo réussie », « Question suivante » toujours) ;
+  `attestation-screen.js` (le filigrane) ; `attestation-data.js` (les deux issues de plus de `/verifier`) ;
+  `verifier.js` ; `home-data.js` et `home-screen.js` (le bouton Démo de chaque rangée, la note) ; `main.js` ;
+  `prof-data.js` (« n démos ») ; `app.css`, `question.css`, `attestation.css`.
+- **Documents** : SPEC §7 (la table `demos`, les routes, la limite), §8 (le spécimen, les issues de la vérification) ;
+  UI §3.1, §3.3, §3.6, §3.7, et §3.10 (le mode démo) ; CLAUDE.md ; PLAN.
+- **Rien ne touche la correction des séances en cours** : `gradeQuestion`, `correctionView`, l'attestation et sa
+  vérification ne changent pas pour une séance ; `eligibleTools` rend la même liste. Le code du serveur change pour
+  tout le monde au déploiement (les routes de démo, le cas spécimen de `/verifier`, l'effacement qui compte les
+  démos) : à déployer hors des périodes de labo. Le geste de Thierry (point 2) suit le déploiement.
+
+Rapport : `docs/rapports/mode-demo.md`.
