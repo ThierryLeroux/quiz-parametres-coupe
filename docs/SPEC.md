@@ -505,6 +505,7 @@ base) est retirée et remplacée.
 | `attestations` | une ligne par attestation (D31, D35, D37, D45) : séance (NULL une fois la séance supprimée), code court, enregistrement figé (JSON, avec la liste des questions réussies qui comptent, D41), signature, date de création, date et motif d'annulation éventuels (`remise_a_zero`, `identite_corrigee`, `seance_supprimee`) |
 | `journal_enseignant` | les actions d'enseignant (D34, D35, D38, D44 à D46) : horodatage, enseignant (« admin » ou « consultation » : le rôle, D44), séance (NULL quand elle n'existe plus), action (`connexion`, `connexion_refusee`, `remise_a_zero`, `reinitialisation_nip`, `suppression`, `effacement`), détails — anonymisés à l'effacement (D46) |
 | `debit`, `verrous` | les limites de débit par adresse (D36) : valeurs distinctes vues par tranche horaire, et verrous (délai après refus, connexions professeur ratées) |
+| `demos` | les démos en cours (D92, migration `0013`) : jeton haché, exercice, **version épinglée**, outil choisi (NULL = au hasard), compteurs (JSON), question en attente (JSON), dernière correction, création, dernière activité — **aucune donnée personnelle** ; une démo expire 24 h après sa dernière activité (refusée, puis effacée à la prochaine création de démo) ; l'effacement de fin de session (D46) les efface aussi |
 | `tables_reference` | les versions des tables de référence (D47, D61) : identifiant (la révision, « A2026_r0 »), `materiaux` et `operations` (JSON, le contenu des deux fichiers de §3, complété à la lecture pour une version d'avant le 7b), date ; immuables ; la plus récente est la dernière insérée |
 | `brouillon_tables` | le brouillon unique des tables (D61, migration `0008`) : `contenu` (JSON `{ materiaux, operations }`), numéro de révision (contrôle optimiste), date, `base_id` (la version dont il est parti) |
 | `banque_outils` | la banque d'outils (D47) : un outil par ligne (JSON au format d'`outils.json`), rang, numéro de révision (D48), date de modification, date d'archivage |
@@ -608,14 +609,19 @@ Dans chaque `seance` rendue, `exercice.titre` et, pour la question en attente, `
 sont ceux de la présentation en vigueur de l'exercice (D78) — une séance épinglée à une version plus ancienne les
 voit dès que sa page se recharge ; tout le reste (progression, question, valeurs) est celui de sa version.
 | `GET /api/attestation?exercice=<id>` | jeton | `{ attestation, code, signature, url_verification, annulee_le }` — l'attestation de la séance réussie (§8), créée à la première ouverture pour une séance réussie avant le jalon 5 ; 409 si l'exercice n'est pas réussi |
-| `POST /api/verification` | `{ code }`, ou tous les champs de l'adresse du QR | `{ resultat: "valide", attestation }`, `{ resultat: "annulee", attestation, annulee_le, motif }`, `{ resultat: "aucune" }` ou `{ resultat: "invalide" }` — public, sans jeton (§8) |
+| `POST /api/verification` | `{ code }`, ou tous les champs de l'adresse du QR | `{ resultat: "valide", attestation }`, `{ resultat: "annulee", attestation, annulee_le, motif }`, `{ resultat: "aucune" }` ou `{ resultat: "invalide" }` — public, sans jeton (§8) ; pour le code d'un spécimen du mode démo (`SPECI-MEN00`, D92) : `{ resultat: "specimen", attestation }` (recomposée depuis l'adresse, signature des spécimens vérifiée), `{ resultat: "specimen_code" }` (le code seul) ou `{ resultat: "invalide" }` |
+| `POST /api/demo/creation` | `{ exercice, outil }` | `{ jeton, demo }` — **le mode démo** (D92) : une séance anonyme sur la version en vigueur, sa première question tirée — `outil` : un identifiant d'outil de l'exercice (les prochaines questions sont de cet outil) ou `null` (au hasard) ; `demo` : `{ demo: true, exercice: { id, titre, version }, outil_choisi, attendre_s, progression, reussie, question }` — la même `progression` et la même `question` qu'une séance, sans identité ; `reussie` : tous les outils à leurs réussites exigées ; 400 exercice inconnu, archivé ou outil hors de l'exercice ; 429 trop de démos commencées depuis cette adresse (portée `demo`) |
+| `POST /api/demo/question` | jeton de démo, `{ exercice }` | `{ demo }` — la question en attente, tirée au besoin ; jamais `null` : à 100 %, le tirage continue parmi tous les outils ; 401 démo inconnue, expirée (24 h) ou d'un autre exercice |
+| `POST /api/demo/outil` | jeton de démo, `{ exercice, outil }` | `{ demo }` — l'outil des prochaines questions ; un outil choisi **remplace la question en attente** si elle n'est pas de cet outil (rien n'est compté), « au hasard » (`null`) la garde ; 400, 401 |
+| `POST /api/demo/correction` | jeton de démo, `{ exercice, saisies }` | `{ correction, demo }` — **la même correction qu'une séance** (`gradeQuestion`, `correctionView`), la même cadence de 10 s (429) ; les compteurs continuent, `demo` porte déjà la question suivante ; rien n'est journalisé ; 409 aucune question à corriger ; 401 |
+| `GET /api/demo/specimen?exercice=<id>` | — | `{ attestation, code: "SPECI-MEN00", signature, url_verification, annulee_le: null, specimen: true }` — un **spécimen d'attestation** (§8), composé à la volée pour la version en vigueur, jamais enregistré, signé sous la sous-clé des spécimens ; sans jeton ; 400 exercice inconnu ou archivé |
 | `POST /api/prof/connexion` | `{ cle }` | `{ enseignant, role, expire_le }` + cookie `prof` (HttpOnly, Secure, SameSite=Strict, chemin `/api/prof`, 12 h) — `role` : `admin` (`CLE_ADMIN`) ou `consultation` (`CLE_CONSULTATION`, D44) ; 401 clé incorrecte ; 429 après cinq échecs par adresse, délai croissant |
 | `POST /api/prof/deconnexion` | — | `{ deconnecte: true }` + cookie effacé |
 | `GET /api/prof/seances` | cookie | `{ enseignant, role, exercices, seances: [ { id, exercice: { id, titre }, prenom, nom, matricule, debut, derniere_activite, reussite_le, questions_reussies, code } ] }` — toutes les séances ; ni NIP, ni jeton, ni question |
 | `POST /api/prof/remise-a-zero` | cookie **admin**, `{ seance }` | `{ remise_a_zero: true, seance }` — D35 ; 404 séance inconnue |
 | `POST /api/prof/reinitialisation-nip` | cookie **admin**, `{ seance }` | `{ nip_reinitialise: true, seance }` — D38 : NIP effacé, verrou levé, progression intacte ; 404 séance inconnue |
 | `POST /api/prof/suppression` | cookie **admin**, `{ seance }` | `{ supprimee: true, seance }` — D45 : la séance et son journal disparaissent, ses attestations restent, annulées « séance supprimée » ; 404 séance inconnue |
-| `POST /api/prof/effacement` | cookie **admin**, `{ confirmation: "EFFACER" }` | `{ efface: true, nombres: { seances, corrections, corrections_identite, attestations, debit, verrous, journal_anonymise } }` — D46 : tout est effacé sauf le journal des actions, gardé anonymisé ; 400 sans le mot exact, rien n'est touché |
+| `POST /api/prof/effacement` | cookie **admin**, `{ confirmation: "EFFACER" }` | `{ efface: true, nombres: { seances, corrections, corrections_identite, attestations, demos, debit, verrous, journal_anonymise } }` — D46 : tout est effacé sauf le journal des actions, gardé anonymisé (les démos en cours aussi, D92) ; 400 sans le mot exact, rien n'est touché |
 | `GET /api/prof/identites` | cookie | `{ corrections }` — le journal des corrections d'identité (D23), la plus récente en premier, avec l'exercice et le matricule actuel de la séance |
 
 Aucune route `/api/prof/*` ne répond sans cookie valide (401 « Connexion
@@ -790,6 +796,33 @@ d'une fenêtre de 10 minutes pose le verrou ; une identification réussie efface
 le compte. Le verrou est celui d'une séance : il ne touche aucun autre
 étudiant. Un NIP **remis à zéro** par l'enseignant (jalon 5) : le prochain NIP
 présenté pour ce matricule devient le nouveau.
+
+### Le mode démo (décision D92)
+
+Chaque exercice publié et non archivé a un **mode démo**, ouvert par le bouton Démo de l'accueil
+(`/?exercice=<id>&demo=1`) : **une séance anonyme, sans identification, qui ne laisse aucune trace
+durable** — pour expliquer au projecteur, faire un test réel rapide, laisser un étudiant s'échauffer,
+reproduire un problème. C'est le serveur qui décide : les routes `/api/demo/*` ont leur propre jeton et
+leur propre table (`demos`), et un vrai exercice exige toujours l'identification, quoi qu'envoie le
+navigateur — un jeton de démo vaut 401 sur toute route de séance, et inversement.
+
+- La démo est épinglée à la **version en vigueur** de l'exercice à sa création, comme une séance (D47),
+  et la présentation en vigueur s'y pose de même (D78 : le titre, la photo et la note de l'outil).
+- **Le choix de l'outil** : au hasard parmi les outils encore à évaluer (comme une séance), ou l'outil
+  choisi, avec les restrictions de l'exercice ; on change d'outil entre deux questions (un outil choisi
+  remplace la question en attente, « au hasard » la garde).
+- **Les questions ne s'arrêtent jamais** : à 100 % (`reussie`), le tirage continue parmi tous les
+  outils ; les compteurs continuent (un échec remet l'outil à zéro). Le tirage, la correction, le corrigé,
+  la cadence de 10 s et la progression sont ceux d'une séance — le même code (`worker/seance.js`) ; ce qui
+  est propre à la démo est dans `worker/demo.js` (pur, testé). Rien de ce qui est à trouver ne part au
+  navigateur, comme pour une séance ; en mode test (ci-dessous), les réponses attendues sont jointes.
+- **Aucune trace durable** : rien dans `seances`, `corrections`, `corrections_identite` ni `attestations` ;
+  la ligne de `demos` ne porte aucune donnée personnelle, expire 24 h après sa dernière activité (401,
+  puis effacée à la prochaine création de démo) et part avec l'effacement de fin de session (D46). Le
+  navigateur ne garde rien : le jeton de démo vit en mémoire de la page.
+- **Limite de débit** : au plus `DISTINCT_PER_HOUR` démos commencées par adresse et par heure (portée
+  `demo`, ci-dessous) ; les questions et les corrections d'une démo ne se comptent pas.
+- **Le spécimen d'attestation** (`GET /api/demo/specimen`) : §8.
 
 ### Mode test (décision D26)
 
@@ -996,6 +1029,38 @@ La page ne divulgue rien de plus que l'attestation imprimée : ni journal, ni
 corrections d'identité, ni durées. Elle est soumise aux limites de débit
 (ci-dessous).
 
+### Le spécimen d'attestation du mode démo (décision D92)
+
+Le mode démo (§7) offre en tout temps **« Voir un exemple d'attestation »** : un spécimen que le serveur
+**compose à la volée** (`GET /api/demo/specimen?exercice=<id>`, `worker/specimen.js`) pour la version en
+vigueur de l'exercice, **avec le vrai moteur** — l'identité fictive évidente (prénom « Exemple », nom
+« SPÉCIMEN », matricule « 0000000 »), chaque outil à ses réussites exigées, et autant de questions que de
+réussites : tirées par `drawQuestion` et jugées par `gradeQuestion` avec les bonnes réponses au format
+d'affichage, jusqu'à la réussite, puis l'enregistrement composé par `buildAttestation` comme pour une
+vraie attestation (mêmes outils, même liste des questions, mêmes réponses normalisées). Le titre est
+celui en vigueur (D78). Le tirage vient d'une **graine** (`graine`, un entier, inscrite dans
+l'enregistrement) : le même exercice, la même version, la même graine et les mêmes dates redonnent
+exactement le même spécimen.
+
+- **Jamais enregistré.** Signé sur sa sérialisation canonique avec une **sous-clé réservée** de
+  `CLE_SECRETE` (« specimen », `signSpecimen`), distincte de celle des attestations. Son code est
+  **`SPECI-MEN00`**, une forme qu'aucune vraie attestation ne peut avoir (I et 0 ne sont pas dans
+  l'alphabet des codes) ; l'enregistrement porte `specimen: true` et `graine`.
+- **La page** : la même mise en page qu'une vraie attestation (`UI.md` §3.6), avec un filigrane
+  « SPÉCIMEN » sur chaque page, à l'écran et à l'impression ; le PDF s'appelle
+  `Specimen-attestation-<exercice>`.
+- **Le QR** porte une adresse `/verifier` **marquée spécimen** : `specimen=1`, les champs d'une vraie
+  adresse, plus `graine`, `debut` et `titre`, puis la signature. `/verifier` **recompose** le spécimen à
+  partir de l'adresse (la version nommée par `revision`, la graine, les dates, le titre), vérifie la
+  signature avec la sous-clé des spécimens sur la forme canonique recomposée, et compare chaque champ :
+  **`specimen`**, avec l'enregistrement recomposé (affiché sous une bannière « SPÉCIMEN — exemple sans
+  valeur », avec le contenu complet) ; **un seul caractère modifié dans l'adresse donne `invalide`**,
+  comme pour une vraie ; une version que le serveur n'a plus, invalide aussi. **Le code seul**, tapé à la
+  main : **`specimen_code`** — « c'est un spécimen, scanne son QR ».
+- **Un spécimen ne passe jamais pour une vraie attestation, ni l'inverse** : le chemin est choisi par le
+  code (un code de spécimen ne se cherche jamais en base, un vrai code ne se recompose jamais), et les
+  deux sous-clés diffèrent.
+
 ### Espace professeur (`/prof`, décisions D34, D35, D38, D44 à D46)
 
 - **Deux clés, deux rôles** (D44) : `CLE_ADMIN` ouvre le rôle **admin** (tout),
@@ -1062,15 +1127,18 @@ corrections d'identité, ni durées. Elle est soumise aux limites de débit
   une séance professeur se révoque en changeant la clé (`DEMARRAGE.md` §7), et
   expire d'elle-même au plus 12 h après.
 
-### Limites de débit par adresse (décisions D36, D86)
+### Limites de débit par adresse (décisions D36, D86, D92)
 
-Consultation d'un matricule (`/api/consultation`) et vérification d'un code
-(`/api/verification`) : au plus **1000 valeurs distinctes par adresse IP et par
-heure** (tranche horaire UTC ; 100 avant D86), aucune limite sur le nombre de
-requêtes (tous les postes du cégep sortent par une seule adresse). La 1001ᵉ
-valeur est refusée (429, `attendre_s`) et **verrouille l'adresse 10 minutes** ;
-une valeur déjà vue passe toujours ; une valeur refusée n'est pas comptée comme
-vue. Les compteurs vivent en D1 (tables `debit` et `verrous`), pas dans le
+Consultation d'un matricule (`/api/consultation`), vérification d'un code
+(`/api/verification`) et démos commencées (`/api/demo/creation`, D92 : chaque démo
+est une valeur distincte, l'empreinte de son jeton) : au plus **1000 valeurs
+distinctes par adresse IP et par heure** (tranche horaire UTC ; 100 avant D86),
+aucune limite sur le nombre de requêtes (tous les postes du cégep sortent par une
+seule adresse). La 1001ᵉ valeur est refusée (429, `attendre_s`) et **verrouille
+l'adresse 10 minutes pour cette portée seule** (`consultation`, `verification`,
+`demo` : un refus de démo ne touche ni l'identification ni la vérification des
+vrais exercices) ; une valeur déjà vue passe toujours ; une valeur refusée n'est
+pas comptée comme vue. Les compteurs vivent en D1 (tables `debit` et `verrous`), pas dans le
 service de limitation de Cloudflare : il compte des requêtes, pas des valeurs
 distinctes, et ne se teste pas sous `node --test` avec une horloge réglable.
 L'adresse est `cf-connecting-ip` ; sans cet en-tête (tests sous Node), une seule
