@@ -284,9 +284,9 @@ function toolForm(tool, ctx) {
     operation: field('operation', 'Opération', operationSelect, 'Fixe la famille d\'avance (table des avances).'),
     ...(ctx.live ? {} : {
       commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
-      image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées. « Téléverser » réduit la photo dans le navigateur avant l'envoi : 800 px, en JPEG sur fond blanc ou en PNG si elle a de la transparence.", 'field--wide'),
+      image: field('image', 'Photo', picker.element, ro ? "Celle que l'étudiant voit dans le panneau de l'outil." : "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées. « Téléverser » réduit la photo dans le navigateur avant l'envoi : 800 px, en JPEG sur fond blanc ou en PNG si elle a de la transparence.", 'field--wide'),
     }),
-    format_identifiant: field('format_identifiant', 'Gabarit de nomenclature', template, "Le nom affiché dans la question : du texte, et des crochets remplacés au tirage. Les boutons insèrent au curseur les crochets permis pour cet outil.", 'field--wide'),
+    format_identifiant: field('format_identifiant', 'Gabarit de nomenclature', template, ro ? 'Le nom affiché dans la question : du texte, et des crochets remplacés au tirage.' : "Le nom affiché dans la question : du texte, et des crochets remplacés au tirage. Les boutons insèrent au curseur les crochets permis pour cet outil.", 'field--wide'),
     dimensions: field('dimensions', 'Dimensions possibles, une par ligne (libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', 'data-decimal': 'valeurs', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
       'Valeur : le Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte (« 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 »).', 'field--half'),
     dimensions_barre: field('dimensions_barre', "Barres d'un outil à deux diamètres, une par ligne (libellé ; Ø en pouces)", el('textarea', { id: `${p}-barres`, spellcheck: 'false', 'data-decimal': 'valeurs' }, dimensionsText(tool.dimensions_barre)),
@@ -956,7 +956,7 @@ async function showExercise(id, notice = '') {
     const paintPreview = (current) => {
       const p = presentationPreview(current);
       preview.replaceChildren(
-        el('div', { class: 'eyebrow' }, "Aperçu — ce que voit l'étudiant, même non appliqué"),
+        el('div', { class: 'eyebrow' }, ro ? "Aperçu — ce que voit l'étudiant" : "Aperçu — ce que voit l'étudiant, même non appliqué"),
         el('div', { class: 'apercu-entete' }, [el('div', { class: 'eyebrow' }, p.eyebrow), el('div', { class: 'apercu-titre' }, p.titre || '(sans titre)'), el('p', { class: 'muted smaller' }, p.accueil)]),
         el('ul', { class: 'apercu-outils' }, current.outils.filter((e) => shown.outils.find((o) => o.id === e.id)?.derniere_version !== false).map((e) => el('li', { class: 'apercu-outil' }, [
           el('img', { src: imageUrl(e.image ?? e.id), alt: '', onerror: (event) => { event.target.style.visibility = 'hidden'; } }),

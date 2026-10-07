@@ -143,11 +143,16 @@ test('confirmsBeforeLeaving : demander seulement avec des modifications non enre
 test('prof-shell.js : leave() et les liens de la barre du haut posent la même question, écrite une seule fois ; le beforeunload reste ; les modules d’écrans passent par la coquille', async () => {
   assert.equal(LEAVE_CONFIRMATION, 'Des modifications ne sont pas enregistrées. Quitter la page et les perdre ?');
   const source = await lire('site/js/ui/prof-shell.js');
-  assert.equal((source.match(/window\.confirm\(LEAVE_CONFIRMATION\)/g) ?? []).length, 2);
+  assert.equal((source.match(/window\.confirm\(LEAVE_CONFIRMATION\)/g) ?? []).length, 3); // les liens de la barre, leave(), un fragment tapé
   assert.doesNotMatch(source, /Quitter la page et les perdre/);
   assert.match(source, /window\.addEventListener\('beforeunload'/);
   assert.match(source, /document\.querySelector\('\.app-header'\)\.addEventListener\('click'/);
   assert.match(source, /confirmsBeforeLeaving\(state\.dirty, event\)/);
+  // Un fragment tapé (« /prof#tables » sur la page déjà ouverte) ouvre l'onglet, par la même garde ; refusée, le fragment revient.
+  const hashchange = source.slice(source.indexOf("window.addEventListener('hashchange'"), source.indexOf('export function showLogin'));
+  assert.match(hashchange, /const key = initialTab\(location\.hash, state\.role\);/);
+  assert.match(hashchange, /if \(state\.dirty && !window\.confirm\(LEAVE_CONFIRMATION\)\) \{ history\.replaceState\(null, '', `#\$\{state\.current\}`\); return; \}/);
+  assert.match(hashchange, /openTab\(key\);/);
   for (const fichier of ['site/js/ui/prof.js', 'site/js/ui/editeur.js']) {
     const module = await lire(fichier);
     assert.doesNotMatch(module, /LEAVE_CONFIRMATION|beforeunload|state\.dirty/, fichier);

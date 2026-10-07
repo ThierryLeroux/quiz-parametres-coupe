@@ -56,6 +56,18 @@ document.querySelector('.app-header').addEventListener('click', (event) => {
   else event.preventDefault();
 });
 
+// Un fragment tapé dans la barre d'adresse ou suivi depuis la page même (« /prof#tables » quand la page est déjà ouverte :
+// le navigateur ne la recharge pas) ouvre l'onglet qu'il nomme, par la garde ; refusée, le fragment revient à l'onglet
+// courant. openTab inscrit le fragment par replaceState, qui ne déclenche pas cet événement.
+window.addEventListener('hashchange', () => {
+  if (state.role === null) return; // la connexion : l'onglet du fragment s'ouvrira après
+  const key = initialTab(location.hash, state.role);
+  if (key === state.current) return;
+  if (state.dirty && !window.confirm(LEAVE_CONFIRMATION)) { history.replaceState(null, '', `#${state.current}`); return; }
+  state.dirty = false;
+  openTab(key);
+});
+
 // --- Connexion : une seule, aux deux clés ; le rôle décide des onglets et de ce qu'ils permettent -----------------------
 
 export function showLogin(notice = '') {
