@@ -264,18 +264,18 @@ Pour regarder la base de production (lecture seule, sans risque) :
 npx wrangler d1 execute quiz-parametres-coupe --remote --command "SELECT exercice_id, matricule, prenom, nom, debut, reussite_le FROM seances ORDER BY debut DESC LIMIT 20"
 ```
 
-## 7. Ouvrir l'espace professeur (décisions D34, D44 à D46)
+## 7. Ouvrir l'espace enseignant (décisions D34, D44 à D46, D95)
 
-L'espace professeur est à `https://quiz-parametres-coupe.tgm-tmi.workers.dev/prof` — on y arrive aussi par le lien
-**Espace professeur** de la page d'accueil (D71)
+L'espace enseignant est à `https://quiz-parametres-coupe.tgm-tmi.workers.dev/prof` — on y arrive aussi par le lien
+**Espace enseignant →** de la page d'accueil (D71)
 (en local : http://localhost:8787/prof). Il demande **une clé** — l'une des deux
 posées à l'étape 5.4 (en local : celles de `.dev.vars`) :
 
-- **`CLE_ADMIN`**, la clé d'administration : tous les droits. L'en-tête dit
-  « admin ».
-- **`CLE_CONSULTATION`**, la clé de consultation : **lecture seule**. L'en-tête
-  dit « consultation (lecture seule) » ; aucun bouton d'action n'apparaît, et le
-  serveur refuse de toute façon chaque action à cette clé.
+- **`CLE_ADMIN`**, la clé d'administration : tous les droits. La barre du haut
+  porte l'étiquette « Administration » (pourpre, D94).
+- **`CLE_CONSULTATION`**, la clé de consultation : **lecture seule**. La barre du
+  haut porte l'étiquette « Consultation » (ambre) ; aucun bouton d'action
+  n'apparaît, et le serveur refuse de toute façon chaque écriture à cette clé.
 
 Une fois la clé acceptée, le navigateur garde une séance de **12 h** (cookie) ;
 le bouton **Se déconnecter** l'efface — à faire sur un poste partagé. Cinq clés
@@ -284,7 +284,10 @@ connexion 1 minute, puis 2, 4… jusqu'à une heure ; chaque refus et chaque
 connexion (avec son rôle) sont notés dans la table `journal_enseignant`.
 
 **Ce que les deux rôles voient** : les réussites par exercice (filtre, tri,
-recherche, export CSV pour Excel) et le journal des corrections d'identité. La
+recherche, export CSV pour Excel), le journal des corrections d'identité et,
+depuis D95, **tout le contenu publié** — les onglets Exercices (chaque exercice
+dans sa dernière version publiée, jamais un brouillon), Banque d'outils, Tables
+de référence et Images, en lecture seule pour la clé de consultation. La
 page publique de vérification d'une attestation est à `…/verifier` : scanner le
 QR de l'attestation l'ouvre directement.
 
@@ -301,15 +304,18 @@ séance, avec une boîte de confirmation qui nomme l'étudiant :
   supprimée » à la vérification, avec la date. L'étudiant peut recommencer de
   zéro avec le même matricule.
 
-Et, dans la barre du haut, **Gestion du contenu** (`…/prof/editeur`, jalon 7a,
-décisions D47 à D49 ; « Éditeur des exercices » jusqu'à D74) : la clé d'administration seule y entre. C'est là que se
+Et, dans la même rangée d'onglets, **la Gestion du contenu** — Exercices, Banque
+d'outils, Tables de référence, Images, Sauvegarde (`…/prof#exercices` ; l'ancienne
+adresse `…/prof/editeur` y redirige ; jalon 7a, décisions D47 à D49, D95 ; « Éditeur des
+exercices » jusqu'à D74) : la clé d'administration seule y écrit, la clé de consultation
+y lit (sauf Sauvegarde). C'est là que se
 créent et se modifient les exercices et la banque d'outils, **en production, sans
 commit ni déploiement** : un exercice a un brouillon (modifiable) et des versions
 publiées (numérotées, figées) ; les étudiants voient la dernière version publiée,
 et une séance commencée garde la sienne jusqu'à la fin. « Publier » résume les
 différences avant de créer la version, et, à la première publication, refuse un titre
 déjà porté par un autre exercice publié et non archivé (D74) ; « Aperçu » tire dix
-questions avec leurs réponses. Dans les listes, **Modifier** ouvre un exercice ou un outil.
+questions avec leurs réponses. Dans les listes, **Modifier** ouvre un exercice ou un outil (**Voir**, avec la clé de consultation).
 Mode d'emploi : `docs/UI.md` §3.9.
 
 Une fois un exercice publié, **son titre, son cours, « À l'accueil », la photo et la note
