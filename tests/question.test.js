@@ -96,9 +96,9 @@ test('gabarit : [Dia] et [Pas] donnent le Ø et le pas en pouces, au plus 5 déc
   assert.equal(question.displayId, 'Taraud métrique M1.6 x 0.35 : Ø 0.06299 po, pas 0.01378 po');
 });
 
-test('gabarit : un jeton sans valeur pour cet outil est une erreur, jamais un « [Pas] » à l’écran', () => {
+test('gabarit : un crochet sans valeur pour cet outil est une erreur, jamais un « [Pas] » à l’écran', () => {
   const foret = { ...outil('foret_udrill'), format_identifiant: 'Foret [IdDia] [Pas]' };
-  assert.throws(() => generateQuestion(data, [foret], suite(0, 0, 0, 0, 0, 0)), /Jeton inconnu.*\[Pas\]/);
+  assert.throws(() => generateQuestion(data, [foret], suite(0, 0, 0, 0, 0, 0)), /Crochet inconnu.*\[Pas\]/);
 });
 
 test('filetage impérial : « 5/16 - 18 UNC » → Ø 0,3125 po, pas 1/18 po', () => {
@@ -130,9 +130,9 @@ test('gabarit : tous les jetons reconnus sont remplacés', () => {
   assert.equal(question.displayId, 'Fraise en bout hélicoïdale | Contournage ébauche | Acier rapide | 1/8 po | 2 | 2');
 });
 
-test('gabarit : un jeton inconnu est une erreur explicite', () => {
+test('gabarit : un crochet inconnu est une erreur explicite', () => {
   const special = { ...outil('mclnr'), format_identifiant: 'MCLNR [Couleur]' };
-  assert.throws(() => generateQuestion(data, [special], suite(0, 0, 0, 0, 0, 0)), /Jeton inconnu.*\[Couleur\]/);
+  assert.throws(() => generateQuestion(data, [special], suite(0, 0, 0, 0, 0, 0)), /Crochet inconnu.*\[Couleur\]/);
 });
 
 test('aucun outil admissible → erreur explicite', () => {

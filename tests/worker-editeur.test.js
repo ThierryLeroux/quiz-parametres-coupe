@@ -380,7 +380,7 @@ test('publier (D74, D78) : à la première publication, un titre porté par un A
   // Publier : refusé (400), le message nomme l'exercice en conflit (titre et identifiant) et dit quoi faire ; rien d'écrit.
   const refus = await publier('m10-bis', (await ouvrir(serveur, 'm10-bis')).exercice.revision);
   assert.equal(refus.status, 400);
-  assert.equal(refus.corps.erreur, `Publication refusée : un autre exercice publié porte déjà ce titre : « ${m10.titre} » (${M10}). Les étudiants reconnaissent un exercice à son titre : change le titre de l'un des deux, puis publie.`);
+  assert.equal(refus.corps.erreur, `Publication refusée. Un autre exercice publié porte déjà ce titre : « ${m10.titre} » (${M10}). Les étudiants reconnaissent un exercice à son titre. Change le titre de l'un des deux, puis publie.`);
   assert.deepEqual(refus.corps.doublons, [{ id: M10, titre: m10.titre }]);
   assert.deepEqual([await versions('m10-bis'), publications()], [[], 0]);
   assert.equal((await serveur.appel('POST', '/api/creation', { corps: { ...CAMILLE, exercice: 'm10-bis' } })).status, 400); // toujours inexistant pour les étudiants
@@ -523,7 +523,7 @@ test('import qui ferait disparaître des outils de la banque (D50) : la validati
   assert.deepEqual(validation.corps.resume.banque, { ajoutes: [], modifies: [{ id: 'mclnr', nom: 'MCLNR bis' }], retires: [{ id: 'alesoir', nom: 'Alésoir' }, { id: 'mvlnr', nom: 'MVLNR' }], gardes: 26 });
   const refus = await serveur.editeur('POST', 'import', { export: ampute, confirmation: IMPORT_WORD });
   assert.equal(refus.status, 400);
-  assert.equal(refus.corps.erreur, 'Pour importer, la requête doit porter le mot REMPLACER — 2 outil(s) de la banque disparaîtraient : Alésoir, MVLNR.');
+  assert.equal(refus.corps.erreur, 'Pour importer, la requête doit porter le mot REMPLACER. 2 outil(s) de la banque disparaîtraient : Alésoir, MVLNR.'); // D93
   assert.equal(refus.corps.mot, REPLACE_WORD);
   assert.equal((await serveur.editeur('GET', 'banque')).corps.outils.length, 29); // rien n'a été touché
   const ok = await serveur.editeur('POST', 'import', { export: ampute, confirmation: REPLACE_WORD });

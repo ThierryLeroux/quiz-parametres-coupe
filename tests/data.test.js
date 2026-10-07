@@ -216,7 +216,7 @@ const anomalies = [
   ['révision des vitesses de coupe absente (D28)', (d) => { delete d.materiaux.revision; }, /materiaux\.json : « revision »/],
   ['révision des avances vide (D28)', (d) => { d.operations.revision = ' '; }, /operations\.json : « revision »/],
   ['début de famille non booléen (D27)', (d) => { d.materiaux.materiaux[0].debut_famille = 'oui'; }, /groupe 1.*debut_famille/],
-  ['jeton inconnu dans le gabarit (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [Couleur]'; }, /« Foret ».*jeton inconnu.*\[Couleur\]/],
+  ['crochet inconnu dans le gabarit (D24 ; « crochet », jamais « jeton », à l’écran : D93)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [Couleur]'; }, /« Foret ».*crochet inconnu.*\[Couleur\] \(permis : IdDia/],
   ['jeton [Pas] hors filetage (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [IdDia] [Pas]'; }, /« Foret ».*\[Pas\]/],
   ['jeton [IdBarre] sans barres (D24)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [IdBarre]'; }, /« Foret ».*\[IdBarre\] exige/],
   ['crochet non apparié dans le gabarit (D58)', (d) => { d.outils.outils[0].format_identifiant = 'Foret [IdDia'; }, /« Foret ».*crochet « \[ » ou « \] » non apparié/],

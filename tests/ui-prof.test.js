@@ -98,14 +98,14 @@ test('canAct et roleLabel (D44) : seul admin agit ; la consultation est dite « 
 
 test('resetConfirmation : nomme l’étudiant, l’exercice, et prévient de l’annulation s’il y a une attestation', () => {
   assert.match(resetConfirmation(SEANCES[0]), /Camille Tremblay \(2412345, M10 — Tournage : vitesse de coupe\)/);
-  assert.match(resetConfirmation(SEANCES[0]), /attestation sera annulée/);
+  assert.match(resetConfirmation(SEANCES[0]), /Sa progression repart de zéro\. Le matricule et le NIP restent\. Son attestation sera annulée\. L'ancien code répondra « annulée »\.$/); // D93
   assert.doesNotMatch(resetConfirmation(SEANCES[1]), /attestation/);
 });
 
 test('deleteConfirmation (D45) : rappelle le nom et le matricule, dit que c’est sans retour, et ce qu’il advient de l’attestation', () => {
   assert.match(deleteConfirmation(SEANCES[0]), /Camille Tremblay, matricule 2412345 \(M10 — Tournage : vitesse de coupe\)/);
   assert.match(deleteConfirmation(SEANCES[0]), /sans retour/);
-  assert.match(deleteConfirmation(SEANCES[0]), /ABCDE-FGHJK restera vérifiable et répondra « annulée — séance supprimée »/);
+  assert.equal(deleteConfirmation(SEANCES[0]), "Supprimer la séance de Camille Tremblay, matricule 2412345 (M10 — Tournage : vitesse de coupe) ? La séance et son journal disparaissent, sans retour. L'étudiant pourra recommencer de zéro. Son attestation ABCDE-FGHJK restera vérifiable et répondra « annulée »."); // D93 : tout dit, en phrases courtes
   assert.doesNotMatch(deleteConfirmation(SEANCES[1]), /attestation/);
 });
 
@@ -119,9 +119,9 @@ test('effacement (D46) : le même mot que le serveur ; l’annonce dit ce qui pa
   assert.match(purgeIntro(3), /compteurs de débit et les verrous/);
   assert.match(purgeIntro(3), /exercices, la banque d'outils et les données de référence ne sont jamais touchés/);
   assert.equal(purgeSummary({ seances: 3, corrections: 40, corrections_identite: 1, attestations: 2, demos: 2, debit: 12, verrous: 1, journal_anonymise: 4 }),
-    "Effacé : 3 séances, 40 corrections, 1 correction d'identité, 2 attestations, 2 démos, 12 compteurs de débit et 1 verrou ; journal des actions gardé, 4 entrées anonymisées.");
+    "Effacé : 3 séances, 40 corrections, 1 correction d'identité, 2 attestations, 2 démos, 12 compteurs de débit et 1 verrou. Journal des actions gardé, 4 entrées anonymisées.");
   assert.equal(purgeSummary({ seances: 0, corrections: 0, corrections_identite: 0, attestations: 0, debit: 0, verrous: 0, journal_anonymise: 0 }),
-    "Effacé : 0 séance, 0 correction, 0 correction d'identité, 0 attestation, 0 démo, 0 compteur de débit et 0 verrou ; journal des actions gardé, 0 entrée anonymisée.");
+    "Effacé : 0 séance, 0 correction, 0 correction d'identité, 0 attestation, 0 démo, 0 compteur de débit et 0 verrou. Journal des actions gardé, 0 entrée anonymisée.");
 });
 
 test('nipResetConfirmation : nomme l’étudiant et l’exercice, dit que la progression ne change pas', () => {

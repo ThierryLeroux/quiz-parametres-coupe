@@ -22,7 +22,7 @@ const inchesText = (value) => String(Number(value.toFixed(5)));
 // un message clair qu'un « [Xyz] » affiché à l'étudiant. validateData (data.js) l'attrape dès le chargement.
 function resolveDisplayId(template, values) {
   return template.replace(/\[([^\]]*)\]/g, (token, name) => {
-    if (values[name] === undefined || values[name] === null) throw new Error(`Jeton inconnu dans le gabarit « ${template} » : ${token}`);
+    if (values[name] === undefined || values[name] === null) throw new Error(`Crochet inconnu dans le gabarit « ${template} » : ${token}`);
     return String(values[name]);
   });
 }

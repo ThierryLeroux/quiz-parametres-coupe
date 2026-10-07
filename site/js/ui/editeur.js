@@ -82,7 +82,7 @@ function showLogin(notice = '') {
       const { role } = await teacherLogin(input.value);
       if (role !== 'admin') {
         await teacherLogout().catch(() => {});
-        throw new Error("La Gestion du contenu est réservée à la clé d'administration : la clé de consultation ne fait que lire l'espace professeur.");
+        throw new Error("La Gestion du contenu est réservée à la clé d'administration. La clé de consultation ouvre seulement l'espace professeur, en lecture.");
       }
       state.connected = true;
       await showList();
@@ -95,7 +95,7 @@ function showLogin(notice = '') {
   const screen = el('div', { class: 'screen screen--narrow' }, el('section', { class: 'panel' }, [
     el('div', { class: 'eyebrow' }, TITLE),
     el('h1', { tabindex: '-1' }, 'Connexion'),
-    el('p', { class: 'muted small' }, "Entre la clé d'administration du serveur de correction. La Gestion du contenu n'est pas ouverte à la clé de consultation. La séance dure 12 h."),
+    el('p', { class: 'muted small' }, "Entre la clé d'administration. La clé de consultation n'ouvre pas la Gestion du contenu. La séance dure 12 h."),
     el('form', { novalidate: true, onsubmit: submit }, [
       el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration. Cinq essais, puis un délai croissant.")])),
       el('div', { class: 'form-actions' }, [status, button]),
@@ -213,7 +213,7 @@ async function showList(notice = '') {
     event.preventDefault();
     act(() => editorCreateExercise({ id: idInput.value.trim(), titre: titreInput.value.trim() }), `« ${titreInput.value.trim()} » créé : un brouillon vide, à compléter puis à publier.`);
   } }, [
-    el('div', { class: 'field' }, [el('label', { for: 'nouvel-id' }, "Identifiant d'URL (?exercice=…)"), idInput, el('div', { class: 'field-note' }, 'Minuscules, chiffres et tirets ; définitif : c\'est le lien sur Léa.')]),
+    el('div', { class: 'field' }, [el('label', { for: 'nouvel-id' }, "Identifiant d'URL (?exercice=…)"), idInput, el('div', { class: 'field-note' }, "Minuscules, chiffres et tirets. Définitif : c'est le lien sur Léa.")]),
     el('div', { class: 'field' }, [el('label', { for: 'nouveau-titre' }, 'Titre'), titreInput, el('div', { class: 'field-note' }, '')]),
     el('button', { class: 'button-outline', type: 'submit' }, 'Créer un exercice vide'),
   ]);
@@ -221,7 +221,7 @@ async function showList(notice = '') {
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead('exercices', 'exercices'),
     el('h1', { tabindex: '-1' }, 'Exercices'),
-    el('p', { class: 'muted small' }, "Les étudiants voient la dernière version publiée de chaque exercice ; une séance commencée garde sa version jusqu'à la fin. Le brouillon ne change rien tant qu'il n'est pas publié. L'ordre de cette liste (↑ ↓) est celui de l'accueil des étudiants."),
+    el('p', { class: 'muted small' }, "Les étudiants voient la dernière version publiée de chaque exercice. Une séance commencée garde sa version jusqu'à la fin. Le brouillon ne change rien tant qu'il n'est pas publié. L'ordre de cette liste (↑ ↓) est celui de l'accueil."),
     status,
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table' }, [
       el('thead', {}, el('tr', {}, ['Rang', 'Titre', 'Cours', 'Identifiant', 'État', 'Dernière version', 'Séances', "À l'accueil", 'Actions'].map((label) => el('th', { class: label === 'Rang' ? 'num' : null }, label)))),
@@ -339,7 +339,7 @@ function toolForm(tool, ctx) {
   function refreshExample() {
     const current = read();
     const random = drawn === null ? null : ((sequence) => { let i = 0; return () => sequence[i++ % sequence.length]; })(drawn);
-    exampleText.textContent = `Exemple composé : ${exampleIdentifier(current, ctx.opsByName, random)} — jetons : ${templateTokenList(template.value).join(', ') || 'aucun'}.`;
+    exampleText.textContent = `Exemple composé : ${exampleIdentifier(current, ctx.opsByName, random)} (crochets : ${templateTokenList(template.value).join(', ') || 'aucun'}).`;
     tokenBar.replaceChildren(...permittedTokens(current, ctx.opsByName).map(({ token, label }) => el('button', { class: 'button-small button-small--neutral', type: 'button', title: `Insérer [${token}] : ${label}`, onclick: () => {
       const { text: next, caret } = insertToken(template.value, template.selectionStart ?? template.value.length, template.selectionEnd ?? template.value.length, token);
       template.value = next;
@@ -365,21 +365,21 @@ function toolForm(tool, ctx) {
     operation: field('operation', 'Opération', operationSelect, 'Fixe la famille d\'avance (table des avances).'),
     ...(ctx.live ? {} : {
       commentaire: field('commentaire', 'Note affichée sous l\'outil', el('input', { id: `${p}-commentaire`, type: 'text', autocomplete: 'off', value: tool.commentaire ?? '' }), ''),
-      image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées ; « Téléverser » réduit la photo dans le navigateur avant l'envoi (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence).", 'field--wide'),
+      image: field('image', 'Photo', picker.element, "Celle que l'étudiant voit dans le panneau de l'outil. La galerie montre les images « photo d'outil » non archivées. « Téléverser » réduit la photo dans le navigateur avant l'envoi : 800 px, en JPEG sur fond blanc ou en PNG si elle a de la transparence.", 'field--wide'),
     }),
-    format_identifiant: field('format_identifiant', 'Gabarit de nomenclature', template, "Le nom affiché dans la question : du texte et des jetons entre crochets, remplacés au tirage. Les boutons insèrent au curseur les jetons permis pour cet outil.", 'field--wide'),
-    dimensions: field('dimensions', 'Dimensions possibles (une par ligne : libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', 'data-decimal': 'valeurs', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
-      'Valeur : Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte : « 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 ».', 'field--half'),
-    dimensions_barre: field('dimensions_barre', 'Barres (outil à deux diamètres) : libellé ; Ø en pouces', el('textarea', { id: `${p}-barres`, spellcheck: 'false', 'data-decimal': 'valeurs' }, dimensionsText(tool.dimensions_barre)),
-      'Vide = un seul diamètre. Sinon, avance proportionnelle au Ø de la barre ; N avec le Ø usiné.'),
+    format_identifiant: field('format_identifiant', 'Gabarit de nomenclature', template, "Le nom affiché dans la question : du texte, et des crochets remplacés au tirage. Les boutons insèrent au curseur les crochets permis pour cet outil.", 'field--wide'),
+    dimensions: field('dimensions', 'Dimensions possibles, une par ligne (libellé ; valeur)', el('textarea', { id: `${p}-dimensions`, spellcheck: 'false', 'data-decimal': 'valeurs', oninput: () => refreshReadings() }, dimensionsText(tool.dimensions)),
+      'Valeur : le Ø en pouces (« Ø 1/4 po ; 0.25 »), ou le filetage en texte (« 1/4- 20 UNC ; 0.25-20 », « M10 x 1.5 ; 10x1.5 »).', 'field--half'),
+    dimensions_barre: field('dimensions_barre', "Barres d'un outil à deux diamètres, une par ligne (libellé ; Ø en pouces)", el('textarea', { id: `${p}-barres`, spellcheck: 'false', 'data-decimal': 'valeurs' }, dimensionsText(tool.dimensions_barre)),
+      "Vide : un seul diamètre. Sinon, l'avance suit le Ø de la barre, et N le Ø usiné."),
     rapport_barre_max: field('rapport_barre_max', 'Rapport Ø barre / Ø usiné maximal', numberInput(`${p}-rapport`, tool.rapport_barre_max), 'Ex. 0.75 : une barre entre si Ø barre ≤ 0.75 × Ø usiné.'),
     nb_dents_min: field('nb_dents_min', 'Dents, minimum', numberInput(`${p}-dents-min`, tool.nb_dents_min), 'Le nombre de dents est tiré entre les deux.'),
     nb_dents_max: field('nb_dents_max', 'Dents, maximum', numberInput(`${p}-dents-max`, tool.nb_dents_max), ''),
     ...(inherits ? {
-      fact_vc: field('fact_vc', 'Valeur forcée', forcedValue, '« 1/4 » ou « 0.25 » ; 1 = aucune réduction.'),
+      fact_vc: field('fact_vc', 'Valeur forcée', forcedValue, '« 1/4 » ou « 0.25 ». 1 : aucune réduction.'),
       fact_vc_raison: field('fact_vc_raison', 'Raison, montrée à l’étudiant', forcedReason, `Courte (${REASON_MAX} caractères au plus) : « fraise à inserts de carbure ».`),
     } : {
-      fact_vc: field('fact_vc', 'Facteur de vitesse (× Vc)', numberInput(`${p}-fact-vc`, tool.fact_vc), '1 = aucun ; 0.25 pour un alésoir.'),
+      fact_vc: field('fact_vc', 'Facteur de vitesse (× Vc)', numberInput(`${p}-fact-vc`, tool.fact_vc), '1 : aucun. 0.25 pour un alésoir.'),
     }),
     fact_av: field('fact_av', "Facteur d'avance (× avance)", numberInput(`${p}-fact-av`, tool.fact_av), '1 sauf sur une avance proportionnelle au Ø.'),
     limite_rpm: field('limite_rpm', 'Vitesse de rotation max de la machine', numberInput(`${p}-limite-rpm`, tool.limite_rpm), 'tr/min'),
@@ -612,16 +612,16 @@ async function showExercise(id, notice = '') {
   // Jamais publié : le titre, le cours et « À l'accueil » sont ici, et entrent en vigueur à la première publication.
   const settings = {
     ...(live ? {} : {
-      titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation ; il identifie l'exercice pour les étudiants. Il entre en vigueur à la première publication ; ensuite, il se change en direct.", 'field--half'),
-      cours: field('cours', 'Cours', cours, "Ex. M10 : l'accueil regroupe les exercices par cours ; vide, sous « Autres exercices ». En vigueur à la première publication."),
+      titre: field('titre', 'Titre', titre, "Affiché à l'étudiant et sur l'attestation. Il entre en vigueur à la première publication. Ensuite, il se change en direct.", 'field--half'),
+      cours: field('cours', 'Cours', cours, "Ex. M10 : l'accueil regroupe les exercices par cours. Vide, l'exercice va sous « Autres exercices ». En vigueur à la première publication."),
     }),
     champs_evalues: field('champs_evalues', 'Grandeurs : évaluée (à saisir), fournie (valeur montrée) ou masquée (« — », sans valeur)', el('div', {}, [fieldsChoice.element, warningsList]), 'Au moins une grandeur évaluée. Une grandeur masquée compte comme fournie pour la cohérence de Vf.', 'field--wide'),
     ...(inherits ? {
       facteur_vitesse_donne: field('facteur_vitesse_donne', 'Facteur de vitesse', el('label', { class: 'choices', for: 'facteur-donne' }, el('li', {}, el('label', { for: 'facteur-donne' }, [givenFactor, "Donner le facteur de vitesse à l'étudiant"]))),
-        "Décoché : l'étudiant le trouve dans la feuille « Facteurs de vitesse », comme la Vc. Coché (exercices pour débutants) : la question l'affiche — « Vitesse réduite × 1/4 ». Un facteur forcé est toujours affiché, avec sa raison.", 'field--wide'),
+        "Décoché : l'étudiant le trouve dans la feuille « Facteurs de vitesse », comme la Vc. Coché (exercices pour débutants) : la question l'affiche, « Vitesse réduite × 1/4 ». Un facteur forcé est toujours affiché, avec sa raison.", 'field--wide'),
     } : {}),
-    materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice", materialsChoice.element, 'Tout coché = aucune restriction ; se croise avec les matières de chaque outil.', 'field--wide'),
-    groupes: field('groupes', 'Groupes de matériaux usinés permis pour tout l\'exercice', groupsChoice.element, 'Tout coché = aucune restriction ; se croise avec les groupes de chaque outil.', 'field--wide'),
+    materiaux_outil: field('materiaux_outil', "Matières d'outil permises pour tout l'exercice", materialsChoice.element, 'Tout coché : aucune restriction. Se croise avec les matières de chaque outil.', 'field--wide'),
+    groupes: field('groupes', 'Groupes de matériaux usinés permis pour tout l\'exercice', groupsChoice.element, 'Tout coché : aucune restriction. Se croise avec les groupes de chaque outil.', 'field--wide'),
     ...(live ? {} : { liste: field('liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'liste' }, el('li', {}, el('label', { for: 'liste' }, [listed, 'oui (sinon, joignable seulement par son lien)']))), '') }),
   };
 
@@ -743,7 +743,7 @@ async function showExercise(id, notice = '') {
       const fresh = live && !known;
       form.row = el('div', { class: `outil-ligne${fresh ? ' ligne-nouvelle' : ''}` }, [
         el('div', { class: 'outil-entete' }, [form.checkbox, form.thumbnail, toggle, form.summaryName, form.badge, form.summaryErrors, buttons]),
-        ...(fresh ? [el('p', { class: 'muted smaller outil-nouvelle' }, "Copie nouvelle : sa photo et sa note de départ se saisissent dans son formulaire ; publiée, elles passeront dans le panneau « Présentation », en direct.")] : []),
+        ...(fresh ? [el('p', { class: 'muted smaller outil-nouvelle' }, "Copie nouvelle : sa photo et sa note de départ se saisissent dans son formulaire. Publiée, elles passeront dans le panneau « Présentation », en direct.")] : []),
         body,
       ]);
       return form;
@@ -843,7 +843,7 @@ async function showExercise(id, notice = '') {
         const result = await guarded(() => editorPublish(id, revision));
         if (result === null) return;
         state.dirty = false;
-        showExercise(id, `Version ${result.numero} publiée le ${formatDateStamp(result.publiee_le)} : les nouvelles séances la prennent ; les séances en cours gardent la leur.`);
+        showExercise(id, `Version ${result.numero} publiée le ${formatDateStamp(result.publiee_le)}. Les nouvelles séances la prennent, les séances en cours gardent la leur.`);
       } catch (error) {
         dialogSlot.replaceChildren();
         status.textContent = serverErrorMessage(error);
@@ -859,7 +859,7 @@ async function showExercise(id, notice = '') {
         el('p', { class: 'small' }, "Avertissement, sans effet sur la publication : une grandeur à trouver se déduit des grandeurs fournies."),
         el('ul', { class: 'avertissements' }, deducibleWarnings(readDraft(), { factor: factorSource(readDraft(), tables.operations.operations) }).map((line) => el('li', {}, line))),
       ] : []),
-      el('p', { class: 'muted smaller' }, `Cette version sera sur les tables de référence ${page.exercice.tables_id}. Les séances déjà commencées gardent leur version ; seules les nouvelles séances prennent celle-ci. Une version publiée ne se modifie plus.${live ? " Elle prend la présentation en vigueur (titre, cours, « À l'accueil », photos et notes : un instantané) ; celle-ci continue de se modifier en direct." : ''}`),
+      el('p', { class: 'muted smaller' }, `Cette version sera sur les tables de référence ${page.exercice.tables_id}. Les séances déjà commencées gardent leur version. Seules les nouvelles séances prennent celle-ci. Une version publiée ne se modifie plus.${live ? " Elle prend la présentation en vigueur (titre, cours, « À l'accueil », photos et notes), en instantané. Celle-ci continue de se modifier en direct." : ''}`),
       el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
     ]));
     dialogSlot.scrollIntoView({ block: 'nearest' });
@@ -894,7 +894,7 @@ async function showExercise(id, notice = '') {
         const result = await guarded(() => editorResume(id, revision, numero));
         if (result === null) return;
         state.dirty = false;
-        showExercise(id, `Version ${result.numero} reprise dans le brouillon, qui garde ses tables (${result.tables_id})${result.erreurs.length > 0 ? ` — ${result.erreurs.length} erreur(s) à corriger avec ces tables` : ''} : vérifie, puis « Publier… ».`);
+        showExercise(id, `Version ${result.numero} reprise dans le brouillon, qui garde ses tables (${result.tables_id}).${result.erreurs.length > 0 ? ` ${result.erreurs.length} erreur(s) à corriger avec ces tables.` : ''} Vérifie, puis « Publier… ».`);
       } catch (error) { dialogSlot.replaceChildren(); status.textContent = serverErrorMessage(error); }
     },
   });
@@ -907,7 +907,7 @@ async function showExercise(id, notice = '') {
       dialogSlot.replaceChildren(el('section', { class: 'panel' }, [
         el('div', { class: 'eyebrow' }, 'Aperçu'),
         el('h2', {}, `Dix questions tirées ${label}`),
-        el('p', { class: 'muted small' }, 'Avec la nomenclature composée et les réponses attendues des grandeurs évaluées. Rien n\'est enregistré ; les étudiants ne voient jamais ces réponses.'),
+        el('p', { class: 'muted small' }, "Avec la nomenclature composée et les réponses attendues des grandeurs évaluées. Rien n'est enregistré. Les étudiants ne voient jamais ces réponses."),
         previewTable(result, tables.materiaux.classes_iso),
         el('div', { class: 'form-actions' }, [el('button', { class: 'button-outline', type: 'button', onclick: () => preview(body, label) }, 'Dix autres'), el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Fermer')]),
       ]));
@@ -992,8 +992,8 @@ async function showExercise(id, notice = '') {
     const coursInput = el('input', { id: 'pr-cours', type: 'text', autocomplete: 'off', list: 'pr-cours-connus', value: start.cours ?? '' });
     const advice = el('div', { class: 'cours-conseil', 'aria-live': 'polite' });
     const listeBox = el('input', { id: 'pr-liste', type: 'checkbox', checked: start.liste });
-    const titleField = field('pr-titre', 'Titre', titreInput, "Affiché à l'étudiant — accueil, page de l'exercice, barre du haut — et inscrit sur les attestations émises ensuite (celles déjà émises ne changent pas). Il identifie l'exercice : un titre déjà pris par un autre exercice publié est refusé.", 'field--half');
-    const coursField = field('pr-cours', 'Cours', coursInput, "Ex. M10 : l'accueil regroupe les exercices par cours ; vide, sous « Autres exercices ».");
+    const titleField = field('pr-titre', 'Titre', titreInput, "Affiché à l'étudiant (accueil, page de l'exercice, barre du haut) et inscrit sur les attestations émises ensuite. Celles déjà émises ne changent pas. Un titre déjà pris par un autre exercice publié est refusé.", 'field--half');
+    const coursField = field('pr-cours', 'Cours', coursInput, "Ex. M10 : l'accueil regroupe les exercices par cours. Vide, l'exercice va sous « Autres exercices ».");
     coursField.element.insertBefore(el('datalist', { id: 'pr-cours-connus' }, courses.map((course) => el('option', { value: course }))), coursField.noteEl);
     coursField.element.insertBefore(advice, coursField.noteEl);
     const listeField = field('pr-liste', "Proposé dans la liste de l'accueil", el('label', { class: 'choices', for: 'pr-liste' }, el('li', {}, el('label', { for: 'pr-liste' }, [listeBox, 'oui (sinon, joignable seulement par son lien)']))), '');
@@ -1053,7 +1053,7 @@ async function showExercise(id, notice = '') {
         try {
           const result = await guarded(() => editorExercisePresentationApply(id, shown.revision, current));
           if (result === null) return;
-          await reloadPresentation(`Présentation appliquée à ${formatDateStamp(new Date().toISOString()).slice(11)} : ${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}, effet immédiat — chaque page d'étudiant la montre dès qu'elle se recharge. Le contenu remplacé est dans l'historique.`);
+          await reloadPresentation(`Présentation appliquée à ${formatDateStamp(new Date().toISOString()).slice(11)} (${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}). Effet immédiat : chaque page d'étudiant la montre dès qu'elle se recharge. Le contenu remplacé est dans l'historique.`);
         } catch (error) {
           confirm.disabled = false;
           panelStatus.replaceChildren(...failure(error));
@@ -1063,7 +1063,7 @@ async function showExercise(id, notice = '') {
         el('div', { class: 'eyebrow' }, 'Confirmation — effet immédiat'),
         el('h3', {}, `Appliquer ${lines.length} changement${lines.length > 1 ? 's' : ''} de présentation, tout de suite ?`),
         el('ul', { class: 'editeur-diff' }, lines.map((line) => el('li', {}, line))),
-        el('p', { class: 'small' }, "Tous les étudiants le voient dès que leur page se recharge, séances en cours comprises, quelle que soit leur version de l'exercice. Les valeurs, la correction et les attestations déjà émises ne changent pas ; une attestation émise ensuite inscrit le titre en vigueur. Le contenu remplacé va à l'historique : « Rétablir » le remet en un clic."),
+        el('p', { class: 'small' }, "Tous les étudiants le voient dès que leur page se recharge, séances en cours comprises, quelle que soit leur version de l'exercice. Les valeurs, la correction et les attestations déjà émises ne changent pas. Une attestation émise ensuite inscrit le titre en vigueur. Le contenu remplacé va à l'historique : « Rétablir » le remet en un clic."),
         el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialog.replaceChildren() }, 'Annuler')]),
       ]));
       dialog.scrollIntoView({ block: 'nearest' });
@@ -1101,7 +1101,7 @@ async function showExercise(id, notice = '') {
     const pendingBox = pending.lignes.length === 0 ? '' : el('div', { class: 'avis-tables avis-presentation' }, [
       el('div', {}, [
         el('strong', {}, `Retouches de présentation en attente dans le brouillon (${pending.lignes.length})`),
-        el('p', { class: 'small' }, "Faites dans le brouillon avant que la présentation passe en direct, elles n'ont jamais été publiées et ne le seront plus : pour les garder, reprends-les dans ce panneau, vérifie l'aperçu, puis applique. La prochaine publication les abandonne."),
+        el('p', { class: 'small' }, "Faites dans le brouillon avant que la présentation passe en direct, elles n'ont jamais été publiées et ne le seront plus. Pour les garder, reprends-les dans ce panneau, vérifie l'aperçu, puis applique. La prochaine publication les abandonne."),
         el('ul', { class: 'editeur-diff' }, pending.lignes.map((line) => el('li', {}, line))),
       ]),
       el('button', { class: 'button-small', type: 'button', onclick: () => { renderPresentation(pending.contenu, 'Retouches reprises dans le panneau, pas encore appliquées : vérifie-les, puis « Appliquer… ».'); presentationDirty = true; syncDirty(); } }, 'Les reprendre dans le panneau'),
@@ -1173,7 +1173,7 @@ async function showExercise(id, notice = '') {
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, live ? "Outils de l'exercice — brouillon à publier" : "Outils de l'exercice"),
       el('p', { class: 'muted small' }, "Chaque outil est une copie indépendante de la banque : ses dimensions, matières et groupes sont ce que l'exercice permet. Modifier la banque ne change pas cet exercice."),
-      ...(live ? [el('p', { class: 'muted small' }, "La photo et la note d'un outil déjà publié sont en direct, dans le panneau « Présentation » ; une copie nouvelle les reçoit ici (liseré doré), et sa publication les y fait passer.")] : []),
+      ...(live ? [el('p', { class: 'muted small' }, "La photo et la note d'un outil déjà publié sont en direct, dans le panneau « Présentation ». Une copie nouvelle les reçoit ici (liseré doré), et sa publication les y fait passer.")] : []),
       toolsSlot,
       el('div', { class: 'ajout-outil' }, [
         el('div', { class: 'field' }, [el('label', { for: 'ajout-banque' }, 'Depuis la banque'), bankSelect]),
@@ -1219,7 +1219,7 @@ async function showBank(notice = '') {
         if (id) act(() => editorBankCreate({ id: id.trim(), depuis: row.id }), `« ${row.outil.nom} » dupliqué sous « ${id.trim()} ».`);
       } }, 'Dupliquer'),
       row.archive_le === null
-        ? el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(`Archiver « ${row.outil.nom} » ? Il ne sera plus proposé à l'ajout dans un exercice ; les copies déjà faites ne changent pas.`)) act(() => editorBankArchive(row.id, true), `« ${row.outil.nom} » archivé.`); } }, 'Archiver')
+        ? el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(`Archiver « ${row.outil.nom} » ? Il ne sera plus proposé à l'ajout dans un exercice. Les copies déjà faites ne changent pas.`)) act(() => editorBankArchive(row.id, true), `« ${row.outil.nom} » archivé.`); } }, 'Archiver')
         : el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => act(() => editorBankArchive(row.id, false), `« ${row.outil.nom} » rétabli.`) }, 'Rétablir'),
     ])),
   ]));
@@ -1229,7 +1229,7 @@ async function showBank(notice = '') {
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead("banque d'outils", 'banque'),
     el('h1', { tabindex: '-1' }, "Banque d'outils"),
-    el('p', { class: 'muted small' }, "Les outils qu'on copie dans un exercice. Modifier un outil ici ne change aucun exercice existant ; le nombre d'exercices est donné à titre d'information."),
+    el('p', { class: 'muted small' }, "Les outils qu'on copie dans un exercice. Modifier un outil ici ne change aucun exercice existant. Le nombre d'exercices est donné à titre d'information."),
     status,
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table' }, [
       el('thead', {}, el('tr', {}, ['Nom', 'Identifiant', 'Opération', 'Dimensions', 'Exercices qui en ont une copie', 'État', 'Actions'].map((label) => el('th', {}, label)))),
@@ -1237,7 +1237,7 @@ async function showBank(notice = '') {
     ])),
     el('p', { class: 'muted smaller prof-count' }, `${rows.length} outil${rows.length > 1 ? 's' : ''}.`),
     el('form', { class: 'ajout-outil', novalidate: true, onsubmit: (event) => { event.preventDefault(); act(() => editorBankCreate({ id: idInput.value.trim(), outil: { ...blank, id: idInput.value.trim() } }), 'Outil créé : ouvre-le pour le compléter.'); } }, [
-      el('div', { class: 'field' }, [el('label', { for: 'nouvel-outil' }, 'Nouvel outil : identifiant'), idInput, el('div', { class: 'field-note' }, 'Minuscules, chiffres et soulignés ; définitif.')]),
+      el('div', { class: 'field' }, [el('label', { for: 'nouvel-outil' }, 'Nouvel outil : identifiant'), idInput, el('div', { class: 'field-note' }, 'Minuscules, chiffres et soulignés. Définitif.')]),
       el('button', { class: 'button-outline', type: 'submit' }, 'Créer un outil'),
     ]),
   ]));
@@ -1280,7 +1280,7 @@ async function showBankTool(id, notice = '') {
     ? [el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { state.dirty = false; showBankTool(id); } }, 'Recharger la page')]
     : [error.status === 400 || error.status === 404 ? error.message : serverErrorMessage(error)]);
   const time = () => formatDateStamp(new Date().toISOString()).slice(11);
-  const errorsText = (erreurs) => (erreurs.length > 0 ? ` Avec les tables d'aujourd'hui, ${erreurs.length} erreur${erreurs.length > 1 ? 's' : ''} : cet outil ne pourra pas être ajouté à un exercice sans erreur tant qu'elles restent (elles sont sous les champs).` : '');
+  const errorsText = (erreurs) => (erreurs.length > 0 ? ` Avec les tables d'aujourd'hui, ${erreurs.length} erreur${erreurs.length > 1 ? 's' : ''} (sous les champs). Tant qu'elles restent, cet outil ne peut pas être ajouté à un exercice.` : '');
   const warningsText = (avertissements) => (avertissements.length > 0 ? ` Attention : ${avertissements.join(' ')}` : '');
 
   // Enregistrer : le contenu remplacé va à l'historique (D79) ; sans changement, rien n'est écrit.
@@ -1292,7 +1292,7 @@ async function showBankTool(id, notice = '') {
       if (result === null) return;
       state.dirty = false;
       if (result.inchange) { status.textContent = "Aucun changement : rien n'a été enregistré."; return; }
-      showBankTool(id, `Outil enregistré à ${time()} (révision ${result.revision}) : ${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''} ; le contenu remplacé est dans l'historique.${errorsText(result.erreurs)}${warningsText(result.avertissements)}`);
+      showBankTool(id, `Outil enregistré à ${time()} (révision ${result.revision}) : ${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}. Le contenu remplacé est dans l'historique.${errorsText(result.erreurs)}${warningsText(result.avertissements)}`);
     } catch (error) {
       status.replaceChildren(...failure(error));
     } finally {
@@ -1308,7 +1308,7 @@ async function showBankTool(id, notice = '') {
       const result = await guarded(() => editorBankRestore(id, revision, entry.id));
       if (result === null) return;
       state.dirty = false;
-      showBankTool(id, `Contenu rétabli à ${time()} (${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}) ; celui qu'il remplace est dans l'historique.${errorsText(result.erreurs)}${warningsText(result.avertissements)}`);
+      showBankTool(id, `Contenu rétabli à ${time()} (${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}). Celui qu'il remplace est dans l'historique.${errorsText(result.erreurs)}${warningsText(result.avertissements)}`);
     } catch (error) {
       status.replaceChildren(...failure(error));
     }
@@ -1316,7 +1316,7 @@ async function showBankTool(id, notice = '') {
   const history = el('details', { class: 'presentation-historique banque-historique' }, [
     el('summary', {}, `Historique (${page.historique.length})`),
     page.historique.length === 0
-      ? el('p', { class: 'muted small' }, "Vide : chaque enregistrement y mettra le contenu qu'il remplace.")
+      ? el('p', { class: 'muted small' }, 'Vide : chaque fois que tu enregistres, le contenu remplacé vient ici.')
       : el('ul', { class: 'versions-liste historique-liste' }, page.historique.map((h) => el('li', {}, [
         el('div', {}, [
           el('div', { class: 'small' }, bankHistoryLabel(h)),
@@ -1324,7 +1324,7 @@ async function showBankTool(id, notice = '') {
             ? el('div', { class: 'muted smaller' }, 'Identique au contenu actuel.')
             : el('details', {}, [el('summary', { class: 'muted smaller' }, `Rétablir changerait ${h.lignes.length} valeur${h.lignes.length > 1 ? 's' : ''}`), el('ul', { class: 'editeur-diff' }, h.lignes.map((line) => el('li', {}, line)))]),
           ...(h.erreurs.length === 0 ? [] : [
-            el('p', { class: 'small historique-erreurs' }, `Avec les tables d'aujourd'hui, ce contenu a ${h.erreurs.length} erreur${h.erreurs.length > 1 ? 's' : ''} ; il se rétablit quand même, et elle${h.erreurs.length > 1 ? 's' : ''} ser${h.erreurs.length > 1 ? 'ont' : 'a'} à corriger :`),
+            el('p', { class: 'small historique-erreurs' }, `Avec les tables d'aujourd'hui, ce contenu a ${h.erreurs.length} erreur${h.erreurs.length > 1 ? 's' : ''}. Il se rétablit quand même, et elle${h.erreurs.length > 1 ? 's' : ''} ser${h.erreurs.length > 1 ? 'ont' : 'a'} à corriger :`),
             el('ul', { class: 'editeur-erreurs' }, h.erreurs.map((message) => el('li', {}, message))),
           ]),
           el('ul', { class: 'avertissements' }, h.avertissements.map((message) => el('li', {}, message))),
@@ -1380,13 +1380,13 @@ async function showBackup(notice = '') {
         status.textContent = `Envoi de l'image ${i + 1} sur ${missing.length} : « ${image.nom} »…`;
         if ((await guarded(() => editorImageImport(image))) === null) return;
       }
-      status.textContent = missing.length > 0 ? `${missing.length} image(s) envoyée(s) ; import en cours…` : 'Import en cours…';
+      status.textContent = missing.length > 0 ? `${missing.length} image(s) envoyée(s). Import en cours…` : 'Import en cours…';
       const result = await guarded(() => editorImport(fiches, word));
       if (result === null) return;
       forgetImages();
       showBackup(`Import terminé : ${importSummaryLines(result.resume).slice(0, 6).join(' ')}`);
     } catch (error) {
-      status.textContent = error.status === 400 && error.details.erreurs ? `Rien n'a été importé : ${error.details.erreurs.join(' ; ')}` : serverErrorMessage(error);
+      status.textContent = error.status === 400 && error.details.erreurs ? `Rien n'a été importé. ${error.details.erreurs.join(' ')}` : serverErrorMessage(error);
       importButton.disabled = false;
     }
   } }, 'Importer');
@@ -1418,7 +1418,7 @@ async function showBackup(notice = '') {
   const screen = el('div', { class: 'screen screen--narrow prof editeur' }, el('section', { class: 'panel' }, [
     panelHead('sauvegarde', 'sauvegarde'),
     el('h1', { tabindex: '-1' }, 'Sauvegarde'),
-    el('p', { class: 'small' }, "L'export contient la banque d'outils, les exercices avec leurs brouillons et toutes leurs versions, les tables de référence et les images (photos et pictogrammes) — jamais de données d'étudiants. L'import fusionne un export dans la base : il ajoute ce qui manque (les images absentes sont envoyées une à une, avant le reste), remplace les brouillons et la banque, ne supprime jamais une version publiée et ne touche ni aux séances ni aux attestations."),
+    el('p', { class: 'small' }, "L'export contient la banque d'outils, les exercices avec leurs brouillons et toutes leurs versions, les tables de référence et les images (photos et pictogrammes). Jamais de données d'étudiants. L'import fusionne un export dans la base. Il ajoute ce qui manque (les images absentes sont envoyées une à une, avant le reste), remplace les brouillons et la banque, ne supprime jamais une version publiée et ne touche ni aux séances ni aux attestations."),
     status,
     el('ol', { class: 'sauvegarde-etapes' }, [
       el('li', {}, [el('div', {}, 'Exporter tout en JSON, à garder en lieu sûr (par exemple avant une grosse retouche).'), el('p', {}, el('button', { class: 'button-outline', type: 'button', onclick: async () => {
@@ -1427,7 +1427,7 @@ async function showBackup(notice = '') {
           if (data !== null) download(exportFileName(new Date()), JSON.stringify(data, null, 2));
         } catch (error) { status.textContent = serverErrorMessage(error); }
       } }, 'Exporter tout en JSON'))]),
-      el('li', {}, [el('div', {}, "Importer un export : il est d'abord validé et résumé ; rien n'est écrit avant la confirmation."), el('div', { class: 'field' }, [el('label', { for: 'fichier' }, 'Fichier JSON'), fileInput]), summary, el('div', { class: 'form-actions' }, importButton)]),
+      el('li', {}, [el('div', {}, "Importer un export : il est d'abord validé et résumé. Rien n'est écrit avant la confirmation."), el('div', { class: 'field' }, [el('label', { for: 'fichier' }, 'Fichier JSON'), fileInput]), summary, el('div', { class: 'form-actions' }, importButton)]),
     ]),
   ]));
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
@@ -1638,7 +1638,7 @@ async function showTables(notice = '') {
         try {
           const result = await guarded(() => editorPresentationApply(shown.revision, current));
           if (result === null) return;
-          await reloadPresentation(`Présentation appliquée à ${formatDateStamp(new Date().toISOString()).slice(11)} : ${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}, effet immédiat — chaque page d'étudiant la montre dès qu'elle se recharge. Le contenu remplacé est dans l'historique.`);
+          await reloadPresentation(`Présentation appliquée à ${formatDateStamp(new Date().toISOString()).slice(11)} (${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}). Effet immédiat : chaque page d'étudiant la montre dès qu'elle se recharge. Le contenu remplacé est dans l'historique.`);
         } catch (error) {
           confirm.disabled = false;
           panelStatus.replaceChildren(...failure(error));
@@ -1706,7 +1706,7 @@ async function showTables(notice = '') {
     const pendingBox = pending.lignes.length === 0 ? '' : el('div', { class: 'avis-tables avis-presentation' }, [
       el('div', {}, [
         el('strong', {}, `Retouches de présentation en attente dans le brouillon des tables (${pending.lignes.length})`),
-        el('p', { class: 'small' }, "Faites dans le brouillon avant que la présentation passe en direct, elles n'ont jamais été publiées et ne le seront plus : pour les garder, reprends-les dans ce panneau, vérifie l'aperçu, puis applique. La prochaine publication des tables les abandonne."),
+        el('p', { class: 'small' }, "Faites dans le brouillon avant que la présentation passe en direct, elles n'ont jamais été publiées et ne le seront plus. Pour les garder, reprends-les dans ce panneau, vérifie l'aperçu, puis applique. La prochaine publication des tables les abandonne."),
         el('ul', { class: 'editeur-diff' }, pending.lignes.map((line) => el('li', {}, line))),
       ]),
       el('button', { class: 'button-small', type: 'button', onclick: () => { renderPresentation(pending.contenu, 'Retouches reprises dans le panneau, pas encore appliquées : vérifie-les, puis « Appliquer… ».'); presentationDirty = true; syncDirty(); } }, 'Les reprendre dans le panneau'),
@@ -1718,7 +1718,7 @@ async function showTables(notice = '') {
       el('h2', {}, 'Présentation des tables'),
       el('p', { class: 'small' }, [
         el('strong', {}, "« Appliquer… » change la page de tous les étudiants dès qu'elle se recharge, séances en cours comprises, quelle que soit leur version des tables."),
-        " Ce panneau n'a ni brouillon ni publication : ce qu'il montre est en vigueur. Il ne porte que ce qui s'affiche — noms et couleurs des classes ISO, images de chaleur, légendes (40 caractères au plus ; vide, aucune), caractéristiques (au plus 6 lignes), couleurs des matières d'outil, pictogrammes. Les valeurs, la correction et les attestations n'en dépendent pas.",
+        " Ce panneau n'a ni brouillon ni publication : ce qu'il montre est en vigueur. Il ne porte que ce qui s'affiche — noms et couleurs des classes ISO, images de chaleur, légendes (40 caractères au plus, aucune si vide), caractéristiques (au plus 6 lignes), couleurs des matières d'outil, pictogrammes. Les valeurs, la correction et les attestations n'en dépendent pas.",
       ]),
       el('p', { class: 'muted small' }, `${shown.appliquee ? `Appliquée le ${formatDateStamp(shown.modifiee_le)} par ${shown.enseignant}` : `Jamais appliquée : c'est celle de la dernière version des tables (${shown.derniere_tables})`} · révision ${shown.revision}.`),
       el('div', { class: 'editeur-bar' }, [
@@ -1753,7 +1753,7 @@ async function showTables(notice = '') {
       const live = liveClass(c.code);
       const swatch = el('span', { class: 'choice-swatch', 'aria-hidden': 'true', style: `background: ${live.couleur}; color: ${live.couleur_texte}` }, c.code);
       return {
-        tr: el('tr', {}, [cell(swatch, 'num'), cell(code), el('td', { colspan: '7', class: 'muted small' }, `${live.nom} — nom, couleurs, image, légende et caractéristiques : en direct, dans le panneau « Présentation » ci-dessus.`)]),
+        tr: el('tr', {}, [cell(swatch, 'num'), cell(code), el('td', { colspan: '7', class: 'muted small' }, `${live.nom}. Nom, couleurs, image, légende et caractéristiques : en direct, dans le panneau « Présentation » ci-dessus.`)]),
         read: () => ({ ...c, code: code.value.trim().toUpperCase() }),
       };
     }
@@ -1904,7 +1904,7 @@ async function showTables(notice = '') {
           c.en_erreur
             ? el('ul', { class: 'editeur-erreurs' }, c.erreurs.map((line) => el('li', {}, line)))
             : el('ul', { class: 'editeur-diff' }, (c.lignes.length === 0 ? ['Rien ne change pour lui : ses outils tirent les mêmes valeurs.'] : c.lignes).map((line) => el('li', {}, line))),
-          !c.en_erreur && c.brouillon.erreurs.length > 0 ? el('p', { class: 'small avis-doublon' }, `Son brouillon aura ${c.brouillon.erreurs.length} erreur${c.brouillon.erreurs.length > 1 ? 's' : ''} avec ces tables, à corriger avant sa prochaine publication : ${c.brouillon.erreurs.join(' ; ')}`) : '',
+          !c.en_erreur && c.brouillon.erreurs.length > 0 ? el('p', { class: 'small avis-doublon' }, `Son brouillon aura ${c.brouillon.erreurs.length} erreur${c.brouillon.erreurs.length > 1 ? 's' : ''} avec ces tables, à corriger avant sa prochaine publication. ${c.brouillon.erreurs.join(' · ')}`) : '',
         ]);
       };
       const onReplaced = proposal.candidats.filter((c) => c.sur === proposal.remplacee);
@@ -1934,30 +1934,30 @@ async function showTables(notice = '') {
       dialogSlot.replaceChildren(el('section', { class: 'panel panel--gold' }, [
         el('div', { class: 'eyebrow' }, 'Confirmation'),
         el('h2', {}, previous ? `Publier une nouvelle version des tables, depuis ${previous.id} ?` : 'Publier la première version des tables ?'),
-        el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence de valeurs avec la version précédente : rien à publier.' : `Différences de valeurs avec ${previous?.id ?? '—'} (${lines.length}) — relis-les : une faute de frappe partirait chez tous les exercices cochés ci-dessous.`),
+        el('p', { class: 'small' }, lines.length === 0 ? 'Aucune différence de valeurs avec la version précédente : rien à publier.' : `Différences de valeurs avec ${previous?.id ?? '—'} (${lines.length}). Relis-les : une faute de frappe partirait chez tous les exercices cochés ci-dessous.`),
         el('ul', { class: 'editeur-diff editeur-diff--en-tete' }, lines.map((line) => el('li', {}, line))),
         // Le passage de la banque aux facteurs de vitesse (D83, point 5), quand ces tables sont les premières à les porter.
         ...(bankPassageLines(proposal.banque).length === 0 ? [] : [
           el('h3', { class: 'cascade-entete' }, "Banque d'outils : le facteur de vitesse passe aux tables"),
-          el('p', { class: 'small' }, "Avec cette publication, chaque outil de la banque hérite du facteur de son opération s'il avait la même valeur ; sinon il garde la sienne, « forcée », avec la raison « à vérifier » — à trancher ensuite dans la fiche de l'outil. Le contenu d'avant de chaque outil va à son historique."),
+          el('p', { class: 'small' }, "Avec cette publication, chaque outil de la banque hérite du facteur de son opération s'il avait la même valeur. Sinon il garde la sienne, « forcée », avec la raison « à vérifier », à trancher ensuite dans la fiche de l'outil. Le contenu d'avant de chaque outil va à son historique."),
           el('ul', { class: 'editeur-diff' }, bankPassageLines(proposal.banque).map((line) => el('li', {}, line))),
         ]),
-        el('div', { class: 'field field--half' }, [el('label', { for: 'tables-revision' }, 'Révision de cette version'), idInput, el('div', { class: 'field-note' }, `Suggérée : ${page.suggestion}. Unique ; inscrite au pied des feuilles et sur les attestations. Lettres, chiffres, « _ », « . », « - ».`)]),
+        el('div', { class: 'field field--half' }, [el('label', { for: 'tables-revision' }, 'Révision de cette version'), idInput, el('div', { class: 'field-note' }, `Suggérée : ${page.suggestion}. Unique, inscrite au pied des feuilles et sur les attestations. Lettres, chiffres, « _ », « . », « - ».`)]),
         el('h3', { class: 'cascade-entete' }, 'Cascade : les exercices qui ne sont pas à jour'),
         proposal.candidats.length === 0
           ? el('p', { class: 'muted small' }, "Aucun exercice : rien à publier en cascade.")
           : el('div', {}, [
-            el('p', { class: 'small' }, "Pour chaque exercice coché, son contenu publié passe à ces tables — une version suivante, faite de son dernier contenu publié, jamais de son brouillon —, et son brouillon aussi, chacun de son côté, ses modifications gardées. Un exercice décoché n'est pas touché. Les séances en cours gardent leur version ; seules les nouvelles séances prennent celle de la cascade."),
+            el('p', { class: 'small' }, "Pour chaque exercice coché, son contenu publié passe à ces tables (une version suivante, faite de son dernier contenu publié, jamais de son brouillon), et son brouillon aussi, chacun de son côté, ses modifications gardées. Un exercice décoché n'est pas touché. Les séances en cours gardent leur version. Seules les nouvelles séances prennent celle de la cascade."),
             el('div', { class: 'outil-actions' }, [
               el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => setAll(true) }, 'Tout cocher'),
               el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => setAll(false) }, 'Tout décocher'),
             ]),
             onReplaced.length === 0 ? '' : el('h4', { class: 'cascade-groupe' }, `Sur ${proposal.remplacee ?? '—'}, la version remplacée — cochés par défaut`),
             onReplaced.length === 0 ? '' : el('ul', { class: 'cascade-liste' }, replacedItems),
-            older.length === 0 ? '' : el('h4', { class: 'cascade-groupe' }, 'Sur une version plus ancienne — décochés par défaut : ils ont pu être laissés de côté exprès'),
+            older.length === 0 ? '' : el('h4', { class: 'cascade-groupe' }, 'Sur une version plus ancienne, décochés par défaut : ils ont pu être laissés de côté exprès'),
             older.length === 0 ? '' : el('ul', { class: 'cascade-liste' }, olderItems),
           ]),
-        el('p', { class: 'muted smaller' }, 'Une version publiée ne se modifie plus ; elle prend la présentation en vigueur (panneau « Présentation »). Tout se publie ensemble, ou rien.'),
+        el('p', { class: 'muted smaller' }, 'Une version publiée ne se modifie plus. Elle prend la présentation en vigueur (panneau « Présentation »). Tout se publie ensemble, ou rien.'),
         el('div', { class: 'form-actions' }, [confirm, el('button', { class: 'button-link', type: 'button', onclick: () => dialogSlot.replaceChildren() }, 'Annuler')]),
       ]));
       dialogSlot.scrollIntoView({ block: 'nearest' });
@@ -2035,16 +2035,16 @@ async function showTables(notice = '') {
       panelHead('tables de référence', 'tables'),
       el('h1', { tabindex: '-1' }, 'Tables de référence'),
       el('p', { class: 'muted small' }, [
-        'Deux parties, qui ne s\'enregistrent pas de la même façon. ',
-        el('strong', {}, 'Présentation — effet immédiat'), " : ce qui ne fait qu'afficher ; « Appliquer… » change tout de suite la page de tous les étudiants, quelle que soit leur version des tables, et l'historique permet de revenir en arrière. ",
-        el('strong', {}, 'Valeurs — brouillon à publier'), " : tout le reste (matériaux, Vc, opérations, avances…) ; un seul brouillon, des versions publiées immuables, chacune avec sa révision ; une version ne change aucun exercice toute seule, et une séance commencée garde les valeurs de sa version.",
+        "Deux parties, qui ne s'enregistrent pas de la même façon. ",
+        el('strong', {}, 'Présentation, effet immédiat.'), " Ce qui ne fait qu'afficher. « Appliquer… » change tout de suite la page de tous les étudiants, quelle que soit leur version des tables. L'historique permet de revenir en arrière. ",
+        el('strong', {}, 'Valeurs, brouillon à publier.'), ' Tout le reste (matériaux, Vc, opérations, avances…). Un seul brouillon, des versions publiées immuables, chacune avec sa révision. Une version ne change aucun exercice toute seule, et une séance commencée garde les valeurs de sa version.',
       ]),
     ]),
     presentationSlot,
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Valeurs — brouillon à publier'),
       el('h2', {}, 'Brouillon des tables'),
-      el('p', { class: 'muted small' }, "Un seul brouillon, modifiable ; des versions publiées immuables, chacune avec sa révision. Une version publiée ne change aucun exercice tout seul : chaque exercice choisit sa version de tables depuis sa page, et une séance commencée garde les valeurs de sa version d'exercice. Ce que le panneau « Présentation » porte n'est plus ici, sauf pour une classe ou une opération nouvelle : elle y reçoit sa présentation de départ, puis se modifie en direct une fois publiée."),
+      el('p', { class: 'muted small' }, "Un seul brouillon, modifiable. Des versions publiées immuables, chacune avec sa révision. Une version publiée ne change aucun exercice tout seul : chaque exercice choisit sa version de tables depuis sa page, et une séance commencée garde les valeurs de sa version d'exercice. Ce que le panneau « Présentation » porte n'est plus ici, sauf pour une classe ou une opération nouvelle : elle y reçoit sa présentation de départ, puis se modifie en direct une fois publiée."),
       el('div', { class: 'editeur-bar' }, [
         el('div', { class: 'muted small' }, [`Brouillon parti de la version ${page.brouillon.base_id ?? '—'} · modifié le ${formatDateStamp(page.brouillon.modifie_le)}`, page.modifie ? ' · valeurs différentes de cette version' : ' · mêmes valeurs que cette version']),
         el('div', { class: 'editeur-bar-actions' }, [
@@ -2061,13 +2061,13 @@ async function showTables(notice = '') {
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Brouillon · Classes ISO'),
-      el('p', { class: 'muted small' }, "La lettre de chaque classe, et leur ordre. Le nom, les couleurs, l'image de chaleur, la légende et les caractéristiques d'une classe sont en direct, dans le panneau « Présentation ». Une classe ajoutée ici reçoit sa présentation de départ sur sa ligne (légende de 40 caractères au plus ; au plus 6 caractéristiques, libellé de 20 caractères, texte et solution de 90) ; une fois publiée, elle se modifie en direct."),
+      el('p', { class: 'muted small' }, "La lettre de chaque classe, et leur ordre. Le nom, les couleurs, l'image de chaleur, la légende et les caractéristiques d'une classe sont en direct, dans le panneau « Présentation ». Une classe ajoutée ici reçoit sa présentation de départ sur sa ligne (légende de 40 caractères au plus, 6 caractéristiques au plus, libellé de 20 caractères, texte et solution de 90). Une fois publiée, elle se modifie en direct."),
       table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Légende', 'Caractéristiques'], classes.body, 'tables-edit--classes'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe')),
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, "Brouillon · Matières d'outil"),
-      el('p', { class: 'muted small' }, "Les trois colonnes de la table des vitesses de coupe ; leur couleur est en direct, dans le panneau « Présentation ». Renommer une matière oblige à renommer la matière dans chaque outil qui la nomme : les exercices le signaleront."),
+      el('p', { class: 'muted small' }, "Les trois colonnes de la table des vitesses de coupe. Leur couleur est en direct, dans le panneau « Présentation ». Renommer une matière oblige à renommer la matière dans chaque outil qui la nomme : les exercices le signaleront."),
       el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table tables-edit' }, [el('thead', {}, el('tr', {}, ['Clé', 'Nom'].map((h) => el('th', {}, h)))), el('tbody', {}, toolMaterialRows.map((r) => r.tr))])),
     ]),
     el('section', { class: 'panel' }, [
@@ -2078,7 +2078,7 @@ async function showTables(notice = '') {
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Brouillon · Opérations'),
-      el('p', { class: 'muted small' }, "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces ; sans objet en filetage), et le facteur de vitesse — N = Vc × 4 / Ø × facteur : « 1 » sans réduction, « 1/4 » ou « 0.25 », « 1/8 »… Les outils en héritent. Le pictogramme est en direct, dans le panneau « Présentation » ; une opération ajoutée ici reçoit le sien sur sa ligne."),
+      el('p', { class: 'muted small' }, "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces, sans objet en filetage), et le facteur de vitesse. Le facteur (N = Vc × 4 / Ø × facteur) : « 1 » sans réduction, « 1/4 » ou « 0.25 », « 1/8 »… Les outils en héritent. Le pictogramme est en direct, dans le panneau « Présentation ». Une opération ajoutée ici reçoit le sien sur sa ligne."),
       table(['Opération', 'Machine-outil', "Direction d'avance", 'Famille', 'Avance', 'Avance max', 'Facteur de vitesse', 'Pictogramme'], operations.body, 'tables-edit--operations'),
       el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => operations.add() }, 'Ajouter une opération')),
     ]),
@@ -2153,14 +2153,14 @@ async function showImages(notice = '', filters = { usage: '', query: '' }) {
     }
   } }, [
     el('div', { class: 'field' }, [el('label', { for: 'televerser-usage' }, 'Usage'), uploadUsage]),
-    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur (800 px ; JPEG sur fond blanc, ou PNG si elle a de la transparence) ; un pictogramme à 256 px en PNG, une image de classe à 340 px en PNG, ou tel quel en SVG (assaini par le serveur). Un doublon exact n'est pas stocké deux fois.")]),
+    el('div', { class: 'field' }, [el('label', { for: 'televerser-fichier' }, 'Fichier (PNG, JPEG, WebP, GIF, BMP ou SVG)'), uploadFile, el('div', { class: 'field-note' }, "Une photo est réduite dans le navigateur à 800 px, en JPEG sur fond blanc ou en PNG si elle a de la transparence. Un pictogramme passe à 256 px en PNG, une image de classe à 340 px en PNG. Un SVG est gardé tel quel, nettoyé à l'envoi. Un doublon exact n'est pas stocké deux fois.")]),
     el('button', { class: 'button-outline', type: 'submit' }, 'Téléverser'),
   ]);
 
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead('images', 'images'),
     el('h1', { tabindex: '-1' }, 'Images'),
-    el('p', { class: 'muted small' }, "Les photos d'outils, les pictogrammes d'opérations et les images de chaleur des classes ISO, dans la base. Une image ne change jamais sous le même identifiant ; une image utilisée par une version publiée ne se supprime pas : elle s'archive (retirée des galeries, toujours affichée). Une image jamais utilisée peut être supprimée."),
+    el('p', { class: 'muted small' }, "Les photos d'outils, les pictogrammes d'opérations et les images de chaleur des classes ISO, dans la base. Une image ne change jamais sous le même identifiant. Une image utilisée par une version publiée ne se supprime pas : elle s'archive (retirée des galeries, toujours affichée). Une image jamais utilisée peut être supprimée."),
     status,
     el('div', { class: 'ajout-outil' }, [
       el('div', { class: 'field' }, [el('label', { for: 'images-usage' }, 'Usage'), usageSelect]),

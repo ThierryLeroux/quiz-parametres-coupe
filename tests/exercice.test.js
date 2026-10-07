@@ -187,6 +187,6 @@ test('sameTitleExercises (D74) : les AUTRES exercices publiés et non archivés 
 });
 
 test('sameTitleRefusal (D74) : nomme l’exercice en conflit (titre et identifiant) et dit quoi faire', () => {
-  assert.equal(sameTitleRefusal([{ id: 'copie', titre: 'M10' }]), "Publication refusée : un autre exercice publié porte déjà ce titre : « M10 » (copie). Les étudiants reconnaissent un exercice à son titre : change le titre de l'un des deux, puis publie.");
-  assert.equal(sameTitleRefusal([{ id: 'a', titre: 'T' }, { id: 'b', titre: 't' }]), "Publication refusée : d'autres exercices publiés portent déjà ce titre : « T » (a), « t » (b). Les étudiants reconnaissent un exercice à son titre : change le titre de celui-ci (ou ceux des autres), puis publie.");
+  assert.equal(sameTitleRefusal([{ id: 'copie', titre: 'M10' }]), "Publication refusée. Un autre exercice publié porte déjà ce titre : « M10 » (copie). Les étudiants reconnaissent un exercice à son titre. Change le titre de l'un des deux, puis publie."); // D93 : un seul « : » par phrase
+  assert.equal(sameTitleRefusal([{ id: 'a', titre: 'T' }, { id: 'b', titre: 't' }]), "Publication refusée. D'autres exercices publiés portent déjà ce titre : « T » (a), « t » (b). Les étudiants reconnaissent un exercice à son titre. Change le titre de celui-ci (ou ceux des autres), puis publie.");
 });

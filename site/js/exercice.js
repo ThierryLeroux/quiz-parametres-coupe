@@ -63,8 +63,8 @@ export function sameTitleExercises(title, published, exceptId) {
 export function sameTitleRefusal(twins) {
   const others = twins.map((t) => `« ${t.titre} » (${t.id})`).join(', ');
   return twins.length > 1
-    ? `Publication refusée : d'autres exercices publiés portent déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : change le titre de celui-ci (ou ceux des autres), puis publie.`
-    : `Publication refusée : un autre exercice publié porte déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : change le titre de l'un des deux, puis publie.`;
+    ? `Publication refusée. D'autres exercices publiés portent déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre. Change le titre de celui-ci (ou ceux des autres), puis publie.`
+    : `Publication refusée. Un autre exercice publié porte déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre. Change le titre de l'un des deux, puis publie.`;
 }
 
 // Le refus d'un titre qui entre en vigueur en direct (D78, point 6 : « Appliquer », « Renommer », « Rétablir »), le même
@@ -72,8 +72,8 @@ export function sameTitleRefusal(twins) {
 export function liveTitleRefusal(twins) {
   const others = twins.map((t) => `« ${t.titre} » (${t.id})`).join(', ');
   return twins.length > 1
-    ? `Titre refusé : d'autres exercices publiés portent déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : choisis-en un autre (ou change ceux des autres).`
-    : `Titre refusé : un autre exercice publié porte déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre : choisis-en un autre (ou change celui de l'autre).`;
+    ? `Titre refusé. D'autres exercices publiés portent déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre. Choisis-en un autre (ou change ceux des autres).`
+    : `Titre refusé. Un autre exercice publié porte déjà ce titre : ${others}. Les étudiants reconnaissent un exercice à son titre. Choisis-en un autre (ou change celui de l'autre).`;
 }
 
 // Une clé inconnue est une erreur : « dimension » pour « dimensions » lèverait sinon la

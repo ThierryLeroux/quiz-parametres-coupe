@@ -259,7 +259,7 @@ test('aperçu d’un brouillon de tables : dix questions d’un exercice avec ce
   renomme.materiaux.materiaux_outil[0].nom = 'HSS';
   const refus = await serveur.editeur('POST', 'tables/apercu', { contenu: renomme, exercice: VC_RPM });
   assert.equal(refus.status, 400);
-  assert.match(refus.corps.erreur, /a des erreurs avec ces tables : materiaux_outil : Matières d'outil permises : « Acier rapide » n'existe pas/);
+  assert.match(refus.corps.erreur, /a des erreurs avec ces tables\. materiaux_outil : Matières d'outil permises : « Acier rapide » n'existe pas/); // D93
   assert.equal((await serveur.editeur('POST', 'tables/apercu', { contenu: { materiaux: {} }, exercice: M10 })).status, 400);
   assert.equal((await serveur.editeur('POST', 'tables/apercu', { contenu, exercice: 'inconnu' })).status, 404);
 });

@@ -109,7 +109,7 @@ test('publier des tables qui portent les facteurs : la confirmation annonce le p
   assert.equal(propose.banque.forces[0].ligne, `Nine9 90 degrés (nine9_90_degres) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « ${PASSAGE_REASON} »`);
   const complet = propose.candidats.find((c) => c.id === 'test-complet');
   assert.deepEqual(complet.lignes, [
-    'Facteur de vitesse : ces tables le portent. 27 outils héritent de celui de leur opération, sans changement de valeur ; 2 sont forcés, à vérifier.',
+    'Facteur de vitesse : ces tables le portent. 27 outils héritent de celui de leur opération, sans changement de valeur. 2 sont forcés, à vérifier.',
     `Nine9 90 degrés (nine9_90_degres) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « ${PASSAGE_REASON} »`,
     `Outil à chambrer (outil_a_chambrer) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « ${PASSAGE_REASON} »`,
     "Le facteur de vitesse n'est plus donné à l'étudiant : il le trouve dans la feuille « Facteurs de vitesse », comme la Vc (pour le donner, coche « Donner le facteur de vitesse à l'étudiant » dans l'exercice, puis publie).",

@@ -215,6 +215,6 @@ test('liveTitleRefusal et sameTitleExercises : le titre en vigueur d’un autre 
   const others = [{ id: 'a', titre: 'M10 — Tournage', archive_le: null }, { id: 'b', titre: 'Archivé', archive_le: '2026-01-01' }, { id: 'c', titre: null, archive_le: null }];
   const twins = sameTitleExercises('m10 —   TOURNAGE', others, 'moi');
   assert.deepEqual(twins, [{ id: 'a', titre: 'M10 — Tournage' }]);
-  assert.equal(liveTitleRefusal(twins), 'Titre refusé : un autre exercice publié porte déjà ce titre : « M10 — Tournage » (a). Les étudiants reconnaissent un exercice à son titre : choisis-en un autre (ou change celui de l\'autre).');
+  assert.equal(liveTitleRefusal(twins), "Titre refusé. Un autre exercice publié porte déjà ce titre : « M10 — Tournage » (a). Les étudiants reconnaissent un exercice à son titre. Choisis-en un autre (ou change celui de l'autre).");
   assert.deepEqual(sameTitleExercises('Archivé', others, 'moi'), []);
 });

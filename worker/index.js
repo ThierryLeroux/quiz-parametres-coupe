@@ -1336,7 +1336,7 @@ async function editeurTablesApercu(request, env, { now, random }) {
   const erreursTables = tablesErrors(tables, await base.listImages(env.DB), presentation);
   if (erreursTables.length > 0) throw new HttpError(400, "Le brouillon des tables a des erreurs : corrige-les avant l'aperçu.", { erreurs: erreursTables });
   const erreurs = draftErrors(record.brouillon, tables);
-  if (erreurs.length > 0) throw new HttpError(400, `L'exercice « ${record.brouillon.titre} » a des erreurs avec ces tables : ${erreurs.map((e) => `${e.champ} : ${e.message}`).join(' ; ')}`, { erreurs });
+  if (erreurs.length > 0) throw new HttpError(400, `L'exercice « ${record.brouillon.titre} » a des erreurs avec ces tables. ${erreurs.map((e) => `${e.champ} : ${e.message}`).join(' · ')}`, { erreurs });
   const assembledExercise = assembleDraft(record.id, record.brouillon, tables);
   return json({ questions: previewQuestions(assembledExercise.exercise, assembledExercise.data, random, 10), champs_evalues: assembledExercise.exercise.champs_evalues, champs_masques: assembledExercise.exercise.champs_masques ?? [] });
 }
@@ -1804,7 +1804,7 @@ async function editeurImageImporter(request, env, { now }) {
   if (upload.empreinte !== image.empreinte) throw new HttpError(400, `Image « ${image.id} » : le contenu n'a pas l'empreinte annoncée par l'export.`);
   const existing = await base.findImageMeta(env.DB, image.id);
   if (existing !== null) {
-    if (existing.empreinte !== image.empreinte) throw new HttpError(409, `Image « ${image.id} » : la base en a une autre sous le même identifiant ; une image ne change jamais sous le même identifiant.`);
+    if (existing.empreinte !== image.empreinte) throw new HttpError(409, `Image « ${image.id} » : la base en a déjà une autre sous cet identifiant. Une image ne change jamais sous le même identifiant.`);
     return json({ importee: false, id: image.id, existante: true });
   }
   const stored = { id: image.id, nom: upload.nom, usage: upload.usage, type: upload.type, taille: upload.taille, empreinte: upload.empreinte, contenu: toBlob(upload.bytes), creee_le: typeof image.creee_le === 'string' ? image.creee_le : now.toISOString(), archivee_le: typeof image.archivee_le === 'string' ? image.archivee_le : null };
@@ -1869,8 +1869,8 @@ async function editeurImport(request, env, { now }) {
   if (resume.images_manquantes.length > 0) throw new HttpError(400, `${resume.images_manquantes.length} image(s) de l'export ne sont pas encore dans la base : elles doivent être envoyées d'abord (images/importer). Rien n'a été importé.`, { images_manquantes: resume.images_manquantes });
   const word = importWord(resume);
   if (body.confirmation !== word) {
-    const why = resume.banque.retires.length > 0 ? ` — ${resume.banque.retires.length} outil(s) de la banque disparaîtraient : ${resume.banque.retires.map((t) => t.nom).join(', ')}` : '';
-    throw new HttpError(400, `Pour importer, la requête doit porter le mot ${word}${why}.`, { mot: word });
+    const why = resume.banque.retires.length > 0 ? ` ${resume.banque.retires.length} outil(s) de la banque disparaîtraient : ${resume.banque.retires.map((t) => t.nom).join(', ')}.` : '';
+    throw new HttpError(400, `Pour importer, la requête doit porter le mot ${word}.${why}`, { mot: word });
   }
   await base.applyImport(env.DB, plan, now.toISOString(), logEntry(teacher, now, 'editeur_import', importDetails(resume)));
   return json({ importe: true, resume });

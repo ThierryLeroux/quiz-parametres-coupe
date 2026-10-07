@@ -55,7 +55,7 @@ function showLogin(notice = '') {
   const screen = el('div', { class: 'screen screen--narrow' }, el('section', { class: 'panel' }, [
     el('div', { class: 'eyebrow' }, 'Espace professeur'),
     el('h1', { tabindex: '-1' }, 'Connexion'),
-    el('p', { class: 'muted small' }, "Entre la clé d'administration ou la clé de consultation du serveur de correction. La séance dure 12 h."),
+    el('p', { class: 'muted small' }, 'Entre ta clé. La séance dure 12 h.'),
     el('form', { novalidate: true, onsubmit: submit }, [
       el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration, ou clé de consultation (lecture seule). Cinq essais, puis un délai croissant.")])),
       el('div', { class: 'form-actions' }, [status, button]),
@@ -89,7 +89,7 @@ async function act(button, confirmation, action) {
     await action();
     await loadAndShow();
   } catch (error) {
-    if (error.status === 401) { showLogin('Ta séance a expiré : connecte-toi de nouveau.'); return; }
+    if (error.status === 401) { showLogin('Ta séance a expiré. Connecte-toi de nouveau.'); return; }
     window.alert(serverErrorMessage(error));
     button.disabled = false;
   }
@@ -212,7 +212,7 @@ function showPurge(notice = '') {
       await reload();
       showPurge(purgeSummary(nombres));
     } catch (error) {
-      if (error.status === 401) { showLogin('Ta séance a expiré : connecte-toi de nouveau.'); return; }
+      if (error.status === 401) { showLogin('Ta séance a expiré. Connecte-toi de nouveau.'); return; }
       status.textContent = serverErrorMessage(error);
       input.value = '';
       input.focus();
@@ -225,7 +225,7 @@ function showPurge(notice = '') {
     el('p', { class: 'small' }, purgeIntro(state.seances.length)),
     el('ol', { class: 'purge-steps' }, [
       el('li', {}, [
-        el('div', {}, "Exporter toutes les séances en CSV d'abord : c'est la dernière occasion."),
+        el('div', {}, "Exporte toutes les séances en CSV d'abord. C'est la dernière occasion."),
         el('p', {}, el('button', { class: 'button-outline', type: 'button', onclick: () => download(csvFileName('', new Date()), csvOf(state.seances)) }, 'Exporter tout en CSV')),
       ]),
       el('li', {}, el('form', { novalidate: true, onsubmit: submit }, [
@@ -244,7 +244,7 @@ async function switchView(view) {
     try {
       state.identites = (await listIdentityCorrections()).corrections;
     } catch (error) {
-      if (error.status === 401) { showLogin('Ta séance a expiré : connecte-toi de nouveau.'); return; }
+      if (error.status === 401) { showLogin('Ta séance a expiré. Connecte-toi de nouveau.'); return; }
       state.identites = [];
     }
   }

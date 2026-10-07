@@ -28,7 +28,7 @@ const at = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi).toISOString();
 const ROW = { id: 'm10-tournage-vc', titre: 'M10', modifie: false, derniere_version: 2, publie_le: at(2026, 9, 24, 13, 5), archive_le: null, seances: 3, versions: [{ numero: 2, seances: 1 }, { numero: 1, seances: 2 }], liste: true };
 
 test('loginNotice (D87, point 4) : « Ta séance a expiré » seulement pour une séance qui était ouverte ; à l’ouverture sans cookie, rien', () => {
-  assert.equal(EXPIRED_NOTICE, 'Ta séance a expiré : connecte-toi de nouveau.');
+  assert.equal(EXPIRED_NOTICE, 'Ta séance a expiré. Connecte-toi de nouveau.');
   assert.equal(loginNotice(true), EXPIRED_NOTICE);
   assert.equal(loginNotice(false), '');
   assert.equal(loginNotice(undefined), '');
@@ -47,7 +47,8 @@ test('exerciseState, versionLabel, sessionsLabel : l’état en clair', () => {
   assert.equal(studentLink('https://quiz.example', 'm10-tournage-vc'), 'https://quiz.example/?exercice=m10-tournage-vc');
   assert.match(archiveConfirmation(ROW), /Archiver « M10 »/);
   assert.match(deleteConfirmation(ROW), /Supprimer « M10 » \(m10-tournage-vc\)/);
-  assert.match(removeSelectionConfirmation([{ id: 'mvlnr', nom: 'MVLNR' }, { id: 'alesoir', nom: 'Alésoir' }]), /^Retirer 2 outils de l'exercice — MVLNR \(mvlnr\), Alésoir \(alesoir\) \? .*rien n'est perdu avant la publication/);
+  assert.equal(removeSelectionConfirmation([{ id: 'mvlnr', nom: 'MVLNR' }, { id: 'alesoir', nom: 'Alésoir' }]), "Retirer 2 outils de l'exercice (MVLNR (mvlnr), Alésoir (alesoir)) ? Leurs copies disparaissent du brouillon. La version publiée ne change pas tant que tu ne publies pas. La banque n'est pas touchée."); // D93
+  assert.equal(archiveConfirmation(ROW), "Archiver « M10 » ? Il disparaît de l'accueil. Aucune nouvelle séance ne peut commencer. Les séances en cours continuent, et les attestations restent vérifiables. Il pourra être rétabli.");
   assert.match(removeSelectionConfirmation([{ id: 'mvlnr', nom: 'MVLNR' }]), /^Retirer 1 outil de/);
   assert.deepEqual(FIELD_CHOICES.map((f) => f.key), ['vc', 'fz', 'n', 'f', 'vf']);
   assert.deepEqual(TOOL_MATERIALS, ['Acier rapide', 'Carbure de tungstène solide', 'Insert de carbure de tungstène']);
@@ -271,22 +272,22 @@ test('sauvegarde : nom du fichier d’export, résumé d’un import en phrases,
   const resume = { tables_ajoutees: [], banque, exercices_ajoutes: ['nouveau'], exercices_remplaces: ['m10'], versions_ajoutees: ['m10 v2'], exercices_gardes: [], images_manquantes: [], images_presentes: 48, images_modifiees: [] };
   const lines = importSummaryLines(resume);
   assert.deepEqual(lines.slice(0, 8), [
-    'Images : 48 déjà dans la base ; aucune à envoyer.', 'Tables de référence ajoutées : aucun.', 'Présentation des tables : inchangée.', 'Présentation des exercices : inchangée.',
-    "Banque d'outils — ajoutés : Fraise X (x) ; modifiés : aucun ; inchangés : 28.", "Banque d'outils — aucun outil ne disparaît.",
+    'Images : 48 déjà dans la base, aucune à envoyer.', 'Tables de référence ajoutées : aucun.', 'Présentation des tables : inchangée.', 'Présentation des exercices : inchangée.',
+    "Banque d'outils : ajoutés Fraise X (x) · modifiés aucun · inchangés 28.", 'Aucun outil de la banque ne disparaît.',
     "Historique de la banque : le contenu de chaque outil modifié ou retiré y va (« Rétablir » le ramène).", 'Exercices ajoutés : nouveau.',
   ]);
   // La présentation des exercices (D78) et l'historique de la banque de l'export (D79), dits en clair.
   assert.equal(importSummaryLines({ ...resume, presentations_exercices: [{ id: 'm10', remplacee: true, historique: 2 }] })[3], "Présentation des exercices : m10 (remplacée, effet immédiat) (2 contenu(s) ajouté(s) à l'historique).");
-  assert.equal(importSummaryLines({ ...resume, banque_historique: 4 })[6], "Historique de la banque : le contenu de chaque outil modifié ou retiré y va (« Rétablir » le ramène) ; 4 contenu(s) de l'export ajouté(s).");
+  assert.equal(importSummaryLines({ ...resume, banque_historique: 4 })[6], "Historique de la banque : le contenu de chaque outil modifié ou retiré y va (« Rétablir » le ramène). 4 contenu(s) de l'export ajouté(s).");
   // La présentation des tables remplacée par l'import (D76) : effet immédiat, dit en clair.
-  assert.equal(importSummaryLines({ ...resume, presentation_remplacee: true, presentation_historique: 3 })[2], "Présentation des tables : remplacée par celle de l'export, avec effet immédiat pour les étudiants (l'actuelle va à l'historique) ; 3 contenu(s) ajouté(s) à son historique.");
+  assert.equal(importSummaryLines({ ...resume, presentation_remplacee: true, presentation_historique: 3 })[2], "Présentation des tables : remplacée par celle de l'export, avec effet immédiat pour les étudiants (l'actuelle va à l'historique). 3 contenu(s) ajouté(s) à son historique.");
   assert.equal(lines.at(-1), 'Les séances, les journaux et les attestations ne sont pas touchés.');
-  assert.equal(importSummaryLines({ ...resume, images_manquantes: ['img-1', 'img-2'], images_modifiees: ['mvlnr'] })[0], "Images : 48 déjà dans la base ; 2 à envoyer avant l'import (une par requête) ; 1 fiche(s) mise(s) à jour (nom, archivage).");
-  assert.equal(importSummaryLines({ ...resume, images_manquantes: undefined, images_presentes: undefined })[0], 'Images : 0 déjà dans la base ; aucune à envoyer.'); // un export d'avant les images
+  assert.equal(importSummaryLines({ ...resume, images_manquantes: ['img-1', 'img-2'], images_modifiees: ['mvlnr'] })[0], "Images : 48 déjà dans la base, 2 à envoyer avant l'import (une par requête), 1 fiche(s) mise(s) à jour (nom, archivage).");
+  assert.equal(importSummaryLines({ ...resume, images_manquantes: undefined, images_presentes: undefined })[0], 'Images : 0 déjà dans la base, aucune à envoyer.'); // un export d'avant les images
   assert.equal(importWordFor(resume), IMPORT_WORD);
   // Des outils disparaîtraient (D50) : nommés, et le mot devient REMPLACER.
   const perte = { ...resume, banque: { ...banque, retires: [{ id: 'mvlnr', nom: 'MVLNR' }, { id: 'alesoir', nom: 'Alésoir' }] } };
-  assert.match(importSummaryLines(perte)[5], /^Banque d'outils — DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
+  assert.match(importSummaryLines(perte)[5], /^Outils de la banque qui DISPARAÎTRAIENT : MVLNR \(mvlnr\), Alésoir \(alesoir\)\. .* taper REMPLACER\.$/);
   assert.equal(importWordFor(perte), REPLACE_WORD);
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], ['IMPORTER', 'REMPLACER']);
   assert.deepEqual([IMPORT_WORD, REPLACE_WORD], [SERVER_IMPORT_WORD, SERVER_REPLACE_WORD]); // les mêmes mots des deux côtés
@@ -395,7 +396,7 @@ test('tables de référence (D61, D62) : famille d’avance et drapeaux, groupes
   assert.deepEqual(publishState([], same), { enabled: true, label: 'Publier…' });
   assert.deepEqual(diffLines(versionDiff(brouillon(), brouillon(), { avant: 'A2026_r0', apres: 'A2026_r0' })), ['Aucune différence avec la version précédente.']);
   assert.equal(versionDiff(null, brouillon(), { avant: null, apres: 'A2026_r1' }).tables.apres, 'A2026_r1');
-  assert.match(importSummaryLines({ tables_ajoutees: ['A2026_r1'], banque: { ajoutes: [], modifies: [], retires: [], gardes: 0 }, exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], exercices_gardes: [], brouillon_tables: true })[1], /^Tables de référence ajoutées : A2026_r1 ; le brouillon des tables est remplacé\.$/);
+  assert.match(importSummaryLines({ tables_ajoutees: ['A2026_r1'], banque: { ajoutes: [], modifies: [], retires: [], gardes: 0 }, exercices_ajoutes: [], exercices_remplaces: [], versions_ajoutees: [], exercices_gardes: [], brouillon_tables: true })[1], /^Tables de référence ajoutées : A2026_r1\. Le brouillon des tables est remplacé\.$/);
 });
 
 test('exerciseTablesImpact (D62) : ce qu’un changement de version de tables change pour un exercice — erreurs qui apparaissent, Vc de ses groupes et matières, avances de ses opérations, matériaux ajoutés ou retirés dans ses groupes ; rien ailleurs', async () => {
@@ -486,7 +487,7 @@ test('historique de la banque (D79) : ce qui change entre deux contenus d’un o
   const foret = data.outils.find((o) => o.id === 'foret_fractionnaire');
   assert.match(bankToolDiff(foret, { ...foret, dimensions: foret.dimensions.slice(0, 1) })[0], /^Dimensions : retirées « Ø 1\/32 po », .* et \d+ autres$/);
   const heure = (h, m) => new Date(2026, 8, 28, h, m).toISOString();
-  assert.equal(bankHistoryLabel({ enregistre_le: heure(8, 0), enregistre_par: null, remplace_le: heure(9, 30), remplace_par: 'admin', action: 'enregistrement' }), 'Contenu enregistré le 2026-09-28 08:00, remplacé le 2026-09-28 09:30 par admin (un enregistrement)');
+  assert.equal(bankHistoryLabel({ enregistre_le: heure(8, 0), enregistre_par: null, remplace_le: heure(9, 30), remplace_par: 'admin', action: 'enregistrement' }), 'Contenu enregistré le 2026-09-28 08:00, remplacé le 2026-09-28 09:30 par admin (une modification)'); // D93 : jamais « enregistrement »
   assert.equal(bankHistoryLabel({ enregistre_le: heure(9, 30), enregistre_par: 'admin', remplace_le: heure(10, 0), remplace_par: 'admin', action: 'import' }), 'Contenu enregistré le 2026-09-28 09:30 par admin, remplacé le 2026-09-28 10:00 par admin (un import)');
   assert.equal(bankHistoryLabel({ enregistre_le: null, enregistre_par: null, remplace_le: heure(10, 0), remplace_par: null, action: 'retablissement' }), 'Contenu de départ, remplacé le 2026-09-28 10:00 (un rétablissement)');
 });
@@ -495,7 +496,7 @@ test('titres en double (D79) : la note de la liste et l’avertissement du panne
   assert.equal(twinTitlesNote([]), null);
   assert.equal(twinTitlesWarning([]), null);
   assert.equal(twinTitlesNote([{ id: 'autre', titre: 'M10' }]), 'Même titre que « M10 » (autre) : les étudiants ne les distinguent pas.');
-  assert.equal(twinTitlesWarning([{ id: 'autre', titre: 'M10' }]), "Titre en double : « M10 » (autre) porte aussi ce titre. Les étudiants ne les distinguent pas : change l'un des titres, ici ou dans la page de l'autre. Rien n'est bloqué ; l'avertissement disparaît dès qu'un titre change.");
+  assert.equal(twinTitlesWarning([{ id: 'autre', titre: 'M10' }]), "Titre en double : « M10 » (autre) porte aussi ce titre. Les étudiants ne les distinguent pas : change l'un des titres, ici ou dans la page de l'autre. Rien n'est bloqué. L'avertissement disparaît dès qu'un titre change.");
   assert.match(twinTitlesWarning([{ id: 'a', titre: 'M10' }, { id: 'b', titre: 'm10' }]), /^Titre en double : « M10 » \(a\), « m10 » \(b\) portent aussi ce titre\./);
 });
 
@@ -510,9 +511,9 @@ test('présentation des exercices en direct (D78) : le titre déjà pris (seulem
   assert.deepEqual(liveTitleConflicts('Archivé', 'Mon titre', rows, 'moi'), []);
   assert.deepEqual(liveTitleConflicts('Mon  TITRE', 'Mon titre', rows, 'moi'), []); // la même clé : le titre ne change pas
   assert.deepEqual(liveTitleConflicts('M10 — Tournage', 'm10 — tournage', rows, 'moi'), []); // un doublon d'avant ne bloque pas une retouche de casse
-  assert.match(renamePrompt({ derniere_version: 2 }), /^Nouveau titre — en direct : les étudiants le voient dès que leur page se recharge/);
-  assert.match(renamePrompt({ derniere_version: null }), /celui du brouillon ; il entrera en vigueur à la première publication/);
-  assert.equal(renameDone({ en_direct: true, titre: 'T' }), "Titre changé en direct : « T ». Les étudiants le voient dès que leur page se recharge ; l'ancien est dans l'historique de la présentation de l'exercice.");
+  assert.match(renamePrompt({ derniere_version: 2 }), /^Nouveau titre, en direct\. Les étudiants le voient dès que leur page se recharge/);
+  assert.match(renamePrompt({ derniere_version: null }), /^Nouveau titre du brouillon \(il entrera en vigueur à la première publication\) :$/);
+  assert.equal(renameDone({ en_direct: true, titre: 'T' }), "Titre changé en direct : « T ». Les étudiants le voient dès que leur page se recharge. L'ancien est dans l'historique de la présentation de l'exercice.");
   assert.equal(renameDone({ en_direct: false, titre: 'T' }), 'Titre du brouillon changé : « T ». Il entrera en vigueur à la première publication.');
   assert.deepEqual(presentationPreview({ titre: 'T', cours: 'M10', liste: true }), { eyebrow: 'M10 · exercice', titre: 'T', accueil: "À l'accueil, sous « M10 » (un cours écrit autrement s'y regroupe)." });
   assert.equal(presentationPreview({ titre: 'T', cours: null, liste: true }).eyebrow, 'Exercice');
@@ -525,11 +526,11 @@ test('présentation des exercices en direct (D78) : le titre déjà pris (seulem
 
 test('cascade et retour en arrière (D77 et sa retouche) : ce que la cascade fera pour un exercice, le bouton de la confirmation, le message après la publication (les laissés en erreur nommés avec leurs erreurs), la confirmation d’une perte', () => {
   const base = { en_erreur: false, jamais_publie: false, publication: { depuis: 2, numero: 3, tables: 'A2026_r1' }, brouillon: { depuis: 'A2026_r1', modifie: false, erreurs: [] } };
-  assert.equal(cascadeAction(base), 'Version 3 publiée avec ces tables : le contenu de sa version 2 (sur A2026_r1), pas son brouillon ; son brouillon passe aussi à ces tables.');
-  assert.equal(cascadeAction({ ...base, brouillon: { ...base.brouillon, modifie: true } }), 'Version 3 publiée avec ces tables : le contenu de sa version 2 (sur A2026_r1), pas son brouillon ; son brouillon passe aussi à ces tables, avec ses modifications non publiées.');
+  assert.equal(cascadeAction(base), 'Version 3 publiée avec ces tables : le contenu de sa version 2 (sur A2026_r1), pas son brouillon. Son brouillon passe aussi à ces tables.');
+  assert.equal(cascadeAction({ ...base, brouillon: { ...base.brouillon, modifie: true } }), 'Version 3 publiée avec ces tables : le contenu de sa version 2 (sur A2026_r1), pas son brouillon. Son brouillon passe aussi à ces tables, avec ses modifications non publiées.');
   // Publié sur une version, brouillon sur une autre : les deux passent, chacun de son côté.
-  assert.equal(cascadeAction({ ...base, brouillon: { ...base.brouillon, depuis: 'A2026_r0' } }), 'Version 3 publiée avec ces tables : le contenu de sa version 2 (sur A2026_r1), pas son brouillon ; son brouillon (sur A2026_r0) passe aussi à ces tables.');
-  assert.equal(cascadeAction({ ...base, publication: { depuis: 1, numero: 2, tables: 'A2026_r0' }, brouillon: { depuis: 'A2026_r0', modifie: false, erreurs: [] } }), 'Version 2 publiée avec ces tables : le contenu de sa version 1 (sur A2026_r0), pas son brouillon ; son brouillon passe aussi à ces tables.');
+  assert.equal(cascadeAction({ ...base, brouillon: { ...base.brouillon, depuis: 'A2026_r0' } }), 'Version 3 publiée avec ces tables : le contenu de sa version 2 (sur A2026_r1), pas son brouillon. Son brouillon (sur A2026_r0) passe aussi à ces tables.');
+  assert.equal(cascadeAction({ ...base, publication: { depuis: 1, numero: 2, tables: 'A2026_r0' }, brouillon: { depuis: 'A2026_r0', modifie: false, erreurs: [] } }), 'Version 2 publiée avec ces tables : le contenu de sa version 1 (sur A2026_r0), pas son brouillon. Son brouillon passe aussi à ces tables.');
   assert.equal(cascadeAction({ ...base, publication: null, jamais_publie: true, brouillon: { depuis: 'A2026_r1', modifie: true, erreurs: [] } }), 'Jamais publié : seul son brouillon passe à ces tables.');
   assert.equal(cascadeAction({ ...base, en_erreur: true }), 'En erreur avec ces tables : il ne sera pas publié et reste tel quel, brouillon compris.');
   assert.deepEqual([publishTablesLabel('A2026_r2', 0), publishTablesLabel('A2026_r2', 1), publishTablesLabel('', 3)], ['Publier A2026_r2', 'Publier A2026_r2 et la cascade (1 exercice)', 'Publier cette version et la cascade (3 exercices)']);

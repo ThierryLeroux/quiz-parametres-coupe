@@ -343,15 +343,15 @@ export function toolErrors(tool, opsByName, groups, toolMaterialsOfTables = Obje
 
   barErrors(tool, op, error);
 
-  // Gabarit du nom (D24) : un jeton inconnu, ou sans valeur pour cet outil, serait affiché à l'étudiant ;
+  // Gabarit du nom (D24) : un crochet inconnu (« jeton » dans le code, jamais à l'écran, D93), ou sans valeur pour cet outil, serait affiché à l'étudiant ;
   // un crochet ouvert sans être fermé aussi (D58 : le gabarit s'édite).
   if (isText(tool.format_identifiant) && (tool.format_identifiant.match(/\[/g) ?? []).length !== (tool.format_identifiant.match(/\]/g) ?? []).length) {
     error('format_identifiant', 'crochet « [ » ou « ] » non apparié dans « format_identifiant »');
   }
   for (const token of isText(tool.format_identifiant) ? templateTokens(tool.format_identifiant) : []) {
-    if (!TEMPLATE_TOKENS.includes(token)) error('format_identifiant', `jeton inconnu dans « format_identifiant » : [${token}] (jetons permis : ${TEMPLATE_TOKENS.join(', ')})`);
-    else if (token === 'Pas' && op && !op.avance_egale_pas_filetage) error('format_identifiant', "le jeton [Pas] n'a de sens que pour un outil de filetage");
-    else if (token === 'IdBarre' && tool.dimensions_barre === undefined) error('format_identifiant', 'le jeton [IdBarre] exige « dimensions_barre »');
+    if (!TEMPLATE_TOKENS.includes(token)) error('format_identifiant', `crochet inconnu dans « format_identifiant » : [${token}] (permis : ${TEMPLATE_TOKENS.join(', ')})`);
+    else if (token === 'Pas' && op && !op.avance_egale_pas_filetage) error('format_identifiant', "[Pas] n'a de sens que pour un outil de filetage");
+    else if (token === 'IdBarre' && tool.dimensions_barre === undefined) error('format_identifiant', '[IdBarre] exige « dimensions_barre »');
   }
   return errors;
 }

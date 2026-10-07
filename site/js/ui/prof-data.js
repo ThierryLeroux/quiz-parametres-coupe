@@ -142,7 +142,7 @@ export function identityRows(corrections) {
 
 // Le texte de confirmation d'une réinitialisation du NIP (D38).
 export function nipResetConfirmation(session) {
-  return `Réinitialiser le NIP de ${session.prenom} ${session.nom} (${session.matricule}, ${session.exercice.titre}) ? Le verrou tombe ; à sa prochaine reprise, le NIP qu'il ou elle entrera deviendra le nouveau. Sa progression ne change pas.`;
+  return `Réinitialiser le NIP de ${session.prenom} ${session.nom} (${session.matricule}, ${session.exercice.titre}) ? Le verrou tombe. À sa prochaine reprise, le NIP entré deviendra le nouveau. Sa progression ne change pas.`;
 }
 
 // --- Effacement des données des étudiants (D46) -------------------------------------------------------------------
@@ -167,17 +167,18 @@ export function purgeSummary(nombres) {
     plural(nombres.demos ?? 0, 'démo', 'démos'), // les démos en cours (D92), jetables
     plural(nombres.debit, 'compteur de débit', 'compteurs de débit'),
   ];
-  return `Effacé : ${erased.join(', ')} et ${plural(nombres.verrous, 'verrou', 'verrous')} ; journal des actions gardé, ${plural(nombres.journal_anonymise, 'entrée anonymisée', 'entrées anonymisées')}.`;
+  return `Effacé : ${erased.join(', ')} et ${plural(nombres.verrous, 'verrou', 'verrous')}. Journal des actions gardé, ${plural(nombres.journal_anonymise, 'entrée anonymisée', 'entrées anonymisées')}.`;
 }
 
-// Le texte de confirmation d'une suppression (D45) : rappelle le nom et le matricule, et ce qu'il advient de l'attestation.
+// Le texte de confirmation d'une suppression (D45 ; D93 : tout dit, en phrases courtes) : le nom et le matricule, ce qui
+// disparaît, ce qu'il advient de l'attestation.
 export function deleteConfirmation(session) {
-  const attestation = session.code ? ` Son attestation ${session.code} restera vérifiable et répondra « annulée — séance supprimée ».` : '';
-  return `Supprimer la séance de ${session.prenom} ${session.nom}, matricule ${session.matricule} (${session.exercice.titre}) ? La séance et son journal disparaissent, sans retour ; l'étudiant pourra recommencer de zéro.${attestation}`;
+  const attestation = session.code ? ` Son attestation ${session.code} restera vérifiable et répondra « annulée ».` : '';
+  return `Supprimer la séance de ${session.prenom} ${session.nom}, matricule ${session.matricule} (${session.exercice.titre}) ? La séance et son journal disparaissent, sans retour. L'étudiant pourra recommencer de zéro.${attestation}`;
 }
 
 // Le texte de confirmation d'une remise à zéro.
 export function resetConfirmation(session) {
-  const attestation = session.code ? " Son attestation sera annulée ; l'ancien code répondra « annulée »." : '';
-  return `Remettre à zéro la séance de ${session.prenom} ${session.nom} (${session.matricule}, ${session.exercice.titre}) ? Sa progression repart de zéro ; le matricule et le NIP restent.${attestation}`;
+  const attestation = session.code ? " Son attestation sera annulée. L'ancien code répondra « annulée »." : '';
+  return `Remettre à zéro la séance de ${session.prenom} ${session.nom} (${session.matricule}, ${session.exercice.titre}) ? Sa progression repart de zéro. Le matricule et le NIP restent.${attestation}`;
 }

@@ -158,7 +158,7 @@ test('exerciseTablesImpact : le passage aux tables qui portent les facteurs — 
   const brouillon = draftFromExercise(await lireFichier('exercices/test-complet.json'), banque);
   const passage = exerciseTablesImpact(brouillon, SANS, AVEC, draftErrors);
   assert.deepEqual(passage, { erreurs: [], lignes: [
-    'Facteur de vitesse : ces tables le portent. 27 outils héritent de celui de leur opération, sans changement de valeur ; 2 sont forcés, à vérifier.',
+    'Facteur de vitesse : ces tables le portent. 27 outils héritent de celui de leur opération, sans changement de valeur. 2 sont forcés, à vérifier.',
     "Nine9 90 degrés (nine9_90_degres) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « Valeur reprise de l'ancien outil — à vérifier »",
     "Outil à chambrer (outil_a_chambrer) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « Valeur reprise de l'ancien outil — à vérifier »",
     "Le facteur de vitesse n'est plus donné à l'étudiant : il le trouve dans la feuille « Facteurs de vitesse », comme la Vc (pour le donner, coche « Donner le facteur de vitesse à l'étudiant » dans l'exercice, puis publie).",
@@ -195,7 +195,7 @@ test('bankPassageLines et cascadeResultText : le passage de la banque, annoncé 
   assert.deepEqual(bankPassageLines({ herites: [], forces: [] }), []);
   assert.deepEqual(bankPassageLines(undefined), []);
   const resultat = { id: 'A2026_r1', publiee_le: '2026-09-28T17:00:00.000Z', cascade: { publies: [], brouillons: [], laisses: [], ignores: [] }, banque: passage };
-  assert.match(cascadeResultText(resultat), / Banque d'outils : 27 outils héritent du facteur de leur opération ; 1 forcé, à vérifier : Nine9 90 degrés \(nine9_90_degres\)\. Les séances en cours gardent leur version\.$/);
+  assert.match(cascadeResultText(resultat), / Banque d'outils : 27 outils héritent du facteur de leur opération\. 1 forcé, à vérifier : Nine9 90 degrés \(nine9_90_degres\)\. Les séances en cours gardent leur version\.$/); // D93
   assert.doesNotMatch(cascadeResultText({ ...resultat, banque: { herites: [], forces: [] } }), /Banque/);
   assert.doesNotMatch(cascadeResultText({ ...resultat, banque: undefined }), /Banque/); // une réponse d'avant
 });

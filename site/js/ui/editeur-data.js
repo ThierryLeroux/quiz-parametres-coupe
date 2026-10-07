@@ -25,7 +25,7 @@ export const LEAVE_CONFIRMATION = 'Des modifications ne sont pas enregistrées. 
 // séance qui était ouverte et expire en cours de travail ; à l'ouverture de la page sans cookie, la connexion s'ouvre
 // sans message, comme celle de l'espace professeur (D87, point 4).
 //   connected : une séance professeur était ouverte (connexion réussie, ou un appel qui a réussi après un rechargement)
-export const EXPIRED_NOTICE = 'Ta séance a expiré : connecte-toi de nouveau.';
+export const EXPIRED_NOTICE = 'Ta séance a expiré. Connecte-toi de nouveau.';
 export const loginNotice = (connected) => (connected ? EXPIRED_NOTICE : '');
 
 // Un clic sur un lien de la barre du haut quitte la page : faut-il d'abord poser LEAVE_CONFIRMATION ? Oui s'il y a des
@@ -188,12 +188,12 @@ export function courseSpelling(typed, known) {
   return match === undefined || match === text ? null : match;
 }
 
-// Les textes de confirmation.
-export const archiveConfirmation = (row) => `Archiver « ${row.titre} » ? Il disparaît de la liste de l'accueil et aucune nouvelle séance ne peut être commencée ; les séances en cours continuent, et les attestations restent vérifiables. Il pourra être rétabli.`;
-export const deleteConfirmation = (row) => `Supprimer « ${row.titre} » (${row.id}) ? Aucune séance ne s'y rattache : le brouillon et ses versions disparaissent, sans retour.`;
-export const removeToolConfirmation = (copy) => `Retirer « ${copy.nom} » (${copy.id}) de l'exercice ? Sa copie disparaît du brouillon ; l'outil de la banque n'est pas touché.`;
+// Les textes de confirmation (D93 : tout ce qui disparaît et tout ce qui reste, en phrases courtes).
+export const archiveConfirmation = (row) => `Archiver « ${row.titre} » ? Il disparaît de l'accueil. Aucune nouvelle séance ne peut commencer. Les séances en cours continuent, et les attestations restent vérifiables. Il pourra être rétabli.`;
+export const deleteConfirmation = (row) => `Supprimer « ${row.titre} » (${row.id}) ? Aucune séance ne s'y rattache. Le brouillon et ses versions disparaissent, sans retour.`;
+export const removeToolConfirmation = (copy) => `Retirer « ${copy.nom} » (${copy.id}) de l'exercice ? Sa copie disparaît du brouillon. L'outil de la banque n'est pas touché.`;
 // Retirer plusieurs copies d'un coup : la confirmation les nomme toutes.
-export const removeSelectionConfirmation = (copies) => `Retirer ${copies.length} outil${copies.length > 1 ? 's' : ''} de l'exercice — ${copies.map((c) => `${c.nom} (${c.id})`).join(', ')} ? Leurs copies disparaissent du brouillon (rien n'est perdu avant la publication) ; la banque n'est pas touchée.`;
+export const removeSelectionConfirmation = (copies) => `Retirer ${copies.length} outil${copies.length > 1 ? 's' : ''} de l'exercice (${copies.map((c) => `${c.nom} (${c.id})`).join(', ')}) ? Leurs copies disparaissent du brouillon. La version publiée ne change pas tant que tu ne publies pas. La banque n'est pas touchée.`;
 
 // --- Différences entre deux contenus (B6 : confirmation de publication) ---------------------------------------------
 
@@ -384,7 +384,7 @@ export function speedFactorImpact(draft, operationsBefore, operationsAfter) {
     ? "Le facteur de vitesse reste donné à l'étudiant, en fraction (réglage « Donner le facteur de vitesse à l'étudiant », coché)."
     : "Le facteur de vitesse n'est plus donné à l'étudiant : il le trouve dans la feuille « Facteurs de vitesse », comme la Vc (pour le donner, coche « Donner le facteur de vitesse à l'étudiant » dans l'exercice, puis publie).";
   return [
-    `Facteur de vitesse : ces tables le portent. ${inherited} outil${inherited > 1 ? 's héritent' : ' hérite'} de celui de ${inherited > 1 ? 'leur' : 'son'} opération, sans changement de valeur${lines.length > 0 ? ` ; ${lines.length} ${lines.length > 1 ? 'sont forcés' : 'est forcé'}, à vérifier` : ''}.`,
+    `Facteur de vitesse : ces tables le portent. ${inherited} outil${inherited > 1 ? 's héritent' : ' hérite'} de celui de ${inherited > 1 ? 'leur' : 'son'} opération, sans changement de valeur.${lines.length > 0 ? ` ${lines.length} ${lines.length > 1 ? 'sont forcés' : 'est forcé'}, à vérifier.` : ''}`,
     ...lines,
     shown,
   ];
@@ -440,10 +440,10 @@ export function liveTitleConflicts(title, before, rows, exceptId) {
 // « Renommer » dans la liste (D78) : en direct pour un exercice publié, dans le brouillon sinon — la question posée, et
 // le message qui suit.
 export const renamePrompt = (row) => (row.derniere_version === null
-  ? 'Nouveau titre (celui du brouillon ; il entrera en vigueur à la première publication) :'
-  : "Nouveau titre — en direct : les étudiants le voient dès que leur page se recharge, séances en cours comprises (l'ancien reste dans l'historique de la présentation de l'exercice) :");
+  ? 'Nouveau titre du brouillon (il entrera en vigueur à la première publication) :'
+  : "Nouveau titre, en direct. Les étudiants le voient dès que leur page se recharge, séances en cours comprises. L'ancien reste dans l'historique de la présentation. Nouveau titre :");
 export const renameDone = ({ en_direct: live, titre }) => (live
-  ? `Titre changé en direct : « ${titre} ». Les étudiants le voient dès que leur page se recharge ; l'ancien est dans l'historique de la présentation de l'exercice.`
+  ? `Titre changé en direct : « ${titre} ». Les étudiants le voient dès que leur page se recharge. L'ancien est dans l'historique de la présentation de l'exercice.`
   : `Titre du brouillon changé : « ${titre} ». Il entrera en vigueur à la première publication.`);
 
 // L'aperçu de ce que voit l'étudiant (D78) : l'en-tête de la page de l'exercice et sa place à l'accueil (homeGroups).
@@ -464,7 +464,7 @@ export const twinTitlesNote = (twins) => (twins.length === 0 ? null : `Même tit
 
 // L'avertissement du panneau « Présentation », ou null.
 export const twinTitlesWarning = (twins) => (twins.length === 0 ? null
-  : `Titre en double : ${twinNames(twins)} ${twins.length > 1 ? 'portent' : 'porte'} aussi ce titre. Les étudiants ne les distinguent pas : change l'un des titres, ici ou dans la page de l'autre. Rien n'est bloqué ; l'avertissement disparaît dès qu'un titre change.`);
+  : `Titre en double : ${twinNames(twins)} ${twins.length > 1 ? 'portent' : 'porte'} aussi ce titre. Les étudiants ne les distinguent pas : change l'un des titres, ici ou dans la page de l'autre. Rien n'est bloqué. L'avertissement disparaît dès qu'un titre change.`);
 
 // --- L'historique de la banque d'outils (D79) ---------------------------------------------------------------------
 
@@ -525,7 +525,7 @@ export function bankToolDiff(before, after) {
   return lines;
 }
 
-const BANK_REPLACED_BY = { enregistrement: 'un enregistrement', retablissement: 'un rétablissement', import: 'un import' };
+const BANK_REPLACED_BY = { enregistrement: 'une modification', retablissement: 'un rétablissement', import: 'un import' }; // jamais « enregistrement » à l'écran (D93)
 
 // Une ligne de l'historique d'un outil : quand et par qui ce contenu avait été enregistré, quand et par quoi il a été remplacé.
 export function bankHistoryLabel(h) {
@@ -541,8 +541,8 @@ export function bankHistoryLabel(h) {
 export function cascadeAction(c) {
   if (c.en_erreur) return 'En erreur avec ces tables : il ne sera pas publié et reste tel quel, brouillon compris.';
   const elsewhere = c.brouillon.depuis !== null && c.brouillon.depuis !== (c.publication?.tables ?? c.brouillon.depuis) ? ` (sur ${c.brouillon.depuis})` : '';
-  const draft = `son brouillon${elsewhere} passe aussi à ces tables${c.brouillon.modifie ? ', avec ses modifications non publiées' : ''}`;
-  if (c.publication !== null) return `Version ${c.publication.numero} publiée avec ces tables : le contenu de sa version ${c.publication.depuis} (sur ${c.publication.tables}), pas son brouillon ; ${draft}.`;
+  const draft = `Son brouillon${elsewhere} passe aussi à ces tables${c.brouillon.modifie ? ', avec ses modifications non publiées' : ''}.`;
+  if (c.publication !== null) return `Version ${c.publication.numero} publiée avec ces tables : le contenu de sa version ${c.publication.depuis} (sur ${c.publication.tables}), pas son brouillon. ${draft}`;
   return 'Jamais publié : seul son brouillon passe à ces tables.';
 }
 
@@ -583,11 +583,11 @@ export function cascadeResultText(result, titles = new Map()) {
   if (c.publies.length > 0) parts.push(`Publiés en cascade : ${c.publies.map((p) => `${name(p.id)} (version ${p.numero})`).join(', ')}.`);
   const draftsOnly = c.brouillons.filter((id) => !c.publies.some((p) => p.id === id));
   if (draftsOnly.length > 0) parts.push(`Brouillons seuls passés à ${result.id} : ${draftsOnly.map(name).join(', ')}.`);
-  if (c.laisses.length > 0) parts.push(`Laissés tels quels, en erreur avec ${result.id} (ils restent proposés aux cascades suivantes) : ${c.laisses.map((l) => `« ${l.titre} »${l.erreurs?.length > 0 ? ` (${l.erreurs.join(' ; ')})` : ''}`).join(', ')}.`);
+  if (c.laisses.length > 0) parts.push(`Laissés tels quels, en erreur avec ${result.id} (ils restent proposés aux cascades suivantes) : ${c.laisses.map((l) => `« ${l.titre} »${l.erreurs?.length > 0 ? ` (${l.erreurs.join(' · ')})` : ''}`).join(', ')}.`);
   if (c.ignores.length > 0) parts.push(`Ignorés (plus sur la version remplacée) : ${c.ignores.map(name).join(', ')}.`);
   // Le passage de la banque aux facteurs de vitesse (D83) : combien héritent, lesquels sont forcés, à vérifier.
   const bank = result.banque ?? { herites: [], forces: [] };
-  if (bank.herites.length > 0 || bank.forces.length > 0) parts.push(`Banque d'outils : ${bank.herites.length} outil${bank.herites.length > 1 ? 's héritent' : ' hérite'} du facteur de ${bank.herites.length > 1 ? 'leur' : 'son'} opération${bank.forces.length > 0 ? ` ; ${bank.forces.length} forcé${bank.forces.length > 1 ? 's' : ''}, à vérifier : ${bank.forces.map((t) => `${t.nom} (${t.id})`).join(', ')}` : ''}.`);
+  if (bank.herites.length > 0 || bank.forces.length > 0) parts.push(`Banque d'outils : ${bank.herites.length} outil${bank.herites.length > 1 ? 's héritent' : ' hérite'} du facteur de ${bank.herites.length > 1 ? 'leur' : 'son'} opération.${bank.forces.length > 0 ? ` ${bank.forces.length} forcé${bank.forces.length > 1 ? 's' : ''}, à vérifier : ${bank.forces.map((t) => `${t.nom} (${t.id})`).join(', ')}.` : ''}`);
   parts.push('Les séances en cours gardent leur version.');
   return parts.join(' ');
 }
@@ -795,8 +795,8 @@ export function imageUsageLabel(utilisations) {
 export const canDeleteImage = (utilisations) => Object.values(utilisations).every((list) => list.length === 0);
 
 export const USAGE_LABELS = { outil: "photo d'outil", operation: "pictogramme d'opération", classe: 'image de classe ISO' };
-export const imageDeleteConfirmation = (image) => `Supprimer l'image « ${image.nom} » (${image.id}) ? Elle n'est utilisée nulle part ; elle disparaît sans retour.`;
-export const imageArchiveConfirmation = (image) => `Archiver l'image « ${image.nom} » ? Elle ne sera plus proposée dans la galerie ; les outils, opérations et classes qui la nomment l'affichent toujours (le brouillon des tables la signalera). Elle pourra être rétablie.`;
+export const imageDeleteConfirmation = (image) => `Supprimer l'image « ${image.nom} » (${image.id}) ? Elle n'est utilisée nulle part. Elle disparaît sans retour.`;
+export const imageArchiveConfirmation = (image) => `Archiver l'image « ${image.nom} » ? Elle ne sera plus proposée dans la galerie. Les outils, opérations et classes qui la nomment l'affichent toujours. Le brouillon des tables la signalera. Elle pourra être rétablie.`;
 
 // --- Erreurs par champ ----------------------------------------------------------------------------------------------
 
@@ -864,18 +864,18 @@ export function importSummaryLines(resume) {
   const b = resume.banque;
   const manquantes = resume.images_manquantes ?? [];
   return [
-    `Images : ${resume.images_presentes ?? 0} déjà dans la base ; ${manquantes.length === 0 ? 'aucune à envoyer' : `${manquantes.length} à envoyer avant l'import (une par requête)`}${(resume.images_modifiees ?? []).length > 0 ? ` ; ${resume.images_modifiees.length} fiche(s) mise(s) à jour (nom, archivage)` : ''}.`,
-    `Tables de référence ajoutées : ${list(resume.tables_ajoutees)}${resume.brouillon_tables ? ' ; le brouillon des tables est remplacé' : ''}.`,
+    `Images : ${resume.images_presentes ?? 0} déjà dans la base, ${manquantes.length === 0 ? 'aucune à envoyer' : `${manquantes.length} à envoyer avant l'import (une par requête)`}${(resume.images_modifiees ?? []).length > 0 ? `, ${resume.images_modifiees.length} fiche(s) mise(s) à jour (nom, archivage)` : ''}.`,
+    `Tables de référence ajoutées : ${list(resume.tables_ajoutees)}.${resume.brouillon_tables ? ' Le brouillon des tables est remplacé.' : ''}`,
     // La présentation des tables en direct (D76) : remplacée par celle de l'export (effet immédiat pour les étudiants).
-    `Présentation des tables : ${resume.presentation_remplacee ? "remplacée par celle de l'export, avec effet immédiat pour les étudiants (l'actuelle va à l'historique)" : 'inchangée'}${(resume.presentation_historique ?? 0) > 0 ? ` ; ${resume.presentation_historique} contenu(s) ajouté(s) à son historique` : ''}.`,
+    `Présentation des tables : ${resume.presentation_remplacee ? "remplacée par celle de l'export, avec effet immédiat pour les étudiants (l'actuelle va à l'historique)" : 'inchangée'}.${(resume.presentation_historique ?? 0) > 0 ? ` ${resume.presentation_historique} contenu(s) ajouté(s) à son historique.` : ''}`,
     // La présentation de chaque exercice (D78), remplacée par celle de l'export, avec effet immédiat.
     `Présentation des exercices : ${(resume.presentations_exercices ?? []).length === 0 ? 'inchangée' : (resume.presentations_exercices ?? []).map((p) => `${p.id}${p.remplacee ? ' (remplacée, effet immédiat)' : ''}${p.historique > 0 ? ` (${p.historique} contenu(s) ajouté(s) à l'historique)` : ''}`).join(', ')}.`,
-    `Banque d'outils — ajoutés : ${names(b.ajoutes)} ; modifiés : ${names(b.modifies)} ; inchangés : ${b.gardes}.`,
+    `Banque d'outils : ajoutés ${names(b.ajoutes)} · modifiés ${names(b.modifies)} · inchangés ${b.gardes}.`,
     b.retires.length > 0
-      ? `Banque d'outils — DISPARAÎTRAIENT : ${names(b.retires)}. Les copies déjà faites dans les exercices ne changent pas, mais ces outils ne pourront plus être ajoutés. Pour importer quand même, il faudra taper ${REPLACE_WORD}.`
-      : "Banque d'outils — aucun outil ne disparaît.",
+      ? `Outils de la banque qui DISPARAÎTRAIENT : ${names(b.retires)}. Les copies déjà faites dans les exercices ne changent pas, mais ces outils ne pourront plus être ajoutés. Pour importer quand même, il faudra taper ${REPLACE_WORD}.`
+      : 'Aucun outil de la banque ne disparaît.',
     // D79 : chaque contenu que l'import remplace ou retire va à l'historique de son outil ; « Rétablir » le ramène.
-    `Historique de la banque : le contenu de chaque outil modifié ou retiré y va (« Rétablir » le ramène)${(resume.banque_historique ?? 0) > 0 ? ` ; ${resume.banque_historique} contenu(s) de l'export ajouté(s)` : ''}.`,
+    `Historique de la banque : le contenu de chaque outil modifié ou retiré y va (« Rétablir » le ramène).${(resume.banque_historique ?? 0) > 0 ? ` ${resume.banque_historique} contenu(s) de l'export ajouté(s).` : ''}`,
     `Exercices ajoutés : ${list(resume.exercices_ajoutes)}.`,
     `Brouillons remplacés : ${list(resume.exercices_remplaces)}.`,
     `Versions publiées ajoutées : ${list(resume.versions_ajoutees)}.`,

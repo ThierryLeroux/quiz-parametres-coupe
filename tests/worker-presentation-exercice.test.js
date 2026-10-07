@@ -222,7 +222,7 @@ test('titre en double (D74, D78) : refusé en direct, par le serveur, si un AUTR
   const refus = await appliquer(serveur, (p) => { p.titre = titreEnDouble; });
   assert.equal(refus.status, 400);
   assert.equal(refus.corps.erreur, liveTitleRefusal([{ id: VC_RPM, titre: vcRpm.titre }]));
-  assert.match(refus.corps.erreur, /^Titre refusé : un autre exercice publié porte déjà ce titre : « M10 — Tournage : Vc et RPM » \(m10-tournage-vc-rpm\)\./);
+  assert.match(refus.corps.erreur, /^Titre refusé\. Un autre exercice publié porte déjà ce titre : « M10 — Tournage : Vc et RPM » \(m10-tournage-vc-rpm\)\./);
   assert.deepEqual(refus.corps.doublons, [{ id: VC_RPM, titre: vcRpm.titre }]);
   assert.equal((await serveur.editeur('POST', 'exercice/renommer', { id: M10, titre: vcRpm.titre })).status, 400);
   assert.deepEqual([lignesDe(serveur, 'presentation_exercices'), lignesDe(serveur, 'presentation_exercices_historique')], [[], []]);
