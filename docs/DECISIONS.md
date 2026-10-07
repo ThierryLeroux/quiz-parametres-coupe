@@ -3867,3 +3867,90 @@ entré — alors que, dans l'un, un clic publie ou efface pour tous les étudian
   qui change pour tout le monde au déploiement.
 
 Rapport : `docs/rapports/textes-et-ambiances.md`.
+
+## D95 — Espace enseignant : une seule page, un seul mot ; la consultation lit tout, sauf la sauvegarde (2026-10-06, décidée)
+
+**Contexte.** Deux pages pour les enseignants — `/prof` (les réussites, les corrections d'identité) et `/prof/editeur`
+(la Gestion du contenu) —, deux connexions, deux rangées d'onglets, et deux mots pour la même personne : « professeur »
+à l'écran, « enseignant » dans le pied de page et dans le cours. La clé de consultation n'ouvrait que la première page :
+un collègue ne pouvait pas lire un exercice, un outil de la banque ou les tables sans la clé d'administration, qui
+permet de tout changer.
+
+**Décision** (Thierry, 2026-10-06).
+
+1. **Un seul mot : « enseignant »** remplace « professeur » dans tout texte affiché — l'accueil (« Espace enseignant → »),
+   le titre, la barre du haut, le `<title>` et le sur-titre de `/prof`, les messages. `tests/textes-visibles.test.js`
+   refuse « professeur » dans une phrase affichable, comme « serveur » ou « jeton » (D93). **Les identifiants, les
+   routes, les fichiers et la documentation interne gardent « prof »** (`/prof`, `/api/prof/*`, `prof.js`, `prof.css`,
+   « séance prof »), comme « editeur » a été gardé par D74 ; la documentation parle de l'« espace enseignant » pour la
+   page, et continue d'appeler « Gestion du contenu » l'ensemble des onglets de contenu.
+2. **Une seule page.** `/prof` est **l'Espace enseignant** : une seule connexion, qui accepte les deux clés, et **une
+   seule rangée d'onglets** — Réussites, Corrections d'identité, Exercices, Banque d'outils, Tables de référence, Images,
+   Sauvegarde. L'onglet courant est dans le fragment de l'adresse (`/prof#exercices`) : un rechargement y revient, et
+   un lien peut y mener. **`/prof/editeur` redirige vers `/prof#exercices`** (une réponse 302 du Worker ; la page
+   `site/prof/editeur.html` n'existe plus). `prof.js` (Réussites, Corrections d'identité, Effacement) et `editeur.js`
+   (les cinq onglets de contenu) **restent deux modules** ; seule **la coquille** devient commune, dans
+   `site/js/ui/prof-shell.js` : la séance (le rôle), la connexion, la barre du haut, les onglets, la garde des
+   modifications non enregistrées et le retour à la connexion sur un 401. `site/js/ui/prof-main.js` est l'entrée de la
+   page : elle enregistre les onglets des deux modules et démarre. **La garde des modifications** (« Des modifications
+   ne sont pas enregistrées. Quitter la page et les perdre ? ») s'applique à tout changement d'onglet, Réussites et
+   Corrections d'identité compris, et aux liens de la barre du haut. Au rechargement, la page relit son rôle par
+   `GET /api/prof/role` avant d'ouvrir l'onglet du fragment ; sans cookie, la connexion s'ouvre, sans message (D87,
+   point 4).
+3. **Le rôle consultation lit tout, sauf la sauvegarde.** Tous les onglets lui sont ouverts en lecture seule ;
+   **Sauvegarde est absent** pour ce rôle (l'export est tout le contenu, l'import est une écriture). Côté serveur,
+   **dix routes de lecture** de `/api/prof/editeur/*` acceptent le rôle consultation (`requireReader`, la liste
+   `consultationRoutes()` d'`index.js`) : `exercices`, `exercice`, `exercice/presentation`, `apercu` (une **version
+   publiée** seulement : avec `brouillon`, ou sans `version`, 403), `banque`, `banque/outil`, `tables`,
+   `tables/version`, `presentation`, `images`. **Toute écriture garde son refus 403**, et `tables/cascade`,
+   `tables/apercu`, `export`, `import/valider` et `import` aussi : un cas par route dans `tests/worker-api.test.js`.
+   **La consultation ne reçoit jamais un brouillon** : la liste des exercices ne lui montre que les exercices publiés,
+   sans « modifié » ni date de brouillon ; la page d'un exercice lui rend **sa dernière version publiée** (contenu,
+   tables de cette version, présentation en vigueur et historique) et rien du brouillon — un exercice jamais publié
+   répond 404 ; `tables` lui rend les versions et la présentation, jamais le brouillon des valeurs (la page lit la
+   dernière version publiée par `tables/version`) ; les retouches de présentation en attente d'un brouillon ne lui sont
+   pas dites (`en_attente` vide). Les lectures ne sont pas journalisées (D48).
+4. **À l'écran, pour la consultation** : les formulaires sont dans un **`<fieldset disabled class="lecture-seule">`
+   rendu lisible** (le texte à sa couleur, le contour atténué, jamais le gris délavé du navigateur ; les cases à cocher
+   gardent l'apparence « inactive » du navigateur, à opacité pleine), et **aucun bouton d'action n'est construit** :
+   ni créer, enregistrer, publier, archiver, supprimer, rétablir, renommer, dupliquer, retirer, monter, descendre,
+   téléverser, choisir une image, insérer un crochet, cocher tout, ajouter une ligne, reprendre une version, annuler
+   les modifications, passer à d'autres tables, appliquer ou rétablir une présentation, importer, ni effacer, remettre
+   à zéro ou réinitialiser un NIP. Les listes disent **« Voir »** au lieu de « Modifier » (D74). Restent les lectures :
+   Voir, Copier le lien étudiant, l'aperçu d'une version (« Aperçu », « Dix questions », « Dix autres »), les feuilles
+   imprimables, déplier un outil, l'historique replié, les filtres, l'export CSV des réussites, Rafraîchir. L'état d'un
+   exercice se lit « Publié » (le brouillon n'est pas montré) ou « Archivé ». `tests/ui-enseignant.test.js` construit
+   chaque écran des deux rôles sur le DOM minuscule (`tests/aide-dom.js`) contre le vrai Worker (`tests/aide-serveur.js`)
+   et vérifie, pour la consultation, qu'aucun bouton hors de la liste des lectures n'existe, que chaque case de saisie
+   est dans un `fieldset[disabled]`, qu'aucun champ fichier n'existe, et que l'onglet Sauvegarde est absent ; pour
+   l'administration, que les boutons d'action sont bien là.
+5. **Rien ne change pour l'administration**, ni pour les ambiances (D94) : sur la même page, l'ambre pour la
+   consultation, le pourpre et la bande à chevrons pour l'administration, le bleu sur la connexion ; `prof-shell.js`
+   pose `data-espace` d'après le rôle (`spaceOf`), et l'étiquette de l'espace reste dans la barre du haut. Le sur-titre
+   de chaque onglet dit « Espace enseignant · <onglet> », suivi de « · lecture seule » pour la consultation.
+6. **Ce que D95 remplace.** Dans D48, « la page refuse la clé de consultation à la connexion » ; dans D44, « rôle
+   consultation, lecture seule : liste des réussites…, export CSV, journal des corrections d'identité » s'étend à tout
+   le contenu publié ; dans D74, « Modifier » dans toutes les listes vaut pour l'administration, la consultation lit
+   « Voir » ; dans D87, la connexion de `/prof/editeur` et ses deux liens n'existent plus (une seule connexion, un seul
+   lien « ← Tous les exercices »).
+
+**Conséquences.**
+
+- Serveur : `worker/index.js` — `GET /api/prof/role`, `requireReader`, `consultationRoutes()`, les dix routes ouvertes
+  avec leur forme « consultation », la redirection de `/prof/editeur` ; `site/js/api.js` (`teacherRole`). Aucune
+  migration. **Rien ne touche la correction des séances en cours** : ni tirage, ni correction, ni attestation ; le
+  code du serveur change pour tout le monde au déploiement (les routes de l'espace enseignant seulement).
+- Site : `site/prof.html` (une page, « Espace enseignant », les deux feuilles de style), `site/prof/editeur.html`
+  supprimée ; `prof-shell.js`, `prof-main.js`, `prof.js`, `editeur.js`, `prof-data.js` (les onglets, `tabsFor`,
+  `initialTab`, la garde et l'avis de séance expirée déplacés depuis `editeur-data.js`), `editeur-data.js`
+  (`exerciseState` : « Publié »), `images-picker.js` (`readOnly`), `home-screen.js` (« Espace enseignant → »),
+  `prof.css` et `editeur.css` (`.lecture-seule`).
+- Tests : `tests/ui-enseignant.test.js` (nouveau), `tests/worker-api.test.js` (le rôle, la redirection, un cas par route
+  de la Gestion du contenu), `tests/worker-editeur.test.js`, `tests/textes-visibles.test.js` (« professeur »),
+  `tests/ui-navigation.test.js`, `tests/ui-ambiances.test.js`, `tests/ui-fond.test.js`, `tests/ui-home.test.js`,
+  `tests/ui-prof.test.js`, `tests/ui-editeur.test.js`, `tests/api-locale.mjs`.
+- Documents : UI §1, §2, §3.8 (l'espace enseignant : coquille, Réussites, Corrections d'identité, Effacement), §3.9 (les
+  onglets de contenu et la lecture seule) ; SPEC §8 (le rôle, les routes ouvertes, la redirection) ; CLAUDE.md ;
+  DEMARRAGE §7 ; PLAN ; rapport.
+
+Rapport : `docs/rapports/espace-enseignant.md`.
