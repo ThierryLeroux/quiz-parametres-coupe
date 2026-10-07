@@ -139,3 +139,23 @@ th[aria-sort='descending'] .sort-button::after { content: '▼'; font-size: 0.7e
   .prof-toolbar .field { max-width: none; }
   .prof-actions { margin-left: 0; }
 }
+
+/* --- Lecture seule (D95) : le rôle consultation voit les formulaires de la Gestion du contenu dans un <fieldset disabled>
+   lisible — le texte à sa couleur, le contour atténué, le curseur ordinaire, jamais le gris délavé que le navigateur
+   donne à un champ inactif. Les cases à cocher et les boutons radio gardent le dessin « inactif » du navigateur, à
+   opacité pleine. Le fieldset lui-même ne se voit pas : ni bordure, ni marge. */
+fieldset.lecture-seule { margin: 0; padding: 0; border: 0; min-width: 0; }
+.lecture-seule input:disabled,
+.lecture-seule textarea:disabled,
+.lecture-seule select:disabled {
+  border-color: color-mix(in srgb, var(--color-text-muted) 45%, transparent);
+  background: var(--color-input-provided-bg);
+  color: var(--color-text);
+  -webkit-text-fill-color: var(--color-text);
+  opacity: 1;
+  cursor: default;
+}
+.lecture-seule input[type='checkbox']:disabled,
+.lecture-seule input[type='radio']:disabled,
+.lecture-seule input[type='color']:disabled { opacity: 1; cursor: default; }
+.lecture-seule label { cursor: default; }

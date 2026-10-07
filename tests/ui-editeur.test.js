@@ -8,8 +8,8 @@ import {
   FEED_FAMILIES, FIELD_CHOICES, FIELD_STATES, IMPORT_WORD, REPLACE_WORD, TOOL_MATERIALS, USAGE_LABELS, archiveConfirmation, canDeleteImage, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseState, exerciseTablesImpact, exportFileName, feedFamilyFlags, feedFamilyOf, fieldStates, fieldStatesText,
   exerciseHistoryLabel, liveTitleConflicts, presentationPreview, renameDone, renamePrompt, bankHistoryLabel, bankToolDiff, twinTitlesNote, twinTitlesWarning,
   cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, lostChangesTitle, publishTablesLabel, filterImages, fittedSize, knownCourses, moveItem, publishedTitles, groupSwatch, hasTransparency, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, materialSwatch, parseDimensions, permittedTokens, removeSelectionConfirmation, presentationApplyState, presentationHistoryLabel, previewColumns, previewRows, publishState, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, uploadPlan, versionDiff, versionLabel,
-  EXPIRED_NOTICE, loginNotice,
 } from '../site/js/ui/editeur-data.js';
+import { EXPIRED_NOTICE, loginNotice } from '../site/js/ui/prof-data.js';
 import { draftErrors, draftFromExercise } from '../site/js/exercice.js';
 import { fittingBars } from '../site/js/data.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS } from '../site/js/tables.js';
@@ -39,6 +39,7 @@ test('exerciseState, versionLabel, sessionsLabel : l’état en clair', () => {
   assert.equal(exerciseState({ ...ROW, modifie: true }), 'Brouillon modifié');
   assert.equal(exerciseState({ ...ROW, derniere_version: null, publie_le: null }), 'Jamais publié');
   assert.equal(exerciseState({ ...ROW, archive_le: at(2026, 9, 25, 8, 0) }), 'Archivé');
+  assert.equal(exerciseState({ ...ROW, modifie: undefined }), 'Publié'); // la consultation ne reçoit pas « modifié » (D95)
   assert.equal(versionLabel(ROW), 'v2 · 2026-09-24 13:05');
   assert.equal(versionLabel({ ...ROW, derniere_version: null }), '—');
   assert.equal(sessionsLabel(ROW), '3 séances (v2 : 1, v1 : 2)');

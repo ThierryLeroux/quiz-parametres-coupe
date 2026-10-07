@@ -1,75 +1,55 @@
-// Espace professeur (décisions D34, D35, D44 ; UI §3.8) : connexion par la clé d'administration ou
-// la clé de consultation, tableau des séances (filtre par exercice, tri par colonne, recherche, export
-// CSV, remise à zéro) et journal des corrections d'identité. Le rôle consultation ne voit aucun
-// bouton d'action — et le serveur les refuse de toute façon. Le client ne contient aucun secret : le
-// serveur ne répond qu'avec le cookie de séance posé à la connexion ; un 401 ramène à la connexion.
-// Ce qu'on montre est décidé par prof-data.js (pur, testé) : ici, on construit le DOM.
+// Les écrans des réussites de l'espace enseignant (décisions D34, D35, D44 à D46, D95 ; UI §3.8) : le tableau des
+// séances (filtre par exercice, tri par colonne, recherche, export CSV ; remise à zéro, réinitialisation du NIP et
+// suppression pour l'administration), le journal des corrections d'identité, et la page d'effacement des données des
+// étudiants. La coquille — connexion, barre du haut, onglets, garde des modifications, 401 — est prof-shell.js ;
+// prof-main.js enregistre les deux onglets, « Réussites » (showSessions) et « Corrections d'identité » (showIdentities).
+// Le rôle consultation ne voit aucun bouton d'action — et le serveur les refuse de toute façon. Ce qu'on montre est
+// décidé par prof-data.js (pur, testé) : ici, on construit le DOM.
 
-import { deleteSession, listIdentityCorrections, listSessions, purgeStudentData, resetNip, resetSession, teacherLogin, teacherLogout } from '../api.js';
+import { deleteSession, listIdentityCorrections, listSessions, purgeStudentData, resetNip, resetSession } from '../api.js';
 import { el, showScreen } from './dom.js';
 import {
-  LOGIN_LINKS, PURGE_WORD, SESSION_COLUMNS, canAct, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, purgeIntro, purgeSummary,
-  resetConfirmation, roleLabel, roleNote, sessionCells, sortSessions, spaceOf,
+  PURGE_WORD, SESSION_COLUMNS, canAct, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, purgeIntro, purgeSummary,
+  resetConfirmation, sessionCells, sortSessions,
 } from './prof-data.js';
+import { TITLE, eyebrow, guarded, headerAside, panelHead, role } from './prof-shell.js';
 import { serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
 
 // L'état de l'écran : ce que le serveur a rendu, et ce que l'enseignant a choisi.
 const state = {
-  teacher: null,
-  role: null, // 'admin' ou 'consultation' (D44)
   exercices: [],
   seances: [],
-  identites: null, // chargées à la demande
-  view: 'seances',
+  identites: [],
   filter: { exercice: '', search: '' },
   sort: { key: 'derniere_activite', ascending: false },
 };
 
-// L'ambiance de couleur de la page (D94) : data-espace sur <html>, d'après le rôle — l'espace étudiant sur la connexion,
-// ambre en consultation, pourpre en administration. Les couleurs elles-mêmes sont dans tokens.css.
-const applySpace = () => { document.documentElement.dataset.espace = spaceOf(state.role); };
+// --- Les deux onglets ------------------------------------------------------------------------------------------------
 
-// --- Connexion ---------------------------------------------------------------------------------------------------
+// Réussites : recharge les séances, puis le tableau ; un 401 ramène à la connexion (guarded).
+export async function showSessions() {
+  if ((await guarded(reloadSessions)) === null) return;
+  render('seances');
+}
 
-function showLogin(notice = '') {
-  state.role = null;
-  applySpace();
-  const status = el('div', { class: 'server-message', role: 'status' }, notice);
-  // Un champ texte masqué par CSS, jamais type="password" : rien à enregistrer sur un poste partagé (D21).
-  const input = el('input', { id: 'cle', name: 'cle', type: 'text', class: 'input-secret', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': 'cle-note' });
-  const button = el('button', { class: 'button', type: 'submit' }, 'Se connecter');
+// Corrections d'identité : recharge le journal, puis le tableau.
+export async function showIdentities() {
+  if ((await guarded(reloadIdentities)) === null) return;
+  render('identites');
+}
 
-  async function submit(event) {
-    event.preventDefault();
-    if (button.disabled) return;
-    button.disabled = true;
-    status.textContent = '';
-    try {
-      const { enseignant, role } = await teacherLogin(input.value);
-      state.teacher = enseignant;
-      state.role = role;
-      await loadAndShow();
-    } catch (error) {
-      status.textContent = error.status === 429 && error.details.attendre_s ? `${error.message} (${error.details.attendre_s} s)` : serverErrorMessage(error);
-      button.disabled = false;
-      input.focus();
-    }
-  }
+async function reloadSessions() {
+  const { exercices, seances } = await listSessions();
+  state.exercices = exercices;
+  state.seances = seances;
+  return true;
+}
 
-  const screen = el('div', { class: 'screen screen--narrow' }, el('section', { class: 'panel' }, [
-    el('div', { class: 'eyebrow' }, 'Espace professeur'),
-    el('h1', { tabindex: '-1' }, 'Connexion'),
-    el('p', { class: 'muted small' }, 'Entre ta clé. La séance dure 12 h.'),
-    el('form', { novalidate: true, onsubmit: submit }, [
-      el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration, ou clé de consultation (lecture seule). Cinq essais, puis un délai croissant.")])),
-      el('div', { class: 'form-actions' }, [status, button]),
-    ]),
-    // Le retour à l'accueil (D87), visible aussi après « Se déconnecter ».
-    el('div', { class: 'form-links' }, LOGIN_LINKS.map(({ label, href }) => el('a', { class: 'button-link', href }, label))),
-  ]));
-  showScreen(main, screen, { title: 'Espace professeur', aside: 'Techniques de génie mécanique' }, '#cle');
+async function reloadIdentities() {
+  state.identites = (await listIdentityCorrections()).corrections;
+  return true;
 }
 
 // --- Tableau des séances --------------------------------------------------------------------------------------------
@@ -87,15 +67,14 @@ function download(name, text) {
   URL.revokeObjectURL(url);
 }
 
-// Une action sur une séance, après confirmation : remise à zéro (D35) ou réinitialisation du NIP (D38).
+// Une action sur une séance, après confirmation : remise à zéro (D35), réinitialisation du NIP (D38), suppression (D45).
 async function act(button, confirmation, action) {
   if (!window.confirm(confirmation)) return;
   button.disabled = true;
   try {
-    await action();
-    await loadAndShow();
+    if ((await guarded(action)) === null) return;
+    await showSessions();
   } catch (error) {
-    if (error.status === 401) { showLogin('Ta séance a expiré. Connecte-toi de nouveau.'); return; }
     window.alert(serverErrorMessage(error));
     button.disabled = false;
   }
@@ -114,12 +93,12 @@ function actionButtons(session) {
 
 function sessionsTable() {
   const rows = visibleSessions();
-  const actions = canAct(state.role);
+  const actions = canAct(role());
   const header = el('tr', {}, [
     ...SESSION_COLUMNS.map((column) => {
       const active = state.sort.key === column.key;
       return el('th', { class: column.num ? 'num' : null, 'aria-sort': active ? (state.sort.ascending ? 'ascending' : 'descending') : 'none' },
-        el('button', { class: 'sort-button', type: 'button', onclick: () => { state.sort = { key: column.key, ascending: active ? !state.sort.ascending : true }; showDashboard(); } }, column.label));
+        el('button', { class: 'sort-button', type: 'button', onclick: () => { state.sort = { key: column.key, ascending: active ? !state.sort.ascending : true }; render('seances'); } }, column.label));
     }),
     ...(actions ? [el('th', {}, 'Actions')] : []),
   ]);
@@ -140,7 +119,7 @@ function sessionsTable() {
 }
 
 function identitiesTable() {
-  const rows = identityRows(state.identites ?? []);
+  const rows = identityRows(state.identites);
   return [
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table' }, [
       el('thead', {}, el('tr', {}, [el('th', {}, 'Date'), el('th', {}, 'Exercice'), el('th', {}, 'Matricule actuel'), el('th', {}, 'Avant'), el('th', {}, 'Après'), el('th', {}, 'Attestation réémise'), el('th', { class: 'num' }, 'Séance')])),
@@ -153,50 +132,38 @@ function identitiesTable() {
   ];
 }
 
-function showDashboard() {
-  const exerciseSelect = el('select', { id: 'exercice', onchange: (event) => { state.filter.exercice = event.target.value; showDashboard(); } }, [
+// L'écran de l'un des deux onglets, avec la rangée d'onglets de la coquille.
+//   view : 'seances' ou 'identites'
+function render(view) {
+  const exerciseSelect = el('select', { id: 'exercice', onchange: (event) => { state.filter.exercice = event.target.value; render('seances'); } }, [
     el('option', { value: '' }, 'Tous les exercices'),
     ...state.exercices.map((exercise) => el('option', { value: exercise.id, selected: state.filter.exercice === exercise.id }, exercise.titre)),
   ]);
   const searchInput = el('input', { id: 'recherche', type: 'search', value: state.filter.search, autocomplete: 'off', placeholder: 'Matricule ou nom', oninput: (event) => { state.filter.search = event.target.value; refreshTable(); } });
-  const tabs = [['seances', 'Réussites'], ['identites', "Corrections d'identité"]].map(([view, label]) => el('button', {
-    class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(state.view === view), onclick: () => switchView(view),
-  }, label));
 
-  const content = el('div', { class: 'prof-content' }, state.view === 'seances' ? sessionsTable() : identitiesTable());
+  const content = el('div', { class: 'prof-content' }, view === 'seances' ? sessionsTable() : identitiesTable());
   function refreshTable() { content.replaceChildren(...sessionsTable()); }
 
   const screen = el('div', { class: 'screen screen--wide prof' }, [
     el('section', { class: 'panel' }, [
-      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, `Espace professeur${roleNote(state.role)}`), el('div', { class: 'prof-tabs', role: 'tablist' }, tabs)]),
-      el('h1', { tabindex: '-1' }, state.view === 'seances' ? 'Réussites par exercice' : "Journal des corrections d'identité"),
-      state.view === 'seances' ? el('div', { class: 'prof-toolbar' }, [
+      panelHead(view === 'seances' ? 'réussites' : "corrections d'identité", view),
+      el('h1', { tabindex: '-1' }, view === 'seances' ? 'Réussites par exercice' : "Journal des corrections d'identité"),
+      view === 'seances' ? el('div', { class: 'prof-toolbar' }, [
         el('div', { class: 'field' }, [el('label', { for: 'exercice' }, 'Exercice'), exerciseSelect]),
         el('div', { class: 'field' }, [el('label', { for: 'recherche' }, 'Recherche'), searchInput]),
         el('div', { class: 'prof-actions' }, [
           el('button', { class: 'button-outline', type: 'button', onclick: () => download(csvFileName(state.filter.exercice, new Date()), csvOf(visibleSessions())) }, 'Exporter en CSV'),
-          el('button', { class: 'button-link', type: 'button', onclick: () => loadAndShow() }, 'Rafraîchir'),
+          el('button', { class: 'button-link', type: 'button', onclick: () => showSessions() }, 'Rafraîchir'),
         ]),
       ]) : '',
       content,
       // La page d'effacement (D46) : rôle admin seulement, à part du tableau.
-      state.view === 'seances' && canAct(state.role)
+      view === 'seances' && canAct(role())
         ? el('p', { class: 'prof-purge-link' }, el('button', { class: 'button-link', type: 'button', onclick: () => showPurge() }, 'Effacer les données des étudiants…'))
         : '',
     ]),
   ]);
-  showScreen(main, screen, { title: 'Espace professeur', aside: headerAside() }, state.view === 'seances' ? '#recherche' : 'h1');
-}
-
-// À droite de la barre du haut : l'étiquette de l'espace (D94), la Gestion du contenu pour l'administration, la déconnexion.
-function headerAside() {
-  applySpace();
-  return [
-    el('span', { class: 'espace-etiquette' }, roleLabel(state.role)),
-    // La Gestion du contenu (jalon 7a, D47, D74) : rôle admin seulement — le serveur refuse de toute façon la clé de consultation.
-    ...(canAct(state.role) ? [el('a', { class: 'button-link', href: '/prof/editeur' }, 'Gestion du contenu')] : []),
-    el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter'),
-  ];
+  showScreen(main, screen, { title: TITLE, aside: headerAside() }, view === 'seances' ? '#recherche' : 'h1');
 }
 
 // --- Effacement des données des étudiants (D46) : une page à part, rôle admin seulement ------------------------------
@@ -215,12 +182,11 @@ function showPurge(notice = '') {
     if (button.disabled || input.value.trim() !== PURGE_WORD) return;
     button.disabled = true;
     try {
-      const { nombres } = await purgeStudentData(input.value.trim());
-      state.identites = null;
-      await reload();
-      showPurge(purgeSummary(nombres));
+      const result = await guarded(() => purgeStudentData(input.value.trim()));
+      if (result === null) return;
+      if ((await guarded(reloadSessions)) === null) return;
+      showPurge(purgeSummary(result.nombres));
     } catch (error) {
-      if (error.status === 401) { showLogin('Ta séance a expiré. Connecte-toi de nouveau.'); return; }
       status.textContent = serverErrorMessage(error);
       input.value = '';
       input.focus();
@@ -228,7 +194,7 @@ function showPurge(notice = '') {
   }
 
   const screen = el('div', { class: 'screen screen--narrow prof' }, el('section', { class: 'panel panel--wrong' }, [
-    el('div', { class: 'eyebrow' }, `Espace professeur${roleNote(state.role)}`),
+    eyebrow('effacement des données'),
     el('h1', { tabindex: '-1' }, 'Effacer les données des étudiants'),
     el('p', { class: 'small' }, purgeIntro(state.seances.length)),
     el('ol', { class: 'purge-steps' }, [
@@ -241,54 +207,7 @@ function showPurge(notice = '') {
         el('div', { class: 'form-actions' }, [status, button]),
       ])),
     ]),
-    el('p', { class: 'prof-purge-link' }, el('button', { class: 'button-link', type: 'button', onclick: () => showDashboard() }, '← Retour aux réussites')),
+    el('p', { class: 'prof-purge-link' }, el('button', { class: 'button-link', type: 'button', onclick: () => showSessions() }, '← Retour aux réussites')),
   ]));
-  showScreen(main, screen, { title: 'Espace professeur', aside: headerAside() }, '#confirmation');
+  showScreen(main, screen, { title: TITLE, aside: headerAside() }, '#confirmation');
 }
-
-async function switchView(view) {
-  state.view = view;
-  if (view === 'identites' && state.identites === null) {
-    try {
-      state.identites = (await listIdentityCorrections()).corrections;
-    } catch (error) {
-      if (error.status === 401) { showLogin('Ta séance a expiré. Connecte-toi de nouveau.'); return; }
-      state.identites = [];
-    }
-  }
-  showDashboard();
-}
-
-async function logout() {
-  try { await teacherLogout(); } catch { /* le cookie expirera seul */ }
-  state.teacher = null;
-  state.role = null;
-  state.seances = [];
-  state.identites = null;
-  showLogin('Déconnecté.');
-}
-
-// Recharge les séances (et, si elles sont affichées, les corrections d'identité) dans l'état.
-async function reload() {
-  const { enseignant, role, exercices, seances } = await listSessions();
-  state.teacher = enseignant;
-  state.role = role;
-  state.exercices = exercices;
-  state.seances = seances;
-  if (state.view === 'identites') state.identites = (await listIdentityCorrections()).corrections;
-}
-
-// Charge, puis affiche le tableau ; un 401 ramène à la connexion.
-async function loadAndShow() {
-  try {
-    await reload();
-    showDashboard();
-    return true;
-  } catch (error) {
-    if (error.status === 401) { showLogin(); return false; }
-    showLogin(serverErrorMessage(error));
-    return false;
-  }
-}
-
-loadAndShow();

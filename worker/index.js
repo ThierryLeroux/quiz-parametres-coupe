@@ -1,8 +1,10 @@
 // Serveur du quiz : un Worker Cloudflare (décisions D19 à D23, D31 à D36, D47 à D49, D92 ; API décrite dans SPEC §7).
 //   /api/…               → le serveur de correction, en JSON
 //   /api/demo/…          → le mode démo (D92) : une séance anonyme, sans trace durable, et le spécimen d'attestation
-//   /api/prof/…          → l'espace professeur, derrière un cookie de séance signé
-//   /api/prof/editeur/…  → la Gestion du contenu (exercices, banque, tables, images, sauvegarde), rôle admin seulement
+//   /api/prof/…          → l'espace enseignant, derrière un cookie de séance signé
+//   /api/prof/editeur/…  → la Gestion du contenu (exercices, banque, tables, images, sauvegarde) : les écritures, rôle admin
+//                          seulement ; dix lectures ouvertes au rôle consultation, sans jamais un brouillon (D95)
+//   /prof/editeur        → l'ancienne adresse de la Gestion du contenu : redirigée vers /prof#exercices (D95)
 //   le reste             → les fichiers de site/, servis tels quels (liaison ASSETS de wrangler.jsonc)
 //
 // Ce fichier ne fait que recevoir les requêtes et enchaîner les étapes. Les règles du quiz sont
@@ -661,7 +663,7 @@ async function demoSpecimen(request, env, { now, random }) {
   });
 }
 
-// --- Espace professeur : /api/prof/… (D34, D35, D44) ------------------------------------------------------
+// --- Espace enseignant : /api/prof/… (D34, D35, D44, D95) ------------------------------------------------------
 // Deux clés : CLE_ADMIN ouvre le rôle « admin », CLE_CONSULTATION (facultative) le rôle
 // « consultation », lecture seule. L'enseignant s'appelle comme son rôle, pour l'instant. La séance
 // est un cookie signé (acces.js) qui porte le rôle ; chaque route le vérifie : aucune ne répond sans
@@ -682,6 +684,13 @@ async function requireAdmin(request, env, now) {
   const session = await requireTeacher(request, env, now);
   if (!canAct(session.role)) throw new HttpError(403, ACTION_RESERVED);
   return session;
+}
+
+// Une lecture de la Gestion du contenu ouverte aux deux rôles (D95) : la séance, et `reader` — le rôle consultation, qui ne
+// reçoit que ce qui est publié, jamais un brouillon.
+async function requireReader(request, env, now) {
+  const session = await requireTeacher(request, env, now);
+  return { ...session, reader: !canAct(session.role) };
 }
 
 // Le rôle qu'ouvre la clé présentée, ou null. Les deux clés sont toujours examinées, en temps
@@ -718,6 +727,13 @@ async function profConnexion(request, env, { now }) {
 // POST /api/prof/deconnexion — le cookie est effacé.
 async function profDeconnexion() {
   return json({ deconnecte: true }, 200, { 'set-cookie': profCookieHeader(null) });
+}
+
+// GET /api/prof/role — la séance enseignant ouverte : { enseignant, role, expire_le } (D95 : la page le relit à son
+// ouverture, pour savoir quels onglets offrir et comment). 401 sans cookie valide. Rien n'est journalisé.
+async function profRole(request, env, { now }) {
+  const { teacher, role, expires } = await requireTeacher(request, env, now);
+  return json({ enseignant: teacher, role, expire_le: expires });
 }
 
 // Les titres des exercices, par identifiant, pour le tableau des séances (et son export CSV) : le titre en vigueur
@@ -824,9 +840,11 @@ async function profIdentites(request, env, { now }) {
   return json({ corrections: await base.listIdentityCorrections(env.DB) });
 }
 
-// --- La Gestion du contenu : /api/prof/editeur/… (D47 à D49, D74), rôle admin seulement ---------------------------
-// Chaque route exige le cookie professeur avec le rôle admin (requireAdmin : 401 sans cookie, 403 en
-// consultation), et chaque action est inscrite au journal des actions. L'aperçu, lui, n'enregistre rien.
+// --- La Gestion du contenu : /api/prof/editeur/… (D47 à D49, D74, D95) ---------------------------------------------
+// Chaque écriture exige le cookie enseignant avec le rôle admin (requireAdmin : 401 sans cookie, 403 en
+// consultation), et chaque action est inscrite au journal des actions. Dix lectures acceptent aussi le rôle
+// consultation (requireReader, D95 ; la liste : consultationRoutes), qui ne reçoit jamais un brouillon ; l'aperçu
+// et les lectures n'enregistrent rien et ne sont pas journalisés.
 
 const CONFLICT = "Ce brouillon a été enregistré ailleurs depuis ton ouverture (un autre onglet ou un autre appareil). Recharge la page pour reprendre ses dernières modifications ; rien n'a été écrasé.";
 
@@ -864,9 +882,10 @@ async function shownTables(env, tables) {
 const toolNamesOf = (latest) => new Map(latest.materiaux.materiaux_outil.map((m) => [m.cle, m.nom]));
 
 // GET /api/prof/editeur/exercices — la liste : brouillon modifié ou non, dernière version, séances par version.
+// Pour le rôle consultation (D95) : les exercices publiés seulement, sans « modifié » ni date de brouillon.
 async function editeurExercices(request, env, { now }) {
-  await requireAdmin(request, env, now);
-  const rows = await base.listExercises(env.DB);
+  const { reader } = await requireReader(request, env, now);
+  const rows = (await base.listExercises(env.DB)).filter((row) => !reader || row.contenu_publie !== null);
   const presentations = await livePresentations(env, rows);
   const titles = rows.map((row) => ({ id: row.id, titre: presentations.get(row.id)?.titre ?? null, archive_le: row.archive_le }));
   const list = [];
@@ -883,11 +902,13 @@ async function editeurExercices(request, env, { now }) {
       titre_publie: presentations.get(row.id)?.titre ?? null,
       cours_publie: presentations.get(row.id)?.cours ?? null,
       // Modifié : ses valeurs seules, pour un exercice publié (la présentation du brouillon dort, D78).
-      modifie: row.contenu_publie === null || !sameContent(exerciseValues(row.brouillon), exerciseValues(row.contenu_publie)),
+      ...(reader ? {} : {
+        modifie: row.contenu_publie === null || !sameContent(exerciseValues(row.brouillon), exerciseValues(row.contenu_publie)),
+        brouillon_modifie_le: row.brouillon_modifie_le,
+      }),
       derniere_version: row.derniere_version,
       publie_le: row.publie_le,
       archive_le: row.archive_le,
-      brouillon_modifie_le: row.brouillon_modifie_le,
       seances: row.seances,
       versions: await base.listVersions(env.DB, row.id),
       liste: shown.liste,
@@ -900,19 +921,37 @@ async function editeurExercices(request, env, { now }) {
 
 // GET /api/prof/editeur/exercice?id=<id> — le brouillon avec sa révision, les versions (sans contenu), la dernière version
 // (contenu), les tables, et, pour un exercice publié, sa présentation en vigueur (D78 : le panneau ; null sinon).
+// Pour le rôle consultation (D95) : la dernière version publiée et ses tables, la présentation en vigueur et son
+// historique — rien du brouillon (ni contenu, ni révision, ni erreurs, ni retouches en attente) ; jamais publié, 404.
 async function editeurExercice(request, env, { now }) {
-  await requireAdmin(request, env, now);
+  const { reader } = await requireReader(request, env, now);
   const record = await editorExercise(env, new URL(request.url).searchParams.get('id'));
   const latest = await base.findLatestVersion(env.DB, record.id);
-  const tables = await exerciseTables(env, record);
   const tablesVersions = await base.listTablesVersions(env.DB);
+  const tablesList = tablesVersions.map(({ id, creee_le }) => ({ id, creee_le }));
+  if (reader) {
+    if (latest === null) throw new HttpError(404, "Cet exercice n'existe pas.");
+    const row = await base.findTables(env.DB, latest.tables_id);
+    if (row === null) throw new Error(`Tables de référence « ${latest.tables_id} » introuvables (exercice ${record.id})`);
+    const tables = { id: row.id, ...tablesOf(row) };
+    return json({
+      exercice: { id: record.id, publie_le: record.publie_le, archive_le: record.archive_le, tables_id: tables.id },
+      versions: await base.listVersions(env.DB, record.id),
+      derniere_version: { numero: latest.numero, contenu: latest.contenu, tables_id: latest.tables_id, publiee_le: latest.publiee_le },
+      tables: await shownTables(env, tables),
+      tables_versions: tablesList,
+      derniere_tables: tablesVersions[0]?.id ?? tables.id,
+      presentation: await exercisePresentationPayload(env, record, latest, { reader: true }),
+    });
+  }
+  const tables = await exerciseTables(env, record);
   return json({
     exercice: { id: record.id, brouillon: record.brouillon, revision: record.revision, brouillon_modifie_le: record.brouillon_modifie_le, publie_le: record.publie_le, archive_le: record.archive_le, tables_id: tables.id },
     versions: await base.listVersions(env.DB, record.id),
     derniere_version: latest === null ? null : { numero: latest.numero, contenu: latest.contenu, tables_id: latest.tables_id, publiee_le: latest.publiee_le },
     tables: await shownTables(env, tables),
     // Les versions des tables (D62) : la plus récente en tête ; la page signale quand le brouillon n'est pas dessus.
-    tables_versions: tablesVersions.map(({ id, creee_le }) => ({ id, creee_le })),
+    tables_versions: tablesList,
     derniere_tables: tablesVersions[0]?.id ?? tables.id,
     erreurs: draftErrors(record.brouillon, tables),
     presentation: latest === null ? null : await exercisePresentationPayload(env, record, latest),
@@ -1083,9 +1122,11 @@ async function editeurPublier(request, env, { now }) {
 }
 
 // POST /api/prof/editeur/apercu — { id, brouillon } ou { id, version } : dix questions et leurs réponses. Rien n'est enregistré.
+// Le rôle consultation n'a que l'aperçu d'une version publiée (D95) : un brouillon, ou sans version, 403.
 async function editeurApercu(request, env, { now, random }) {
-  await requireAdmin(request, env, now);
+  const { reader } = await requireReader(request, env, now);
   const body = await readBody(request, EDITOR_BODY_MAX);
+  if (reader && (!Number.isInteger(body.version) || body.brouillon !== undefined)) throw new HttpError(403, ACTION_RESERVED);
   const record = await editorExercise(env, body.id);
   let assembledExercise;
   if (Number.isInteger(body.version)) {
@@ -1103,8 +1144,9 @@ async function editeurApercu(request, env, { now, random }) {
 }
 
 // GET /api/prof/editeur/banque — les outils de la banque, avec le nombre d'exercices qui en ont une copie (brouillons).
+// Ouverte aux deux rôles (D95) : la banque n'a ni brouillon ni version.
 async function editeurBanque(request, env, { now }) {
-  await requireAdmin(request, env, now);
+  await requireReader(request, env, now);
   const tools = await base.listBankTools(env.DB);
   const exercises = await base.listExercises(env.DB);
   const tables = await latestTables(env);
@@ -1128,11 +1170,15 @@ const tablesErrors = (contenu, images = null, presentation = null) => validateTa
 // y sont sans effet pour une clé que la présentation en vigueur connaît : les erreurs sont celles du brouillon avec la
 // présentation par-dessus (ce que la publication prendra), « modifié » ne compare que les valeurs, et
 // `presentation_en_attente` dit les retouches de présentation faites dans le brouillon avant D76, jamais publiées.
+// Pour le rôle consultation (D95) : les versions publiées, la dernière et la présentation en vigueur — jamais le brouillon
+// (la page lit les valeurs de la dernière version par tables/version).
 async function editeurTables(request, env, { now }) {
-  await requireAdmin(request, env, now);
-  const draft = await base.findTablesDraft(env.DB);
+  const { reader } = await requireReader(request, env, now);
   const versions = await base.listTablesVersions(env.DB);
   const presentation = await loadPresentation(env.DB);
+  const versionsList = versions.map((v) => ({ id: v.id, creee_le: v.creee_le, utilisations: { versions_exercice: v.versions_exercice, brouillons: v.brouillons } }));
+  if (reader) return json({ presentation: presentation.contenu, versions: versionsList, derniere: versions[0]?.id ?? null });
+  const draft = await base.findTablesDraft(env.DB);
   const contenu = draftTablesOf(draft.contenu);
   const base_ = draft.base_id === null ? null : await base.findTables(env.DB, draft.base_id);
   return json({
@@ -1141,15 +1187,15 @@ async function editeurTables(request, env, { now }) {
     erreurs: tablesErrors(applyPresentation(contenu, presentation.contenu), await base.listImages(env.DB), presentation.contenu),
     presentation: presentation.contenu,
     presentation_en_attente: pendingDraftPresentation(base_ === null ? null : tablesOf(base_), contenu, presentation.contenu, toolNamesOf(presentation.latest)),
-    versions: versions.map((v) => ({ id: v.id, creee_le: v.creee_le, utilisations: { versions_exercice: v.versions_exercice, brouillons: v.brouillons } })),
+    versions: versionsList,
     derniere: versions[0]?.id ?? null,
     suggestion: nextRevision(versions[0]?.id ?? 'A2026_r0'),
   });
 }
 
-// GET /api/prof/editeur/tables/version?id=<id> — une version publiée des tables, complétée.
+// GET /api/prof/editeur/tables/version?id=<id> — une version publiée des tables, complétée. Ouverte aux deux rôles (D95).
 async function editeurTablesVersion(request, env, { now }) {
-  await requireAdmin(request, env, now);
+  await requireReader(request, env, now);
   const id = new URL(request.url).searchParams.get('id');
   const row = isTablesId(id) ? await base.findTables(env.DB, id) : null;
   if (row === null) throw new HttpError(404, "Cette version des tables de référence n'existe pas.");
@@ -1353,8 +1399,9 @@ const changesText = (lignes) => `${lignes.length} changement(s) : ${lignes.slice
 // GET /api/prof/editeur/presentation — la présentation en vigueur (celle du panneau), sa révision, si elle a déjà été
 // appliquée, ses erreurs, ses avertissements (une image archivée en vigueur : elle ne bloque rien, D76), les noms des
 // matières d'outil, et l'historique, le plus récent en tête, avec pour chaque contenu remplacé ce que le rétablir changerait.
+// Ouverte aux deux rôles (D95) : la présentation en vigueur n'a pas de brouillon.
 async function editeurPresentation(request, env, { now }) {
-  await requireAdmin(request, env, now);
+  await requireReader(request, env, now);
   const presentation = await loadPresentation(env.DB);
   const names = toolNamesOf(presentation.latest);
   const historique = (await base.listPresentationHistory(env.DB)).reverse();
@@ -1445,9 +1492,9 @@ const versionNames = async (env, id) => copyNames((await base.listVersionContent
 // Ce que le panneau de la présentation d'un exercice publié reçoit (GET …/exercice/presentation, et la page de
 // l'exercice) : la présentation en vigueur, sa révision, si elle a déjà été appliquée, les noms des copies (et si chacune
 // est dans la dernière version), ses erreurs, ses avertissements (une photo archivée en vigueur : elle ne bloque rien),
-// les retouches en attente du brouillon (D78, point 10), et l'historique, le plus récent en tête, avec pour chaque
-// contenu remplacé ce que le rétablir changerait.
-async function exercisePresentationPayload(env, record, latest) {
+// les retouches en attente du brouillon (D78, point 10 ; vides pour le rôle consultation, qui ne lit pas le brouillon,
+// D95), et l'historique, le plus récent en tête, avec pour chaque contenu remplacé ce que le rétablir changerait.
+async function exercisePresentationPayload(env, record, latest, { reader = false } = {}) {
   const presentation = await loadExercisePresentation(env.DB, record.id, latest.contenu);
   const versions = (await base.listVersionContentsOf(env.DB, record.id)).map((v) => v.contenu);
   const names = copyNames(versions);
@@ -1464,7 +1511,7 @@ async function exercisePresentationPayload(env, record, latest) {
     outils: presentation.contenu.outils.map((e) => ({ id: e.id, nom: names.get(e.id) ?? e.id, derniere_version: latestIds.has(e.id) })),
     erreurs: exercisePresentationErrors(presentation.contenu, { images, inForce: presentation.contenu }),
     avertissements: exerciseArchivedWarnings(presentation.contenu, images, names),
-    en_attente: pendingExercisePresentation(versions, record.brouillon, presentation.contenu, names, historique.map((h) => h.contenu)),
+    en_attente: reader ? { lignes: [], contenu: null } : pendingExercisePresentation(versions, record.brouillon, presentation.contenu, names, historique.map((h) => h.contenu)),
     // Les titres en double (D79) : un avertissement, qui nomme les autres et ne bloque rien.
     doublons: record.archive_le === null ? sameTitleExercises(presentation.contenu.titre, await titlesInForce(env), record.id) : [],
     historique: historique.map((h) => ({
@@ -1475,10 +1522,11 @@ async function exercisePresentationPayload(env, record, latest) {
 }
 
 // GET /api/prof/editeur/exercice/presentation?id=<id> — la présentation en vigueur d'un exercice publié et son historique.
+// Ouverte aux deux rôles (D95) ; la consultation ne reçoit pas les retouches en attente du brouillon.
 async function editeurExercicePresentation(request, env, { now }) {
-  await requireAdmin(request, env, now);
+  const { reader } = await requireReader(request, env, now);
   const record = await editorExercise(env, new URL(request.url).searchParams.get('id'));
-  return json(await exercisePresentationPayload(env, record, await publishedLatest(env, record)));
+  return json(await exercisePresentationPayload(env, record, await publishedLatest(env, record), { reader }));
 }
 
 // Écrit une présentation d'exercice à la place de celle en vigueur (application, renommage ou rétablissement) : 409 si la
@@ -1556,9 +1604,9 @@ async function bankTool(env, id) {
 
 // GET /api/prof/editeur/banque/outil?id=<id> — la page d'un outil : l'outil (avec qui a enregistré son contenu), les tables,
 // ses erreurs et avertissements, et son historique, le plus récent en tête — pour chaque contenu remplacé, ce que le
-// rétablir changerait, et ses erreurs et avertissements avec les tables d'aujourd'hui (D79).
+// rétablir changerait, et ses erreurs et avertissements avec les tables d'aujourd'hui (D79). Ouverte aux deux rôles (D95).
 async function editeurBanqueOutil(request, env, { now }) {
-  await requireAdmin(request, env, now);
+  await requireReader(request, env, now);
   const record = await bankTool(env, new URL(request.url).searchParams.get('id'));
   const tables = await latestTables(env);
   const images = await base.listImages(env.DB);
@@ -1713,9 +1761,9 @@ async function imageContext(env) {
   };
 }
 
-// GET /api/prof/editeur/images[?usage=outil|operation] — la liste des images avec où chacune est utilisée.
+// GET /api/prof/editeur/images[?usage=outil|operation] — la liste des images avec où chacune est utilisée. Ouverte aux deux rôles (D95).
 async function editeurImages(request, env, { now }) {
-  await requireAdmin(request, env, now);
+  await requireReader(request, env, now);
   const usage = new URL(request.url).searchParams.get('usage');
   const context = await imageContext(env);
   const rows = (await base.listImages(env.DB)).filter((row) => usage === null || row.usage === usage);
@@ -1907,6 +1955,7 @@ const ROUTES = {
   'GET /api/demo/specimen': demoSpecimen,
   'POST /api/prof/connexion': profConnexion,
   'POST /api/prof/deconnexion': profDeconnexion,
+  'GET /api/prof/role': profRole,
   'GET /api/prof/seances': profSeances,
   'POST /api/prof/remise-a-zero': profRemiseAZero,
   'POST /api/prof/reinitialisation-nip': profReinitialisationNip,
@@ -1957,11 +2006,28 @@ const ROUTES = {
   'POST /api/prof/editeur/import': editeurImport,
 };
 
-// Les routes de la Gestion du contenu, toutes réservées au rôle admin (tests : refus du rôle consultation sur chacune).
-// Une fonction, pas une constante : le Workers runtime n'accepte comme exports du module d'entrée
-// que des fonctions et le gestionnaire (un test le vérifie).
+// Les routes de la Gestion du contenu (tests : un cas par route pour le rôle consultation). Une fonction, pas une
+// constante : le Workers runtime n'accepte comme exports du module d'entrée que des fonctions et le gestionnaire (un
+// test le vérifie).
 export function editorRoutes() {
   return Object.keys(ROUTES).filter((route) => route.includes('/api/prof/editeur/'));
+}
+
+// Celles qui acceptent le rôle consultation (D95) : des lectures, qui ne rendent jamais un brouillon (requireReader) ;
+// toute autre route de la Gestion du contenu lui répond 403.
+export function consultationRoutes() {
+  return [
+    'GET /api/prof/editeur/exercices',
+    'GET /api/prof/editeur/exercice',
+    'GET /api/prof/editeur/exercice/presentation',
+    'POST /api/prof/editeur/apercu', // une version publiée seulement
+    'GET /api/prof/editeur/banque',
+    'GET /api/prof/editeur/banque/outil',
+    'GET /api/prof/editeur/tables',
+    'GET /api/prof/editeur/tables/version',
+    'GET /api/prof/editeur/presentation',
+    'GET /api/prof/editeur/images',
+  ];
 }
 
 // Traite une requête. `tools` porte l'horloge et l'aléa — celui des tirages (random) et celui des
@@ -1980,6 +2046,8 @@ export async function handle(request, env, tools = REAL_TOOLS()) {
       return new Response('Une erreur est survenue.', { status: 500, headers: { 'cache-control': 'no-store' } });
     }
   }
+  // /prof/editeur, l'ancienne adresse de la Gestion du contenu (D74) : l'onglet Exercices de l'espace enseignant (D95).
+  if (pathname === '/prof/editeur' || pathname === '/prof/editeur/') return Response.redirect(new URL('/prof#exercices', request.url).href, 302);
   if (pathname !== '/api' && !pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
 
   if (pathname === '/api/version' && request.method === 'GET') return json({ version: pkg.version });

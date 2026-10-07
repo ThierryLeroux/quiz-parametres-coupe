@@ -196,7 +196,7 @@
 .tables-edit input.input-moyen { min-width: 90px; width: 110px; }
 .tables-edit input[type='color'] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--color-accent); background: var(--color-input-bg); cursor: pointer; }
 .tables-edit input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--color-accent); }
-.tables-edit input:disabled { opacity: 0.4; }
+.tables-edit input.sans-objet { opacity: 0.4; } /* l'avance d'un filetage : sans objet (D69) — pas :disabled, que la lecture seule emploie aussi (D95) */
 .tables-edit .ligne-famille td { border-top: 2px solid var(--color-text-muted); }
 .tables-edit .picto-cell { min-width: 220px; }
 .tables-edit input.input-legende { min-width: 240px; width: 280px; } /* la légende de l’image : 40 caractères visibles (D68) */

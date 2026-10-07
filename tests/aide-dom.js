@@ -54,7 +54,15 @@ export class FakeElement {
   get dataset() { return Object.fromEntries([...this.attributes].filter(([name]) => name.startsWith('data-')).map(([name, value]) => [name.slice(5), value])); }
   get hidden() { return this.hasAttribute('hidden'); }
   set hidden(value) { if (value) this.setAttribute('hidden', ''); else this.removeAttribute('hidden'); }
-  get value() { return this.ownValue ?? this.getAttribute('value') ?? ''; }
+  // La valeur d'un champ ; celle d'une liste déroulante est l'option choisie (l'attribut selected), sinon la première.
+  get value() {
+    if (this.ownValue !== undefined) return this.ownValue;
+    if (this.tagName === 'SELECT') {
+      const options = this.querySelectorAll('option');
+      return (options.find((option) => option.hasAttribute('selected')) ?? options[0])?.getAttribute('value') ?? '';
+    }
+    return this.getAttribute('value') ?? '';
+  }
   set value(text) { this.ownValue = String(text); }
   get textContent() { return this.childNodes.map((node) => node.textContent).join(''); }
   set textContent(text) { this.replaceChildren(...(String(text) === '' ? [] : [String(text)])); }
@@ -95,6 +103,19 @@ export class FakeElement {
     const at = parent.childNodes.indexOf(this);
     parent.childNodes.splice(at, 0, ...adopted);
   }
+  // Insère un enfant avant un autre (les boutons des crochets et la liste des cours, la Gestion du contenu) ; sans repère, à la fin.
+  insertBefore(node, reference) {
+    if (reference && reference.parentNode === this) reference.before(node);
+    else this.append(node);
+    return node;
+  }
+  // Remplace ce nœud par d'autres (le badge « facteur forcé », redessiné à chaque validation).
+  replaceWith(...nodes) {
+    if (!this.parentNode) return;
+    this.before(...nodes);
+    this.remove();
+  }
+  scrollIntoView() {} // les panneaux de confirmation et d'aperçu s'y amènent ; rien à faire ici
 
   addEventListener(type, listener) {
     if (!this.listeners.has(type)) this.listeners.set(type, []);
@@ -193,7 +214,10 @@ export function installDom({ url = 'http://localhost/?exercice=m10-tournage-vc',
     addEventListener() {},
   };
   // Posés par defineProperty : Node peut déjà déclarer certains de ces noms (localStorage) en lecture seule.
-  const globals = { document, window: globalThis, location: new URL(url), localStorage: storage, scrollTo: () => {}, addEventListener: () => {}, matchMedia: () => ({ matches: false, addEventListener() {} }) };
+  // history.replaceState : l'onglet courant de l'espace enseignant dans le fragment de l'adresse (D95) ; ici, il change location.
+  const location = new URL(url);
+  const history = { replaceState: (_state, _title, next) => { location.href = new URL(next, location.href).href; } };
+  const globals = { document, window: globalThis, location, history, localStorage: storage, scrollTo: () => {}, addEventListener: () => {}, matchMedia: () => ({ matches: false, addEventListener() {} }) };
   for (const [name, value] of Object.entries(globals)) Object.defineProperty(globalThis, name, { value, configurable: true, writable: true });
   return { document, main, header };
 }

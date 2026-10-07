@@ -58,21 +58,17 @@ export async function prepareUpload(file, usage) {
 //   upload   : async (file) → la fiche de l'image téléversée (l'appelant fait l'appel au serveur et tient la liste)
 //   onChange : () → appelée après chaque changement (l'appelant relit read())
 //   idPrefix : pour les identifiants des contrôles
-export function imagePicker({ usage, images, value, upload, onChange, idPrefix, compact = false }) {
+//   readOnly : la consultation (D95) — l'image en cours et son nom, sans aucun bouton ni galerie
+export function imagePicker({ usage, images, value, upload, onChange, idPrefix, compact = false, readOnly = false }) {
   let list = images;
   let current = value ?? null;
   const nameOf = (id) => list.find((image) => image.id === id)?.nom ?? id;
 
   const preview = el('img', { class: 'image-picker-preview', alt: '', onerror: () => { preview.style.visibility = 'hidden'; } });
   const caption = el('span', { class: 'muted smaller' });
-  const search = el('input', { id: `${idPrefix}-recherche`, type: 'search', autocomplete: 'off', placeholder: 'Chercher par nom…' });
-  const gallery = el('ul', { class: 'image-gallery' });
-  const panel = el('div', { class: 'image-picker-panel', hidden: true });
-  const status = el('div', { class: 'field-note field-note--multi', role: 'status' });
-  const fileInput = el('input', { id: `${idPrefix}-fichier`, type: 'file', accept: 'image/*,.svg' });
-  const toggle = el('button', { class: 'button-small button-small--neutral', type: 'button', 'aria-expanded': 'false' }, 'Choisir une image…');
 
-  function refresh() {
+  // L'image en cours : la vignette et « nom (identifiant) », ou « Aucune photo d'outil. ».
+  function paintCurrent() {
     if (current === null) {
       preview.style.visibility = 'hidden';
       preview.removeAttribute('src');
@@ -82,6 +78,26 @@ export function imagePicker({ usage, images, value, upload, onChange, idPrefix, 
       preview.src = imageUrl(current);
       caption.textContent = `${nameOf(current)} (${current})`;
     }
+  }
+
+  if (readOnly) {
+    paintCurrent();
+    return {
+      element: el('div', { class: `image-picker${compact ? ' image-picker--compact' : ''}` }, el('div', { class: 'image-picker-current' }, [preview, el('div', {}, caption)])),
+      read: () => current,
+      setImages: (next) => { list = next; paintCurrent(); },
+    };
+  }
+
+  const search = el('input', { id: `${idPrefix}-recherche`, type: 'search', autocomplete: 'off', placeholder: 'Chercher par nom…' });
+  const gallery = el('ul', { class: 'image-gallery' });
+  const panel = el('div', { class: 'image-picker-panel', hidden: true });
+  const status = el('div', { class: 'field-note field-note--multi', role: 'status' });
+  const fileInput = el('input', { id: `${idPrefix}-fichier`, type: 'file', accept: 'image/*,.svg' });
+  const toggle = el('button', { class: 'button-small button-small--neutral', type: 'button', 'aria-expanded': 'false' }, 'Choisir une image…');
+
+  function refresh() {
+    paintCurrent();
     if (panel.hidden) return; // la galerie n'est dessinée qu'une fois dépliée
     const shown = filterImages(list, { usage, query: search.value, current });
     gallery.replaceChildren(...shown.map((image) => el('li', {}, el('button', {

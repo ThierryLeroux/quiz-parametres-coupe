@@ -158,7 +158,7 @@ test('renderHomeList (D91) : l’en-tête sur le fond (sur-titre, h1 au focus, t
   assert.deepEqual(teacher.children.map((c) => c.tagName), ['DIV', 'A']);
   const link = teacher.querySelector('a.button-outline[href="/prof"]');
   assert.equal(link.textContent, TEACHER_LINK_LABEL);
-  assert.equal(TEACHER_LINK_LABEL, 'Espace professeur →');
+  assert.equal(TEACHER_LINK_LABEL, 'Espace enseignant →'); // « enseignant », jamais « professeur » (D95)
   assert.doesNotMatch(main.textContent, /clé/);
   assert.deepEqual(main.querySelectorAll('a[href="/prof"]').length, 1);
   // La barre du haut et le titre de l'onglet.

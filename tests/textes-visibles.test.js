@@ -1,8 +1,9 @@
 // Aucun numéro de décision (« D25 », « D40 »…) dans un texte visible : écrans du quiz, attestation,
-// /verifier, espace professeur, Gestion du contenu, et les messages que le serveur renvoie au navigateur. Les
+// /verifier, espace enseignant, Gestion du contenu, et les messages que le serveur renvoie au navigateur. Les
 // numéros restent dans les commentaires du code et dans les documents (D52). Plus aucun « éditeur » affiché
 // non plus, ni bouton « Ouvrir » dans la Gestion du contenu (D74). Depuis D93 : aucun vocabulaire interne
-// (serveur, enregistrement, détenir, recomposer, jeton) ni vouvoiement dans une phrase affichable.
+// (serveur, enregistrement, détenir, recomposer, jeton) ni vouvoiement dans une phrase affichable. Depuis D95 :
+// « enseignant », jamais « professeur », à l'écran.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -14,7 +15,6 @@ const FICHIERS = [
   ...listFiles('site/js/ui/', '.js'),
   ...listFiles('worker/', '.js'),
   ...listFiles('site/', '.html'),
-  ...listFiles('site/prof/', '.html'),
 ];
 
 // Retire les commentaires (//, /* */, <!-- -->) : ce qui reste et se trouve entre guillemets est du texte affichable.
@@ -41,26 +41,42 @@ test('aucun numéro de décision « Dnn » dans une chaîne affichable du site o
   assert.ok(FICHIERS.length > 20);
 });
 
-// La page /prof/editeur s'appelle « Gestion du contenu » (D74) : plus aucun « éditeur » affiché — titre, en-tête, lien
-// de l'espace professeur, accueil, messages. L'adresse, les routes, les fichiers et les identifiants gardent « editeur ».
+// La Gestion du contenu (D74) : plus aucun « éditeur » affiché — titres, en-têtes, accueil, messages. Les routes, les
+// fichiers et les identifiants gardent « editeur ». Depuis D95, ses onglets sont ceux de l'espace enseignant, /prof.
 const EDITEUR = /[Éé]diteur/;
 
-test('aucun « éditeur » dans une chaîne affichable (D74) : la page s’appelle « Gestion du contenu »', () => {
+test('aucun « éditeur » dans une chaîne affichable (D74) ; la page /prof s’appelle « Espace enseignant » (D95)', () => {
   const trouves = [];
   for (const fichier of FICHIERS) {
     for (const texte of textesDe(fichier)) if (EDITEUR.test(texte)) trouves.push(`${fichier} : ${texte.trim().slice(0, 80)}`);
   }
   assert.deepEqual(trouves, []);
-  const page = readFileSync(new URL('site/prof/editeur.html', ROOT), 'utf8');
-  assert.match(page, /<title>Gestion du contenu — /);
-  assert.match(page, /id="header-title">Gestion du contenu</);
+  const page = readFileSync(new URL('site/prof.html', ROOT), 'utf8');
+  assert.match(page, /<title>Espace enseignant — /);
+  assert.match(page, /id="header-title">Espace enseignant</);
 });
 
-// Le bouton qui ouvre un élément d'une liste pour le modifier s'appelle « Modifier » (D74), jamais « Ouvrir ».
-test('Gestion du contenu (D74) : aucun bouton « Ouvrir », les listes disent « Modifier »', () => {
+// Le bouton qui ouvre un élément d'une liste pour le modifier s'appelle « Modifier » (D74), jamais « Ouvrir » ; pour la
+// consultation, qui ne modifie rien, « Voir » (D95).
+test('Gestion du contenu (D74, D95) : aucun bouton « Ouvrir », les listes disent « Modifier », ou « Voir » en consultation', () => {
   const chaines = sansCommentaires(readFileSync(new URL('site/js/ui/editeur.js', ROOT), 'utf8')).match(CHAINES);
   assert.equal(chaines.filter((texte) => texte.slice(1, -1) === 'Ouvrir').length, 0);
   assert.equal(chaines.filter((texte) => texte.slice(1, -1) === 'Modifier').length, 2); // Exercices et Banque d'outils
+  assert.equal(chaines.filter((texte) => texte.slice(1, -1) === 'Voir').length, 2);
+});
+
+// --- D95 : « enseignant », jamais « professeur », dans un texte affiché -----------------------------------------------------
+const PROFESSEUR = /\bprofesseurs?\b/i;
+
+test('D95 : aucun « professeur » dans une phrase affichable — c’est « enseignant » ; les identifiants, routes et fichiers gardent « prof »', () => {
+  const trouves = [];
+  for (const fichier of FICHIERS) {
+    for (const texte of textesDe(fichier)) if (estUnePhrase(texte) && PROFESSEUR.test(texte)) trouves.push(`${fichier} : ${texte.trim().slice(0, 100)}`);
+  }
+  assert.deepEqual(trouves, []);
+  assert.ok(PROFESSEUR.test("'Espace professeur'")); // le détecteur voit bien l'ancien nom
+  assert.equal(PROFESSEUR.test('/api/prof/seances'), false); // « prof » reste
+  assert.match(readFileSync(new URL('site/js/ui/home-screen.js', ROOT), 'utf8'), /TEACHER_LINK_LABEL = 'Espace enseignant →'/);
 });
 
 // --- D93 : aucun vocabulaire interne, aucun vouvoiement ------------------------------------------------------------------

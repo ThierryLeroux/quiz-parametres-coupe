@@ -115,7 +115,11 @@ try {
     assert.equal(page.status, 200);
     assert.match(await page.text(), /<title>Quiz — paramètres de coupe<\/title>/);
     assert.match(await (await fetch(`${ORIGIN}/verifier`)).text(), /Vérification d'une attestation/);
-    assert.match(await (await fetch(`${ORIGIN}/prof`)).text(), /Espace professeur/);
+    assert.match(await (await fetch(`${ORIGIN}/prof`)).text(), /Espace enseignant/);
+    // L'ancienne adresse de la Gestion du contenu redirige vers l'onglet Exercices de l'espace enseignant (D95).
+    const ancienne = await fetch(`${ORIGIN}/prof/editeur`, { redirect: 'manual' });
+    assert.equal(ancienne.status, 302);
+    assert.equal(ancienne.headers.get('location'), `${ORIGIN}/prof#exercices`);
     assert.equal((await fetch(`${ORIGIN}/vendor/qrcode-generator-2.0.4.mjs`)).status, 200);
   });
 
@@ -442,7 +446,11 @@ try {
     const consultation = await appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-consultation-du-test-api-locale' } });
     assert.equal(consultation.status, 200);
     const cookieConsultation = derniersEntetes.get('set-cookie').split(';')[0];
-    assert.equal((await appel('GET', '/api/prof/editeur/exercices', { cookie: cookieConsultation })).status, 403);
+    // La consultation lit la liste (les exercices publiés, sans le brouillon, D95) et ne publie pas.
+    const lecture = await appel('GET', '/api/prof/editeur/exercices', { cookie: cookieConsultation });
+    assert.equal(lecture.status, 200);
+    assert.equal('modifie' in lecture.corps.exercices.find((e) => e.id === M10), false);
+    assert.equal((await appel('GET', `/api/prof/editeur/exercice?id=${M10}`, { cookie: cookieConsultation })).corps.exercice.brouillon, undefined);
     assert.equal((await appel('POST', '/api/prof/editeur/exercice/publier', { corps: { id: M10, revision }, cookie: cookieConsultation })).status, 403);
   });
 

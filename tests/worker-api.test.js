@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { canonical } from '../worker/attestation.js';
 import { signAttestation } from '../worker/crypto.js';
 import { DISTINCT_PER_HOUR } from '../worker/acces.js';
+import { consultationRoutes, editorRoutes, handle } from '../worker/index.js';
 import { lireFichier } from './aide.js';
 
 const M10 = 'm10-tournage-vc';
@@ -130,7 +131,6 @@ test('nouvelle adresse (D72, D73) : le Worker garde son nom de production, la ba
     ...(await readdir(new URL('../site/js/ui/', import.meta.url))).filter((f) => f.endsWith('.js')).map((f) => `site/js/ui/${f}`),
     ...(await readdir(new URL('../worker/', import.meta.url))).filter((f) => f.endsWith('.js')).map((f) => `worker/${f}`),
     ...(await readdir(new URL('../site/', import.meta.url))).filter((f) => f.endsWith('.html')).map((f) => `site/${f}`),
-    'site/prof/editeur.html',
   ];
   for (const fichier of fichiers) assert.doesNotMatch(await lire(fichier), /workers\.dev|thierryleroux|tgm-tmi\./, fichier);
   // Le sel HKDF et la clé du stockage local ne suivent pas le nom du Worker.
@@ -1249,6 +1249,110 @@ test('clé de consultation (D44) : ouvre le rôle consultation, dans le cookie e
   assert.equal((await sansConsultation.appel('POST', '/api/prof/connexion', { corps: { cle: 'cle-admin-de-test' } })).status, 200);
   const vide = serveurDeTest({ cleConsultation: '' });
   assert.equal((await vide.appel('POST', '/api/prof/connexion', { corps: { cle: '' } })).status, 401);
+});
+
+// --- L'espace enseignant, une seule page (D95) : le rôle, l'ancienne adresse, la consultation qui lit le contenu publié ----
+
+test('GET /api/prof/role (D95) : 401 sans cookie ; la séance ouverte — enseignant, rôle, expiration — pour chacune des deux clés ; rien au journal', async () => {
+  const serveur = serveurDeTest();
+  assert.equal((await serveur.appel('GET', '/api/prof/role')).status, 401);
+  for (const [cle, role] of [['cle-admin-de-test', 'admin'], ['cle-consultation-de-test', 'consultation']]) {
+    const { cookie } = await seConnecter(serveur, cle);
+    assert.deepEqual(await serveur.appel('GET', '/api/prof/role', { entetes: { cookie: `prof=${cookie}` } }), {
+      status: 200, corps: { enseignant: role, role, expire_le: new Date(serveur.maintenant.getTime() + 12 * 60 * MINUTE).toISOString() },
+    });
+  }
+  assert.deepEqual(serveur.journalEnseignant().map((l) => l.action), ['connexion', 'connexion']);
+});
+
+test('/prof/editeur (D95) : l’ancienne adresse de la Gestion du contenu redirige (302) vers /prof#exercices ; les pages de site/ sont servies comme avant', async () => {
+  const serveur = serveurDeTest();
+  const outils = { now: serveur.maintenant, random: serveur.random, randomBytes: (n) => serveur.randomBytes(n) };
+  for (const chemin of ['/prof/editeur', '/prof/editeur/']) {
+    const reponse = await handle(new Request(`https://quiz.example${chemin}`), serveur.env, outils);
+    assert.equal(reponse.status, 302, chemin);
+    assert.equal(reponse.headers.get('location'), 'https://quiz.example/prof#exercices', chemin);
+  }
+  assert.equal((await handle(new Request('https://quiz.example/prof.html'), serveur.env, outils)).status, 200);
+  assert.equal((await handle(new Request('https://quiz.example/prof/editeur.html'), serveur.env, outils)).status, 404); // la page n'existe plus
+});
+
+test('la Gestion du contenu pour le rôle consultation (D95), un cas par route : dix lectures ouvertes, qui ne rendent jamais un brouillon ; toute autre route 403, sans rien écrire ni journaliser', async () => {
+  const serveur = serveurDeTest();
+  const admin = { cookie: `prof=${(await seConnecter(serveur, 'cle-admin-de-test')).cookie}` };
+  // Un exercice jamais publié, et un brouillon du M10 qui diffère de sa version publiée : ce que la consultation ne doit pas voir.
+  assert.equal((await serveur.appel('POST', '/api/prof/editeur/exercice/creer', { corps: { id: 'jamais-publie', titre: 'Jamais publié' }, entetes: admin })).status, 200);
+  const page = (await serveur.appel('GET', `/api/prof/editeur/exercice?id=${M10}`, { entetes: admin })).corps;
+  const brouillon = { ...page.exercice.brouillon, champs_evalues: ['vc', 'n'] };
+  assert.equal((await serveur.appel('POST', '/api/prof/editeur/exercice/enregistrer', { corps: { id: M10, revision: page.exercice.revision, brouillon }, entetes: admin })).status, 200);
+
+  const entetes = { cookie: `prof=${(await seConnecter(serveur, 'cle-consultation-de-test')).cookie}` };
+  const lire = (chemin) => serveur.appel('GET', `/api/prof/editeur/${chemin}`, { entetes });
+  const ouvertes = consultationRoutes();
+  const toutes = editorRoutes();
+  assert.equal(ouvertes.length, 10);
+  assert.ok(ouvertes.every((route) => toutes.includes(route)));
+  const TABLES = ['exercices', 'versions_exercice', 'banque_outils', 'banque_outils_historique', 'tables_reference', 'brouillon_tables', 'presentation_tables', 'presentation_tables_historique', 'presentation_exercices', 'presentation_exercices_historique', 'images', 'journal_enseignant'];
+  const photographie = () => TABLES.map((table) => serveur.db.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all().map((row) => ({ ...row })));
+  const avant = photographie();
+
+  // 1. exercices : les exercices publiés seulement, sans « modifié » ni date de brouillon.
+  const liste = await lire('exercices');
+  assert.equal(liste.status, 200);
+  assert.ok(liste.corps.exercices.some((e) => e.id === M10));
+  assert.equal(liste.corps.exercices.some((e) => e.id === 'jamais-publie'), false);
+  for (const row of liste.corps.exercices) {
+    assert.equal('modifie' in row, false, row.id);
+    assert.equal('brouillon_modifie_le' in row, false, row.id);
+    assert.notEqual(row.derniere_version, null, row.id);
+  }
+  // 2. exercice : la dernière version publiée, ses tables, la présentation en vigueur — rien du brouillon ; jamais publié, 404.
+  const exercice = await lire(`exercice?id=${M10}`);
+  assert.equal(exercice.status, 200);
+  assert.deepEqual(Object.keys(exercice.corps).sort(), ['derniere_tables', 'derniere_version', 'exercice', 'presentation', 'tables', 'tables_versions', 'versions']);
+  assert.deepEqual(Object.keys(exercice.corps.exercice).sort(), ['archive_le', 'id', 'publie_le', 'tables_id']);
+  assert.deepEqual(exercice.corps.derniere_version.contenu.champs_evalues, page.derniere_version.contenu.champs_evalues); // la version publiée, pas le brouillon ['vc', 'n']
+  assert.equal(exercice.corps.exercice.tables_id, exercice.corps.derniere_version.tables_id);
+  assert.deepEqual(exercice.corps.presentation.en_attente, { lignes: [], contenu: null });
+  assert.ok(Array.isArray(exercice.corps.presentation.historique));
+  assert.equal(JSON.stringify(exercice.corps).includes('"brouillon"'), false);
+  assert.equal((await lire('exercice?id=jamais-publie')).status, 404);
+  // 3. exercice/presentation : la présentation en vigueur, les retouches en attente du brouillon tues.
+  const presentation = await lire(`exercice/presentation?id=${M10}`);
+  assert.equal(presentation.status, 200);
+  assert.deepEqual(presentation.corps.en_attente, { lignes: [], contenu: null });
+  assert.equal(presentation.corps.presentation.titre, m10.titre);
+  // 4. apercu : une version publiée seulement ; le brouillon, ou sans version, 403.
+  const apercu = await serveur.appel('POST', '/api/prof/editeur/apercu', { corps: { id: M10, version: 1 }, entetes });
+  assert.equal(apercu.status, 200);
+  assert.equal(apercu.corps.questions.length, 10);
+  for (const corps of [{ id: M10 }, { id: M10, brouillon }, { id: M10, version: 1, brouillon }]) {
+    assert.equal((await serveur.appel('POST', '/api/prof/editeur/apercu', { corps, entetes })).status, 403, JSON.stringify(Object.keys(corps)));
+  }
+  // 5 et 6. banque, banque/outil.
+  const banque = await lire('banque');
+  assert.equal(banque.status, 200);
+  assert.ok(banque.corps.outils.some((row) => row.id === 'mclnr'));
+  assert.equal((await lire('banque/outil?id=mclnr')).status, 200);
+  assert.equal((await lire('banque/outil?id=inconnu')).status, 404);
+  // 7 et 8. tables : les versions, la dernière et la présentation, jamais le brouillon ; tables/version.
+  const tables = await lire('tables');
+  assert.equal(tables.status, 200);
+  assert.deepEqual(Object.keys(tables.corps).sort(), ['derniere', 'presentation', 'versions']);
+  assert.equal(tables.corps.derniere, 'A2026_r0');
+  assert.equal((await lire('tables/version?id=A2026_r0')).status, 200);
+  assert.equal((await lire('tables/version?id=inconnue')).status, 404);
+  // 9 et 10. presentation, images.
+  assert.equal((await lire('presentation')).status, 200);
+  assert.ok((await lire('images')).corps.images.length > 0);
+  // Toute autre route de la Gestion du contenu : 403, le même refus que les actions de l'espace enseignant.
+  for (const route of toutes.filter((r) => !ouvertes.includes(r))) {
+    const [methode, chemin] = route.split(' ');
+    const corps = methode === 'POST' ? { id: M10, revision: 1, brouillon, outil: {}, export: {}, confirmation: 'IMPORTER', archive: true, titre: 'x', version: 1, contenu: {}, exercice: M10 } : undefined;
+    const refus = await serveur.appel(methode, `${chemin}${methode === 'GET' ? `?id=${M10}` : ''}`, { corps, entetes });
+    assert.deepEqual([refus.status, refus.corps.erreur], [403, "Cette action est réservée à la clé d'administration : la clé de consultation ne fait que lire."], route);
+  }
+  assert.deepEqual(photographie(), avant); // rien n'a été écrit, et les lectures ne sont pas journalisées (D48)
 });
 
 test('connexion professeur : clé mal formée ou absente → 401 comme une clé fausse ; sans CLE_ADMIN sur le serveur → 500', async () => {

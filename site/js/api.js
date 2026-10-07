@@ -164,15 +164,20 @@ export function getSpecimen(exerciseId, request) {
   return call('GET', `/api/demo/specimen?exercice=${encodeURIComponent(exerciseId)}`, {}, request);
 }
 
-// --- Espace professeur (D34, D35) : la séance est un cookie HttpOnly posé par le serveur -----------------------------
+// --- Espace enseignant (D34, D35, D95) : la séance est un cookie HttpOnly posé par le serveur -----------------------------
 
-// Connexion par la clé d'administration : { enseignant, expire_le }. Erreurs : 401 clé incorrecte ; 429 trop d'essais.
+// Connexion par la clé d'administration ou de consultation : { enseignant, role, expire_le }. Erreurs : 401 clé incorrecte ; 429 trop d'essais.
 export function teacherLogin(cle, request) {
   return call('POST', '/api/prof/connexion', { body: { cle } }, request);
 }
 
 export function teacherLogout(request) {
   return call('POST', '/api/prof/deconnexion', { body: {} }, request);
+}
+
+// La séance ouverte (D95) : { enseignant, role, expire_le }. Erreur : 401 sans séance.
+export function teacherRole(request) {
+  return call('GET', '/api/prof/role', {}, request);
 }
 
 // Toutes les séances : { enseignant, exercices, seances }. Erreur : 401 connexion requise.
@@ -206,7 +211,7 @@ export function listIdentityCorrections(request) {
   return call('GET', '/api/prof/identites', {}, request);
 }
 
-// --- La Gestion du contenu (jalon 7a, D47 à D49, D74) : rôle admin, même cookie que l'espace professeur ----------------------------
+// --- La Gestion du contenu (jalon 7a, D47 à D49, D74, D95) : le même cookie ; les écritures au rôle admin, dix lectures aux deux rôles ---
 
 const editor = (method, path, body, request) => call(method, `/api/prof/editeur/${path}`, body === undefined ? {} : { body }, request);
 

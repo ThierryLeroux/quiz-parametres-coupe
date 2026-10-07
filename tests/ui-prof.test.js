@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PURGE_WORD, SESSION_COLUMNS, canAct, csvCell, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, plain, purgeIntro,
-  purgeSummary, resetConfirmation, roleLabel, roleNote, sessionCells, sessionState, sortSessions, spaceOf,
+  PURGE_WORD, SESSION_COLUMNS, TABS, TITLE, canAct, csvCell, csvFileName, csvOf, deleteConfirmation, eyebrowText, filterSessions, identityRows, initialTab, nipResetConfirmation, plain, purgeIntro,
+  purgeSummary, resetConfirmation, roleLabel, roleNote, sessionCells, sessionState, sortSessions, spaceOf, tabsFor,
 } from '../site/js/ui/prof-data.js';
 import { PURGE_WORD as SERVER_PURGE_WORD } from '../worker/acces.js';
 import { claimsFromInput } from '../site/js/ui/attestation-data.js';
@@ -19,6 +19,24 @@ const SEANCES = [
   { id: 3, exercice: ESSAI, prenom: 'Zoé', nom: 'Lévesque', matricule: '2455555', debut: at(2026, 9, 20, 9, 0), derniere_activite: at(2026, 9, 20, 9, 30), reussite_le: null, questions_reussies: 0, code: null },
   { id: 4, exercice: M10, prenom: 'Élise', nom: 'Tremblay-Roy', matricule: '2400001', debut: at(2026, 9, 19, 8, 0), derniere_activite: at(2026, 9, 19, 8, 40), reussite_le: at(2026, 9, 19, 8, 40), questions_reussies: 15, code: 'ZZZZZ-YYYYY' },
 ];
+
+test('l’espace enseignant (D95) : le nom, les sept onglets dans l’ordre, Sauvegarde absent pour la consultation, l’onglet du fragment, le sur-titre', () => {
+  assert.equal(TITLE, 'Espace enseignant');
+  assert.deepEqual(TABS.map((t) => t.label), ['Réussites', "Corrections d'identité", 'Exercices', "Banque d'outils", 'Tables de référence', 'Images', 'Sauvegarde']);
+  assert.deepEqual(tabsFor('admin').map((t) => t.key), ['seances', 'identites', 'exercices', 'banque', 'tables', 'images', 'sauvegarde']);
+  assert.deepEqual(tabsFor('consultation').map((t) => t.key), ['seances', 'identites', 'exercices', 'banque', 'tables', 'images']);
+  assert.deepEqual(tabsFor(null).map((t) => t.key), tabsFor('consultation').map((t) => t.key));
+  // L'onglet à ouvrir d'après le fragment : « /prof#exercices » (ce que donne l'ancienne adresse /prof/editeur) ; sinon Réussites.
+  assert.equal(initialTab('#exercices', 'consultation'), 'exercices');
+  assert.equal(initialTab('#sauvegarde', 'admin'), 'sauvegarde');
+  assert.equal(initialTab('#sauvegarde', 'consultation'), 'seances'); // pas offert à ce rôle
+  assert.equal(initialTab('#inconnu', 'admin'), 'seances');
+  assert.equal(initialTab('', 'admin'), 'seances');
+  assert.equal(initialTab(undefined, null), 'seances');
+  assert.equal(eyebrowText('exercices', 'admin'), 'Espace enseignant · exercices');
+  assert.equal(eyebrowText('exercices', 'consultation'), 'Espace enseignant · exercices · lecture seule');
+  assert.equal(eyebrowText('', 'consultation'), 'Espace enseignant · lecture seule');
+});
 
 test('SESSION_COLUMNS : les colonnes demandées, dans l’ordre', () => {
   assert.deepEqual(SESSION_COLUMNS.map((c) => c.label), ['Nom', 'Prénom', 'Matricule', 'Exercice', 'Début', 'Dernière activité', 'État', 'Questions réussies', 'Attestation']);

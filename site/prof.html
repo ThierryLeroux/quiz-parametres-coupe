@@ -1,24 +1,28 @@
 <!doctype html>
-<!-- L'ambiance de couleur (D94) : la connexion est dans l'espace étudiant ; js/ui/prof.js change data-espace selon le rôle de la séance. -->
+<!-- L'ambiance de couleur (D94) : la connexion est dans l'espace étudiant ; js/ui/prof-shell.js change data-espace selon le rôle de la séance. -->
 <html lang="fr" data-espace="etudiant">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Espace professeur — Quiz paramètres de coupe</title>
+  <title>Espace enseignant — Quiz paramètres de coupe</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/prof.css">
+  <link rel="stylesheet" href="css/editeur.css">
 </head>
 <body>
-  <!-- Espace professeur (décisions D34, D35 ; UI §3.8) : js/ui/prof.js. Aucun secret ici : le serveur
-       ne répond qu'avec le cookie de séance posé à la connexion. -->
+  <!-- L'espace enseignant, une seule page (décisions D34, D35, D44, D95 ; UI §3.8 et §3.9) : les réussites et les
+       corrections d'identité (js/ui/prof.js), la Gestion du contenu — exercices, banque d'outils, tables de référence,
+       images, sauvegarde (js/ui/editeur.js) —, sur la coquille commune js/ui/prof-shell.js ; l'entrée est js/ui/prof-main.js.
+       L'onglet courant est dans le fragment de l'adresse (/prof#exercices). Aucun secret ici : le serveur ne répond
+       qu'avec le cookie de séance posé à la connexion ; la clé de consultation lit tout, sauf la sauvegarde. -->
   <header class="app-header no-print">
     <!-- Le logo et le titre : un seul lien vers l'accueil, tous les exercices (décision D87). showScreen ne change que le texte du titre. -->
     <a class="app-brand" href="/" aria-label="Accueil — tous les exercices" title="Accueil — tous les exercices">
       <img class="app-logo" src="img/logo-cvm.png" alt="Cégep du Vieux Montréal">
-      <div class="app-title" id="header-title">Espace professeur</div>
+      <div class="app-title" id="header-title">Espace enseignant</div>
     </a>
     <div class="app-aside" id="header-aside">Techniques de génie mécanique</div>
   </header>
@@ -33,10 +37,10 @@
       <div>Technique du génie de la maintenance industrielle</div>
       <div>(fiabilité des systèmes de production)</div>
     </div>
-    <div>TGM-TMI · Les données des étudiants sont effacées à la fin de la session.</div>
+    <div>TGM-TMI · Les données des étudiants sont effacées à la fin de la session. Les étudiants voient les versions publiées.</div>
   </footer>
 
   <noscript><p class="app-noscript">Cette page a besoin de JavaScript pour fonctionner.</p></noscript>
-  <script type="module" src="js/ui/prof.js"></script>
+  <script type="module" src="js/ui/prof-main.js"></script>
 </body>
 </html>

@@ -17,8 +17,9 @@ const TITLE = 'Quiz — paramètres de coupe';
 // l'exercice dit déjà quoi faire.
 export const HOME_EYEBROW = 'Exercices · paramètres de coupe';
 export const HOME_TITLE = 'Quel exercice fais-tu ?';
-// La porte professeur, compacte : « Enseignants » et le bouton au contour, rien d'autre (D93 : plus de note sur la démo).
-export const TEACHER_LINK_LABEL = 'Espace professeur →';
+// La porte des enseignants, compacte : « Enseignants » et le bouton au contour, rien d'autre (D93 : plus de note sur la
+// démo ; D95 : « enseignant », jamais « professeur », à l'écran).
+export const TEACHER_LINK_LABEL = 'Espace enseignant →';
 export const NO_EXERCISE_NOTICE = "Aucun exercice n'est offert pour l'instant.";
 export const unknownExerciseNotice = (id) => `L'exercice « ${id} » n'existe pas. Vérifie le lien sur Léa.`;
 

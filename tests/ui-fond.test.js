@@ -11,7 +11,7 @@ const lire = (chemin) => readFileSync(new URL(chemin, ROOT), 'utf8');
 const sansCommentaires = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 const AVEC_FOND = ['site/index.html', 'site/verifier.html'];
-const SANS_FOND = ['site/prof.html', 'site/prof/editeur.html', 'site/tables.html'];
+const SANS_FOND = ['site/prof.html', 'site/tables.html']; // /prof/editeur n'est plus une page (D95)
 const COUCHE = '<div class="fond" aria-hidden="true">\n    <div class="fond-image"></div>\n    <div class="fond-lueur"></div>\n    <div class="fond-balayage"></div>\n  </div>';
 
 // Le bloc { … } qui suit l'indice donné, accolades imbriquées comprises.

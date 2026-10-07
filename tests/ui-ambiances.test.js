@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { spaceOf } from '../site/js/ui/prof-data.js';
+import { eyebrowText, spaceOf } from '../site/js/ui/prof-data.js';
 
 const ROOT = new URL('../', import.meta.url);
 const lire = (chemin) => readFileSync(new URL(chemin, ROOT), 'utf8');
@@ -44,9 +44,9 @@ function contraste(a, b) {
   return (clair + 0.05) / (sombre + 0.05);
 }
 
-test('les cinq pages portent data-espace sur <html> : « etudiant » partout, sauf la Gestion du contenu, « admin » en dur', () => {
+test('les quatre pages portent data-espace="etudiant" sur <html> ; /prof le change selon le rôle (D95 : la Gestion du contenu n’a plus sa page)', () => {
   for (const page of ['site/index.html', 'site/verifier.html', 'site/tables.html', 'site/prof.html']) assert.match(lire(page), /<html lang="fr" data-espace="etudiant">/, page);
-  assert.match(lire('site/prof/editeur.html'), /<html lang="fr" data-espace="admin">/);
+  assert.equal(readdirSync(new URL('site/', ROOT)).includes('prof'), false); // plus de site/prof/editeur.html
 });
 
 test('tokens.css : l’espace étudiant garde le bleu ; la consultation et l’administration ne redéfinissent que l’accent, sa variante claire et le survol des liens', () => {
@@ -111,19 +111,20 @@ test('aucune couleur d’espace en dur hors de tokens.css : les feuilles de styl
   }
 });
 
-test('prof.js pose data-espace d’après le rôle (spaceOf) à la connexion, à la déconnexion et sur le tableau, et met l’étiquette dans la barre ; editeur.js met « Administration »', () => {
+test('prof-shell.js (D95) pose data-espace d’après le rôle (spaceOf) à la connexion et sur chaque écran, et met l’étiquette dans la barre ; les deux modules d’écrans n’en savent rien', () => {
   assert.deepEqual([spaceOf('admin'), spaceOf('consultation'), spaceOf(null)], ['admin', 'consultation', 'etudiant']);
-  const prof = lire('site/js/ui/prof.js').replace(/\/\/[^\n]*/g, '');
-  assert.match(prof, /const applySpace = \(\) => \{ document\.documentElement\.dataset\.espace = spaceOf\(state\.role\); \};/);
-  const connexion = prof.slice(prof.indexOf('function showLogin'), prof.indexOf('async function submit', prof.indexOf('function showLogin')));
-  assert.match(connexion, /state\.role = null;\s*applySpace\(\);/); // la connexion : l'espace étudiant, quel que soit l'état d'avant
-  const barre = prof.slice(prof.indexOf('function headerAside'), prof.indexOf('async function logout'));
+  const shell = lire('site/js/ui/prof-shell.js').replace(/\/\/[^\n]*/g, '');
+  assert.match(shell, /const applySpace = \(\) => \{ document\.documentElement\.dataset\.espace = spaceOf\(state\.role\); \};/);
+  const connexion = shell.slice(shell.indexOf('function showLogin'), shell.indexOf('async function submit', shell.indexOf('function showLogin')));
+  assert.match(connexion, /state\.role = null;[\s\S]*?applySpace\(\);/); // la connexion : l'espace étudiant, quel que soit l'état d'avant
+  const barre = shell.slice(shell.indexOf('function headerAside'), shell.indexOf('function tabs'));
   assert.match(barre, /applySpace\(\);/);
   assert.match(barre, /el\('span', \{ class: 'espace-etiquette' \}, roleLabel\(state\.role\)\)/);
-  assert.doesNotMatch(prof, /roleLabel\(state\.role\)\}`/); // plus de rôle dans le sur-titre : l'étiquette le dit
-  assert.equal((prof.match(/Espace professeur\$\{roleNote\(state\.role\)\}/g) ?? []).length, 2); // le tableau et la page d'effacement
-  const editeur = lire('site/js/ui/editeur.js').replace(/\/\/[^\n]*/g, '');
-  assert.match(editeur, /const spaceBadge = \(\) => el\('span', \{ class: 'espace-etiquette' \}, 'Administration'\);/);
-  assert.equal((editeur.match(/spaceBadge\(\)/g) ?? []).length, 2); // la connexion et la barre des écrans
-  assert.doesNotMatch(editeur, /el\('span', \{\}, 'admin'\)/);
+  // Le sur-titre dit l'onglet et « lecture seule » ; l'étiquette dit l'espace.
+  assert.equal(eyebrowText('exercices', 'admin'), 'Espace enseignant · exercices');
+  assert.equal(eyebrowText('exercices', 'consultation'), 'Espace enseignant · exercices · lecture seule');
+  for (const fichier of ['site/js/ui/prof.js', 'site/js/ui/editeur.js']) {
+    const source = lire(fichier).replace(/\/\/[^\n]*/g, '');
+    assert.doesNotMatch(source, /espace-etiquette|dataset\.espace|'Administration'|'Consultation'/, fichier);
+  }
 });

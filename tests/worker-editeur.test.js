@@ -57,18 +57,23 @@ test('worker/index.js n’exporte que des fonctions et le gestionnaire : le Work
   }
 });
 
-test('chaque route de la Gestion du contenu refuse le rôle consultation (403) et l’absence de cookie (401), sans rien écrire', async () => {
+test('chaque route de la Gestion du contenu refuse l’absence de cookie (401) ; chaque écriture refuse le rôle consultation (403), sans rien écrire ; les dix lectures de D95 lui répondent (tests/worker-api.test.js)', async () => {
   const serveur = serveurDeTest();
   const consultation = await connexion(serveur, 'cle-consultation-de-test');
+  const ouvertes = worker.consultationRoutes();
   assert.ok(EDITOR_ROUTES.length >= 15, `${EDITOR_ROUTES.length} routes`);
+  assert.equal(ouvertes.length, 10);
+  assert.ok(ouvertes.every((route) => EDITOR_ROUTES.includes(route)));
   const photographie = () => ['exercices', 'versions_exercice', 'banque_outils', 'tables_reference', 'presentation_tables', 'presentation_tables_historique', 'journal_enseignant'].map((table) => serveur.db.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all().map((row) => ({ ...row })));
   const avant = photographie();
   for (const route of EDITOR_ROUTES) {
     const [methode, chemin] = route.split(' ');
     const corps = methode === 'POST' ? { id: M10, revision: 1, brouillon: m10, outil: {}, export: {}, confirmation: IMPORT_WORD, archive: true, titre: 'x', version: 1 } : undefined;
-    const refuse = await serveur.appel(methode, `${chemin}${methode === 'GET' ? `?id=${M10}` : ''}`, { corps, entetes: consultation });
-    assert.equal(refuse.status, 403, route);
-    assert.match(refuse.corps.erreur, /réservée à la clé d'administration/);
+    if (!ouvertes.includes(route)) {
+      const refuse = await serveur.appel(methode, `${chemin}${methode === 'GET' ? `?id=${M10}` : ''}`, { corps, entetes: consultation });
+      assert.equal(refuse.status, 403, route);
+      assert.match(refuse.corps.erreur, /réservée à la clé d'administration/);
+    }
     assert.equal((await serveur.appel(methode, chemin, { corps })).status, 401, `${route} sans cookie`);
   }
   assert.deepEqual(photographie(), avant); // rien n'a été écrit, pas même au journal

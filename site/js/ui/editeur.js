@@ -1,11 +1,15 @@
-// La Gestion du contenu — exercices, banque d'outils, tables de référence, images, sauvegarde (jalons 7a et 7b,
-// décisions D47 à D49, D56 à D59, D74 ; UI §3.9). « Éditeur des exercices » jusqu'à D74 : l'adresse /prof/editeur,
-// les routes /api/prof/editeur/* et les noms de fichiers gardent « editeur ».
-// Rôle admin seulement : la même clé que l'espace professeur ; le serveur refuse la clé de
-// consultation sur chaque route. Ce qu'on montre est décidé par editeur-data.js (pur, testé) et la
-// validation est celle du quiz (draftErrors, site/js/exercice.js) ; ici, on construit le DOM.
+// La Gestion du contenu — les onglets Exercices, Banque d'outils, Tables de référence, Images et Sauvegarde de l'espace
+// enseignant (jalons 7a et 7b, décisions D47 à D49, D56 à D59, D74, D95 ; UI §3.9). « Éditeur des exercices » jusqu'à
+// D74 : les routes /api/prof/editeur/* et les noms de fichiers gardent « editeur » ; l'adresse /prof/editeur redirige
+// vers /prof#exercices depuis D95.
+// La coquille — connexion, barre du haut, onglets, garde des modifications, 401 — est prof-shell.js ; prof-main.js
+// enregistre les cinq onglets exportés ici. Les deux rôles (D44) : l'administration édite ; la consultation lit tout,
+// sauf la sauvegarde (D95) — les formulaires dans un fieldset inactif lisible, aucun bouton d'action construit, la
+// dernière version publiée d'un exercice (le serveur ne lui envoie jamais un brouillon). Ce qu'on montre est décidé par
+// editeur-data.js (pur, testé) et la validation est celle du quiz (draftErrors, site/js/exercice.js) ; ici, on
+// construit le DOM.
 //
-// Écrans : connexion → liste des exercices → page d'un exercice (la présentation en direct d'un exercice publié —
+// Écrans : liste des exercices → page d'un exercice (la présentation en direct d'un exercice publié —
 // titre, cours, « À l'accueil », photos et notes, D78 — ; réglages, outils, versions,
 // aperçu, publication, version des tables) ; banque d'outils → fiche d'un outil ; tables de
 // référence (la présentation en direct — aperçu, application, historique, D76 — ; le brouillon des valeurs,
@@ -16,7 +20,7 @@
 import {
   editorArchiveExercise, editorBank, editorBankArchive, editorBankCreate, editorBankRestore, editorBankSave, editorBankTool, editorCreateExercise, editorDeleteExercise, editorExport,
   editorExerciseTables, editorGetExercise, editorImageArchive, editorImageDelete, editorImageImport, editorImageRename, editorImageUpload, editorImages, editorImport, editorImportValidate, editorListExercises, editorMoveExercise, editorPreview, editorPublish, editorRenameExercise, editorSaveDraft,
-  editorCancel, editorExercisePresentation, editorExercisePresentationApply, editorExercisePresentationRestore, editorPresentation, editorPresentationApply, editorPresentationRestore, editorResume, editorTables, editorTablesCancel, editorTablesCascade, editorTablesPreview, editorTablesPublish, editorTablesResume, editorTablesSave, editorTablesVersion, teacherLogin, teacherLogout,
+  editorCancel, editorExercisePresentation, editorExercisePresentationApply, editorExercisePresentationRestore, editorPresentation, editorPresentationApply, editorPresentationRestore, editorResume, editorTables, editorTablesCancel, editorTablesCascade, editorTablesPreview, editorTablesPublish, editorTablesResume, editorTablesSave, editorTablesVersion,
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors, liveTitleRefusal, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
@@ -28,15 +32,15 @@ import { applyTableColors, convertDecimalCommas, el, showScreen } from './dom.js
 import {
   archiveConfirmation, bankPassageLines, canDeleteImage, cascadeAction, cascadeResultText, characteristicFrom, courseSpelling, deducibleWarnings, deleteConfirmation, deriveGroups, diffLines, dimensionReadings, dimensionsText, errorsByField, exampleIdentifier, exerciseHistoryLabel, exerciseState, exerciseTablesImpact, exportFileName, factorSource, forcedBadge,
   liveTitleConflicts, presentationPreview, renameDone, renamePrompt, bankHistoryLabel, twinTitlesNote, twinTitlesWarning, FEED_FAMILIES, feedFamilyFlags, feedFamilyOf, FIELD_CHOICES, FIELD_STATES, fieldStates, groupSwatch, imageArchiveConfirmation, imageDeleteConfirmation, imageSizeText, imageUsageLabel, importSummaryLines, importWordFor, insertToken, knownCourses, lostChangesTitle, materialSwatch, moveItem, parseDimensions, permittedTokens, presentationApplyState, publishTablesLabel, presentationHistoryLabel, previewColumns, previewRows, publishedTitles, publishState, removeSelectionConfirmation, removeToolConfirmation, sessionsLabel, statesToDraft, studentLink, tablesNotice, tablesUsageLabel, templateTokenList, USAGE_LABELS, versionDiff, versionLabel,
-  EXPIRED_NOTICE, LEAVE_CONFIRMATION, LOGIN_LINKS, confirmsBeforeLeaving, loginNotice,
 } from './editeur-data.js';
 import { imagePicker, prepareUpload } from './images-picker.js';
+import { EXPIRED_NOTICE } from './prof-data.js';
+import { TITLE, guarded, headerAside, isDirty, leave, panelHead, readOnly, setDirty } from './prof-shell.js';
 import { classFeatures, classImages, imageUrl } from './sheets-data.js';
 import { formatDateStamp, serverErrorMessage } from './text.js';
 
 const main = document.querySelector('#app');
 convertDecimalCommas(main); // une virgule tapée devient un point à la sortie d'un champ décimal (D71)
-const TITLE = 'Gestion du contenu'; // le nom de la page (D74) ; son adresse reste /prof/editeur
 
 // Un identifiant libre parmi ceux pris : « mvlnr », « mvlnr_2 »…
 function freeId(wanted, taken) {
@@ -45,114 +49,18 @@ function freeId(wanted, taken) {
 }
 
 const state = {
-  connected: false, // une séance professeur est ouverte (connexion réussie, ou un appel qui a réussi après un rechargement) : un 401 dit alors « Ta séance a expiré »
   images: { outil: null, operation: null, classe: null }, // les fiches des images de la base, par usage (chargées à la demande)
-  dirty: false, // des modifications non enregistrées sur la page courante
 };
 
-// Quitter la page avec des modifications non enregistrées : le navigateur demande (son texte à lui) pour ce que la page
-// ne contrôle pas — bouton Précédent, onglet fermé, adresse retapée.
-window.addEventListener('beforeunload', (event) => {
-  if (state.dirty) event.preventDefault();
-});
-
-// Les liens de la barre du haut quittent la page aussi (le logo vers l'accueil, D87 ; « Espace professeur ») : la même
-// confirmation que leave(), dans les mots de la page ; confirmée, state.dirty tombe et beforeunload n'a plus rien à
-// demander ; refusée, le clic est annulé. Un clic qui ouvre un autre onglet (Ctrl, Maj, ⌘) ne quitte pas la page.
-document.querySelector('.app-header').addEventListener('click', (event) => {
-  if (!event.target.closest('a[href]') || !confirmsBeforeLeaving(state.dirty, event)) return;
-  if (window.confirm(LEAVE_CONFIRMATION)) state.dirty = false;
-  else event.preventDefault();
-});
-
-// --- Connexion ----------------------------------------------------------------------------------------------------
-
-function showLogin(notice = '') {
-  state.dirty = false;
-  state.connected = false;
-  const status = el('div', { class: 'server-message', role: 'status' }, notice);
-  const input = el('input', { id: 'cle', name: 'cle', type: 'text', class: 'input-secret', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': 'cle-note' });
-  const button = el('button', { class: 'button', type: 'submit' }, 'Se connecter');
-  async function submit(event) {
-    event.preventDefault();
-    if (button.disabled) return;
-    button.disabled = true;
-    status.textContent = '';
-    try {
-      const { role } = await teacherLogin(input.value);
-      if (role !== 'admin') {
-        await teacherLogout().catch(() => {});
-        throw new Error("La Gestion du contenu est réservée à la clé d'administration. La clé de consultation ouvre seulement l'espace professeur, en lecture.");
-      }
-      state.connected = true;
-      await showList();
-    } catch (error) {
-      status.textContent = error.status === 429 && error.details.attendre_s ? `${error.message} (${error.details.attendre_s} s)` : (error.status === undefined ? error.message : serverErrorMessage(error));
-      button.disabled = false;
-      input.focus();
-    }
-  }
-  const screen = el('div', { class: 'screen screen--narrow' }, el('section', { class: 'panel' }, [
-    el('div', { class: 'eyebrow' }, TITLE),
-    el('h1', { tabindex: '-1' }, 'Connexion'),
-    el('p', { class: 'muted small' }, "Entre la clé d'administration. La clé de consultation n'ouvre pas la Gestion du contenu. La séance dure 12 h."),
-    el('form', { novalidate: true, onsubmit: submit }, [
-      el('div', { class: 'form-grid form-grid--single' }, el('div', { class: 'field' }, [el('label', { for: 'cle' }, 'Clé'), input, el('div', { class: 'field-note', id: 'cle-note' }, "Clé d'administration. Cinq essais, puis un délai croissant.")])),
-      el('div', { class: 'form-actions' }, [status, button]),
-    ]),
-    // Les retours (D87) : l'espace professeur, l'accueil.
-    el('div', { class: 'form-links' }, LOGIN_LINKS.map(({ label, href }) => el('a', { class: 'button-link', href }, label))),
-  ]));
-  showScreen(main, screen, { title: TITLE, aside: spaceBadge() }, '#cle');
-}
-
-// L'étiquette de l'espace dans la barre du haut (D94) : toute la Gestion du contenu est dans l'espace d'administration,
-// que la page porte en dur (data-espace="admin" sur <html>).
-const spaceBadge = () => el('span', { class: 'espace-etiquette' }, 'Administration');
-
-// Un appel à la Gestion du contenu : un 401 ramène à la connexion — avec « Ta séance a expiré » seulement si une séance
-// était ouverte (loginNotice) ; à l'ouverture de la page sans cookie, la connexion s'ouvre sans message (D87, point 4) —,
-// un 403 dit que la clé ne permet pas d'éditer. Un appel qui réussit prouve la séance ouverte (la page rechargée avec son cookie).
-async function guarded(action) {
-  try {
-    const result = await action();
-    state.connected = true;
-    return result;
-  } catch (error) {
-    if (error.status === 401) { showLogin(loginNotice(state.connected)); return null; }
-    if (error.status === 403) { showLogin(serverErrorMessage(error)); return null; }
-    throw error;
-  }
-}
-
-function headerAside() {
-  return [
-    spaceBadge(),
-    el('a', { class: 'button-link', href: '/prof' }, 'Espace professeur'),
-    el('button', { class: 'button-link', type: 'button', onclick: async () => { await teacherLogout().catch(() => {}); showLogin('Déconnecté.'); } }, 'Se déconnecter'),
-  ];
-}
-
-// Les onglets : Exercices, Banque d'outils, Tables de référence, Images, Sauvegarde.
-function tabs(current) {
-  return el('div', { class: 'prof-tabs', role: 'tablist' }, [['exercices', 'Exercices', showList], ['banque', "Banque d'outils", showBank], ['tables', 'Tables de référence', showTables], ['images', 'Images', showImages], ['sauvegarde', 'Sauvegarde', showBackup]]
-    .map(([key, label, open]) => el('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(current === key), onclick: () => leave(open) }, label)));
-}
-
-// Quitter la page courante : si des modifications ne sont pas enregistrées, demander d'abord.
-function leave(open, ...args) {
-  if (state.dirty && !window.confirm(LEAVE_CONFIRMATION)) return;
-  state.dirty = false;
-  open(...args);
-}
-
-const panelHead = (eyebrow, current) => el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, `${TITLE} · ${eyebrow}`), tabs(current)]);
+// La lecture seule (D95) : les champs d'un écran de la consultation sont dans un fieldset inactif, que prof.css rend lisible.
+const readOnlyBox = (children) => el('fieldset', { class: 'lecture-seule', disabled: true }, children);
 
 // --- Liste des exercices (B2) ----------------------------------------------------------------------------------------
 
-async function showList(notice = '') {
+export async function showList(notice = '') {
   const response = await guarded(() => editorListExercises());
   if (response === null) return;
+  const ro = readOnly();
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
 
   // Une action de la liste, puis rechargement.
@@ -167,7 +75,12 @@ async function showList(notice = '') {
 
   const rows = response.exercices.map((row, i) => {
     const open = () => leave(showExercise, row.id);
-    const actions = [
+    const copyLink = el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: async (event) => {
+      const link = studentLink(location.origin, row.id);
+      try { await navigator.clipboard.writeText(link); event.currentTarget.textContent = 'Lien copié'; } catch { window.prompt('Lien à donner sur Léa :', link); }
+    } }, 'Copier le lien étudiant');
+    // La consultation (D95) : « Voir » et le lien étudiant, rien d'autre.
+    const actions = ro ? [el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: open }, 'Voir'), copyLink] : [
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: open }, 'Modifier'), // « Modifier », dans toutes les listes (D74)
       // L'ordre de la liste est aussi celui de l'accueil des étudiants (D51).
       el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter dans la liste', onclick: () => act(() => editorMoveExercise(row.id, row.rang, 'monter')) }, '↑'),
@@ -190,10 +103,7 @@ async function showList(notice = '') {
         ? el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(archiveConfirmation(row))) act(() => editorArchiveExercise(row.id, true), `« ${row.titre} » archivé.`); } }, 'Archiver')
         : el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => act(() => editorArchiveExercise(row.id, false), `« ${row.titre} » rétabli.`) }, 'Rétablir'),
       ...(row.seances === 0 ? [el('button', { class: 'button-small button-small--danger', type: 'button', onclick: () => { if (window.confirm(deleteConfirmation(row))) act(() => editorDeleteExercise(row.id), `« ${row.titre} » supprimé.`); } }, 'Supprimer')] : []),
-      el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: async (event) => {
-        const link = studentLink(location.origin, row.id);
-        try { await navigator.clipboard.writeText(link); event.currentTarget.textContent = 'Lien copié'; } catch { window.prompt('Lien à donner sur Léa :', link); }
-      } }, 'Copier le lien étudiant'),
+      copyLink,
     ];
     // Un titre en double (D79) : une note dorée sous le titre, qui nomme l'autre exercice ; elle ne bloque rien.
     const twins = twinTitlesNote(row.doublons ?? []);
@@ -225,15 +135,16 @@ async function showList(notice = '') {
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead('exercices', 'exercices'),
     el('h1', { tabindex: '-1' }, 'Exercices'),
-    el('p', { class: 'muted small' }, "Les étudiants voient la dernière version publiée de chaque exercice. Une séance commencée garde sa version jusqu'à la fin. Le brouillon ne change rien tant qu'il n'est pas publié. L'ordre de cette liste (↑ ↓) est celui de l'accueil."),
+    el('p', { class: 'muted small' }, ro
+      ? "Lecture seule : chaque exercice s'ouvre dans sa dernière version publiée, celle que voient les étudiants. Les brouillons ne sont pas montrés. L'ordre de cette liste est celui de l'accueil."
+      : "Les étudiants voient la dernière version publiée de chaque exercice. Une séance commencée garde sa version jusqu'à la fin. Le brouillon ne change rien tant qu'il n'est pas publié. L'ordre de cette liste (↑ ↓) est celui de l'accueil."),
     status,
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table' }, [
       el('thead', {}, el('tr', {}, ['Rang', 'Titre', 'Cours', 'Identifiant', 'État', 'Dernière version', 'Séances', "À l'accueil", 'Actions'].map((label) => el('th', { class: label === 'Rang' ? 'num' : null }, label)))),
       el('tbody', {}, rows),
     ])),
     el('p', { class: 'muted smaller prof-count' }, `${rows.length} exercice${rows.length > 1 ? 's' : ''}.`),
-    el('h2', { class: 'editeur-bar' }, 'Nouvel exercice'),
-    createForm,
+    ...(ro ? [] : [el('h2', { class: 'editeur-bar' }, 'Nouvel exercice'), createForm]),
   ]));
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
 }
@@ -297,9 +208,12 @@ function checkboxes(idPrefix, choices, checked, { inline = false, swatchOf = nul
 }
 
 // Le formulaire d'un outil. Retourne { element, read(), setErrors(map), fields }.
-//   tool  : l'outil (ou la copie) à éditer ; ctx : { tables, opsByName, images (fiches « outil »), copy, prefix }
+//   tool  : l'outil (ou la copie) à éditer ; ctx : { tables, opsByName, images (fiches « outil »), copy, prefix, live, readOnly }
+//   readOnly (D95) : la consultation — aucun bouton (crochets, « Autre exemple », tout cocher, galerie) ; les champs
+//   seront dans un fieldset inactif
 function toolForm(tool, ctx) {
   const p = ctx.prefix;
+  const ro = ctx.readOnly === true;
   const ops = ctx.tables.operations.operations;
   const groups = ctx.tables.materiaux.groupes_iso;
   const operationSelect = el('select', { id: `${p}-operation` }, ops.map((op) => el('option', { value: op.operation, selected: op.operation === tool.operation }, op.operation)));
@@ -325,10 +239,10 @@ function toolForm(tool, ctx) {
   // changement dans la galerie vaut un changement du formulaire (validation, brouillon modifié). Une copie que la
   // présentation en vigueur connaît (ctx.live, D78) n'a ni photo ni note ici : elles sont en direct, dans le panneau ;
   // celles du brouillon dorment, gardées telles quelles.
-  const picker = ctx.live ? null : imagePicker({ usage: 'outil', images: ctx.images, value: tool.image ?? null, upload: (file) => uploadImage(file, 'outil'), onChange: () => element.dispatchEvent(new Event('change', { bubbles: true })), idPrefix: `${p}-image` });
+  const picker = ctx.live ? null : imagePicker({ usage: 'outil', images: ctx.images, value: tool.image ?? null, upload: (file) => uploadImage(file, 'outil'), onChange: () => element.dispatchEvent(new Event('change', { bubbles: true })), idPrefix: `${p}-image`, readOnly: ro });
   // Les matières d'outil et les couleurs sont celles de la version de tables de la page (D61).
-  const materials = checkboxes(`${p}-mat`, toolMaterialNames(ctx.tables.materiaux).map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: (label) => materialSwatch(label, ctx.tables.materiaux), buttons: true });
-  const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: (group) => groupSwatch(group, ctx.tables.materiaux), buttons: true });
+  const materials = checkboxes(`${p}-mat`, toolMaterialNames(ctx.tables.materiaux).map((key) => ({ key, label: key })), tool.materiaux_outil ?? [], { inline: true, swatchOf: (label) => materialSwatch(label, ctx.tables.materiaux), buttons: !ro });
+  const groupChoices = checkboxes(`${p}-grp`, groups.map((key) => ({ key, label: key })), tool.groupes_materiaux_usinables ?? [], { swatchOf: (group) => groupSwatch(group, ctx.tables.materiaux), buttons: !ro });
 
   // Le gabarit de nomenclature (D24, D58) : éditable ; les boutons insèrent un jeton permis pour cet
   // outil au curseur ; l'exemple composé suit la frappe, « Autre exemple » le tire au hasard dans l'outil.
@@ -336,14 +250,15 @@ function toolForm(tool, ctx) {
   const tokenBar = el('div', { class: 'token-buttons' });
   const exampleText = el('span', {});
   let drawn = null; // null = l'exemple fixe (premières valeurs) ; sinon une suite de tirages figée, rejouée à chaque rafraîchissement
-  const exampleLine = el('div', { class: 'field-note field-note--multi exemple-nomenclature' }, [exampleText, ' ', el('button', { class: 'button-link', type: 'button', onclick: () => {
+  const exampleLine = el('div', { class: 'field-note field-note--multi exemple-nomenclature' }, [exampleText, ...(ro ? [] : [' ', el('button', { class: 'button-link', type: 'button', onclick: () => {
     drawn = Array.from({ length: 8 }, () => Math.random());
     refreshExample();
-  } }, 'Autre exemple')]);
+  } }, 'Autre exemple')])]);
   function refreshExample() {
     const current = read();
     const random = drawn === null ? null : ((sequence) => { let i = 0; return () => sequence[i++ % sequence.length]; })(drawn);
     exampleText.textContent = `Exemple composé : ${exampleIdentifier(current, ctx.opsByName, random)} (crochets : ${templateTokenList(template.value).join(', ') || 'aucun'}).`;
+    if (ro) return;
     tokenBar.replaceChildren(...permittedTokens(current, ctx.opsByName).map(({ token, label }) => el('button', { class: 'button-small button-small--neutral', type: 'button', title: `Insérer [${token}] : ${label}`, onclick: () => {
       const { text: next, caret } = insertToken(template.value, template.selectionStart ?? template.value.length, template.selectionEnd ?? template.value.length, token);
       template.value = next;
@@ -459,7 +374,7 @@ function toolForm(tool, ctx) {
       f.noteEl.textContent = messages.length > 0 ? messages.join('\n') : f.note;
     }
   }
-  fields.format_identifiant.element.insertBefore(tokenBar, fields.format_identifiant.noteEl);
+  if (!ro) fields.format_identifiant.element.insertBefore(tokenBar, fields.format_identifiant.noteEl);
   fields.format_identifiant.element.append(exampleLine);
   operationSelect.addEventListener('change', refreshReadings);
   operationSelect.addEventListener('change', refreshFactor);
@@ -569,29 +484,31 @@ function confirmLoss(slot, { heading, lines, label, act }) {
 async function showExercise(id, notice = '') {
   const page = await guarded(() => editorGetExercise(id));
   if (page === null) return;
+  const ro = readOnly();
   const images = await loadImages('outil');
   if (images === null) return;
   const { tables } = page;
   const opsByName = new Map(tables.operations.operations.map((op) => [op.operation, op]));
   let { revision } = page.exercice;
-  let copies = structuredClone(page.exercice.brouillon.outils);
+  // L'administration édite le brouillon ; la consultation lit la dernière version publiée, tout ce que le serveur lui donne (D95).
+  const draft = ro ? page.derniere_version.contenu : page.exercice.brouillon;
+  let copies = structuredClone(draft.outils);
   const openIds = new Set();
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const generalErrors = el('ul', { class: 'editeur-erreurs' });
-  const draft = page.exercice.brouillon;
   // Les autres exercices : leurs cours (proposés dans le champ Cours, D71), leurs titres en vigueur (un titre déjà pris est
   // refusé, D74) et leurs outils (ajout depuis un autre exercice).
   const others = ((await guarded(() => editorListExercises())) ?? { exercices: [] }).exercices.filter((row) => row.id !== id);
   // Un exercice publié (D78) : sa présentation en vigueur — titre, cours, « À l'accueil », photo et note des copies qu'elle
   // connaît — se modifie en direct, dans le panneau en tête ; ces champs quittent le brouillon (ils y dorment, gardés tels quels).
-  let shown = page.presentation; // null : jamais publié, tout est dans le brouillon
+  let shown = page.presentation; // null : jamais publié, tout est dans le brouillon (jamais pour la consultation : 404 avant)
   const live = shown !== null;
   const knownIds = live ? knownCopies(shown.presentation) : new Set();
   const liveImageOf = (copyId) => shown?.presentation.outils.find((e) => e.id === copyId)?.image ?? null;
   // Deux choses peuvent ne pas être enregistrées : le brouillon, et le panneau de la présentation (pas encore appliqué).
   let draftDirty = false;
   let presentationDirty = false;
-  const syncDirty = () => { state.dirty = draftDirty || presentationDirty; };
+  const syncDirty = () => { setDirty(draftDirty || presentationDirty); };
 
   // Réglages généraux.
   const titre = el('input', { id: 'titre', type: 'text', autocomplete: 'off', value: draft.titre ?? '' });
@@ -605,8 +522,8 @@ async function showExercise(id, notice = '') {
   const warningsList = el('ul', { class: 'avertissements', id: 'grandeurs-deductibles' });
   const toolMaterials = toolMaterialNames(tables.materiaux); // celles de la version de tables de cet exercice (D62)
   applyTableColors(tables.materiaux);
-  const materialsChoice = checkboxes('matiere', toolMaterials.map((key) => ({ key, label: key })), draft.materiaux_outil ?? toolMaterials, { inline: true, swatchOf: (label) => materialSwatch(label, tables.materiaux), buttons: true });
-  const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: (group) => groupSwatch(group, tables.materiaux), buttons: true });
+  const materialsChoice = checkboxes('matiere', toolMaterials.map((key) => ({ key, label: key })), draft.materiaux_outil ?? toolMaterials, { inline: true, swatchOf: (label) => materialSwatch(label, tables.materiaux), buttons: !ro });
+  const groupsChoice = checkboxes('groupe', tables.materiaux.groupes_iso.map((key) => ({ key, label: key })), draft.groupes ?? tables.materiaux.groupes_iso, { swatchOf: (group) => groupSwatch(group, tables.materiaux), buttons: !ro });
   const listed = el('input', { id: 'liste', type: 'checkbox', checked: draft.liste !== false });
   // « Donner le facteur de vitesse à l'étudiant » (D83, point 6) : versionné avec l'exercice, décoché par défaut —
   // l'étudiant le trouve dans la feuille des facteurs. Sans effet avec des tables qui ne portent pas les facteurs : le
@@ -652,13 +569,16 @@ async function showExercise(id, notice = '') {
     return out;
   }
 
-  const publishButton = el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
-  const saveButton = el('button', { class: 'button', type: 'button' }, 'Enregistrer le brouillon');
+  // Les trois boutons du brouillon ; aucun pour la consultation (D95).
+  const publishButton = ro ? null : el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
+  const saveButton = ro ? null : el('button', { class: 'button', type: 'button' }, 'Enregistrer le brouillon');
   // Ramène le brouillon à la dernière version publiée, contenu et tables (D77) ; inactif quand il est à jour.
-  const cancelDraftButton = el('button', { class: 'button-outline', type: 'button' }, 'Annuler les modifications');
+  const cancelDraftButton = ro ? null : el('button', { class: 'button-outline', type: 'button' }, 'Annuler les modifications');
 
   // Validation continue (B5) : les erreurs sous leurs champs, le reste dans la liste générale, Publier désactivé s'il en reste.
+  // La consultation lit une version publiée, valide par construction, sans rien à valider.
   function validate() {
+    if (ro) return null;
     const current = readDraft();
     const errors = draftErrors(current, tables);
     const known = (champ) => champ in settings || champ === 'champs_masques' || /^outils\.\d+\.[a-z_]+$/.test(champ);
@@ -713,25 +633,30 @@ async function showExercise(id, notice = '') {
   } }, 'Retirer la sélection');
   const allBox = el('input', { id: 'outils-tous', type: 'checkbox', onchange: () => { forms.forEach((f) => { f.checkbox.checked = allBox.checked; if (allBox.checked) selected.add(f.read().id); else selected.delete(f.read().id); }); refreshSelection(); } });
   function refreshSelection() {
+    if (ro) return;
     selectionButton.disabled = selected.size === 0;
     selectionButton.textContent = selected.size === 0 ? 'Retirer la sélection' : `Retirer la sélection (${selected.size})`;
     allBox.checked = forms.length > 0 && forms.every((f) => f.checkbox.checked);
   }
 
+  // La ligne d'une copie, repliée : « MVLNR · 2 réussite(s) de suite » (validate() la tient à jour à la frappe).
+  const summaryOf = (copy) => `${copy.nom || '(sans nom)'} · ${copy.reussites_requises ?? '?'} réussite(s) de suite`;
+
   // Une ligne par copie : case, vignette, nom, erreurs, les boutons (sans déplier), puis le formulaire replié.
+  // La consultation (D95) : ni case, ni boutons ; la copie se déplie, c'est tout.
   function renderTools() {
     forms = copies.map((copy, i) => {
       // Une copie que la présentation connaît : sa photo et sa note sont en direct (D78). Une copie nouvelle d'un exercice
       // publié les reçoit ici, dans sa ligne (liseré doré), jusqu'à sa publication.
-      const known = knownIds.has(copy.id);
-      const form = toolForm(copy, { tables, opsByName, images, copy: true, prefix: `o${i}`, live: known });
-      form.summaryName = el('span', { class: 'muted' }, '');
+      const known = knownIds.has(copy.id) || ro;
+      const form = toolForm(copy, { tables, opsByName, images, copy: true, prefix: `o${i}`, live: known, readOnly: ro });
+      form.summaryName = el('span', { class: 'muted' }, summaryOf(copy));
       form.badge = forcedBadgeOf(copy, opsByName);
       form.summaryErrors = el('span', { class: 'outil-erreurs' }, '');
       form.thumbnail = el('img', { class: 'outil-vignette', src: imageUrl((known ? liveImageOf(copy.id) : copy.image) ?? copy.id), alt: '', onerror: () => { form.thumbnail.style.visibility = 'hidden'; } });
-      form.checkbox = el('input', { type: 'checkbox', 'aria-label': `Sélectionner ${copy.id}`, checked: selected.has(copy.id), onchange: () => { if (form.checkbox.checked) selected.add(copy.id); else selected.delete(copy.id); refreshSelection(); } });
+      form.checkbox = ro ? null : el('input', { type: 'checkbox', 'aria-label': `Sélectionner ${copy.id}`, checked: selected.has(copy.id), onchange: () => { if (form.checkbox.checked) selected.add(copy.id); else selected.delete(copy.id); refreshSelection(); } });
       const swap = (j) => { copies = forms.map((f) => f.read()); [copies[i], copies[j]] = [copies[j], copies[i]]; touch(); renderTools(); };
-      const buttons = el('div', { class: 'outil-actions' }, [
+      const buttons = ro ? '' : el('div', { class: 'outil-actions' }, [
         // Le double d'une copie en direct part de sa photo et de sa note en vigueur (D78) : c'est une copie nouvelle.
         el('button', { class: 'button-small button-small--neutral', type: 'button', title: "Dupliquer dans l'exercice", onclick: () => { copies = forms.map((f) => f.read()); const twin = copyOfTool(applyCopyPresentation(copies[i], shown?.presentation ?? null), { id: freeId(copies[i].id, copies.map((c) => c.id)), reussites_requises: copies[i].reussites_requises }); copies.splice(i + 1, 0, twin); openIds.add(twin.id); touch(); renderTools(); } }, 'Dupliquer'),
         el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter', onclick: () => swap(i - 1) }, '↑'),
@@ -746,14 +671,14 @@ async function showExercise(id, notice = '') {
       } }, [el('strong', {}, `${i + 1}. ${copy.id}`)]);
       const fresh = live && !known;
       form.row = el('div', { class: `outil-ligne${fresh ? ' ligne-nouvelle' : ''}` }, [
-        el('div', { class: 'outil-entete' }, [form.checkbox, form.thumbnail, toggle, form.summaryName, form.badge, form.summaryErrors, buttons]),
+        el('div', { class: 'outil-entete' }, [form.checkbox ?? '', form.thumbnail, toggle, form.summaryName, form.badge, form.summaryErrors, buttons]),
         ...(fresh ? [el('p', { class: 'muted smaller outil-nouvelle' }, "Copie nouvelle : sa photo et sa note de départ se saisissent dans son formulaire. Publiée, elles passeront dans le panneau « Présentation », en direct.")] : []),
         body,
       ]);
       return form;
     });
     toolsSlot.replaceChildren(
-      forms.length === 0 ? el('p', { class: 'muted small' }, 'Aucun outil : ajoute-en depuis la banque ou depuis un autre exercice.') : el('div', { class: 'outil-selection' }, [el('label', { for: 'outils-tous' }, [allBox, 'Tout cocher']), selectionButton]),
+      forms.length === 0 ? el('p', { class: 'muted small' }, ro ? 'Aucun outil.' : 'Aucun outil : ajoute-en depuis la banque ou depuis un autre exercice.') : (ro ? '' : el('div', { class: 'outil-selection' }, [el('label', { for: 'outils-tous' }, [allBox, 'Tout cocher']), selectionButton])),
       ...forms.map((f) => f.row),
     );
     refreshSelection();
@@ -762,47 +687,59 @@ async function showExercise(id, notice = '') {
 
   const touch = () => { draftDirty = true; syncDirty(); };
 
-  // Ajouter depuis la banque.
-  const bank = await guarded(() => editorBank());
-  if (bank === null) return;
-  const available = bank.outils.filter((row) => row.archive_le === null);
-  const bankSelect = el('select', { id: 'ajout-banque' }, available.map((row) => el('option', { value: row.id }, `${row.outil.nom} (${row.id})`)));
-  // Une copie ajoutée prend le facteur de vitesse que les tables de CET exercice veulent (D83, settleSpeedFactor) : la
-  // banque se lit avec les tables les plus récentes, un autre exercice avec les siennes.
-  const settled = (copy, source) => settleSpeedFactor(copy, opsByName.get(copy.operation), source.operations.operations.find((op) => op.operation === copy.operation));
-  const addFromBank = el('button', { class: 'button-outline', type: 'button', onclick: () => {
-    const row = available.find((r) => r.id === bankSelect.value);
-    if (!row) return;
-    copies = forms.map((f) => f.read());
-    const copy = settled(copyOfTool(row.outil, { id: freeId(row.id, copies.map((c) => c.id)) }), bank.tables);
-    copies.push(copy);
-    openIds.add(copy.id);
-    touch();
-    renderTools();
-  } }, 'Ajouter depuis la banque');
+  // Ajouter un outil — depuis la banque, ou depuis un autre exercice : les deux rangées, pour l'administration seulement.
+  const addTools = [];
+  if (!ro) {
+    // Ajouter depuis la banque.
+    const bank = await guarded(() => editorBank());
+    if (bank === null) return;
+    const available = bank.outils.filter((row) => row.archive_le === null);
+    const bankSelect = el('select', { id: 'ajout-banque' }, available.map((row) => el('option', { value: row.id }, `${row.outil.nom} (${row.id})`)));
+    // Une copie ajoutée prend le facteur de vitesse que les tables de CET exercice veulent (D83, settleSpeedFactor) : la
+    // banque se lit avec les tables les plus récentes, un autre exercice avec les siennes.
+    const settled = (copy, source) => settleSpeedFactor(copy, opsByName.get(copy.operation), source.operations.operations.find((op) => op.operation === copy.operation));
+    const addFromBank = el('button', { class: 'button-outline', type: 'button', onclick: () => {
+      const row = available.find((r) => r.id === bankSelect.value);
+      if (!row) return;
+      copies = forms.map((f) => f.read());
+      const copy = settled(copyOfTool(row.outil, { id: freeId(row.id, copies.map((c) => c.id)) }), bank.tables);
+      copies.push(copy);
+      openIds.add(copy.id);
+      touch();
+      renderTools();
+    } }, 'Ajouter depuis la banque');
 
-  // Ajouter depuis un autre exercice : le brouillon de l'autre, chargé à la demande.
-  const otherSelect = el('select', { id: 'ajout-exercice' }, [el('option', { value: '' }, '(choisir un exercice)'), ...others.map((row) => el('option', { value: row.id }, row.titre))]);
-  const otherToolSelect = el('select', { id: 'ajout-exercice-outil' }, [el('option', { value: '' }, '—')]);
-  let otherCopies = [];
-  let otherTables = tables;
-  // Un exercice publié : ses copies avec leur photo et leur note en vigueur (D78), pas celles qui dorment dans son brouillon.
-  otherSelect.addEventListener('change', async () => {
-    const other = otherSelect.value === '' ? null : await guarded(() => editorGetExercise(otherSelect.value));
-    otherCopies = other ? applyExercisePresentation(other.exercice.brouillon, other.presentation?.presentation ?? null).outils : [];
-    otherTables = other?.tables ?? tables;
-    otherToolSelect.replaceChildren(...(otherCopies.length === 0 ? [el('option', { value: '' }, '—')] : otherCopies.map((c) => el('option', { value: c.id }, `${c.nom} (${c.id}), ${c.reussites_requises} réussite(s)`))));
-  });
-  const addFromOther = el('button', { class: 'button-outline', type: 'button', onclick: () => {
-    const source = otherCopies.find((c) => c.id === otherToolSelect.value);
-    if (!source) return;
-    copies = forms.map((f) => f.read());
-    const copy = settled(copyOfTool(source, { id: freeId(source.id, copies.map((c) => c.id)), reussites_requises: source.reussites_requises }), otherTables);
-    copies.push(copy);
-    openIds.add(copy.id);
-    touch();
-    renderTools();
-  } }, "Ajouter depuis l'exercice");
+    // Ajouter depuis un autre exercice : le brouillon de l'autre, chargé à la demande.
+    const otherSelect = el('select', { id: 'ajout-exercice' }, [el('option', { value: '' }, '(choisir un exercice)'), ...others.map((row) => el('option', { value: row.id }, row.titre))]);
+    const otherToolSelect = el('select', { id: 'ajout-exercice-outil' }, [el('option', { value: '' }, '—')]);
+    let otherCopies = [];
+    let otherTables = tables;
+    // Un exercice publié : ses copies avec leur photo et leur note en vigueur (D78), pas celles qui dorment dans son brouillon.
+    otherSelect.addEventListener('change', async () => {
+      const other = otherSelect.value === '' ? null : await guarded(() => editorGetExercise(otherSelect.value));
+      otherCopies = other ? applyExercisePresentation(other.exercice.brouillon, other.presentation?.presentation ?? null).outils : [];
+      otherTables = other?.tables ?? tables;
+      otherToolSelect.replaceChildren(...(otherCopies.length === 0 ? [el('option', { value: '' }, '—')] : otherCopies.map((c) => el('option', { value: c.id }, `${c.nom} (${c.id}), ${c.reussites_requises} réussite(s)`))));
+    });
+    const addFromOther = el('button', { class: 'button-outline', type: 'button', onclick: () => {
+      const source = otherCopies.find((c) => c.id === otherToolSelect.value);
+      if (!source) return;
+      copies = forms.map((f) => f.read());
+      const copy = settled(copyOfTool(source, { id: freeId(source.id, copies.map((c) => c.id)), reussites_requises: source.reussites_requises }), otherTables);
+      copies.push(copy);
+      openIds.add(copy.id);
+      touch();
+      renderTools();
+    } }, "Ajouter depuis l'exercice");
+    addTools.push(
+      el('div', { class: 'ajout-outil' }, [el('div', { class: 'field' }, [el('label', { for: 'ajout-banque' }, 'Depuis la banque'), bankSelect]), addFromBank]),
+      el('div', { class: 'ajout-outil' }, [
+        el('div', { class: 'field' }, [el('label', { for: 'ajout-exercice' }, 'Depuis un autre exercice'), otherSelect]),
+        el('div', { class: 'field' }, [el('label', { for: 'ajout-exercice-outil' }, 'Outil'), otherToolSelect]),
+        addFromOther,
+      ]),
+    );
+  }
 
   // Enregistrer (B5) : contrôle de version optimiste.
   async function save() {
@@ -818,7 +755,7 @@ async function showExercise(id, notice = '') {
       return true;
     } catch (error) {
       if (error.status === 409) {
-        status.replaceChildren(el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { state.dirty = false; showExercise(id); } }, 'Recharger la page'));
+        status.replaceChildren(el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { setDirty(false); showExercise(id); } }, 'Recharger la page'));
       } else {
         status.textContent = serverErrorMessage(error);
       }
@@ -827,11 +764,11 @@ async function showExercise(id, notice = '') {
       saveButton.disabled = false;
     }
   }
-  saveButton.addEventListener('click', save);
+  saveButton?.addEventListener('click', save);
 
   // Publier (B6) : enregistrer, résumer les différences, confirmer, créer la version.
   const dialogSlot = el('div');
-  publishButton.addEventListener('click', async () => {
+  publishButton?.addEventListener('click', async () => {
     if (!(await save())) return;
     // Le titre identifie l'exercice pour les étudiants : un autre exercice publié et non archivé du même titre bloque
     // la publication (D74) — le serveur refuse de toute façon ; ici, le refus s'affiche et le bouton reste inactif.
@@ -846,7 +783,7 @@ async function showExercise(id, notice = '') {
       try {
         const result = await guarded(() => editorPublish(id, revision));
         if (result === null) return;
-        state.dirty = false;
+        setDirty(false);
         showExercise(id, `Version ${result.numero} publiée le ${formatDateStamp(result.publiee_le)}. Les nouvelles séances la prennent, les séances en cours gardent la leur.`);
       } catch (error) {
         dialogSlot.replaceChildren();
@@ -876,7 +813,7 @@ async function showExercise(id, notice = '') {
     const lines = diffLines(versionDiff(page.derniere_version.contenu, readDraft(), withTables ? { avant: page.derniere_version.tables_id, apres: page.exercice.tables_id } : null));
     return lines[0] === 'Aucune différence avec la version précédente.' ? [] : lines;
   }
-  cancelDraftButton.addEventListener('click', () => confirmLoss(dialogSlot, {
+  cancelDraftButton?.addEventListener('click', () => confirmLoss(dialogSlot, {
     heading: `Ramener le brouillon à la version ${page.derniere_version.numero} ?`,
     lines: lostDraftChanges(true),
     label: 'Annuler les modifications',
@@ -884,7 +821,7 @@ async function showExercise(id, notice = '') {
       try {
         const result = await guarded(() => editorCancel(id, revision));
         if (result === null) return;
-        state.dirty = false;
+        setDirty(false);
         showExercise(id, result.annule ? `Brouillon ramené à la version ${result.numero} (tables ${result.tables_id}) : ses modifications sont annulées.` : `Brouillon ramené à la version ${result.numero} : ses modifications non enregistrées sont abandonnées.`);
       } catch (error) { dialogSlot.replaceChildren(); status.textContent = serverErrorMessage(error); }
     },
@@ -897,7 +834,7 @@ async function showExercise(id, notice = '') {
       try {
         const result = await guarded(() => editorResume(id, revision, numero));
         if (result === null) return;
-        state.dirty = false;
+        setDirty(false);
         showExercise(id, `Version ${result.numero} reprise dans le brouillon, qui garde ses tables (${result.tables_id}).${result.erreurs.length > 0 ? ` ${result.erreurs.length} erreur(s) à corriger avec ces tables.` : ''} Vérifie, puis « Publier… ».`);
       } catch (error) { dialogSlot.replaceChildren(); status.textContent = serverErrorMessage(error); }
     },
@@ -922,8 +859,8 @@ async function showExercise(id, notice = '') {
   }
 
   // Une version plus récente des tables existe (D62) : le dire, et proposer d'y passer en montrant d'abord
-  // ce que ça change pour cet exercice (erreurs qui apparaîtraient, Vc et avances de ses outils).
-  const tablesAdvice = tablesNotice(page.exercice.tables_id, page.derniere_tables);
+  // ce que ça change pour cet exercice (erreurs qui apparaîtraient, Vc et avances de ses outils). Pas pour la consultation.
+  const tablesAdvice = ro ? null : tablesNotice(page.exercice.tables_id, page.derniere_tables);
   const tablesNoticePanel = tablesAdvice === null ? el('div') : el('div', { class: 'avis-tables' }, [
     el('span', {}, tablesAdvice),
     el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: async () => {
@@ -937,7 +874,7 @@ async function showExercise(id, notice = '') {
           try {
             const result = await guarded(() => editorExerciseTables(id, revision, newer.id));
             if (result === null) return;
-            state.dirty = false;
+            setDirty(false);
             showExercise(id, `L'exercice est maintenant sur les tables ${result.tables_id}${result.erreurs.length > 0 ? ` — ${result.erreurs.length} erreur(s) à corriger avant de publier` : ''}.`);
           } catch (error) { dialogSlot.replaceChildren(); status.textContent = serverErrorMessage(error); }
         } }, `Passer à ${newer.id}`);
@@ -1006,7 +943,7 @@ async function showExercise(id, notice = '') {
     // version sert encore aux séances épinglées à une plus ancienne.
     const rows = start.outils.map((entry, i) => {
       const info = shown.outils.find((o) => o.id === entry.id);
-      const picker = imagePicker({ usage: 'outil', images: galleryImages(), value: entry.image, upload: (file) => uploadImage(file, 'outil'), onChange: onEdit, idPrefix: `pr-o${i}-image`, compact: true });
+      const picker = imagePicker({ usage: 'outil', images: galleryImages(), value: entry.image, upload: (file) => uploadImage(file, 'outil'), onChange: onEdit, idPrefix: `pr-o${i}-image`, compact: true, readOnly: ro });
       const note = el('input', { id: `pr-o${i}-note`, type: 'text', autocomplete: 'off', class: 'input-note', value: entry.commentaire ?? '', 'aria-label': `Note de ${info?.nom ?? entry.id}` });
       const who = el('div', {}, [el('strong', {}, info?.nom ?? entry.id), el('div', { class: 'mono smaller muted' }, entry.id), ...(info?.derniere_version === false ? [el('div', { class: 'muted smaller' }, 'plus dans la dernière version (séances épinglées à une plus ancienne)')] : [])]);
       return { tr: el('tr', {}, [cell(who), cell(picker.element, 'picto-cell'), cell(note)]), read: () => ({ id: entry.id, image: picker.read(), commentaire: note.value.trim() === '' ? null : note.value.trim() }) };
@@ -1030,7 +967,8 @@ async function showExercise(id, notice = '') {
 
     // Erreurs, titre déjà pris, avertissements, changements, bouton. Seule une photo CHOISIE (différente de celle en vigueur)
     // doit exister et ne pas être archivée ; une photo archivée déjà en vigueur n'est qu'un avertissement.
-    const applyButton = el('button', { class: 'button button--direct', type: 'button' }, 'Appliquer…');
+    // La consultation (D95) : l'aperçu et les avertissements, aucun bouton.
+    const applyButton = ro ? null : el('button', { class: 'button button--direct', type: 'button' }, 'Appliquer…');
     function check() {
       const current = read();
       const errors = exercisePresentationErrors(current, { images: galleryImages(), inForce: shown.presentation, copies: knownCopies(shown.presentation) });
@@ -1040,16 +978,18 @@ async function showExercise(id, notice = '') {
       panelWarnings.replaceChildren(...exerciseArchivedWarnings(current, galleryImages(), names).map((m) => el('li', {}, m)));
       twinNotice.hidden = twins.length === 0;
       twinNotice.textContent = twins.length === 0 ? '' : liveTitleRefusal(twins);
-      advice.replaceChildren(...courseAdviceFor(coursInput));
+      if (!ro) advice.replaceChildren(...courseAdviceFor(coursInput));
       paintPreview(current);
-      const button = twins.length > 0 ? { enabled: false, label: 'Appliquer (titre déjà pris)' } : presentationApplyState(errors, lines);
-      applyButton.disabled = !button.enabled;
-      applyButton.textContent = button.label;
+      if (applyButton) {
+        const button = twins.length > 0 ? { enabled: false, label: 'Appliquer (titre déjà pris)' } : presentationApplyState(errors, lines);
+        applyButton.disabled = !button.enabled;
+        applyButton.textContent = button.label;
+      }
       return { current, errors, lines, twins };
     }
 
     // « Appliquer… » : la liste des changements, puis l'application, effet immédiat.
-    applyButton.addEventListener('click', () => {
+    applyButton?.addEventListener('click', () => {
       const { current, errors, lines, twins } = check();
       if (errors.length > 0 || lines.length === 0 || twins.length > 0) return;
       const confirm = el('button', { class: 'button button--direct', type: 'button', onclick: async () => {
@@ -1096,11 +1036,11 @@ async function showExercise(id, notice = '') {
               ? el('div', { class: 'muted smaller' }, 'Identique à la présentation en vigueur.')
               : el('details', {}, [el('summary', { class: 'muted smaller' }, `Rétablir changerait ${h.lignes.length} valeur${h.lignes.length > 1 ? 's' : ''}`), el('ul', { class: 'editeur-diff' }, h.lignes.map((line) => el('li', {}, line)))]),
           ]),
-          el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir'),
+          ...(ro ? [] : [el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir')]),
         ]))),
     ]);
 
-    // Les retouches de présentation en attente dans le brouillon (D78, point 10), s'il y en a.
+    // Les retouches de présentation en attente dans le brouillon (D78, point 10), s'il y en a (jamais pour la consultation).
     const pending = shown.en_attente;
     const pendingBox = pending.lignes.length === 0 ? '' : el('div', { class: 'avis-tables avis-presentation' }, [
       el('div', {}, [
@@ -1112,15 +1052,20 @@ async function showExercise(id, notice = '') {
     ]);
 
     const onInput = (event) => { event.stopPropagation(); onEdit(); }; // pas jusqu'au brouillon, plus bas
-    presentationSlot.replaceChildren(el('section', { class: 'panel panel--direct presentation', oninput: onInput, onchange: onInput }, [
+    const fields = [
+      el('div', { class: 'editeur-grid' }, [titleField.element, coursField.element, listeField.element]),
+      el('h3', { class: 'presentation-titre' }, 'Outils : photo et note'),
+      plainTable(['Outil', 'Photo', "Note affichée sous l'outil"], rows, 'tables-edit--outils'),
+    ];
+    presentationSlot.replaceChildren(el('section', { class: 'panel panel--direct presentation', ...(ro ? {} : { oninput: onInput, onchange: onInput }) }, [
       el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Présentation — effet immédiat'), el('span', { class: 'badge-direct' }, 'En direct')]),
       el('h2', {}, "Présentation de l'exercice"),
-      el('p', { class: 'small' }, [
+      ro ? el('p', { class: 'small' }, "Lecture seule : ce que tous les étudiants voient de cet exercice, quelle que soit leur version. Le titre, le cours, « À l'accueil », la photo et la note de chaque outil. Les valeurs, la correction et les attestations n'en dépendent pas.") : el('p', { class: 'small' }, [
         el('strong', {}, "« Appliquer… » change ce que tous les étudiants voient de cet exercice dès que leur page se recharge, séances en cours comprises, quelle que soit leur version."),
         " Ce panneau n'a ni brouillon ni publication : ce qu'il montre est en vigueur. Il ne porte que ce qui s'affiche — le titre, le cours, « À l'accueil », la photo et la note de chaque outil. Les valeurs, la correction et les attestations déjà émises n'en dépendent pas.",
       ]),
       el('p', { class: 'muted small' }, `${shown.appliquee ? `Appliquée le ${formatDateStamp(shown.modifiee_le)} par ${shown.enseignant}` : `Jamais appliquée : c'est celle de la dernière version publiée (version ${shown.derniere_version})`} · révision ${shown.revision}.`),
-      el('div', { class: 'editeur-bar' }, [el('div', {}), el('div', { class: 'editeur-bar-actions' }, [applyButton])]),
+      ...(ro ? [] : [el('div', { class: 'editeur-bar' }, [el('div', {}), el('div', { class: 'editeur-bar-actions' }, [applyButton])])]),
       panelStatus,
       panelErrors,
       twinNotice,
@@ -1128,9 +1073,7 @@ async function showExercise(id, notice = '') {
       panelWarnings,
       pendingBox,
       dialog,
-      el('div', { class: 'editeur-grid' }, [titleField.element, coursField.element, listeField.element]),
-      el('h3', { class: 'presentation-titre' }, 'Outils : photo et note'),
-      plainTable(['Outil', 'Photo', "Note affichée sous l'outil"], rows, 'tables-edit--outils'),
+      ...(ro ? [readOnlyBox(fields)] : fields),
       preview,
       history,
     ]));
@@ -1138,13 +1081,19 @@ async function showExercise(id, notice = '') {
   }
   if (live) renderPresentation(shown.presentation);
 
+  // Les versions publiées : l'aperçu pour les deux rôles ; « Reprendre cette version », l'administration seulement.
   const versionsList = el('ul', { class: 'versions-liste' }, page.versions.length === 0 ? [el('li', {}, 'Aucune version publiée : les étudiants ne voient pas encore cet exercice.')] : page.versions.map((v) => el('li', {}, [
     el('strong', {}, `Version ${v.numero}`), el('span', { class: 'muted' }, `publiée le ${formatDateStamp(v.publiee_le)} · tables ${v.tables_id} · ${v.seances} séance${v.seances > 1 ? 's' : ''}`),
     el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => preview({ version: v.numero }, `de la version ${v.numero}`) }, 'Aperçu'),
-    el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => resumeVersion(v.numero) }, 'Reprendre cette version'),
+    ...(ro ? [] : [el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => resumeVersion(v.numero) }, 'Reprendre cette version')]),
   ])));
 
-  const screen = el('div', { class: 'screen screen--wide prof editeur', oninput: () => { touch(); validate(); }, onchange: () => { touch(); validate(); } }, [
+  // La ligne d'état de la page : le brouillon (l'administration) ou la version lue (la consultation).
+  const stateLine = ro
+    ? ` · version ${page.derniere_version.numero} publiée le ${formatDateStamp(page.derniere_version.publiee_le)}`
+    : ` · brouillon modifié le ${formatDateStamp(page.exercice.brouillon_modifie_le)}`;
+  const part = ro ? `version ${page.derniere_version.numero}` : 'brouillon à publier';
+  const screen = el('div', { class: 'screen screen--wide prof editeur', ...(ro ? {} : { oninput: () => { touch(); validate(); }, onchange: () => { touch(); validate(); } }) }, [
     el('section', { class: 'panel' }, [
       panelHead(`exercice · ${id}`, 'exercices'),
       heading,
@@ -1152,15 +1101,17 @@ async function showExercise(id, notice = '') {
         el('div', { class: 'muted small' }, [
           `Identifiant ${id} · lien étudiant : `, el('span', { class: 'mono' }, studentLink(location.origin, id)),
           page.exercice.archive_le !== null ? ' · archivé' : '',
-          ` · brouillon modifié le ${formatDateStamp(page.exercice.brouillon_modifie_le)}`,
+          stateLine,
           ' · tables de référence ', el('strong', { class: 'tables-version' }, page.exercice.tables_id),
         ]),
         el('div', { class: 'editeur-bar-actions' }, [
           el('button', { class: 'button-link', type: 'button', onclick: () => leave(showList) }, '← Exercices'),
-          el('button', { class: 'button-outline', type: 'button', onclick: () => preview({ brouillon: readDraft() }, 'du brouillon') }, 'Aperçu du brouillon'),
-          cancelDraftButton,
-          saveButton,
-          publishButton,
+          ...(ro ? [] : [
+            el('button', { class: 'button-outline', type: 'button', onclick: () => preview({ brouillon: readDraft() }, 'du brouillon') }, 'Aperçu du brouillon'),
+            cancelDraftButton,
+            saveButton,
+            publishButton,
+          ]),
         ]),
       ]),
       status,
@@ -1170,24 +1121,18 @@ async function showExercise(id, notice = '') {
     ]),
     presentationSlot,
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, live ? 'Réglages généraux — brouillon à publier' : 'Réglages généraux'),
+      el('div', { class: 'eyebrow' }, live ? `Réglages généraux — ${part}` : 'Réglages généraux'),
       ...(live ? [el('p', { class: 'muted small' }, "Le titre, le cours et « À l'accueil » sont en direct, dans le panneau « Présentation » ci-dessus.")] : []),
-      el('div', { class: 'editeur-grid' }, Object.values(settings).map((s) => s.element)),
+      (ro ? readOnlyBox : (x) => x)(el('div', { class: 'editeur-grid' }, Object.values(settings).map((s) => s.element))),
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, live ? "Outils de l'exercice — brouillon à publier" : "Outils de l'exercice"),
-      el('p', { class: 'muted small' }, "Chaque outil est une copie indépendante de la banque : ses dimensions, matières et groupes sont ce que l'exercice permet. Modifier la banque ne change pas cet exercice."),
-      ...(live ? [el('p', { class: 'muted small' }, "La photo et la note d'un outil déjà publié sont en direct, dans le panneau « Présentation ». Une copie nouvelle les reçoit ici (liseré doré), et sa publication les y fait passer.")] : []),
-      toolsSlot,
-      el('div', { class: 'ajout-outil' }, [
-        el('div', { class: 'field' }, [el('label', { for: 'ajout-banque' }, 'Depuis la banque'), bankSelect]),
-        addFromBank,
-      ]),
-      el('div', { class: 'ajout-outil' }, [
-        el('div', { class: 'field' }, [el('label', { for: 'ajout-exercice' }, 'Depuis un autre exercice'), otherSelect]),
-        el('div', { class: 'field' }, [el('label', { for: 'ajout-exercice-outil' }, 'Outil'), otherToolSelect]),
-        addFromOther,
-      ]),
+      el('div', { class: 'eyebrow' }, live ? `Outils de l'exercice — ${part}` : "Outils de l'exercice"),
+      el('p', { class: 'muted small' }, ro
+        ? "Chaque outil est une copie indépendante de la banque : ses dimensions, matières et groupes sont ce que l'exercice permet. Déplie un outil pour le lire."
+        : "Chaque outil est une copie indépendante de la banque : ses dimensions, matières et groupes sont ce que l'exercice permet. Modifier la banque ne change pas cet exercice."),
+      ...(live && !ro ? [el('p', { class: 'muted small' }, "La photo et la note d'un outil déjà publié sont en direct, dans le panneau « Présentation ». Une copie nouvelle les reçoit ici (liseré doré), et sa publication les y fait passer.")] : []),
+      (ro ? readOnlyBox : (x) => x)(toolsSlot),
+      ...addTools,
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Versions publiées'),
@@ -1200,9 +1145,10 @@ async function showExercise(id, notice = '') {
 
 // --- Banque d'outils (B4) -----------------------------------------------------------------------------------------
 
-async function showBank(notice = '') {
+export async function showBank(notice = '') {
   const bank = await guarded(() => editorBank());
   if (bank === null) return;
+  const ro = readOnly();
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const act = async (action, success) => {
     try { await guarded(action); await showBank(success); } catch (error) { status.textContent = serverErrorMessage(error); }
@@ -1216,7 +1162,8 @@ async function showBank(notice = '') {
     el('td', { class: 'num' }, String(row.outil.dimensions.length)),
     el('td', {}, row.exercices.length === 0 ? 'aucun' : `${row.exercices.length} (${row.exercices.join(', ')})`),
     el('td', { class: row.archive_le === null ? '' : 'state--running' }, row.archive_le === null ? 'disponible' : `archivé le ${formatDateStamp(row.archive_le)}`),
-    el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
+    // La consultation (D95) : « Voir », rien d'autre.
+    el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, ro ? [el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => leave(showBankTool, row.id) }, 'Voir')] : [
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => leave(showBankTool, row.id) }, 'Modifier'),
       el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => {
         const id = window.prompt(`Identifiant du nouvel outil (minuscules, chiffres, soulignés), copie de « ${row.outil.nom} » :`, `${row.id}_2`);
@@ -1233,17 +1180,19 @@ async function showBank(notice = '') {
   const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
     panelHead("banque d'outils", 'banque'),
     el('h1', { tabindex: '-1' }, "Banque d'outils"),
-    el('p', { class: 'muted small' }, "Les outils qu'on copie dans un exercice. Modifier un outil ici ne change aucun exercice existant. Le nombre d'exercices est donné à titre d'information."),
+    el('p', { class: 'muted small' }, ro
+      ? "Les outils qu'on copie dans un exercice. Lecture seule : chaque outil s'ouvre avec son historique. Le nombre d'exercices est donné à titre d'information."
+      : "Les outils qu'on copie dans un exercice. Modifier un outil ici ne change aucun exercice existant. Le nombre d'exercices est donné à titre d'information."),
     status,
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table' }, [
       el('thead', {}, el('tr', {}, ['Nom', 'Identifiant', 'Opération', 'Dimensions', 'Exercices qui en ont une copie', 'État', 'Actions'].map((label) => el('th', {}, label)))),
       el('tbody', {}, rows),
     ])),
     el('p', { class: 'muted smaller prof-count' }, `${rows.length} outil${rows.length > 1 ? 's' : ''}.`),
-    el('form', { class: 'ajout-outil', novalidate: true, onsubmit: (event) => { event.preventDefault(); act(() => editorBankCreate({ id: idInput.value.trim(), outil: { ...blank, id: idInput.value.trim() } }), 'Outil créé : ouvre-le pour le compléter.'); } }, [
+    ...(ro ? [] : [el('form', { class: 'ajout-outil', novalidate: true, onsubmit: (event) => { event.preventDefault(); act(() => editorBankCreate({ id: idInput.value.trim(), outil: { ...blank, id: idInput.value.trim() } }), 'Outil créé : ouvre-le pour le compléter.'); } }, [
       el('div', { class: 'field' }, [el('label', { for: 'nouvel-outil' }, 'Nouvel outil : identifiant'), idInput, el('div', { class: 'field-note' }, 'Minuscules, chiffres et soulignés. Définitif.')]),
       el('button', { class: 'button-outline', type: 'submit' }, 'Créer un outil'),
-    ]),
+    ])]),
   ]));
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
 }
@@ -1257,6 +1206,7 @@ async function showBankTool(id, notice = '') {
     throw error;
   }
   if (page === null) return;
+  const ro = readOnly();
   const row = page.outil;
   const images = await loadImages('outil');
   if (images === null) return;
@@ -1265,7 +1215,7 @@ async function showBankTool(id, notice = '') {
   let { revision } = row;
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   applyTableColors(tables.materiaux);
-  const form = toolForm(row.outil, { tables, opsByName, images, copy: false, prefix: 'b' });
+  const form = toolForm(row.outil, { tables, opsByName, images, copy: false, prefix: 'b', readOnly: ro });
   const generalErrors = el('ul', { class: 'editeur-erreurs' });
 
   // Validation continue : la règle du catalogue (toolErrors, par validateData), sans le reste du catalogue.
@@ -1281,20 +1231,20 @@ async function showBankTool(id, notice = '') {
 
   // Un refus du serveur, en clair : 409 (enregistré ailleurs) avec « Recharger la page », sinon son message.
   const failure = (error) => (error.status === 409
-    ? [el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { state.dirty = false; showBankTool(id); } }, 'Recharger la page')]
+    ? [el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { setDirty(false); showBankTool(id); } }, 'Recharger la page')]
     : [error.status === 400 || error.status === 404 ? error.message : serverErrorMessage(error)]);
   const time = () => formatDateStamp(new Date().toISOString()).slice(11);
   const errorsText = (erreurs) => (erreurs.length > 0 ? ` Avec les tables d'aujourd'hui, ${erreurs.length} erreur${erreurs.length > 1 ? 's' : ''} (sous les champs). Tant qu'elles restent, cet outil ne peut pas être ajouté à un exercice.` : '');
   const warningsText = (avertissements) => (avertissements.length > 0 ? ` Attention : ${avertissements.join(' ')}` : '');
 
-  // Enregistrer : le contenu remplacé va à l'historique (D79) ; sans changement, rien n'est écrit.
-  const saveButton = el('button', { class: 'button', type: 'button', onclick: async () => {
+  // Enregistrer : le contenu remplacé va à l'historique (D79) ; sans changement, rien n'est écrit. Pas pour la consultation.
+  const saveButton = ro ? null : el('button', { class: 'button', type: 'button', onclick: async () => {
     const tool = validate();
     saveButton.disabled = true;
     try {
       const result = await guarded(() => editorBankSave(id, revision, tool));
       if (result === null) return;
-      state.dirty = false;
+      setDirty(false);
       if (result.inchange) { status.textContent = "Aucun changement : rien n'a été enregistré."; return; }
       showBankTool(id, `Outil enregistré à ${time()} (révision ${result.revision}) : ${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}. Le contenu remplacé est dans l'historique.${errorsText(result.erreurs)}${warningsText(result.avertissements)}`);
     } catch (error) {
@@ -1307,11 +1257,11 @@ async function showBankTool(id, notice = '') {
   // L'historique (D79), replié : chaque contenu remplacé, ce que le rétablir changerait, ses erreurs et avertissements avec
   // les tables d'aujourd'hui, et « Rétablir » — un clic, sans confirmation, sauf si la page a des modifications non enregistrées.
   async function restore(entry) {
-    if (state.dirty && !window.confirm("Les modifications de la page ne sont pas enregistrées : elles seront perdues. Rétablir quand même ?")) return;
+    if (isDirty() && !window.confirm("Les modifications de la page ne sont pas enregistrées : elles seront perdues. Rétablir quand même ?")) return;
     try {
       const result = await guarded(() => editorBankRestore(id, revision, entry.id));
       if (result === null) return;
-      state.dirty = false;
+      setDirty(false);
       showBankTool(id, `Contenu rétabli à ${time()} (${result.lignes.length} changement${result.lignes.length > 1 ? 's' : ''}). Celui qu'il remplace est dans l'historique.${errorsText(result.erreurs)}${warningsText(result.avertissements)}`);
     } catch (error) {
       status.replaceChildren(...failure(error));
@@ -1333,23 +1283,23 @@ async function showBankTool(id, notice = '') {
           ]),
           el('ul', { class: 'avertissements' }, h.avertissements.map((message) => el('li', {}, message))),
         ]),
-        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir'),
+        ...(ro ? [] : [el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir')]),
       ]))),
   ]);
 
   const saved = row.modifie_le ? ` · contenu enregistré le ${formatDateStamp(row.modifie_le)}${row.modifie_par ? ` par ${row.modifie_par}` : ''}` : '';
-  const screen = el('div', { class: 'screen screen--wide prof editeur', oninput: () => { state.dirty = true; validate(); }, onchange: () => { state.dirty = true; validate(); } }, el('section', { class: 'panel' }, [
+  const screen = el('div', { class: 'screen screen--wide prof editeur', ...(ro ? {} : { oninput: () => { setDirty(true); validate(); }, onchange: () => { setDirty(true); validate(); } }) }, el('section', { class: 'panel' }, [
     panelHead(`banque · ${id}`, 'banque'),
     el('h1', { tabindex: '-1' }, row.outil.nom),
     el('div', { class: 'editeur-bar' }, [
       el('div', { class: 'muted small' }, `Identifiant ${id} · révision ${revision}${saved} · ${row.exercices.length === 0 ? "copié dans aucun exercice" : `copié dans : ${row.exercices.join(', ')}`} (les copies ne suivent pas)${row.archive_le === null ? '' : ' · archivé'}`),
-      el('div', { class: 'editeur-bar-actions' }, [el('button', { class: 'button-link', type: 'button', onclick: () => leave(showBank) }, '← Banque'), saveButton]),
+      el('div', { class: 'editeur-bar-actions' }, [el('button', { class: 'button-link', type: 'button', onclick: () => leave(showBank) }, '← Banque'), ...(ro ? [] : [saveButton])]),
     ]),
     status,
     generalErrors,
     el('ul', { class: 'avertissements' }, page.avertissements.map((message) => el('li', {}, message))),
     history,
-    form.element,
+    ro ? readOnlyBox(form.element) : form.element,
   ]));
   validate();
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
@@ -1366,7 +1316,7 @@ function download(name, text) {
   URL.revokeObjectURL(url);
 }
 
-async function showBackup(notice = '') {
+export async function showBackup(notice = '') {
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const summary = el('div');
   let received = null; // l'export lu, tel quel (avec le contenu des images)
@@ -1451,18 +1401,21 @@ const readMixed = (input) => { const text = input.value.trim(); if (text === '')
 
 // Une liste de lignes éditables (classes, matériaux, opérations) : construire une ligne, la lire, monter, descendre, retirer, ajouter.
 //   rows : les objets de départ ; build(row, i) → { tr, read() } ; blank() → un objet neuf ; onChange : après un mouvement
-function editableRows(rows, build, blank, onChange) {
+//   readOnly (D95) : la consultation — les lignes sans leur colonne d'actions
+function editableRows(rows, build, blank, onChange, { readOnly: ro = false } = {}) {
   let items = rows.map((row) => structuredClone(row));
   let built = [];
   const body = el('tbody');
   function render() {
     built = items.map((row, i) => {
       const { tr, read } = build(row, i);
-      tr.append(el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
-        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter', onclick: () => { items = built.map((b) => b.read()); [items[i - 1], items[i]] = [items[i], items[i - 1]]; render(); onChange(); } }, '↑'),
-        el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === items.length - 1, title: 'Descendre', onclick: () => { items = built.map((b) => b.read()); [items[i], items[i + 1]] = [items[i + 1], items[i]]; render(); onChange(); } }, '↓'),
-        el('button', { class: 'button-small', type: 'button', title: 'Retirer', onclick: () => { items = built.map((b) => b.read()); items.splice(i, 1); render(); onChange(); } }, 'Retirer'),
-      ])));
+      if (!ro) {
+        tr.append(el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
+          el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === 0, title: 'Monter', onclick: () => { items = built.map((b) => b.read()); [items[i - 1], items[i]] = [items[i], items[i - 1]]; render(); onChange(); } }, '↑'),
+          el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: i === items.length - 1, title: 'Descendre', onclick: () => { items = built.map((b) => b.read()); [items[i], items[i + 1]] = [items[i + 1], items[i]]; render(); onChange(); } }, '↓'),
+          el('button', { class: 'button-small', type: 'button', title: 'Retirer', onclick: () => { items = built.map((b) => b.read()); items.splice(i, 1); render(); onChange(); } }, 'Retirer'),
+        ])));
+      }
       return { tr, read };
     });
     body.replaceChildren(...built.map((b) => b.tr));
@@ -1477,11 +1430,12 @@ function editableRows(rows, build, blank, onChange) {
 
 // Les caractéristiques d'une classe ISO (D65), ligne par ligne : libellé, texte, solution facultative, avec
 // ↑ ↓ Retirer, et « Ajouter une ligne » (au plus CHARACTERISTIC_LIMITS.lignes). Retourne { element, read() }.
-function characteristicsEditor(lines, idPrefix, code, onChange) {
+//   readOnly (D95) : la consultation — les lignes seules, sans ↑ ↓ Retirer ni « Ajouter une ligne »
+function characteristicsEditor(lines, idPrefix, code, onChange, { readOnly: ro = false } = {}) {
   let items = lines.map((l) => ({ ...l }));
   let built = [];
   const body = el('tbody');
-  const addButton = el('button', { class: 'button-small button-small--neutral', type: 'button' }, 'Ajouter une ligne');
+  const addButton = ro ? null : el('button', { class: 'button-small button-small--neutral', type: 'button' }, 'Ajouter une ligne');
   const readAll = () => built.map((b) => b.read());
   function render() {
     built = items.map((line, n) => {
@@ -1492,22 +1446,22 @@ function characteristicsEditor(lines, idPrefix, code, onChange) {
       const move = (delta) => { items = moveItem(readAll(), n, delta); render(); onChange(); };
       const tr = el('tr', {}, [
         el('td', {}, libelle), el('td', {}, texte), el('td', {}, solution),
-        el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
+        ...(ro ? [] : [el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
           el('button', { class: 'button-small button-small--neutral', type: 'button', title: 'Monter', disabled: n === 0, onclick: () => move(-1) }, '↑'),
           el('button', { class: 'button-small button-small--neutral', type: 'button', title: 'Descendre', disabled: n === items.length - 1, onclick: () => move(1) }, '↓'),
           el('button', { class: 'button-small', type: 'button', title: 'Retirer', onclick: () => { items = readAll(); items.splice(n, 1); render(); onChange(); } }, 'Retirer'),
-        ])),
+        ]))]),
       ]);
       return { tr, read: () => characteristicFrom(libelle.value, texte.value, solution.value) };
     });
     body.replaceChildren(...built.map((b) => b.tr));
-    addButton.disabled = items.length >= CHARACTERISTIC_LIMITS.lignes;
+    if (addButton) addButton.disabled = items.length >= CHARACTERISTIC_LIMITS.lignes;
   }
-  addButton.addEventListener('click', () => { items = [...readAll(), { libelle: '', texte: '' }]; render(); onChange(); });
+  addButton?.addEventListener('click', () => { items = [...readAll(), { libelle: '', texte: '' }]; render(); onChange(); });
   render();
   const element = el('div', { class: 'caracteristiques' }, [
-    el('table', { class: 'caracteristiques-table' }, [el('thead', {}, el('tr', {}, ['Libellé', 'Texte', 'Solution (facultative)', ''].map((h) => el('th', {}, h)))), body]),
-    addButton,
+    el('table', { class: 'caracteristiques-table' }, [el('thead', {}, el('tr', {}, ['Libellé', 'Texte', 'Solution (facultative)', ...(ro ? [] : [''])].map((h) => el('th', {}, h)))), body]),
+    ...(ro ? [] : [addButton]),
   ]);
   return { element, read: readAll };
 }
@@ -1525,9 +1479,10 @@ const plainTable = (headers, rows, className = '') => el('div', { class: 'table-
 //   - « Valeurs — brouillon à publier » : le reste, un brouillon unique et des versions immuables (D61). Pour une clé que
 //     la présentation connaît, les champs de présentation n'y sont plus (ils y restent, cachés, sans effet) ; une classe
 //     ou une opération nouvelle y reçoit sa présentation de départ (D76, point 9).
-async function showTables(notice = '') {
+export async function showTables(notice = '') {
   const page = await guarded(() => editorTables());
   if (page === null) return;
+  const ro = readOnly();
   let shown = await guarded(() => editorPresentation());
   if (shown === null) return;
   const pictos = await loadImages('operation');
@@ -1535,21 +1490,23 @@ async function showTables(notice = '') {
   const classImagesList = await loadImages('classe');
   if (classImagesList === null) return;
   const exercises = (await guarded(() => editorListExercises()))?.exercices ?? [];
-  let { revision } = page.brouillon;
-  const draft = page.brouillon.contenu;
-  let pending = page.presentation_en_attente;
-  // La dernière version publiée des tables : ce à quoi « Annuler les modifications » ramène le brouillon (D77).
+  let revision = ro ? null : page.brouillon.revision;
+  // La dernière version publiée des tables : ce à quoi « Annuler les modifications » ramène le brouillon (D77), et ce que
+  // la consultation lit à la place du brouillon, que le serveur ne lui envoie pas (D95).
   const latestTables = page.derniere === null ? null : (await guarded(() => editorTablesVersion(page.derniere)))?.tables ?? null;
+  if (ro && latestTables === null) { showTablesEmpty(); return; }
+  const draft = ro ? latestTables : page.brouillon.contenu;
+  let pending = ro ? { lignes: [], contenu: null } : page.presentation_en_attente;
   // Le brouillon se lit prérempli des facteurs de vitesse (D83) : revenir à une version d'avant, c'est revenir à elle,
   // préremplie de même — « Annuler » n'a rien à annuler quand le brouillon n'en diffère que par là.
-  const cancelTarget = latestTables === null ? null : prefillSpeedFactors(latestTables);
+  const cancelTarget = ro || latestTables === null ? null : prefillSpeedFactors(latestTables);
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const errorsList = el('ul', { class: 'editeur-erreurs' });
   const dialogSlot = el('div');
   // Deux choses peuvent ne pas être enregistrées : le brouillon, et le panneau de la présentation (pas encore appliqué).
   let draftDirty = false;
   let presentationDirty = false;
-  const syncDirty = () => { state.dirty = draftDirty || presentationDirty; };
+  const syncDirty = () => { setDirty(draftDirty || presentationDirty); };
   const touch = () => { draftDirty = true; syncDirty(); };
   // Les clés que la présentation en vigueur connaît (D76, point 9) : leurs champs de présentation quittent le brouillon.
   const known = presentationKeys(shown.presentation);
@@ -1597,10 +1554,10 @@ async function showTables(notice = '') {
       const paint = () => { swatch.style.background = couleur.value; swatch.style.color = texte.value; };
       for (const input of [couleur, texte]) input.addEventListener('input', paint);
       paint();
-      const chaleur = imagePicker({ usage: 'classe', images: state.images.classe, value: c.image_chaleur ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: onEdit, idPrefix: `pr-cl-${i}-chaleur`, compact: true });
+      const chaleur = imagePicker({ usage: 'classe', images: state.images.classe, value: c.image_chaleur ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: onEdit, idPrefix: `pr-cl-${i}-chaleur`, compact: true, readOnly: ro });
       // La légende de l'image (D68) : 40 caractères au plus ; vide, pas de légende.
       const legende = textInput(`pr-cl-${i}-legende`, c.legende_image ?? '', { class: 'input-legende' });
-      const features = characteristicsEditor(c.caracteristiques ?? [], `pr-cl-${i}-car`, c.code, onEdit);
+      const features = characteristicsEditor(c.caracteristiques ?? [], `pr-cl-${i}-car`, c.code, onEdit, { readOnly: ro });
       return {
         tr: el('tr', {}, [cell(swatch, 'num'), cell(el('span', { class: 'mono' }, c.code)), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(legende), cell(features.element, 'caracteristiques-cell')]),
         read: () => ({ code: c.code, nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), legende_image: legende.value.trim(), caracteristiques: features.read() }),
@@ -1611,7 +1568,7 @@ async function showTables(notice = '') {
       return { tr: el('tr', {}, [cell(el('span', { class: 'mono smaller' }, m.cle)), cell(toolNames.get(m.cle) ?? '—'), cell(couleur)]), read: () => ({ cle: m.cle, couleur: couleur.value }) };
     });
     const opRows = start.operations.map((op, i) => {
-      const picker = imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: onEdit, idPrefix: `pr-op-${i}-picto`, compact: true });
+      const picker = imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: onEdit, idPrefix: `pr-op-${i}-picto`, compact: true, readOnly: ro });
       return { tr: el('tr', {}, [cell(op.operation), cell(picker.element, 'picto-cell')]), read: () => ({ operation: op.operation, pictogramme: picker.read() }) };
     });
     const read = () => ({ classes_iso: classRows.map((r) => r.read()), materiaux_outil: toolRows.map((r) => r.read()), operations: opRows.map((r) => r.read()) });
@@ -1619,22 +1576,25 @@ async function showTables(notice = '') {
     // Erreurs, avertissements, changements, bouton ; les couleurs de la page suivent le panneau à la frappe (même non
     // appliqué). Seule une image CHOISIE (différente de celle en vigueur) doit exister et ne pas être archivée ; une image
     // archivée déjà en vigueur n'est qu'un avertissement, qui ne bloque pas « Appliquer » (D76, retouche).
-    const applyButton = el('button', { class: 'button button--direct', type: 'button' }, 'Appliquer…');
+    // La consultation (D95) : les avertissements et les couleurs, aucun bouton.
+    const applyButton = ro ? null : el('button', { class: 'button button--direct', type: 'button' }, 'Appliquer…');
     function check() {
       const current = read();
       const errors = presentationErrors(current, { images: presentationImages(), inForce: shown.presentation });
       const lines = presentationDiff(shown.presentation, current, toolNames);
       panelErrors.replaceChildren(...errors.map((m) => el('li', {}, m)));
       panelWarnings.replaceChildren(...archivedWarnings(current, presentationImages()).map((m) => el('li', {}, m)));
-      const button = presentationApplyState(errors, lines);
-      applyButton.disabled = !button.enabled;
-      applyButton.textContent = button.label;
+      if (applyButton) {
+        const button = presentationApplyState(errors, lines);
+        applyButton.disabled = !button.enabled;
+        applyButton.textContent = button.label;
+      }
       applyTableColors({ classes_iso: current.classes_iso, materiaux_outil: current.materiaux_outil });
       return { current, errors, lines };
     }
 
     // « Appliquer… » : la liste des changements, puis l'application, effet immédiat.
-    applyButton.addEventListener('click', () => {
+    applyButton?.addEventListener('click', () => {
       const { current, errors, lines } = check();
       if (errors.length > 0 || lines.length === 0) return;
       const confirm = el('button', { class: 'button button--direct', type: 'button', onclick: async () => {
@@ -1702,11 +1662,11 @@ async function showTables(notice = '') {
               ? el('div', { class: 'muted smaller' }, 'Identique à la présentation en vigueur.')
               : el('details', {}, [el('summary', { class: 'muted smaller' }, `Rétablir changerait ${h.lignes.length} valeur${h.lignes.length > 1 ? 's' : ''}`), el('ul', { class: 'editeur-diff' }, h.lignes.map((line) => el('li', {}, line)))]),
           ]),
-          el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir'),
+          ...(ro ? [] : [el('button', { class: 'button-small button-small--neutral', type: 'button', disabled: h.lignes.length === 0, onclick: () => restore(h) }, 'Rétablir')]),
         ]))),
     ]);
 
-    // Les retouches de présentation en attente dans le brouillon (D76, point 10), s'il y en a.
+    // Les retouches de présentation en attente dans le brouillon (D76, point 10), s'il y en a (jamais pour la consultation).
     const pendingBox = pending.lignes.length === 0 ? '' : el('div', { class: 'avis-tables avis-presentation' }, [
       el('div', {}, [
         el('strong', {}, `Retouches de présentation en attente dans le brouillon des tables (${pending.lignes.length})`),
@@ -1717,10 +1677,18 @@ async function showTables(notice = '') {
     ]);
 
     const onInput = (event) => { event.stopPropagation(); onEdit(); }; // pas jusqu'au brouillon, plus bas
-    presentationSlot.replaceChildren(el('section', { class: 'panel panel--direct presentation', oninput: onInput, onchange: onInput }, [
+    const fields = [
+      el('h3', { class: 'presentation-titre' }, 'Classes ISO'),
+      plainTable(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Légende', 'Caractéristiques'], classRows, 'tables-edit--classes'),
+      el('h3', { class: 'presentation-titre' }, "Matières d'outil"),
+      plainTable(['Clé', ro ? 'Nom' : 'Nom (dans le brouillon)', 'Couleur'], toolRows),
+      el('h3', { class: 'presentation-titre' }, 'Opérations'),
+      plainTable(['Opération', 'Pictogramme'], opRows, 'tables-edit--operations'),
+    ];
+    presentationSlot.replaceChildren(el('section', { class: 'panel panel--direct presentation', ...(ro ? {} : { oninput: onInput, onchange: onInput }) }, [
       el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Présentation — effet immédiat'), el('span', { class: 'badge-direct' }, 'En direct')]),
       el('h2', {}, 'Présentation des tables'),
-      el('p', { class: 'small' }, [
+      ro ? el('p', { class: 'small' }, "Lecture seule : ce qui ne fait qu'afficher, en vigueur sur la page de tous les étudiants, quelle que soit leur version des tables. Noms et couleurs des classes ISO, images de chaleur, légendes, caractéristiques, couleurs des matières d'outil, pictogrammes.") : el('p', { class: 'small' }, [
         el('strong', {}, "« Appliquer… » change la page de tous les étudiants dès qu'elle se recharge, séances en cours comprises, quelle que soit leur version des tables."),
         " Ce panneau n'a ni brouillon ni publication : ce qu'il montre est en vigueur. Il ne porte que ce qui s'affiche — noms et couleurs des classes ISO, images de chaleur, légendes (40 caractères au plus, aucune si vide), caractéristiques (au plus 6 lignes), couleurs des matières d'outil, pictogrammes. Les valeurs, la correction et les attestations n'en dépendent pas.",
       ]),
@@ -1730,7 +1698,7 @@ async function showTables(notice = '') {
         el('div', { class: 'editeur-bar-actions' }, [
           el('label', { for: 'pr-apercu-exercice', class: 'muted small' }, 'Aperçu avec :'), previewSelect,
           el('button', { class: 'button-outline', type: 'button', onclick: preview, disabled: published.length === 0 }, 'Dix questions'),
-          applyButton,
+          ...(ro ? [] : [applyButton]),
         ]),
       ]),
       panelStatus,
@@ -1738,12 +1706,7 @@ async function showTables(notice = '') {
       panelWarnings,
       pendingBox,
       dialog,
-      el('h3', { class: 'presentation-titre' }, 'Classes ISO'),
-      plainTable(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Légende', 'Caractéristiques'], classRows, 'tables-edit--classes'),
-      el('h3', { class: 'presentation-titre' }, "Matières d'outil"),
-      plainTable(['Clé', 'Nom (dans le brouillon)', 'Couleur'], toolRows),
-      el('h3', { class: 'presentation-titre' }, 'Opérations'),
-      plainTable(['Opération', 'Pictogramme'], opRows, 'tables-edit--operations'),
+      ...(ro ? [readOnlyBox(fields)] : fields),
       history,
     ]));
     check();
@@ -1769,15 +1732,15 @@ async function showTables(notice = '') {
     const paint = () => { swatch.style.background = couleur.value; swatch.style.color = texte.value; swatch.textContent = code.value.toUpperCase(); };
     for (const input of [code, couleur, texte]) input.addEventListener('input', paint);
     paint();
-    const pickerFor = (key) => imagePicker({ usage: 'classe', images: state.images.classe, value: c[key] ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: () => { touch(); validate(); }, idPrefix: `cl-${i}-${key.replace('image_', '')}`, compact: true });
+    const pickerFor = (key) => imagePicker({ usage: 'classe', images: state.images.classe, value: c[key] ?? null, upload: (file) => uploadImage(file, 'classe'), onChange: () => { touch(); validate(); }, idPrefix: `cl-${i}-${key.replace('image_', '')}`, compact: true, readOnly: ro });
     const chaleur = pickerFor('image_chaleur');
     const legende = textInput(`cl-${i}-legende`, c.legende_image ?? DEFAULT_LEGENDE_IMAGE, { class: 'input-legende' });
-    const features = characteristicsEditor(c.caracteristiques ?? [], `cl-${i}-car`, c.code, () => { touch(); validate(); });
+    const features = characteristicsEditor(c.caracteristiques ?? [], `cl-${i}-car`, c.code, () => { touch(); validate(); }, { readOnly: ro });
     return {
       tr: el('tr', { class: 'ligne-nouvelle' }, [cell(swatch, 'num'), cell(code), cell(nom), cell(couleur), cell(texte), cell(ligne), cell(chaleur.element, 'picto-cell'), cell(legende), cell(features.element, 'caracteristiques-cell')]),
       read: () => ({ code: code.value.trim().toUpperCase(), nom: nom.value.trim(), couleur: couleur.value, couleur_texte: texte.value, couleur_ligne: ligne.value, image_chaleur: chaleur.read(), legende_image: legende.value.trim(), caracteristiques: features.read() }),
     };
-  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, legende_image: DEFAULT_LEGENDE_IMAGE, caracteristiques: [] }), () => { touch(); validate(); });
+  }, () => ({ code: '', nom: '', couleur: '#808080', couleur_texte: '#ffffff', couleur_ligne: '#eeeeee', image_chaleur: null, legende_image: DEFAULT_LEGENDE_IMAGE, caracteristiques: [] }), () => { touch(); validate(); }, { readOnly: ro });
 
   // --- Matières d'outil : clé fixe, nom (que les outils nomment) ; la couleur est de la présentation (gardée telle quelle).
   const toolMaterialRows = draft.materiaux.materiaux_outil.map((m, i) => {
@@ -1806,7 +1769,7 @@ async function showTables(notice = '') {
         return out;
       },
     };
-  }, (previous) => ({ iso: previous?.iso ?? 'P', groupe: (Number(previous?.groupe) || 0) + 1, materiau: previous?.materiau ?? '', composition: null, etat: null, durete: null, exemple: null, vc_pi_min: Object.fromEntries(toolMaterialRows.map((row) => [row.read().cle, null])) }), () => { touch(); validate(); });
+  }, (previous) => ({ iso: previous?.iso ?? 'P', groupe: (Number(previous?.groupe) || 0) + 1, materiau: previous?.materiau ?? '', composition: null, etat: null, durete: null, exemple: null, vc_pi_min: Object.fromEntries(toolMaterialRows.map((row) => [row.read().cle, null])) }), () => { touch(); validate(); }, { readOnly: ro });
 
   // --- Opérations : nom, machine, direction, famille d'avance, avances ; le pictogramme d'une opération que la présentation
   // connaît est en direct (gardé tel quel ici) ; une opération NOUVELLE reçoit le sien dans sa ligne (D76, point 9).
@@ -1819,11 +1782,19 @@ async function showTables(notice = '') {
     const avanceMax = textInput(`op-${i}-avance-max`, op.avance_max_po_rev, { inputmode: 'decimal', class: 'input-court mono' });
     // Le facteur de vitesse de l'opération (D83) : « 1/4 » comme « 0.25 » ; versionné, comme les avances.
     const facteur = factorInput(`op-${i}-facteur`, op.facteur_vitesse, { 'aria-label': `Facteur de vitesse de ${op.operation || 'cette opération'}` });
-    const refreshFeeds = () => { const thread = famille.value === 'filetage'; avance.disabled = thread; avanceMax.disabled = thread; };
+    // En filetage, l'avance est sans objet (D69) : la case est inactive et atténuée (la classe, pas :disabled, que la lecture
+    // seule emploie aussi, D95).
+    const refreshFeeds = () => {
+      const thread = famille.value === 'filetage';
+      for (const input of [avance, avanceMax]) {
+        input.disabled = thread;
+        if (thread) input.classList.add('sans-objet'); else input.classList.remove('sans-objet');
+      }
+    };
     famille.addEventListener('change', refreshFeeds);
     refreshFeeds();
     const live = known.operations.has(op.operation);
-    const picker = live ? null : imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: () => { touch(); validate(); }, idPrefix: `op-${i}-picto`, compact: true });
+    const picker = live ? null : imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: () => { touch(); validate(); }, idPrefix: `op-${i}-picto`, compact: true, readOnly: ro });
     return {
       tr: el('tr', { class: live ? null : 'ligne-nouvelle' }, [cell(nom), cell(machine), cell(direction), cell(famille), cell(avance, 'num'), cell(avanceMax, 'num'), cell(facteur, 'num'), cell(live ? el('span', { class: 'muted small' }, 'en direct, dans le panneau « Présentation »') : picker.element, 'picto-cell')]),
       read: () => {
@@ -1835,7 +1806,7 @@ async function showTables(notice = '') {
         return out;
       },
     };
-  }, (previous) => ({ operation: '', machine: previous?.machine ?? 'Tour', direction_avance: previous?.direction_avance ?? 'Avance longitudinale', avance_po_rev: 0.005, avance_max_po_rev: 0.005, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false, facteur_vitesse: 1 }), () => { touch(); validate(); });
+  }, (previous) => ({ operation: '', machine: previous?.machine ?? 'Tour', direction_avance: previous?.direction_avance ?? 'Avance longitudinale', avance_po_rev: 0.005, avance_max_po_rev: 0.005, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false, facteur_vitesse: 1 }), () => { touch(); validate(); }, { readOnly: ro });
 
   // Le brouillon tel qu'à l'écran : les groupes ISO sont dérivés des lignes ; les commentaires « _… » et la révision sont gardés.
   function readTables() {
@@ -1849,10 +1820,12 @@ async function showTables(notice = '') {
   // Ce que la publication prendrait : le brouillon avec la présentation en vigueur par-dessus (D76).
   const publishedTables = () => applyPresentation(readTables(), shown.presentation);
 
-  const saveButton = el('button', { class: 'button', type: 'button' }, 'Enregistrer le brouillon');
-  const publishButton = el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
-  const cancelButton = el('button', { class: 'button-outline', type: 'button' }, 'Annuler les modifications'); // D77 ; inactif quand le brouillon est à jour
+  // Les trois boutons du brouillon ; aucun pour la consultation (D95), qui n'a rien à valider : une version publiée.
+  const saveButton = ro ? null : el('button', { class: 'button', type: 'button' }, 'Enregistrer le brouillon');
+  const publishButton = ro ? null : el('button', { class: 'button button--gold', type: 'button' }, 'Publier…');
+  const cancelButton = ro ? null : el('button', { class: 'button-outline', type: 'button' }, 'Annuler les modifications'); // D77 ; inactif quand le brouillon est à jour
   function validate() {
+    if (ro) return null;
     const current = readTables();
     // Une image de classe inconnue ou archivée est une erreur, sauf celle que la présentation en vigueur a déjà (D76, retouche).
     const errors = validateTables(publishedTables(), { images: state.images.classe, presentation: shown.presentation });
@@ -1875,19 +1848,19 @@ async function showTables(notice = '') {
       status.textContent = `Brouillon des tables enregistré à ${formatDateStamp(new Date().toISOString()).slice(11)} (révision ${revision})${errors.length > 0 ? ` — ${errors.length} erreur(s) restent à corriger avant de publier` : ''}.`;
       return true;
     } catch (error) {
-      if (error.status === 409) status.replaceChildren(el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { state.dirty = false; showTables(); } }, 'Recharger la page'));
+      if (error.status === 409) status.replaceChildren(el('strong', {}, error.message), ' ', el('button', { class: 'button-link', type: 'button', onclick: () => { setDirty(false); showTables(); } }, 'Recharger la page'));
       else status.textContent = serverErrorMessage(error);
       return false;
     } finally {
       saveButton.disabled = false;
     }
   }
-  saveButton.addEventListener('click', save);
+  saveButton?.addEventListener('click', save);
 
   // Publier (D61, D77) : enregistrer, puis UNE confirmation — en tête, les différences de valeurs avec la version dont le
   // brouillon est parti (la protection contre une faute de frappe) ; la révision ; puis la cascade : les exercices sur la
   // version remplacée, cochés par défaut, chacun avec ce que ça change pour lui ; un exercice en erreur est nommé, pas cochable.
-  publishButton.addEventListener('click', async () => {
+  publishButton?.addEventListener('click', async () => {
     if (!(await save())) return;
     try {
       const previous = page.brouillon.base_id === null ? null : (await guarded(() => editorTablesVersion(page.brouillon.base_id)))?.tables;
@@ -1923,7 +1896,7 @@ async function showTables(notice = '') {
         try {
           const result = await guarded(() => editorTablesPublish(revision, idInput.value.trim(), checkedIds()));
           if (result === null) return;
-          state.dirty = false;
+          setDirty(false);
           showTables(cascadeResultText(result, new Map(proposal.candidats.map((c) => [c.id, c.titre]))));
         } catch (error) {
           confirm.disabled = false;
@@ -1976,7 +1949,7 @@ async function showTables(notice = '') {
     ...pending.lignes.map((line) => `Retouche de présentation en attente — ${line}`),
   ];
   const leavePresentation = () => !presentationDirty || window.confirm("Les modifications du panneau « Présentation » ne sont pas appliquées : elles seront perdues au rechargement de l'onglet. Continuer ?");
-  cancelButton.addEventListener('click', () => confirmLoss(dialogSlot, {
+  cancelButton?.addEventListener('click', () => confirmLoss(dialogSlot, {
     heading: `Ramener le brouillon des tables à ${page.derniere} ?`,
     lines: lostTablesChanges(),
     label: 'Annuler les modifications',
@@ -1985,7 +1958,7 @@ async function showTables(notice = '') {
       try {
         const result = await guarded(() => editorTablesCancel(revision));
         if (result === null) return;
-        state.dirty = false;
+        setDirty(false);
         showTables(result.annule ? `Brouillon des tables ramené à ${result.id} : ses modifications sont annulées.` : `Brouillon des tables ramené à ${result.id} : ses modifications non enregistrées sont abandonnées.`);
       } catch (error) { status.textContent = serverErrorMessage(error); }
     },
@@ -1999,14 +1972,15 @@ async function showTables(notice = '') {
       try {
         const result = await guarded(() => editorTablesResume(revision, id));
         if (result === null) return;
-        state.dirty = false;
+        setDirty(false);
         showTables(`Valeurs de ${result.id} reprises dans le brouillon, qui repart de ${result.base_id} : vérifie les différences, puis « Publier… » — la cascade proposera les exercices sur ${result.base_id}. La présentation en vigueur est gardée.`);
       } catch (error) { status.textContent = serverErrorMessage(error); }
     },
   });
 
   // Aperçu : dix questions d'un exercice avec les tables telles qu'à l'écran (D63), et la présentation en vigueur.
-  const previewSelect = el('select', { id: 'apercu-exercice' }, exercises.map((e) => el('option', { value: e.id }, e.titre)));
+  // L'administration seulement : la consultation lit une version publiée, dont l'aperçu est celui de chaque exercice.
+  const previewSelect = ro ? null : el('select', { id: 'apercu-exercice' }, exercises.map((e) => el('option', { value: e.id }, e.titre)));
   async function preview() {
     const exercice = previewSelect.value;
     if (!exercice) return;
@@ -2026,26 +2000,39 @@ async function showTables(notice = '') {
     }
   }
 
+  // Les versions publiées : les feuilles imprimables pour les deux rôles ; « Reprendre cette version », l'administration.
   const versionsList = el('ul', { class: 'versions-liste' }, page.versions.map((v) => el('li', {}, [
     el('strong', {}, v.id), el('span', { class: 'muted' }, `publiée le ${formatDateStamp(v.creee_le)} · ${tablesUsageLabel(v.utilisations)}`),
     el('a', { class: 'button-small button-small--neutral', href: `/tables?version=${encodeURIComponent(v.id)}`, target: '_blank', rel: 'noopener' }, 'Feuilles imprimables'),
-    el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => resumeTables(v.id) }, 'Reprendre cette version'),
+    ...(ro ? [] : [el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => resumeTables(v.id) }, 'Reprendre cette version')]),
   ])));
 
-  const table = (headers, body, className = '') => el('div', { class: 'table-wrap' }, el('table', { class: `prof-table tables-edit ${className}`.trim() }, [el('thead', {}, el('tr', {}, [...headers, 'Actions'].map((h) => el('th', {}, h)))), body]));
+  // Un tableau de valeurs ; la lecture seule n'a pas de colonne d'actions et met le tableau dans un fieldset inactif.
+  const table = (headers, body, className = '') => (ro ? readOnlyBox : (x) => x)(el('div', { class: 'table-wrap' }, el('table', { class: `prof-table tables-edit ${className}`.trim() }, [el('thead', {}, el('tr', {}, [...headers, ...(ro ? [] : ['Actions'])].map((h) => el('th', {}, h)))), body])));
+  const part = ro ? `Version ${draft.id}` : 'Brouillon'; // l'intertitre de chaque tableau de valeurs
   renderPresentation(shown.presentation);
-  const screen = el('div', { class: 'screen screen--wide prof editeur', oninput: () => { touch(); validate(); }, onchange: () => { touch(); validate(); } }, [
+  const screen = el('div', { class: 'screen screen--wide prof editeur', ...(ro ? {} : { oninput: () => { touch(); validate(); }, onchange: () => { touch(); validate(); } }) }, [
     el('section', { class: 'panel' }, [
       panelHead('tables de référence', 'tables'),
       el('h1', { tabindex: '-1' }, 'Tables de référence'),
-      el('p', { class: 'muted small' }, [
+      ro ? el('p', { class: 'muted small' }, [
+        'Lecture seule, en deux parties. ',
+        el('strong', {}, 'Présentation.'), " Ce qui ne fait qu'afficher, en vigueur pour tous les étudiants. ",
+        el('strong', {}, 'Valeurs.'), ' La dernière version publiée des tables (matériaux, Vc, opérations, avances, facteurs de vitesse). Chaque exercice choisit sa version, et une séance commencée garde les valeurs de la sienne.',
+      ]) : el('p', { class: 'muted small' }, [
         "Deux parties, qui ne s'enregistrent pas de la même façon. ",
         el('strong', {}, 'Présentation, effet immédiat.'), " Ce qui ne fait qu'afficher. « Appliquer… » change tout de suite la page de tous les étudiants, quelle que soit leur version des tables. L'historique permet de revenir en arrière. ",
         el('strong', {}, 'Valeurs, brouillon à publier.'), ' Tout le reste (matériaux, Vc, opérations, avances…). Un seul brouillon, des versions publiées immuables, chacune avec sa révision. Une version ne change aucun exercice toute seule, et une séance commencée garde les valeurs de sa version.',
       ]),
     ]),
     presentationSlot,
-    el('section', { class: 'panel' }, [
+    el('section', { class: 'panel' }, ro ? [
+      el('div', { class: 'eyebrow' }, `Valeurs — version ${draft.id}`),
+      el('h2', {}, `Tables de la version ${draft.id}`),
+      el('p', { class: 'muted small' }, "La dernière version publiée des tables, celle que prend un exercice créé aujourd'hui. Le brouillon n'est pas montré. Les versions plus anciennes se lisent par leurs feuilles imprimables, en bas de la page."),
+      el('div', { class: 'editeur-bar' }, el('div', { class: 'muted small' }, `Version ${draft.id} · publiée le ${formatDateStamp(draft.creee_le)}`)),
+      status,
+    ] : [
       el('div', { class: 'eyebrow' }, 'Valeurs — brouillon à publier'),
       el('h2', {}, 'Brouillon des tables'),
       el('p', { class: 'muted small' }, "Un seul brouillon, modifiable. Des versions publiées immuables, chacune avec sa révision. Une version publiée ne change aucun exercice tout seul : chaque exercice choisit sa version de tables depuis sa page, et une séance commencée garde les valeurs de sa version d'exercice. Ce que le panneau « Présentation » porte n'est plus ici, sauf pour une classe ou une opération nouvelle : elle y reçoit sa présentation de départ, puis se modifie en direct une fois publiée."),
@@ -2064,27 +2051,35 @@ async function showTables(notice = '') {
       dialogSlot,
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, 'Brouillon · Classes ISO'),
-      el('p', { class: 'muted small' }, "La lettre de chaque classe, et leur ordre. Le nom, les couleurs, l'image de chaleur, la légende et les caractéristiques d'une classe sont en direct, dans le panneau « Présentation ». Une classe ajoutée ici reçoit sa présentation de départ sur sa ligne (légende de 40 caractères au plus, 6 caractéristiques au plus, libellé de 20 caractères, texte et solution de 90). Une fois publiée, elle se modifie en direct."),
+      el('div', { class: 'eyebrow' }, `${part} · Classes ISO`),
+      el('p', { class: 'muted small' }, ro
+        ? "La lettre de chaque classe, et leur ordre. Le nom, les couleurs, l'image de chaleur, la légende et les caractéristiques sont dans le panneau « Présentation », ci-dessus."
+        : "La lettre de chaque classe, et leur ordre. Le nom, les couleurs, l'image de chaleur, la légende et les caractéristiques d'une classe sont en direct, dans le panneau « Présentation ». Une classe ajoutée ici reçoit sa présentation de départ sur sa ligne (légende de 40 caractères au plus, 6 caractéristiques au plus, libellé de 20 caractères, texte et solution de 90). Une fois publiée, elle se modifie en direct."),
       table(['', 'Code', 'Nom', 'Couleur', 'Texte', 'Ligne', 'Image de chaleur', 'Légende', 'Caractéristiques'], classes.body, 'tables-edit--classes'),
-      el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe')),
+      ...(ro ? [] : [el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => classes.add() }, 'Ajouter une classe'))]),
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, "Brouillon · Matières d'outil"),
-      el('p', { class: 'muted small' }, "Les trois colonnes de la table des vitesses de coupe. Leur couleur est en direct, dans le panneau « Présentation ». Renommer une matière oblige à renommer la matière dans chaque outil qui la nomme : les exercices le signaleront."),
-      el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table tables-edit' }, [el('thead', {}, el('tr', {}, ['Clé', 'Nom'].map((h) => el('th', {}, h)))), el('tbody', {}, toolMaterialRows.map((r) => r.tr))])),
+      el('div', { class: 'eyebrow' }, `${part} · Matières d'outil`),
+      el('p', { class: 'muted small' }, ro
+        ? "Les trois colonnes de la table des vitesses de coupe. Leur couleur est dans le panneau « Présentation »."
+        : "Les trois colonnes de la table des vitesses de coupe. Leur couleur est en direct, dans le panneau « Présentation ». Renommer une matière oblige à renommer la matière dans chaque outil qui la nomme : les exercices le signaleront."),
+      (ro ? readOnlyBox : (x) => x)(el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table tables-edit' }, [el('thead', {}, el('tr', {}, ['Clé', 'Nom'].map((h) => el('th', {}, h)))), el('tbody', {}, toolMaterialRows.map((r) => r.tr))]))),
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, 'Brouillon · Matériaux usinés'),
-      el('p', { class: 'muted small' }, "Une ligne par groupe, dans l'ordre de la feuille. Le groupe ISO d'un outil est « classe - matériau » (« P - Acier non allié ») : retirer le dernier matériau d'un groupe retire le groupe, et les exercices qui l'utilisent le signaleront. « Famille » : un trait fin au-dessus de la ligne (changement de matériau usiné)."),
+      el('div', { class: 'eyebrow' }, `${part} · Matériaux usinés`),
+      el('p', { class: 'muted small' }, ro
+        ? "Une ligne par groupe, dans l'ordre de la feuille. « Famille » : un trait fin au-dessus de la ligne (changement de matériau usiné)."
+        : "Une ligne par groupe, dans l'ordre de la feuille. Le groupe ISO d'un outil est « classe - matériau » (« P - Acier non allié ») : retirer le dernier matériau d'un groupe retire le groupe, et les exercices qui l'utilisent le signaleront. « Famille » : un trait fin au-dessus de la ligne (changement de matériau usiné)."),
       table(['Classe', 'Groupe', 'Matériau usiné', 'Composition', 'État', 'Dureté', 'Exemple', ...toolMaterialRows.map((r) => `Vc ${r.read().nom}`), 'Famille'], materials.body, 'tables-edit--materiaux'),
-      el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => materials.add() }, 'Ajouter un matériau')),
+      ...(ro ? [] : [el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => materials.add() }, 'Ajouter un matériau'))]),
     ]),
     el('section', { class: 'panel' }, [
-      el('div', { class: 'eyebrow' }, 'Brouillon · Opérations'),
-      el('p', { class: 'muted small' }, "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces, sans objet en filetage), et le facteur de vitesse. Le facteur (N = Vc × 4 / Ø × facteur) : « 1 » sans réduction, « 1/4 » ou « 0.25 », « 1/8 »… Les outils en héritent. Le pictogramme est en direct, dans le panneau « Présentation ». Une opération ajoutée ici reçoit le sien sur sa ligne."),
+      el('div', { class: 'eyebrow' }, `${part} · Opérations`),
+      el('p', { class: 'muted small' }, ro
+        ? "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille, l'avance par révolution et son maximum (en pouces, sans objet en filetage), et le facteur de vitesse dont les outils héritent. Le pictogramme est dans le panneau « Présentation »."
+        : "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces, sans objet en filetage), et le facteur de vitesse. Le facteur (N = Vc × 4 / Ø × facteur) : « 1 » sans réduction, « 1/4 » ou « 0.25 », « 1/8 »… Les outils en héritent. Le pictogramme est en direct, dans le panneau « Présentation ». Une opération ajoutée ici reçoit le sien sur sa ligne."),
       table(['Opération', 'Machine-outil', "Direction d'avance", 'Famille', 'Avance', 'Avance max', 'Facteur de vitesse', 'Pictogramme'], operations.body, 'tables-edit--operations'),
-      el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => operations.add() }, 'Ajouter une opération')),
+      ...(ro ? [] : [el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => operations.add() }, 'Ajouter une opération'))]),
     ]),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, 'Versions publiées'),
@@ -2095,11 +2090,23 @@ async function showTables(notice = '') {
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
 }
 
+// L'onglet Tables de référence pour la consultation quand aucune version n'a été publiée (jamais en pratique : la semence
+// en publie une) : la page le dit, sans rien d'autre.
+function showTablesEmpty() {
+  const screen = el('div', { class: 'screen screen--wide prof editeur' }, el('section', { class: 'panel' }, [
+    panelHead('tables de référence', 'tables'),
+    el('h1', { tabindex: '-1' }, 'Tables de référence'),
+    el('p', { class: 'muted small' }, "Aucune version des tables n'a encore été publiée."),
+  ]));
+  showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
+}
+
 // --- Images (D56) : la liste avec les utilisations, téléverser, renommer, archiver, supprimer ------------------------------
 
-async function showImages(notice = '', filters = { usage: '', query: '' }) {
+export async function showImages(notice = '', filters = { usage: '', query: '' }) {
   const response = await guarded(() => editorImages());
   if (response === null) return;
+  const ro = readOnly();
   forgetImages();
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const act = async (action, success) => {
@@ -2124,7 +2131,8 @@ async function showImages(notice = '', filters = { usage: '', query: '' }) {
       el('td', { class: 'date' }, formatDateStamp(image.creee_le)),
       el('td', {}, imageUsageLabel(image.utilisations)),
       el('td', { class: image.archivee_le === null ? '' : 'state--running' }, image.archivee_le === null ? 'offerte' : `archivée le ${formatDateStamp(image.archivee_le)}`),
-      el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
+      // Les actions : l'administration seulement (D95).
+      ...(ro ? [] : [el('td', { class: 'actions' }, el('div', { class: 'actions-group' }, [
         el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => {
           const nom = window.prompt('Nouveau nom de l\'image (le nom lisible, dans la galerie) :', image.nom);
           if (nom && nom.trim() !== image.nom) act(() => editorImageRename(image.id, nom.trim()), `« ${image.nom} » renommée « ${nom.trim()} ».`);
@@ -2133,7 +2141,7 @@ async function showImages(notice = '', filters = { usage: '', query: '' }) {
           ? el('button', { class: 'button-small', type: 'button', onclick: () => { if (window.confirm(imageArchiveConfirmation(image))) act(() => editorImageArchive(image.id, true), `« ${image.nom} » archivée : plus proposée, toujours affichée là où elle est nommée.`); } }, 'Archiver')
           : el('button', { class: 'button-small button-small--neutral', type: 'button', onclick: () => act(() => editorImageArchive(image.id, false), `« ${image.nom} » rétablie.`) }, 'Rétablir'),
         ...(canDeleteImage(image.utilisations) ? [el('button', { class: 'button-small button-small--danger', type: 'button', onclick: () => { if (window.confirm(imageDeleteConfirmation(image))) act(() => editorImageDelete(image.id), `« ${image.nom} » supprimée.`); } }, 'Supprimer')] : []),
-      ])),
+      ]))]),
     ])));
     count.textContent = `${shown.length} image${shown.length > 1 ? 's' : ''} sur ${response.images.length}.`;
   }
@@ -2171,25 +2179,14 @@ async function showImages(notice = '', filters = { usage: '', query: '' }) {
       el('div', { class: 'field' }, [el('label', { for: 'images-recherche' }, 'Recherche'), search]),
     ]),
     el('div', { class: 'table-wrap' }, el('table', { class: 'prof-table images-table' }, [
-      el('thead', {}, el('tr', {}, ['', 'Nom', 'Usage', 'Type', 'Ajoutée le', 'Utilisée par', 'État', 'Actions'].map((label) => el('th', {}, label)))),
+      el('thead', {}, el('tr', {}, ['', 'Nom', 'Usage', 'Type', 'Ajoutée le', 'Utilisée par', 'État', ...(ro ? [] : ['Actions'])].map((label) => el('th', {}, label)))),
       body,
     ])),
     count,
-    el('h2', { class: 'editeur-bar' }, 'Téléverser une image'),
-    uploadForm,
+    ...(ro ? [] : [el('h2', { class: 'editeur-bar' }, 'Téléverser une image'), uploadForm]),
   ]));
   renderRows();
   showScreen(main, screen, { title: TITLE, aside: headerAside() }, 'h1');
 }
 
-// --- Démarrage : on essaie la liste ; sans cookie (401), la connexion s'ouvre sans message (guarded, loginNotice) ; un 403 la refuse --
-
-async function start() {
-  try {
-    await showList();
-  } catch (error) {
-    showLogin(serverErrorMessage(error));
-  }
-}
-
-start();
+// Le démarrage est celui de la coquille (prof-shell.js, prof-main.js) : les cinq onglets exportés ici s'y enregistrent.

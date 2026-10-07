@@ -1,11 +1,59 @@
-// Ce que montre l'espace professeur (décisions D34, D35 ; UI §3.8) : colonnes du tableau des
-// séances, filtre, tri, recherche, export CSV, journal des corrections d'identité. Fonctions PURES,
-// sans DOM, testées sous Node ; prof.js ne fait que les mettre à l'écran.
+// Ce que montre l'espace enseignant (décisions D34, D35, D95 ; UI §3.8) : le nom de la page, les onglets, la garde des
+// modifications, puis les colonnes du tableau des séances, filtre, tri, recherche, export CSV, journal des corrections
+// d'identité. Fonctions PURES, sans DOM, testées sous Node ; prof-shell.js et prof.js ne font que les mettre à l'écran.
 
 import { HOME_LINK_LABEL, formatDateStamp } from './text.js';
 
+// --- L'espace enseignant, une seule page (D95) : le nom, les onglets, la garde des modifications ---------------------
+
+// Le nom de la page : « enseignant », jamais « professeur », dans tout texte affiché (D95). L'adresse reste /prof.
+export const TITLE = 'Espace enseignant';
+
 // Les liens sous le formulaire de connexion (D87) : le retour à l'accueil, visible aussi après « Se déconnecter ».
 export const LOGIN_LINKS = [{ label: HOME_LINK_LABEL, href: '/' }];
+
+// La question posée avant de quitter un écran qui a des modifications non enregistrées (leave(), un changement
+// d'onglet, les liens de la barre du haut).
+export const LEAVE_CONFIRMATION = 'Des modifications ne sont pas enregistrées. Quitter la page et les perdre ?';
+
+// Le message de l'écran de connexion quand le serveur refuse le cookie (401) : « Ta séance a expiré » seulement pour une
+// séance qui était ouverte et expire en cours de travail ; à l'ouverture de la page sans cookie, la connexion s'ouvre
+// sans message (D87, point 4).
+//   connected : une séance était ouverte (connexion réussie, ou un appel qui a réussi après un rechargement)
+export const EXPIRED_NOTICE = 'Ta séance a expiré. Connecte-toi de nouveau.';
+export const loginNotice = (connected) => (connected ? EXPIRED_NOTICE : '');
+
+// Un clic sur un lien de la barre du haut quitte la page : faut-il d'abord poser LEAVE_CONFIRMATION ? Oui s'il y a des
+// modifications non enregistrées — sauf si le clic ouvre un autre onglet (Ctrl, Maj ou ⌘) : la page reste, rien à demander.
+//   dirty : les modifications non enregistrées ; keys : { ctrlKey, metaKey, shiftKey } de l'événement
+export function confirmsBeforeLeaving(dirty, { ctrlKey = false, metaKey = false, shiftKey = false } = {}) {
+  return Boolean(dirty) && !ctrlKey && !metaKey && !shiftKey;
+}
+
+// Les onglets, dans l'ordre : ceux des réussites (prof.js), puis ceux du contenu (editeur.js). Sauvegarde : rôle admin
+// seulement (l'export est tout le contenu, l'import est une écriture).
+export const TABS = [
+  { key: 'seances', label: 'Réussites' },
+  { key: 'identites', label: "Corrections d'identité" },
+  { key: 'exercices', label: 'Exercices' },
+  { key: 'banque', label: "Banque d'outils" },
+  { key: 'tables', label: 'Tables de référence' },
+  { key: 'images', label: 'Images' },
+  { key: 'sauvegarde', label: 'Sauvegarde', adminOnly: true },
+];
+
+// Les onglets offerts à un rôle : les sept à l'administration, six à la consultation.
+export const tabsFor = (role) => TABS.filter((tab) => !tab.adminOnly || canAct(role));
+
+// L'onglet à ouvrir d'après le fragment de l'adresse (« #exercices », ce que /prof/editeur donne) : lui s'il est offert
+// à ce rôle, sinon le premier, Réussites.
+export function initialTab(hash, role) {
+  const key = String(hash ?? '').replace(/^#/, '');
+  return (tabsFor(role).find((tab) => tab.key === key) ?? TABS[0]).key;
+}
+
+// Le sur-titre d'un écran : « Espace enseignant · exercices », suivi de « · lecture seule » pour la consultation.
+export const eyebrowText = (part, role) => `${TITLE}${part ? ` · ${part}` : ''}${roleNote(role)}`;
 
 // Les colonnes du tableau, dans l'ordre. `key` sert au tri et à l'export.
 export const SESSION_COLUMNS = [

@@ -1,20 +1,19 @@
-// Les chemins vers l'accueil (D87) : le lien de l'en-tête sur chacune des cinq pages, qui survit à showScreen ;
-// « ← Page de l'exercice » sous l'identification 1 / 2, qui appelle onHome et laisse le jeton gardé ; les liens des
-// deux écrans de connexion ; la confirmation de la Gestion du contenu avant de quitter par la barre du haut.
-// Les écrans sont construits sur le DOM minuscule de aide-dom.js et c'est ce DOM qu'on regarde.
+// Les chemins vers l'accueil (D87) : le lien de l'en-tête sur chacune des quatre pages, qui survit à showScreen ;
+// « ← Page de l'exercice » sous l'identification 1 / 2, qui appelle onHome et laisse le jeton gardé ; le lien de
+// l'écran de connexion de l'espace enseignant (une seule connexion, D95) ; la confirmation de la coquille avant de
+// quitter par la barre du haut. Les écrans sont construits sur le DOM minuscule de aide-dom.js et c'est ce DOM qu'on regarde.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fakeStorage, installDom } from './aide-dom.js';
 import { HEADER_LINK_NAME, HOME_LINK_LABEL } from '../site/js/ui/text.js';
-import { LOGIN_LINKS as PROF_LOGIN_LINKS } from '../site/js/ui/prof-data.js';
-import { LEAVE_CONFIRMATION, LOGIN_LINKS as EDITOR_LOGIN_LINKS, confirmsBeforeLeaving, loginNotice } from '../site/js/ui/editeur-data.js';
+import { LEAVE_CONFIRMATION, LOGIN_LINKS, confirmsBeforeLeaving, loginNotice } from '../site/js/ui/prof-data.js';
 import { SESSION_KEY, loadSession } from '../site/js/session.js';
 import { el, showScreen } from '../site/js/ui/dom.js';
 import { renderCreate, renderIdentity, renderMatricule, renderResume } from '../site/js/ui/identification-screen.js';
 import { renderLoadError } from '../site/js/ui/home-screen.js';
 
-const PAGES = ['site/index.html', 'site/prof.html', 'site/prof/editeur.html', 'site/tables.html', 'site/verifier.html'];
+const PAGES = ['site/index.html', 'site/prof.html', 'site/tables.html', 'site/verifier.html'];
 const lire = (chemin) => readFile(new URL(`../${chemin}`, import.meta.url), 'utf8');
 
 // Ce navigateur garde le jeton d'une séance du M10 : aucun écran d'identification ne doit y toucher.
@@ -25,7 +24,7 @@ const EXERCICE = { id: 'm10-tournage-vc', titre: 'M10 — Tournage : vitesse de 
 
 // --- L'en-tête des cinq pages ----------------------------------------------------------------------------------------
 
-test('les cinq pages : le logo et le titre forment un seul lien vers l’accueil, nommé « Accueil — tous les exercices », dans l’en-tête no-print', async () => {
+test('les quatre pages : le logo et le titre forment un seul lien vers l’accueil, nommé « Accueil — tous les exercices », dans l’en-tête no-print', async () => {
   assert.equal(HEADER_LINK_NAME, 'Accueil — tous les exercices');
   for (const page of PAGES) {
     const html = await lire(page);
@@ -120,18 +119,16 @@ test('« Le quiz n’a pas pu démarrer » : « ← Tous les exercices » sous l
   assert.equal(HOME_LINK_LABEL, '← Tous les exercices');
 });
 
-test('connexion de /prof : « ← Tous les exercices » ; connexion de /prof/editeur : « ← Espace professeur » puis « ← Tous les exercices »', async () => {
-  assert.deepEqual(PROF_LOGIN_LINKS, [{ label: '← Tous les exercices', href: '/' }]);
-  assert.deepEqual(EDITOR_LOGIN_LINKS, [{ label: '← Espace professeur', href: '/prof' }, { label: '← Tous les exercices', href: '/' }]);
-  // Les deux écrans de connexion les posent, en liens (<a href>), sous le formulaire.
-  for (const fichier of ['site/js/ui/prof.js', 'site/js/ui/editeur.js']) {
-    const source = await lire(fichier);
-    const connexion = source.slice(source.indexOf('function showLogin'), source.indexOf("showScreen(main, screen, {", source.indexOf('function showLogin')));
-    assert.match(connexion, /el\('div', \{ class: 'form-links' \}, LOGIN_LINKS\.map\(\(\{ label, href \}\) => el\('a', \{ class: 'button-link', href \}, label\)\)\)/, fichier);
-  }
+test('la connexion de /prof, la seule de l’espace enseignant (D95) : « ← Tous les exercices », en lien, sous le formulaire', async () => {
+  assert.deepEqual(LOGIN_LINKS, [{ label: '← Tous les exercices', href: '/' }]);
+  const source = await lire('site/js/ui/prof-shell.js');
+  const connexion = source.slice(source.indexOf('function showLogin'), source.indexOf('showScreen(main, screen, {', source.indexOf('function showLogin')));
+  assert.match(connexion, /el\('div', \{ class: 'form-links' \}, LOGIN_LINKS\.map\(\(\{ label, href \}\) => el\('a', \{ class: 'button-link', href \}, label\)\)\)/);
+  // Les deux modules d'écrans n'ont plus de connexion à eux.
+  for (const fichier of ['site/js/ui/prof.js', 'site/js/ui/editeur.js']) assert.doesNotMatch(await lire(fichier), /function showLogin|teacherLogin/, fichier);
 });
 
-// --- Gestion du contenu : quitter par la barre du haut --------------------------------------------------------------------
+// --- La coquille de l'espace enseignant : quitter par la barre du haut --------------------------------------------------------
 
 test('confirmsBeforeLeaving : demander seulement avec des modifications non enregistrées, et pas pour un clic qui ouvre un autre onglet', () => {
   assert.equal(confirmsBeforeLeaving(false), false);
@@ -143,32 +140,38 @@ test('confirmsBeforeLeaving : demander seulement avec des modifications non enre
   assert.equal(confirmsBeforeLeaving(undefined), false);
 });
 
-test('editeur.js : leave() et les liens de la barre du haut posent la même question, écrite une seule fois ; le beforeunload reste', async () => {
+test('prof-shell.js : leave() et les liens de la barre du haut posent la même question, écrite une seule fois ; le beforeunload reste ; les modules d’écrans passent par la coquille', async () => {
   assert.equal(LEAVE_CONFIRMATION, 'Des modifications ne sont pas enregistrées. Quitter la page et les perdre ?');
-  const source = await lire('site/js/ui/editeur.js');
+  const source = await lire('site/js/ui/prof-shell.js');
   assert.equal((source.match(/window\.confirm\(LEAVE_CONFIRMATION\)/g) ?? []).length, 2);
   assert.doesNotMatch(source, /Quitter la page et les perdre/);
   assert.match(source, /window\.addEventListener\('beforeunload'/);
   assert.match(source, /document\.querySelector\('\.app-header'\)\.addEventListener\('click'/);
   assert.match(source, /confirmsBeforeLeaving\(state\.dirty, event\)/);
+  for (const fichier of ['site/js/ui/prof.js', 'site/js/ui/editeur.js']) {
+    const module = await lire(fichier);
+    assert.doesNotMatch(module, /LEAVE_CONFIRMATION|beforeunload|state\.dirty/, fichier);
+  }
+  assert.match(await lire('site/js/ui/editeur.js'), /import \{ TITLE, guarded, headerAside, isDirty, leave, panelHead, readOnly, setDirty \} from '\.\/prof-shell\.js';/);
 });
 
-// --- Réponses de Thierry au rapport (D87, point 4) ------------------------------------------------------------------------
+// --- Réponses de Thierry au rapport (D87, point 4), reprises par la coquille (D95) ------------------------------------------
 
-test('editeur.js : à l’ouverture sans cookie, la connexion s’ouvre sans message ; « Ta séance a expiré » seulement pour une séance qui était ouverte (guarded, loginNotice)', async () => {
-  const source = await lire('site/js/ui/editeur.js');
-  // Le message n'est écrit qu'une fois, dans editeur-data.js (les commentaires peuvent le citer) ; editeur.js passe par
+test('prof-shell.js : à l’ouverture sans cookie, la connexion s’ouvre sans message ; « Ta séance a expiré » seulement pour une séance qui était ouverte (guarded, loginNotice)', async () => {
+  const source = await lire('site/js/ui/prof-shell.js');
+  // Le message n'est écrit qu'une fois, dans prof-data.js (les commentaires peuvent le citer) ; la coquille passe par
   // loginNotice(state.connected).
   assert.doesNotMatch(source.replace(/\/\/[^\n]*/g, ''), /Ta séance a expiré/);
   assert.match(source, /if \(error\.status === 401\) \{ showLogin\(loginNotice\(state\.connected\)\); return null; \}/);
   // Un appel qui réussit prouve la séance ouverte (la page rechargée avec son cookie) ; l'écran de connexion la ferme.
-  const guarded = source.slice(source.indexOf('async function guarded'), source.indexOf('function headerAside'));
+  const guarded = source.slice(source.indexOf('export async function guarded'), source.indexOf('export function headerAside'));
   assert.match(guarded, /const result = await action\(\);\s*state\.connected = true;\s*return result;/);
-  const login = source.slice(source.indexOf('function showLogin'), source.indexOf('async function guarded'));
+  const login = source.slice(source.indexOf('export function showLogin'), source.indexOf('async function logout'));
   assert.match(login, /state\.connected = false;/);
-  // Le démarrage passe par showList, donc par guarded : un 401 sans séance ouverte n'a pas de message.
-  const start = source.slice(source.indexOf('async function start'));
-  assert.match(start, /await showList\(\);/);
+  // Le démarrage relit le rôle (GET /api/prof/role) : un 401 sans séance ouverte n'a pas de message.
+  const start = source.slice(source.indexOf('export async function start'));
+  assert.match(start, /await teacherRole\(\)/);
+  assert.match(start, /showLogin\(error\.status === 401 \? '' : serverErrorMessage\(error\)\)/);
   assert.equal(loginNotice(false), '');
 });
 
