@@ -80,11 +80,11 @@ test('factorLines : à trouver, rien ; donné, la ligne d’avant en fraction ; 
   assert.deepEqual(factorLines(outil({ etat: 'donne', texte: '1.5', valeur: 1.5, raison: null })), ['Vitesse augmentée × 1.5']);
   assert.deepEqual(factorLines(outil({ etat: 'donne', texte: '1', valeur: 1, raison: null })), []);
   // Forcé : même à 1, même quand l'exercice fait trouver le facteur — sinon la feuille piégerait l'étudiant.
-  assert.deepEqual(factorLines(outil({ etat: 'force', texte: '1', valeur: 1, raison: 'fraise à inserts de carbure' })), ['Facteur propre à cet outil : × 1 — fraise à inserts de carbure']);
-  assert.deepEqual(factorLines(outil({ etat: 'force', texte: '1/2', valeur: 0.5, raison: PASSAGE_REASON })), ["Facteur propre à cet outil : × 1/2 — Valeur reprise de l'ancien outil — à vérifier"]);
+  assert.deepEqual(factorLines(outil({ etat: 'force', texte: '1', valeur: 1, raison: 'fraise à inserts de carbure' })), ['Facteur propre à cet outil : × 1 (fraise à inserts de carbure)']); // D93 : la raison entre parenthèses
+  assert.deepEqual(factorLines(outil({ etat: 'force', texte: '1/2', valeur: 0.5, raison: PASSAGE_REASON })), ["Facteur propre à cet outil : × 1/2 (Valeur reprise de l'ancien outil — à vérifier)"]);
   // Le facteur d'avance ne change pas : propre à chaque outil, à la suite.
   assert.deepEqual(factorLines({ facteur_vitesse: { etat: 'a_trouver', texte: null, valeur: null, raison: null }, fact_av: 1.5 }), ['Avance augmentée × 1.5']);
-  assert.deepEqual(factorLines({ facteur_vitesse: { etat: 'force', texte: '1', valeur: 1, raison: 'x' }, fact_av: 0.5 }), ['Facteur propre à cet outil : × 1 — x', 'Avance réduite × 0.5']);
+  assert.deepEqual(factorLines({ facteur_vitesse: { etat: 'force', texte: '1', valeur: 1, raison: 'x' }, fact_av: 0.5 }), ['Facteur propre à cet outil : × 1 (x)', 'Avance réduite × 0.5']);
   // Une version d'avant D83 : « fact_vc », en décimal, comme avant.
   assert.deepEqual(factorLines({ fact_vc: 0.25, fact_av: 1 }), ['Vitesse réduite × 0.25']);
   assert.deepEqual(factorLines({ fact_vc: 1, fact_av: 1 }), []);

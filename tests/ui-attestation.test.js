@@ -350,24 +350,27 @@ test('pageLabel et continuationLine : « Page 2 de 3 » ; le rappel en tête d�
 });
 
 test('mention de vérification, pied de page, nom du fichier PDF', () => {
-  assert.equal(verificationMention('quiz.example', 'ABCDE-FGHJK'), 'Vérification : quiz.example/verifier — code ABCDE-FGHJK');
+  assert.equal(verificationMention('quiz.example', 'ABCDE-FGHJK'), 'Vérification : quiz.example/verifier · code ABCDE-FGHJK'); // D93
   assert.equal(attestationFooter(RECORD), 'TGM-TMI — TLP — 2026');
   assert.equal(attestationFileName(RECORD), 'Attestation-m10-tournage-vc-D-Amours-Levesque-Zoe');
 });
 
-test('verificationOutcome : quatre issues, ton et texte ; l’annulation donne la date', () => {
-  assert.equal(verificationOutcome({ resultat: 'valide' }).title, 'Attestation valide');
-  assert.equal(verificationOutcome({ resultat: 'valide' }).tone, 'correct');
-  assert.equal(verificationOutcome({ resultat: 'aucune' }).title, 'Aucune attestation ne correspond');
-  assert.equal(verificationOutcome({ resultat: 'invalide' }).title, 'Signature invalide ou contenu modifié');
-  assert.equal(verificationOutcome({ resultat: 'invalide' }).tone, 'wrong');
+test('verificationOutcome (D33, D93) : quatre issues, ton et texte courts ; l’annulation donne la date et le motif entre parenthèses', () => {
+  assert.deepEqual(verificationOutcome({ resultat: 'valide' }), { tone: 'correct', title: 'Attestation authentique', text: 'Voici son contenu.' });
+  assert.deepEqual(verificationOutcome({ resultat: 'aucune' }), { tone: 'wrong', title: 'Aucune attestation ne correspond', text: 'Aucune attestation ne porte ce code. Vérifie-le : il ne contient jamais de O ni de I.' });
+  assert.deepEqual(verificationOutcome({ resultat: 'invalide' }), { tone: 'wrong', title: 'Attestation modifiée ou fausse', text: "Son contenu ne correspond pas à l'attestation originale." });
   const annulee = verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'remise_a_zero' });
   assert.equal(annulee.title, 'Attestation annulée');
-  assert.match(annulee.text, /le 2026-09-21 13:48 : séance remise à zéro/);
-  assert.match(verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'identite_corrigee' }).text, /identité corrigée .* autre code/);
-  assert.match(verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'seance_supprimee' }).text, /le 2026-09-21 13:48 : séance supprimée par l'enseignant/);
-  assert.match(verificationOutcome({ resultat: 'annulee' }).text, /motif inconnu/);
-  assert.equal(verificationOutcome({ resultat: 'autre' }).tone, 'wrong');
+  assert.equal(annulee.text, "Cette attestation a été annulée le 2026-09-21 13:48 (séance remise à zéro par l'enseignant). Son contenu est affiché à titre d'information.");
+  assert.match(verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'identite_corrigee' }).text, /\(identité corrigée .* autre code\)/);
+  assert.match(verificationOutcome({ resultat: 'annulee', annulee_le: REUSSITE.toISOString(), motif: 'seance_supprimee' }).text, /le 2026-09-21 13:48 \(séance supprimée par l'enseignant\)/);
+  assert.match(verificationOutcome({ resultat: 'annulee' }).text, /^Cette attestation a été annulée \(motif inconnu\)\./);
+  assert.deepEqual(verificationOutcome({ resultat: 'autre' }), { tone: 'wrong', title: 'Vérification impossible', text: 'Réponse inattendue. Réessaie plus tard.' });
+  // Aucun vocabulaire interne (D93).
+  for (const resultat of ['valide', 'aucune', 'invalide', 'annulee', 'specimen', 'specimen_code', 'autre']) {
+    const { title, text } = verificationOutcome({ resultat, motif: 'remise_a_zero' });
+    assert.doesNotMatch(`${title} ${text}`, /serveur|enregistrement|détient|recompos|signature/i, resultat);
+  }
 });
 
 test('qrModules : la bibliothèque vendorisée encode une adresse de vérification en un QR carré, avec sa marge de 4 modules', () => {

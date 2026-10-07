@@ -34,8 +34,13 @@
   </header>
 
   <main class="app-main" id="app">
-    <p class="muted">Chargement du quiz… Si ce message reste affiché, la page doit être ouverte par un serveur web (<code>npm run dev</code>), pas directement depuis un fichier.</p>
+    <p class="muted">Chargement…</p>
   </main>
+  <!-- Si le quiz n'a pas démarré après trois secondes, l'explication va dans la console, pour le développeur (D93) : la page
+       doit être servie par un serveur web (npm run dev), pas ouverte depuis un fichier. Rien de plus à l'écran. -->
+  <script>
+    setTimeout(() => { if (document.querySelector('#app > p.muted')) console.warn("Le quiz n'a pas démarré. La page doit être servie par un serveur web (npm run dev), pas ouverte depuis un fichier."); }, 3000);
+  </script>
 
   <!-- Le nom du département, sur trois lignes comme sur les feuilles de l'atelier (js/ui/text.js : DEPARTMENT_LINES). -->
   <footer class="app-footer no-print">
@@ -44,7 +49,7 @@
       <div>Technique du génie de la maintenance industrielle</div>
       <div>(fiabilité des systèmes de production)</div>
     </div>
-    <div>TGM-TMI · Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session.</div>
+    <div>TGM-TMI · Tes données sont effacées à la fin de chaque session.</div>
   </footer>
 
   <noscript><p class="app-noscript">Ce quiz a besoin de JavaScript pour fonctionner.</p></noscript>

@@ -72,5 +72,5 @@ test('assembleExercise : refuse des copies d’outils invalides, comme le serveu
 });
 
 test('loadApp : un serveur injoignable fait échouer le chargement avec un message clair', async () => {
-  await assert.rejects(loadApp('?exercice=m10-tournage-vc', async () => { throw new Error('réseau'); }), /Le serveur de correction ne répond pas/);
+  await assert.rejects(loadApp('?exercice=m10-tournage-vc', async () => { throw new Error('réseau'); }), /Le site ne répond pas/);
 });

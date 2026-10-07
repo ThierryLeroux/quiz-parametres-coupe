@@ -12,7 +12,7 @@ import { assembleExercise, demoRequested } from '../site/js/app.js';
 import { attestationFileName, verificationOutcome } from '../site/js/ui/attestation-data.js';
 import { attestationPages } from '../site/js/ui/attestation-screen.js';
 import {
-  CHOOSER, DEMO_ASIDE, DEMO_BANNER, DEMO_DONE, DEMO_EXPIRED_NOTICE, DEMO_NOTE, SPECIMEN, chosenToolLabel, demoHint, demoHref, demoName, demoTitle, demoToolGroups,
+  CHOOSER, DEMO_BANNER, DEMO_DONE, DEMO_EXPIRED_NOTICE, DEMO_HINT, SPECIMEN, chosenToolLabel, demoHref, demoName, demoTitle, demoToolGroups,
 } from '../site/js/ui/demo-data.js';
 import { demoBanner, renderDemoChooser, renderSpecimen } from '../site/js/ui/demo-screen.js';
 import { toolRows } from '../site/js/ui/home-data.js';
@@ -44,20 +44,21 @@ test('demoHref et demoRequested : « ?exercice=<id>&demo=1 » ouvre le mode dém
   assert.equal(demoRequested(''), false);
 });
 
-test('les textes du mode démo : le titre de la barre, le nom et l’indice du bouton, la note de l’accueil, le bandeau, « Démo réussie », le spécimen', () => {
+test('les textes du mode démo (D92, D93) : le titre de la barre, le nom et l’indice du bouton, le bandeau, le choix de l’outil, « Démo réussie », le spécimen', () => {
   assert.equal(demoTitle('Tournage — Exercice 2'), 'Démo — Tournage — Exercice 2');
   assert.equal(demoName('Tournage — Exercice 2'), 'Démo : Tournage — Exercice 2');
-  assert.equal(demoHint('Tournage — Exercice 2'), "Tournage — Exercice 2 — mode démo : des questions à volonté sur l'outil de ton choix, sans identification ; rien n'est gardé");
-  assert.equal(DEMO_ASIDE, "Démo · rien n'est gardé");
-  assert.match(DEMO_NOTE, /^« Démo » : l'exercice sans identification/);
-  assert.deepEqual(Object.keys(DEMO_BANNER), ['label', 'text', 'exercise', 'specimen']);
-  assert.equal(DEMO_BANNER.exercise, 'Faire le vrai exercice');
-  assert.equal(DEMO_BANNER.specimen, "Voir un exemple d'attestation");
+  assert.equal(DEMO_HINT, 'Essayer sans identification');
+  assert.deepEqual(DEMO_BANNER, { label: 'Démo', text: "rien n'est enregistré.", exercise: 'Faire le vrai exercice', specimen: "Voir un exemple d'attestation" });
   assert.equal(DEMO_DONE.title, 'Démo réussie');
-  assert.match(DEMO_DONE.text, /l'attestation s'afficherait ici/);
+  assert.equal(DEMO_DONE.text, 'Dans le vrai exercice, ton attestation apparaîtrait ici. Tu peux continuer.');
   assert.equal(CHOOSER.random, 'Au hasard');
-  assert.match(DEMO_EXPIRED_NOTICE, /^La démo a expiré/);
+  assert.equal(CHOOSER.intro, "Choisis un outil, ou laisse le hasard choisir. Tu pourras changer d'outil en tout temps.");
+  assert.equal(CHOOSER.randomNote, 'Un outil différent à chaque question');
+  assert.equal(DEMO_EXPIRED_NOTICE, 'La démo a expiré. Choisis un outil pour recommencer.');
   assert.equal(SPECIMEN.watermark, 'SPÉCIMEN');
+  assert.deepEqual([SPECIMEN.lead, SPECIMEN.text], ['Exemple sans valeur.', "C'est ce document que tu remettras sur Léa à la fin du vrai exercice."]);
+  // Aucun vocabulaire interne, aucun « rien n'est gardé » qui rassure pour rien (D93).
+  for (const text of [DEMO_HINT, DEMO_BANNER.text, CHOOSER.intro, CHOOSER.randomNote, DEMO_DONE.text, DEMO_EXPIRED_NOTICE, SPECIMEN.text]) assert.doesNotMatch(text, /serveur|gardé|séance/);
   // Le nom du fichier PDF d'un spécimen, au pied de page et à l'impression : jamais « Attestation-… ».
   assert.equal(attestationFileName({ specimen: true, exercice: { id: M10 }, etudiant: { prenom: 'Exemple', nom: 'SPÉCIMEN' } }), 'Specimen-attestation-m10-tournage-vc');
   assert.equal(attestationFileName({ exercice: { id: M10 }, etudiant: { prenom: 'Camille', nom: 'Tremblay' } }), 'Attestation-m10-tournage-vc-Tremblay-Camille');
@@ -89,7 +90,7 @@ test('renderDemoChooser : le bandeau, « Au hasard » puis les outils par opéra
   const groups = demoToolGroups(toolRows(m10.exercise, m10.data));
   renderDemoChooser(main, { exercise: m10.exercise, groups }, { onChoose: async (id) => { calls.push(id); return answer; }, onSpecimen: () => calls.push('specimen') });
   assert.equal(document.querySelector('#header-title').textContent, `Démo — ${m10.exercise.titre}`);
-  assert.equal(document.querySelector('#header-aside').textContent, DEMO_ASIDE);
+  assert.equal(document.querySelector('#header-aside').textContent, 'TGM-TMI'); // D93 : plus de « Démo · rien n'est gardé »
   assert.equal(document.title, `Démo — ${m10.exercise.titre}`);
   const screen = main.querySelector('.screen.demo-chooser');
   const banner = screen.querySelector('.banner--demo');
@@ -125,7 +126,7 @@ test('renderDemoChooser : le bandeau, « Au hasard » puis les outils par opéra
   assert.equal(banner.querySelector('a').textContent, DEMO_BANNER.exercise);
   banner.querySelector('button').click();
   assert.equal(calls.at(-1), 'specimen');
-  assert.match(banner.textContent, /^Démo — rien n'est gardé : ni séance, ni attestation\./);
+  assert.match(banner.textContent, /^Démo — rien n'est enregistré\./);
 });
 
 test('renderDemoChooser en cours de démo : l’outil en vigueur marqué, « ← Revenir à la question » (onBack), l’avis d’une démo expirée, le cours dans le sur-titre', () => {
@@ -160,7 +161,7 @@ test('demoBanner : un rôle note, le lien vers la page de l’exercice et le bou
 
 // --- L'écran Question en mode démo -----------------------------------------------------------------------------------
 
-test('renderQuestion en mode démo : la barre (« Démo — <titre> », le rappel, les tables, « Changer d’outil », Quitter — ni identité ni « Corriger mon identité »), le bandeau avant les panneaux, la progression, les cases', async () => {
+test('renderQuestion en mode démo : la barre (« Démo — <titre> », les tables, « Changer d’outil », Quitter — ni identité, ni « Corriger mon identité », ni rappel), le bandeau avant les panneaux, la progression, les cases', async () => {
   const { demo } = await commencerDemo(M10);
   const labels = toolLabels(m10.exercise, m10.data);
   const calls = [];
@@ -169,9 +170,9 @@ test('renderQuestion en mode démo : la barre (« Démo — <titre> », le rappe
   });
   assert.equal(document.querySelector('#header-title').textContent, `Démo — ${m10.exercise.titre}`);
   const aside = document.querySelector('#header-aside');
-  assert.equal(aside.querySelector('span').textContent, DEMO_ASIDE);
+  assert.equal(aside.querySelector('span'), null); // D93 : plus de rappel « Démo · rien n'est gardé »
   assert.deepEqual(aside.querySelectorAll('button').map((b) => b.textContent), ['Tables de référence', "Changer d'outil", 'Quitter']);
-  assert.doesNotMatch(document.querySelector('header').textContent, /Corriger mon identité|matricule/);
+  assert.doesNotMatch(document.querySelector('header').textContent, /Corriger mon identité|matricule|gardé/);
   aside.querySelectorAll('button')[1].click();
   aside.querySelectorAll('button')[2].click();
   aside.querySelectorAll('button')[0].click();
@@ -253,7 +254,7 @@ test('attestationPages avec specimen : chaque page porte la classe attestation--
     assert.equal(page.children[0], mark); // le premier enfant : posé par-dessus le contenu par la feuille de style
   }
   assert.equal(pages[0].querySelector('.attestation-code').textContent, 'SPECI-MEN00');
-  assert.match(pages[0].querySelector('.attestation-mention').textContent, /^Vérification : quiz\.example\/verifier — code SPECI-MEN00$/);
+  assert.match(pages[0].querySelector('.attestation-mention').textContent, /^Vérification : quiz\.example\/verifier · code SPECI-MEN00$/);
   assert.match(pages[0].querySelector('.attestation-footer').textContent, /^Specimen-attestation-m10-tournage-vc\.pdf · remis sur Léa par l'étudiant/); // jamais « Attestation-… »
   assert.deepEqual(texts('.attestation-fact-value').length, 0); // pas encore à l'écran
   const facts = pages[0].querySelectorAll('.attestation-fact-value').map((n) => n.textContent);
@@ -268,12 +269,12 @@ test('renderSpecimen : la page lettre avec le filigrane, la consigne, « Enregis
   const calls = [];
   renderSpecimen(main, { exercise: m10.exercise, specimen }, { onBack: () => calls.push('back') });
   assert.equal(document.querySelector('#header-title').textContent, `Spécimen d'attestation — ${m10.exercise.titre}`);
-  assert.equal(document.querySelector('#header-aside span').textContent, DEMO_ASIDE);
+  assert.deepEqual(document.querySelector('#header-aside').children.map((n) => [n.tagName, n.textContent]), [['BUTTON', SPECIMEN.back]]); // D93 : plus de rappel
   assert.ok(main.querySelector('.screen--document .attestation-stage .attestation--specimen .attestation-watermark'));
   const bar = main.querySelector('.attestation-bar');
   assert.ok(bar.classList.contains('no-print'));
-  assert.equal(bar.querySelector('strong').textContent, SPECIMEN.title);
-  assert.match(bar.textContent, /^Spécimen d'attestation — un exemple sans valeur, composé pour cette démo : la même page que l'étudiant remet sur Léa\./);
+  assert.equal(bar.querySelector('strong').textContent, SPECIMEN.lead);
+  assert.match(bar.textContent, /^Exemple sans valeur\. C'est ce document que tu remettras sur Léa à la fin du vrai exercice\./);
   assert.deepEqual(bar.querySelectorAll('button').map((b) => b.textContent), [SPECIMEN.print, SPECIMEN.back]);
   assert.equal(document.activeElement, main.querySelector('.attestation-title'));
   bar.querySelectorAll('button')[1].click();
@@ -287,8 +288,8 @@ test('verificationOutcome : les deux issues d’un spécimen — « SPÉCIMEN �
   assert.match(specimen.text, /mode démo/);
   assert.match(specimen.text, /n'atteste aucune réussite/);
   const code = verificationOutcome({ resultat: 'specimen_code' });
-  assert.deepEqual([code.tone, code.title], ['gold', "Code d'un spécimen"]);
-  assert.match(code.text, /Scanne son code QR/);
+  assert.deepEqual([code.tone, code.title], ['gold', "Code d'un exemple"]); // D93
+  assert.equal(code.text, "Ce code est celui d'un exemple. Scanne son code QR pour le vérifier.");
 });
 
 // --- Les feuilles de style ---------------------------------------------------------------------------------------------

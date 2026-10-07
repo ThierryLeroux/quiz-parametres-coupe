@@ -7,40 +7,38 @@ export const demoHref = (id) => `?exercice=${encodeURIComponent(id)}&demo=1`;
 
 // --- Textes -----------------------------------------------------------------------------------------------------
 
-// La barre du haut : « Démo — <titre> » ; à droite, le rappel.
+// La barre du haut : « Démo — <titre> ». Le rappel « rien n'est gardé » qui s'y trouvait est retiré (D93) : le bandeau le dit.
 export const demoTitle = (titre) => `Démo — ${titre}`;
-export const DEMO_ASIDE = "Démo · rien n'est gardé";
 
-// Le bouton « Démo » d'une rangée de l'accueil : son nom accessible et son indice.
+// Le bouton « Démo » d'une rangée de l'accueil : son nom accessible et son indice (D93).
 export const demoName = (titre) => `Démo : ${titre}`;
-export const demoHint = (titre) => `${titre} — mode démo : des questions à volonté sur l'outil de ton choix, sans identification ; rien n'est gardé`;
+export const DEMO_HINT = 'Essayer sans identification';
 
-// La note de la porte professeur, à l'accueil.
-export const DEMO_NOTE = "« Démo » : l'exercice sans identification — des questions à volonté sur l'outil de ton choix et un exemple d'attestation ; rien n'est gardé.";
+// Le bandeau discret mais constant de la démo (D92, point 8 ; D93), et ses deux sorties.
+export const DEMO_BANNER = { label: 'Démo', text: "rien n'est enregistré.", exercise: 'Faire le vrai exercice', specimen: "Voir un exemple d'attestation" };
 
-// Le bandeau discret mais constant de la démo (D92, point 8), et ses deux sorties.
-export const DEMO_BANNER = { label: 'Démo', text: "rien n'est gardé : ni séance, ni attestation.", exercise: 'Faire le vrai exercice', specimen: "Voir un exemple d'attestation" };
-
-// L'écran du choix de l'outil.
+// L'écran du choix de l'outil (D93).
 export const CHOOSER = {
   eyebrow: 'Démo',
   title: 'Sur quel outil veux-tu des questions ?',
-  intro: "Les questions se suivent à volonté, corrigées comme dans le vrai exercice. Tu peux changer d'outil entre deux questions.",
+  intro: "Choisis un outil, ou laisse le hasard choisir. Tu pourras changer d'outil en tout temps.",
   random: 'Au hasard',
-  randomNote: "parmi tous les outils de l'exercice, comme une vraie séance",
+  randomNote: 'Un outil différent à chaque question',
   back: '← Revenir à la question',
 };
 
 // Quand le serveur ne reconnaît plus la démo (24 h sans activité) : on en commence une autre.
-export const DEMO_EXPIRED_NOTICE = 'La démo a expiré : choisis un outil pour en commencer une autre.';
+export const DEMO_EXPIRED_NOTICE = 'La démo a expiré. Choisis un outil pour recommencer.';
 
-// À 100 % (D92, point 7).
-export const DEMO_DONE = { title: 'Démo réussie', text: "Tous les outils ont leurs réussites de suite : dans le vrai exercice, l'attestation s'afficherait ici. Tu peux continuer." };
+// À 100 % (D92, point 7 ; D93).
+export const DEMO_DONE = { title: 'Démo réussie', text: 'Dans le vrai exercice, ton attestation apparaîtrait ici. Tu peux continuer.' };
 
-// Le spécimen d'attestation (D92, point 9).
+// Le spécimen d'attestation (D92, point 9 ; D93) : le titre de la barre du haut, puis la consigne en deux phrases, la
+// première en gras.
 export const SPECIMEN = {
   title: "Spécimen d'attestation",
-  lead: "un exemple sans valeur, composé pour cette démo : la même page que l'étudiant remet sur Léa.", // après le titre et « — »
+  lead: 'Exemple sans valeur.',
+  text: "C'est ce document que tu remettras sur Léa à la fin du vrai exercice.",
   watermark: 'SPÉCIMEN',
   back: '← Retour à la démo',
   print: 'Enregistrer en PDF',

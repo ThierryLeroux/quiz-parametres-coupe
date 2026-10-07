@@ -107,7 +107,7 @@ export function renderMatricule(main, { exercise, notice = '', matricule = '' },
   formScreen(main, exercise, {
     eyebrow: 'Identification · 1 / 2',
     title: 'Quel est ton matricule ?',
-    intro: [el('p', { class: 'muted small' }, "C'est lui qui retrouve ta séance, sur cet appareil comme sur un autre.")],
+    intro: [el('p', { class: 'muted small' }, "Il te permet de reprendre l'exercice sur n'importe quel appareil.")],
     fields: ['matricule'],
     values: { matricule },
     notice,
@@ -158,8 +158,8 @@ export function renderIdentity(main, { exercise, seance }, actions) {
     eyebrow: 'Ta séance',
     title: 'Corriger mon identité',
     intro: [el('p', { class: 'muted small' }, seance.reussite_le === null
-      ? 'Ton prénom, ton nom et ton matricule figureront sur ton attestation. Ta progression ne change pas. Entre ton NIP pour confirmer.'
-      : 'Ton attestation sera réémise avec la nouvelle identité et un nouveau code ; ses résultats et ses dates ne changent pas, et l’ancien code répondra « annulée ». Entre ton NIP pour confirmer.')],
+      ? 'Ces renseignements seront inscrits sur ton attestation. Ta progression ne change pas. Entre ton NIP pour confirmer.'
+      : "Une nouvelle attestation sera produite, avec un nouveau code. L'ancienne ne sera plus valide. Entre ton NIP pour confirmer.")],
     fields: ['prenom', 'nom', 'matricule', 'nip'],
     values: seance.etudiant,
     submitLabel: 'Enregistrer',

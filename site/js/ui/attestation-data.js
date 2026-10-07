@@ -236,10 +236,10 @@ export function continuationLine(record, code) {
   return `Attestation de réussite — ${record.etudiant.prenom} ${record.etudiant.nom} · ${record.etudiant.matricule} · code ${code} (suite)`;
 }
 
-// « Vérification : quiz.example/verifier — code ABCDE-FGHJK »
+// « Vérification : quiz.example/verifier · code ABCDE-FGHJK » (D93 : un seul « : » par phrase, le point médian sépare)
 //   host : location.host — l'adresse du site sans « https:// », lisible sur papier
 export function verificationMention(host, code) {
-  return `Vérification : ${host}/verifier — code ${code}`;
+  return `Vérification : ${host}/verifier · code ${code}`;
 }
 
 // Pied de page : « TGM-TMI — TLP — 2026 », l'année de la réussite.
@@ -272,7 +272,8 @@ export function claimsFromInput(text) {
   return { code: typed };
 }
 
-// « Cette attestation a été annulée le … : identité corrigée, une nouvelle attestation a été émise. »
+// « Cette attestation a été annulée le … (identité corrigée par l'étudiant, une nouvelle attestation a été émise avec un
+// autre code). Son contenu est affiché à titre d'information. » (D93)
 function cancellationText(result) {
   const reasons = {
     remise_a_zero: "séance remise à zéro par l'enseignant",
@@ -281,18 +282,19 @@ function cancellationText(result) {
   };
   const reason = reasons[result.motif] ?? 'motif inconnu';
   const when = result.annulee_le ? ` le ${formatDateStamp(result.annulee_le)}` : '';
-  return `Cette attestation a été annulée${when} : ${reason}. Voici l'enregistrement tel qu'il était.`;
+  return `Cette attestation a été annulée${when} (${reason}). Son contenu est affiché à titre d'information.`;
 }
 
-// Titre et explication de chaque issue de la vérification (SPEC §8, D33 ; les deux issues d'un spécimen du mode démo, D92).
+// Titre et explication de chaque issue de la vérification (SPEC §8, D33 ; les deux issues d'un spécimen du mode démo, D92 ;
+// les textes de D93 : courts, sans serveur ni enregistrement).
 export function verificationOutcome(result) {
   const outcomes = {
-    valide: { tone: 'correct', title: 'Attestation valide', text: "Le serveur de correction détient cette attestation, et sa signature est authentique. Voici l'enregistrement tel qu'il le détient." },
+    valide: { tone: 'correct', title: 'Attestation authentique', text: 'Voici son contenu.' },
     annulee: { tone: 'gold', title: 'Attestation annulée', text: cancellationText(result) },
-    aucune: { tone: 'wrong', title: 'Aucune attestation ne correspond', text: 'Aucune attestation ne porte ce code. Vérifie le code sur le document ; un O ou un I ne peuvent pas y figurer.' },
-    invalide: { tone: 'wrong', title: 'Signature invalide ou contenu modifié', text: "Ce que l'adresse du QR prétend ne correspond pas à ce que le serveur détient : le document a été fabriqué ou retouché." },
-    specimen: { tone: 'gold', title: 'SPÉCIMEN — exemple sans valeur', text: "Ce document est un spécimen d'attestation produit par le mode démo : il n'atteste aucune réussite. Sa signature de spécimen est authentique ; voici ce qu'elle couvre, recomposé par le serveur." },
-    specimen_code: { tone: 'gold', title: "Code d'un spécimen", text: "Ce code est celui d'un spécimen d'attestation, un exemple sans valeur produit par le mode démo. Scanne son code QR pour en vérifier la signature." },
+    aucune: { tone: 'wrong', title: 'Aucune attestation ne correspond', text: 'Aucune attestation ne porte ce code. Vérifie-le : il ne contient jamais de O ni de I.' },
+    invalide: { tone: 'wrong', title: 'Attestation modifiée ou fausse', text: "Son contenu ne correspond pas à l'attestation originale." },
+    specimen: { tone: 'gold', title: 'SPÉCIMEN — exemple sans valeur', text: "Exemple produit par le mode démo. Il n'atteste aucune réussite." },
+    specimen_code: { tone: 'gold', title: "Code d'un exemple", text: "Ce code est celui d'un exemple. Scanne son code QR pour le vérifier." },
   };
-  return outcomes[result.resultat] ?? { tone: 'wrong', title: 'Réponse inattendue', text: "Le serveur a répondu quelque chose d'inconnu." };
+  return outcomes[result.resultat] ?? { tone: 'wrong', title: 'Vérification impossible', text: 'Réponse inattendue. Réessaie plus tard.' };
 }

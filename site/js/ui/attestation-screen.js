@@ -105,7 +105,8 @@ export function attestationPages({ attestation: record, code, url_verification: 
   // Ce qu'une page porte des deux tableaux, dans l'ordre : le tableau par outil, sa note, la liste des questions.
   const tables = (page, i) => [
     ...(titles[i].tools === null ? [] : [el('h2', { class: 'attestation-subtitle' }, titles[i].tools), operationsTable(record, page.tools)]),
-    ...(page.note ? [el('p', { class: 'attestation-note' }, 'Chaque outil devait être réussi le nombre de fois indiqué, de suite : une mauvaise réponse remettait son compteur à zéro. Les paramètres ont été corrigés par le serveur de correction.')] : []),
+    // La note sous le dernier rang (D93 : deux phrases, plus un mot sur le serveur) ; sa hauteur est comptée par PAGE_LAYOUT.note.
+    ...(page.note ? [el('p', { class: 'attestation-note' }, 'Chaque outil devait être réussi le nombre de fois indiqué, de suite. Une mauvaise réponse remettait son compteur à zéro.')] : []),
     ...(titles[i].questions === null ? [] : [el('h2', { class: 'attestation-subtitle' }, titles[i].questions)]),
     ...(page.questions.length > 0 ? [questionsTable(record, page.questions, narrow)] : []),
   ];
@@ -174,7 +175,7 @@ export function renderAttestationError(main, { seance, message }, actions) {
   const screen = el('div', { class: 'screen' }, el('section', { class: 'panel panel--correct' }, [
     el('div', { class: 'eyebrow' }, seance.exercice.titre),
     el('h1', { tabindex: '-1' }, 'Exercice réussi'),
-    el('p', {}, "Ta réussite est enregistrée sur le serveur de correction, mais ton attestation n'a pas pu être chargée."),
+    el('p', {}, "Ta réussite est enregistrée, mais l'attestation n'a pas pu s'afficher. Recharge la page."),
     el('p', { class: 'server-message', role: 'status' }, message),
     el('div', { class: 'form-actions' }, el('button', { class: 'button', type: 'button', onclick: actions.onRetry }, 'Réessayer')),
   ]));

@@ -30,7 +30,7 @@ async function call(method, path, { jeton, body } = {}, request = fetch) {
     // credentials: le cookie de l'espace professeur (D34) voyage avec les appels /api/prof/… ; les autres n'en ont pas.
     response = await request(path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
-    throw new ApiError(0, 'Le serveur de correction ne répond pas.');
+    throw new ApiError(0, 'Le site ne répond pas.'); // jamais le mot « serveur » à l'écran (D93)
   }
 
   let content = null;
@@ -41,9 +41,9 @@ async function call(method, path, { jeton, body } = {}, request = fetch) {
   }
   if (!response.ok) {
     const { erreur, ...details } = content ?? {};
-    throw new ApiError(response.status, erreur ?? `Le serveur a répondu ${response.status}.`, details);
+    throw new ApiError(response.status, erreur ?? `Erreur ${response.status}. Réessaie dans un instant.`, details);
   }
-  if (content === null) throw new ApiError(0, 'La réponse du serveur est illisible.');
+  if (content === null) throw new ApiError(0, 'Réponse illisible.');
   return content;
 }
 

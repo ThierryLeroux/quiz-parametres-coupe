@@ -4,7 +4,7 @@
 // ce qui est à trouver.
 
 import { allowedGroups, allowedToolMaterials, courseKey } from '../exercice.js';
-import { demoHint, demoHref, demoName } from './demo-data.js';
+import { DEMO_HINT, demoHref, demoName } from './demo-data.js';
 import { toolLabels } from './rules.js';
 import { operationPictoOf, toolPhotoUrl } from './sheets-data.js';
 import { countText, fieldName } from './text.js';
@@ -72,12 +72,12 @@ export function gradedFields(champs) {
 //   href   : le lien de sa page ; fields : ses pastilles ; tools : « 13 outils » (null si le serveur ne le dit pas)
 //   name   : le nom accessible du lien — « Tournage — Exercice 2 — à trouver : vitesse de coupe, vitesse de rotation — 13 outils »
 //   demo   : { href, name, hint } — le bouton « Démo », qui ouvre le mode démo de l'exercice (D92 : chaque exercice
-//            publié en a un) ; nom accessible « Démo : <titre> », indice « <titre> — mode démo : … »
+//            publié en a un) ; nom accessible « Démo : <titre> », indice « Essayer sans identification » (D93)
 function homeRow(entry) {
   const fields = gradedFields(entry.champs_evalues);
   const tools = Number.isInteger(entry.nombre_outils) ? countText(entry.nombre_outils, 'outil') : null;
   const name = [entry.titre, ...(fields.length === 0 ? [] : [`à trouver : ${fields.map((f) => f.name).join(', ')}`]), ...(tools === null ? [] : [tools])].join(' — ');
-  const demo = { href: demoHref(entry.id), name: demoName(entry.titre), hint: demoHint(entry.titre) };
+  const demo = { href: demoHref(entry.id), name: demoName(entry.titre), hint: DEMO_HINT };
   return { id: entry.id, href: exerciseHref(entry.id), title: entry.titre, fields, tools, name, demo };
 }
 
@@ -98,9 +98,9 @@ export function homeCards(listed) {
 // « a », « a et b », « a, b et c ».
 const joined = (items) => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} et ${items.at(-1)}`);
 
-// Les questions posées : les grandeurs à trouver, fournies et non demandées, en toutes lettres avec leur symbole,
+// Les questions posées : les grandeurs à trouver, données et non demandées, en toutes lettres avec leur symbole,
 // dans l'ordre de l'écran. Les mêmes pour chaque outil : l'exercice les règle pour tous (D52). Les cinq grandeurs
-// sont du féminin (« fournies »).
+// sont du féminin (« données »). « Donné », jamais « fourni par l'exercice » (D93).
 //   exercise : l'exercice au format du moteur (champs_evalues, champs_masques)
 export function questionLines(exercise) {
   const graded = exercise.champs_evalues;
@@ -111,7 +111,7 @@ export function questionLines(exercise) {
   const hidden = named((key) => masked.includes(key));
   return [
     `À trouver : ${joined(find)}.`,
-    ...(given.length === 0 ? [] : [`${given.length > 1 ? 'Fournies' : 'Fournie'} par l'exercice : ${joined(given)}.`]),
+    ...(given.length === 0 ? [] : [`${given.length > 1 ? 'Données' : 'Donnée'} : ${joined(given)}.`]),
     ...(hidden.length === 0 ? [] : [`${hidden.length > 1 ? 'Non demandées' : 'Non demandée'} : ${joined(hidden)}.`]),
   ];
 }

@@ -90,7 +90,7 @@ export function factorLines(outil) {
 function speedFactorLines(outil, line) {
   const factor = outil.facteur_vitesse;
   if (!factor) return outil.fact_vc === 1 ? [] : [line('Vitesse', outil.fact_vc)];
-  if (factor.etat === 'force') return [`Facteur propre à cet outil : × ${factor.texte} — ${factor.raison}`];
+  if (factor.etat === 'force') return [`Facteur propre à cet outil : × ${factor.texte} (${factor.raison})`];
   return factor.etat === 'donne' && factor.valeur !== 1 ? [line('Vitesse', factor.valeur, factor.texte)] : [];
 }
 
@@ -100,7 +100,7 @@ function speedFactorLines(outil, line) {
 export function diameterLines(question) {
   if (!question.outil.barre) return [];
   const word = /Ø (\S+):/.exec(question.identifiant ?? '')?.[1];
-  return [`Ø usiné${word ? ` (${word})` : ''} : ${question.dimension} — pour la vitesse de rotation`, `Ø de la barre : ${question.outil.barre} — pour l'avance`];
+  return [`Pour la vitesse de rotation, Ø usiné${word ? ` (${word})` : ''} : ${question.dimension}`, `Pour l'avance, Ø de la barre : ${question.outil.barre}`];
 }
 
 // --- Aide contextuelle (UI §3.3) : la méthode, jamais la valeur, ni la ligne ni la colonne -------------------------
@@ -155,7 +155,7 @@ export function helpLine(field, question, family, metric = false) {
         ? ' Avance proportionnelle au Ø : avance × Ø de la barre (pas le Ø usiné), sans dépasser l’avance max.'
         : ' Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.') + (metric ? INCHES_REMINDER : ''),
       // Filetage : fz est le pas ; en métrique, le pas en mm se met en pouces (D70).
-      thread: metric ? ' Filetage : fz = pas, en pouces : mm / 25.4.' : ' Filetage : fz = pas = 1 / filets au pouce.',
+      thread: metric ? ' Filetage : fz = pas, en pouces (mm / 25.4).' : ' Filetage : fz = pas = 1 / filets au pouce.',
       fixed: ' Avance fixe : la valeur de la table, telle quelle, quel que soit le Ø.',
     };
     return plain(`Avance par dent → table des avances, à l'opération de l'outil.${byFamily[family]}`, 'avances');
@@ -334,11 +334,4 @@ export function operationProgress(progression, labels, { previous = null, curren
   }
   const summary = folded.length === 0 ? null : `${folded.length} opération${folded.length > 1 ? 's' : ''} terminée${folded.length > 1 ? 's' : ''}`;
   return { shown, folded, summary };
-}
-
-// Rappel sous le formulaire : « Sur cet outil : 2 réussites de suite sur 3 ».
-export function toolStreak(progression, toolId) {
-  const outil = progression.outils.find((entry) => entry.id === toolId);
-  if (!outil) return '';
-  return `Sur cet outil : ${outil.reussites} réussite${outil.reussites > 1 ? 's' : ''} de suite sur ${outil.requises}`;
 }

@@ -77,12 +77,12 @@ test('erreur du serveur : ApiError avec le code HTTP, le message en français et
 
 test('réponse d’erreur sans JSON : ApiError avec le code HTTP', async () => {
   const { request } = fauxFetch(502, '<html>Bad gateway</html>');
-  await assert.rejects(nextQuestion('abc123', M10, request), { name: 'ApiError', status: 502, message: 'Le serveur a répondu 502.' });
+  await assert.rejects(nextQuestion('abc123', M10, request), { name: 'ApiError', status: 502, message: 'Erreur 502. Réessaie dans un instant.' }); // D93 : jamais « serveur »
 });
 
 test('serveur injoignable ou réponse illisible : ApiError de statut 0, jamais une autre exception', async () => {
   const horsLigne = async () => { throw new TypeError('Failed to fetch'); };
-  await assert.rejects(createSession(ETUDIANT, M10, horsLigne), { name: 'ApiError', status: 0, message: 'Le serveur de correction ne répond pas.' });
+  await assert.rejects(createSession(ETUDIANT, M10, horsLigne), { name: 'ApiError', status: 0, message: 'Le site ne répond pas.' });
   const { request } = fauxFetch(200, 'pas du JSON');
   await assert.rejects(nextQuestion('abc123', M10, request), { name: 'ApiError', status: 0 });
 });

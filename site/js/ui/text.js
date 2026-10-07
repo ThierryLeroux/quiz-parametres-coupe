@@ -49,7 +49,7 @@ export function exerciseMeta(exercise) {
 // Les grandeurs d'un champ d'exercice (vc, fz, n, f, vf), en toutes lettres (D71).
 export const fieldName = (field) => FIELD_NAMES[field];
 
-// Résumé de l'exercice en trois phrases (UI §3.1) : réussites de suite, échec, rapport.
+// Résumé de l'exercice en trois phrases (UI §3.1) : réussites de suite, échec, attestation (D93 : jamais « rapport »).
 // N est lu dans reussites_requises ; s'il varie selon l'outil, on écrit « plusieurs fois de suite ».
 export function exerciseSummary(exercise) {
   const required = exercise.outils.map((entry) => entry.reussites_requises);
@@ -59,7 +59,7 @@ export function exerciseSummary(exercise) {
   return [
     `Chaque outil doit être réussi ${times}.`,
     'Une mauvaise réponse remet le compteur de cet outil à zéro.',
-    'À la fin, tu enregistres ton rapport de réussite en PDF et tu le remets sur Léa.',
+    'À la fin, enregistre ton attestation en PDF et remets-la sur Léa.',
   ];
 }
 
@@ -86,9 +86,10 @@ export function formatDateStamp(iso, { seconds = false } = {}) {
 }
 
 // Message à montrer quand un appel au serveur de correction échoue (ApiError d'api.js, ou toute
-// erreur portant { status, message }) : celui du serveur, sauf s'il n'a pas pu être joint.
+// erreur portant { status, message }) : celui du serveur, sauf s'il n'a pas pu être joint. Jamais le mot
+// « serveur » à l'écran (D93).
 export function serverErrorMessage(error) {
-  if (error.status === 0 || error.status === undefined) return 'Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie.';
+  if (error.status === 0 || error.status === undefined) return 'Le site ne répond pas. Vérifie ta connexion, puis réessaie.';
   return error.message;
 }
 
@@ -107,9 +108,9 @@ export function sessionFoundNotice(prenom, initiale) {
   return `Séance de ${prenom} ${initiale}. trouvée. Entre ton NIP pour la reprendre.`;
 }
 
-// Écran 2/2, aucune séance (D23).
+// Écran 2/2, aucune séance (D23 ; D93).
 export function newSessionNotice(matricule) {
-  return `Nouvelle séance pour le matricule ${matricule}. Vérifie-le : il figurera sur ton rapport et te servira à reprendre l'exercice sur un autre appareil.`;
+  return `Nouveau matricule : ${matricule}. Vérifie-le bien. Il sera inscrit sur ton attestation et te permettra de continuer sur un autre appareil.`;
 }
 
 // --- Virgule décimale (D10, D71) ----------------------------------------------------------------------------
@@ -185,10 +186,10 @@ export const typedNumber = (champ) => champ.expression?.valeur ?? champ.saisie;
 
 // Note sous un champ corrigé (UI §3.4) : « Juste », « Juste (2496 attendu) » si la saisie diffère de
 // la valeur attendue mais est tolérée — « Juste (0.000284 = ton avance par dent × 2) » quand cette valeur est faite
-// de ses saisies —, « Faux — attendu 12.500 » ; un champ fourni garde sa mention.
+// de ses saisies —, « Faux — attendu 12.500 » ; un champ donné garde sa mention « donné » (D93).
 export function fieldResultNote(champ) {
   if (champ.masque) return 'non demandée';
-  if (!champ.evalue) return "fourni par l'exercice";
+  if (!champ.evalue) return 'donné';
   if (!champ.ok) return `Faux — attendu ${champ.attendu}`;
   const typed = decimalPoint(typedNumber(champ).replace(/\s/g, ''));
   if (typed === champ.attendu) return 'Juste';

@@ -67,7 +67,7 @@ const screen = el('div', { class: 'screen' }, [
   el('section', { class: 'panel' }, [
     el('div', { class: 'eyebrow' }, 'Attestation de réussite'),
     el('h1', { tabindex: '-1' }, 'Vérifier une attestation'),
-    el('p', { class: 'muted small' }, "Scanne le code QR de l'attestation, ou entre le code inscrit dessous. Le serveur de correction dit si l'attestation est authentique, et montre ce qu'il en détient."),
+    el('p', { class: 'muted small' }, "Scanne le code QR de l'attestation, ou entre le code inscrit dessous."),
     el('form', { class: 'verify-form', novalidate: true, onsubmit: submit }, [
       el('div', { class: 'field field--number' }, [
         el('label', { for: 'code' }, 'Code de vérification'),

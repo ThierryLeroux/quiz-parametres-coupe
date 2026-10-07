@@ -5,8 +5,9 @@
 import { el, showScreen } from './dom.js';
 import { attestationFileName } from './attestation-data.js';
 import { attestationPages } from './attestation-screen.js';
-import { CHOOSER, DEMO_ASIDE, DEMO_BANNER, SPECIMEN, chosenToolLabel, demoTitle } from './demo-data.js';
+import { CHOOSER, DEMO_BANNER, SPECIMEN, chosenToolLabel, demoTitle } from './demo-data.js';
 import { exerciseHref } from './home-data.js';
+import { DEPARTMENT_SHORT } from './text.js';
 
 // Image décorative qui disparaît si elle manque (opération sans pictogramme).
 function optionalImage(src, className) {
@@ -14,8 +15,8 @@ function optionalImage(src, className) {
   return image;
 }
 
-// Le bandeau de la démo (D92, point 8) : « Démo — rien n'est gardé : ni séance, ni attestation. », le lien vers le
-// vrai exercice et le bouton du spécimen. Le même au-dessus de la question, du corrigé et du choix de l'outil.
+// Le bandeau de la démo (D92, point 8 ; D93) : « Démo — rien n'est enregistré. », le lien vers le vrai exercice et le
+// bouton du spécimen. Le même au-dessus de la question, du corrigé et du choix de l'outil.
 //   exerciseId : l'exercice ; actions : { onSpecimen }
 export function demoBanner(exerciseId, actions) {
   return el('div', { class: 'banner banner--demo', role: 'note' }, [
@@ -76,7 +77,7 @@ export function renderDemoChooser(main, { exercise, groups, chosen = null, notic
       inSession ? el('div', { class: 'form-links' }, el('button', { class: 'button-link', type: 'button', onclick: actions.onBack }, CHOOSER.back)) : '',
     ]),
   ]);
-  showScreen(main, screen, { title: demoTitle(exercise.titre), aside: DEMO_ASIDE });
+  showScreen(main, screen, { title: demoTitle(exercise.titre), aside: DEPARTMENT_SHORT });
 }
 
 // Le spécimen d'attestation (D92, point 9) : la même page lettre qu'une vraie attestation, avec le filigrane
@@ -93,7 +94,7 @@ export function renderSpecimen(main, { exercise, specimen }, actions) {
   };
   const screen = el('div', { class: 'screen screen--document' }, [
     el('div', { class: 'attestation-bar no-print' }, [
-      el('div', {}, [el('strong', {}, SPECIMEN.title), ` — ${SPECIMEN.lead}`]),
+      el('div', {}, [el('strong', {}, SPECIMEN.lead), ' ', SPECIMEN.text]),
       el('div', { class: 'attestation-bar-actions' }, [
         el('button', { class: 'button button--gold', type: 'button', onclick: print }, SPECIMEN.print),
         el('button', { class: 'button-link', type: 'button', onclick: actions.onBack }, SPECIMEN.back),
@@ -103,6 +104,6 @@ export function renderSpecimen(main, { exercise, specimen }, actions) {
   ]);
   showScreen(main, screen, {
     title: `${SPECIMEN.title} — ${exercise.titre}`,
-    aside: [el('span', {}, DEMO_ASIDE), el('button', { class: 'button-link', type: 'button', onclick: actions.onBack }, SPECIMEN.back)],
+    aside: el('button', { class: 'button-link', type: 'button', onclick: actions.onBack }, SPECIMEN.back),
   }, '.attestation-title');
 }

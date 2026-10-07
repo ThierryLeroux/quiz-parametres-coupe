@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, initialFocus, insertInCase, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, toolStreak, unreadableCase } from '../site/js/ui/rules.js';
+import { CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, initialFocus, insertInCase, materialCard, gapExplanation, helpLine, operationProgress, progressRows, questionIsMetric, remainingWait, testAnswers, toolLabels, toolMaterialColor, unreadableCase } from '../site/js/ui/rules.js';
 import { evaluateExpression } from '../site/js/expression.js';
 import { sessionView } from '../worker/seance.js';
 import { classFeatures, classImages, feedSheet, heatImageMaxWidth, inches, operationPicto, operationPictoOf, operationSlug, toolPhotoUrl, vcSheet } from '../site/js/ui/sheets-data.js';
@@ -38,12 +38,12 @@ test('toolLabels : avec tout le catalogue dans un exercice, aucun nom affiché n
 // D25 : la barre à aléser a deux diamètres ; le panneau, l'aide de N et celle de fz disent lequel sert à quoi.
 const BARRE = { identifiant: 'Barre à aléser Ø 3/4 po - Ø alésé: 2.000"', dimension: '2.000"', outil: { id: 'barre_a_aleser', nom: 'Barre à aléser', barre: '3/4 po', fact_vc: 1, fact_av: 1 } };
 
-test('diameterLines : les deux diamètres de la barre à aléser, chacun avec son rôle ; rien pour les autres outils', () => {
-  assert.deepEqual(diameterLines(BARRE), ['Ø usiné (alésé) : 2.000" — pour la vitesse de rotation', "Ø de la barre : 3/4 po — pour l'avance"]);
+test('diameterLines (D25, D93) : les deux diamètres de la barre à aléser, chacun avec son rôle, un seul « : » par ligne ; rien pour les autres outils', () => {
+  assert.deepEqual(diameterLines(BARRE), ['Pour la vitesse de rotation, Ø usiné (alésé) : 2.000"', "Pour l'avance, Ø de la barre : 3/4 po"]);
   // Barre à rainurer (D25, extension) : mêmes textes, le mot du gabarit change.
   const RAINURE = { ...BARRE, identifiant: 'Barre à rainurer Ø 1/2 po - Ø rainuré: 1.000"', dimension: '1.000"', outil: { ...BARRE.outil, id: 'barre_a_rainurer', nom: 'Barre à rainurer', barre: '1/2 po', fact_vc: 0.25 } };
-  assert.deepEqual(diameterLines(RAINURE), ['Ø usiné (rainuré) : 1.000" — pour la vitesse de rotation', "Ø de la barre : 1/2 po — pour l'avance"]);
-  assert.deepEqual(diameterLines({ ...BARRE, identifiant: 'Outil Ø 1 po' }), ['Ø usiné : 2.000" — pour la vitesse de rotation', "Ø de la barre : 3/4 po — pour l'avance"]);
+  assert.deepEqual(diameterLines(RAINURE), ['Pour la vitesse de rotation, Ø usiné (rainuré) : 1.000"', "Pour l'avance, Ø de la barre : 1/2 po"]);
+  assert.deepEqual(diameterLines({ ...BARRE, identifiant: 'Outil Ø 1 po' }), ['Pour la vitesse de rotation, Ø usiné : 2.000"', "Pour l'avance, Ø de la barre : 3/4 po"]);
   assert.deepEqual(diameterLines({ dimension: '2.000"', outil: { barre: null } }), []);
   assert.deepEqual(diameterLines({ dimension: '2.000"', outil: {} }), []); // séance servie par un serveur d'avant D25
 });
@@ -151,7 +151,7 @@ test('helpLine, dimension métrique (D70) : « Le Ø se met en pouces : mm / 25.
   assert.equal(texte(helpLine('rpm', foret, 'proportional', true)), `Vitesse de rotation → N = Vc × 4 / Ø, plafonnée à la vitesse de rotation max de la machine.${RAPPEL}`);
   assert.equal(texte(helpLine('feedPerTooth', foret, 'proportional', true)), `Avance par dent → table des avances, à l'opération de l'outil. Avance proportionnelle au Ø : avance × Ø outil, sans dépasser l’avance max.${RAPPEL}`);
   // Filetage métrique : fz est le pas, qui se met en pouces ; l'impérial n'en dit rien.
-  assert.equal(texte(helpLine('feedPerTooth', foret, 'thread', true)), "Avance par dent → table des avances, à l'opération de l'outil. Filetage : fz = pas, en pouces : mm / 25.4.");
+  assert.equal(texte(helpLine('feedPerTooth', foret, 'thread', true)), "Avance par dent → table des avances, à l'opération de l'outil. Filetage : fz = pas, en pouces (mm / 25.4)."); // D93 : un seul « : »
   // Avance fixe : le Ø ne sert pas à fz, pas de rappel ; il reste pour N (MCLNR « 10 mm »).
   assert.doesNotMatch(texte(helpLine('feedPerTooth', foret, 'fixed', true)), /mm \/ 25\.4/);
   assert.match(texte(helpLine('rpm', { outil: { fact_vc: 0.25 } }, 'fixed', true)), /× 0\.25 pour cet outil\. Le Ø se met en pouces : mm \/ 25\.4\.$/);
@@ -455,14 +455,6 @@ test('operationProgress sur téléphone : les opérations terminées se replient
   assert.ok(corrige.shown.includes(groupe(corrige, 'Filetage interne')));
   // Aucun outil : rien à montrer.
   assert.deepEqual(operationProgress({ outils: [] }, new Map(), { phone: true }), { shown: [], folded: [], summary: null });
-});
-
-test('toolStreak : « Sur cet outil : n réussites de suite sur m »', () => {
-  const progression = { outils: [{ id: 'mvlnr', reussites: 2, requises: 3 }, { id: 'mclnr', reussites: 1, requises: 1 }, { id: 'sdtmr', reussites: 0, requises: 1 }] };
-  assert.equal(toolStreak(progression, 'mvlnr'), 'Sur cet outil : 2 réussites de suite sur 3');
-  assert.equal(toolStreak(progression, 'mclnr'), 'Sur cet outil : 1 réussite de suite sur 1');
-  assert.equal(toolStreak(progression, 'sdtmr'), 'Sur cet outil : 0 réussite de suite sur 1');
-  assert.equal(toolStreak(progression, 'inconnu'), '');
 });
 
 // --- Feuilles de référence -----------------------------------------------------------------------------------------------------

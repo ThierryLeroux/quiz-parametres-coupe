@@ -85,8 +85,8 @@ test('identification 1 / 2 : « ← Page de l’exercice » sous le formulaire a
 
 test('identification 1 / 2 ouvert après un jeton refusé (« Ta séance a expiré ») : le même lien, le matricule prérempli', () => {
   const appels = [];
-  renderMatricule(main, { exercise: EXERCICE, notice: 'Ta séance a expiré : identifie-toi de nouveau.', matricule: '2412345' }, { onSubmit: () => {}, onHome: () => appels.push('home') });
-  assert.equal(main.querySelector('.server-message').textContent, 'Ta séance a expiré : identifie-toi de nouveau.');
+  renderMatricule(main, { exercise: EXERCICE, notice: 'Ta séance a expiré. Identifie-toi de nouveau.', matricule: '2412345' }, { onSubmit: () => {}, onHome: () => appels.push('home') });
+  assert.equal(main.querySelector('.server-message').textContent, 'Ta séance a expiré. Identifie-toi de nouveau.');
   assert.equal(main.querySelector('#matricule').value, '2412345');
   main.querySelector('.form-links button').click();
   assert.deepEqual(appels, ['home']);

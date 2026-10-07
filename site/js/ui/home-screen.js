@@ -8,21 +8,19 @@
 // Ce qu'on montre est décidé par home-data.js et text.js (purs, testés) : ici, on construit le DOM.
 
 import { el, showScreen } from './dom.js';
-import { DEMO_NOTE } from './demo-data.js';
 import { exerciseLink, homeCards, materialGroups, questionLines, streakText, toolRows } from './home-data.js';
 import { DEPARTMENT_SHORT, HOME_LINK_LABEL, exerciseMeta, exerciseSummary } from './text.js';
 
 const TITLE = 'Quiz — paramètres de coupe';
 
-// L'en-tête de l'accueil (D91) : le sur-titre, le titre, les trois étapes du parcours.
+// L'en-tête de l'accueil (D91) : le sur-titre et le titre. Les trois étapes du parcours sont retirées (D93) : la page de
+// l'exercice dit déjà quoi faire.
 export const HOME_EYEBROW = 'Exercices · paramètres de coupe';
 export const HOME_TITLE = 'Quel exercice fais-tu ?';
-export const HOME_STEPS = ['Ton cours', "L'exercice indiqué sur Léa", 'Ton matricule et ton NIP'];
-// La porte professeur, compacte : la note sur le mode démo (DEMO_NOTE, demo-data.js) et le bouton au contour.
-export { DEMO_NOTE };
+// La porte professeur, compacte : « Enseignants » et le bouton au contour, rien d'autre (D93 : plus de note sur la démo).
 export const TEACHER_LINK_LABEL = 'Espace professeur →';
 export const NO_EXERCISE_NOTICE = "Aucun exercice n'est offert pour l'instant.";
-export const unknownExerciseNotice = (id) => `L'exercice « ${id} » n'existe pas — vérifie le lien sur Léa.`;
+export const unknownExerciseNotice = (id) => `L'exercice « ${id} » n'existe pas. Vérifie le lien sur Léa.`;
 
 // Image décorative qui disparaît si elle manque (outil ou opération sans image) ; son cadre blanc, vide, s'efface aussi.
 function optionalImage(src, className) {
@@ -120,7 +118,7 @@ export function renderHome(main, { exercise, data, local, archived = false }, ac
       el('p', { class: 'muted small' }, exerciseMeta(exercise)),
       el('p', { class: 'home-summary' }, exerciseSummary(exercise).join(' ')),
       el('p', { class: 'muted smaller' }, "Vérifie que ce titre est bien celui de l'exercice indiqué sur Léa."),
-      archived ? el('p', { class: 'small home-archived' }, "Cet exercice n'est plus offert par ton enseignant : aucune nouvelle séance ne peut être commencée, mais une séance déjà commencée se reprend encore.") : '',
+      archived ? el('p', { class: 'small home-archived' }, "Cet exercice est fermé. Si tu l'avais commencé, tu peux encore le terminer.") : '',
     ]),
     el('div', { class: 'home-start' }, start),
     status,
@@ -183,6 +181,7 @@ function courseCard(card) {
 // L'accueil unique (D71, D91) : les exercices offerts — publiés, non archivés, proposés à l'accueil —, une carte par
 // cours, chaque rangée avec son bouton Démo (D92), et la seule porte professeur. Aussi quand l'adresse nomme un exercice
 // qui n'existe pas (D18). L'en-tête est posé sur le fond, sans panneau ; les avis, eux, sont dans un panneau, sous le titre.
+// Les textes suivent D93 : courts, sans explication de la mécanique.
 //   listed    : [{ id, titre, cours, nombre_outils, champs_evalues }, …] (GET /api/exercices)
 //   unknownId : ce que l'adresse demandait et qui n'existe pas, ou null si elle ne demandait rien
 export function renderHomeList(main, listed, unknownId) {
@@ -196,7 +195,6 @@ export function renderHomeList(main, listed, unknownId) {
       el('div', { class: 'eyebrow' }, HOME_EYEBROW),
       el('h1', { tabindex: '-1' }, HOME_TITLE),
       notices.length === 0 ? '' : el('section', { class: 'panel home-notice' }, notices.map((text) => el('p', { class: 'small' }, text))),
-      el('ol', { class: 'home-steps' }, HOME_STEPS.map((step, i) => el('li', {}, [el('span', { class: 'home-step-number', 'aria-hidden': 'true' }, String(i + 1)), step]))),
       // Les raccourcis vers les cartes, utiles quand elles se suivent sur une colonne (téléphone) : la feuille de style
       // les cache à partir de 900 px, où toutes les cartes se voient d'un coup d'œil. Une seule carte : rien à sauter.
       cards.length < 2 ? '' : el('nav', { class: 'course-jump', 'aria-label': 'Aller à un cours' }, cards.map((card) => el('a', { href: `#${card.id}` }, card.title ?? card.name))),
@@ -205,7 +203,6 @@ export function renderHomeList(main, listed, unknownId) {
     // Une seule porte professeur (D71) : la clé saisie décide de ce qu'on voit (D44) — la connexion de /prof le dit.
     el('section', { class: 'panel home-teacher' }, [
       el('div', { class: 'eyebrow' }, 'Enseignants'),
-      el('p', { class: 'small muted' }, DEMO_NOTE),
       el('a', { class: 'button-outline', href: '/prof' }, TEACHER_LINK_LABEL),
     ]),
   ]);

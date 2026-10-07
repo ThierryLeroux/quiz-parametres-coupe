@@ -22,6 +22,11 @@ const CINQ_CHAMPS = {
 
 const DEBUT = new Date(2026, 8, 19, 13, 5); // heure du poste : le texte affiché ne dépend pas du fuseau du test
 
+test('newSessionNotice (D23, D93) : le matricule, à vérifier ; il sera inscrit sur l’attestation', () => {
+  assert.equal(newSessionNotice('7654321'), 'Nouveau matricule : 7654321. Vérifie-le bien. Il sera inscrit sur ton attestation et te permettra de continuer sur un autre appareil.');
+  assert.equal(sessionFoundNotice('Romain', 'L'), 'Séance de Romain L. trouvée. Entre ton NIP pour la reprendre.');
+});
+
 test('le département : trois lignes, les mêmes dans le pied de index.html ; le sigle TGM-TMI, et plus aucun « TGM » seul affiché (D29)', async () => {
   assert.deepEqual(DEPARTMENT_LINES, ['Techniques de génie mécanique', 'Technique du génie de la maintenance industrielle', '(fiabilité des systèmes de production)']);
   assert.equal(DEPARTMENT_SHORT, 'TGM-TMI');
@@ -51,7 +56,7 @@ test('exerciseSummary : trois phrases ; N vient de reussites_requises', () => {
   assert.deepEqual(exerciseSummary(m10), [
     'Chaque outil doit être réussi plusieurs fois de suite.',
     'Une mauvaise réponse remet le compteur de cet outil à zéro.',
-    'À la fin, tu enregistres ton rapport de réussite en PDF et tu le remets sur Léa.',
+    'À la fin, enregistre ton attestation en PDF et remets-la sur Léa.',
   ]);
   assert.equal(exerciseSummary(CINQ_CHAMPS)[0], 'Chaque outil doit être réussi 2 fois de suite.');
 
@@ -70,9 +75,9 @@ test('formatDateTime : date et heure du poste, en français', () => {
 
 test('serverErrorMessage : serveur injoignable ; sinon le message du serveur', () => {
   assert.equal(serverErrorMessage(new ApiError(429, 'Attends encore 6 s avant de faire corriger ta réponse.')), 'Attends encore 6 s avant de faire corriger ta réponse.');
-  assert.equal(serverErrorMessage(new ApiError(0, 'Le serveur de correction ne répond pas.')), 'Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie.');
-  assert.equal(serverErrorMessage(new TypeError('imprévu')), 'Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie.');
-  assert.equal(serverErrorMessage(new ApiError(500, 'Erreur du serveur.')), 'Erreur du serveur.');
+  assert.equal(serverErrorMessage(new ApiError(0, 'Le site ne répond pas.')), 'Le site ne répond pas. Vérifie ta connexion, puis réessaie.'); // D93 : jamais « serveur »
+  assert.equal(serverErrorMessage(new TypeError('imprévu')), 'Le site ne répond pas. Vérifie ta connexion, puis réessaie.');
+  assert.equal(serverErrorMessage(new ApiError(500, 'Une erreur est survenue.')), 'Une erreur est survenue.');
 });
 
 test('identificationErrorMessage : matricule invalide, NIP incorrect, trop d’essais (UI §3.2)', () => {
@@ -81,7 +86,7 @@ test('identificationErrorMessage : matricule invalide, NIP incorrect, trop d’e
   assert.equal(identificationErrorMessage(new ApiError(429, "Trop d'essais.")), "Trop d'essais. Attends 10 minutes avant de réessayer.");
   assert.equal(identificationErrorMessage(new ApiError(409, 'Ce matricule a déjà une séance pour cet exercice.')), 'Ce matricule a déjà une séance.');
   assert.equal(identificationErrorMessage(new ApiError(404, 'Aucune séance pour ce matricule dans cet exercice.')), 'Aucune séance pour ce matricule dans cet exercice.');
-  assert.equal(identificationErrorMessage(new ApiError(0, '…')), 'Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie.');
+  assert.equal(identificationErrorMessage(new ApiError(0, '…')), 'Le site ne répond pas. Vérifie ta connexion, puis réessaie.');
 });
 
 // --- Écran Question : ce que renvoie le serveur, mis en mots --------------------------------------------
@@ -93,12 +98,12 @@ test('FIELD_LABELS : nom, symbole et unité des cinq champs (UI §3.3)', () => {
   for (const [champ, { name, symbol, unit }] of Object.entries(FIELD_PARTS)) assert.equal(`${name} (${symbol}, ${unit})`, FIELD_LABELS[champ]);
 });
 
-test('fieldResultNote : Juste, Juste (… attendu), Faux — attendu …, fourni par l’exercice (UI §3.4)', () => {
+test('fieldResultNote : Juste, Juste (… attendu), Faux — attendu …, donné (UI §3.4 ; D93)', () => {
   assert.equal(fieldResultNote({ evalue: true, ok: true, saisie: '2496', attendu: '2496' }), 'Juste');
   assert.equal(fieldResultNote({ evalue: true, ok: true, saisie: ' 0,0050 ', attendu: '0.0050' }), 'Juste');
   assert.equal(fieldResultNote({ evalue: true, ok: true, saisie: '2500', attendu: '2496' }), 'Juste (2496 attendu)');
   assert.equal(fieldResultNote({ evalue: true, ok: false, saisie: '', attendu: '12.500' }), 'Faux — attendu 12.500');
-  assert.equal(fieldResultNote({ evalue: false, ok: true, saisie: '', attendu: '12.500' }), "fourni par l'exercice");
+  assert.equal(fieldResultNote({ evalue: false, ok: true, saisie: '', attendu: '12.500' }), 'donné');
   assert.equal(fieldResultNote({ evalue: false, masque: true, ok: true, saisie: '', attendu: null }), 'non demandée'); // D52
 });
 

@@ -6,12 +6,12 @@
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
 import { EXPRESSION_MAX_LENGTH } from '../expression.js';
-import { DEMO_ASIDE, DEMO_DONE, demoTitle } from './demo-data.js';
+import { DEMO_DONE, demoTitle } from './demo-data.js';
 import { demoBanner } from './demo-screen.js';
 import { el, pointDecimalComma, showScreen } from './dom.js';
 import {
   CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, gapExplanation, helpLine, initialFocus, insertInCase,
-  materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, toolStreak, unreadableCase,
+  materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, unreadableCase,
 } from './rules.js';
 import { classFeatures, classImages, heatImageMaxWidth, operationPictoOf, toolPhotoUrl } from './sheets-data.js';
 import { FIELD_PARTS, correctionBanner, expressionLine, fieldResultNote, studentLine } from './text.js';
@@ -29,11 +29,12 @@ function optionalImage(src, className) {
 }
 
 // La barre du haut : le titre de l'exercice, l'étudiant, les tables, « Corriger mon identité », Quitter. En mode démo
-// (D92) : « Démo — <titre> », le rappel, les tables, « Changer d'outil », Quitter — ni identité, ni correction d'identité.
+// (D92) : « Démo — <titre> », les tables, « Changer d'outil », Quitter — ni identité, ni correction d'identité, ni rappel
+// (D93 : le bandeau dit déjà que rien n'est enregistré).
 const header = (seance, actions, demo) => ({
   title: demo ? demoTitle(seance.exercice.titre) : seance.exercice.titre,
   aside: [
-    el('span', {}, demo ? DEMO_ASIDE : studentLine(seance)),
+    demo ? '' : el('span', {}, studentLine(seance)),
     actions.onTables ? el('button', { class: 'button-outline', type: 'button', onclick: () => actions.onTables('vc') }, 'Tables de référence') : '',
     demo
       ? el('button', { class: 'button-link', type: 'button', onclick: actions.onChooseTool }, "Changer d'outil")
@@ -331,7 +332,7 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
       oninput: evalue ? () => edited(champ) : () => {},
       onfocusout: evalue ? () => { compute(champ); hideBar(); } : () => {},
     });
-    notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, evalue ? '' : "fourni par l'exercice");
+    notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, evalue ? '' : 'donné');
     boxes[champ] = el('div', { class: evalue ? 'field field--number' : 'field field--number field--provided' }, [
       el('label', { for: champ, class: 'field-label' }, [picto(pictoName), el('span', {}, [el('span', { class: 'field-name' }, name), el('small', {}, `${symbol} · ${unit}`)])]),
       inputs[champ],
@@ -372,12 +373,12 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
     }
   };
   const testBanner = expected === null ? '' : el('div', { class: 'banner banner--test' }, [
-    el('p', {}, [el('strong', {}, 'Mode test'), ' — le serveur local a joint les réponses attendues. Modifie une case pour simuler une erreur.']),
+    el('p', {}, [el('strong', {}, 'Mode test'), ' : « Remplir » inscrit les bonnes réponses. Modifie une case pour simuler une erreur.']),
     el('button', { class: 'button-outline', type: 'button', onclick: fill }, 'Remplir'),
   ]);
   if (expected !== null) fill();
-  // Le rappel dit aussi « un calcul se tape tel quel », pour que l'étudiant sache qu'il peut calculer dans la case (D82).
-  const reminder = el('p', { class: 'muted smaller form-reminder' }, `Point décimal (une virgule devient un point), sans séparateur de milliers : 2496 · 0.005  ·  un calcul se tape tel quel : (3-1)*2  ·  ${toolStreak(seance.progression, question.outil.id)}`);
+  // Le rappel sous les cases (D93) : un nombre ou un calcul (D82), rien d'autre — le compteur de l'outil est dans la progression.
+  const reminder = el('p', { class: 'muted smaller form-reminder' }, 'Tape un nombre (0.005) ou un calcul ((3-1)*2).');
   // Rappel et message du serveur à gauche, « Vérifier » à droite, sur la même ligne (maquette 03).
   const actionsRow = el('div', { class: 'form-actions' }, [el('div', { class: 'form-notes' }, [reminder, status]), checkButton]);
   const progressSlot = el('div', { class: 'question-side' }, progressPanel(seance.progression, labels, { currentId: question.outil.id }, data));
@@ -461,7 +462,7 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
       testBanner,
       el('div', { class: 'question-cards' }, [toolPanel(question, data), materialPanel(question, data)]),
       el('section', { class: 'panel' }, [
-        el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Questionnaire'), el('div', { class: 'muted smaller' }, "clique une case pour voir l'aide")]),
+        el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Questionnaire'), el('div', { class: 'muted smaller' }, "Clique sur une case pour voir l'aide.")]),
         el('form', { novalidate: true, onsubmit: check }, [el('div', { class: 'answer-grid' }, fields), help, reminder, actionsRow]),
       ]),
     ]),

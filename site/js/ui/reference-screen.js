@@ -148,7 +148,7 @@ function formulasPage(factors = false) {
   const indicative = el('em', {}, 'La formule exacte est donnée à titre indicatif (12 / π = 3.82) : le cours et la correction utilisent N = Vc × 4 / Ø.');
   const rotation = factors
     ? formulaRow('n', 'Vitesse de rotation', 'N (tr/min)', [FACTOR_FORMULA, el('small', {}, 'exacte : N = Vc × 12 / (π × Ø) × facteur'), miniature('table-facteurs', 'Schéma de la feuille des facteurs de vitesse : le rang de l’opération', 'formula-miniature formula-miniature--under')], [
-      'Ø en pouces : Ø de l’outil en fraisage et perçage, Ø usiné en tournage. ', b('Facteur'), ' : relevé dans la ', b('feuille des facteurs de vitesse'), ', à l’opération de l’outil ; 1 si aucune réduction. ',
+      'Ø en pouces : Ø de l’outil en fraisage et perçage, Ø usiné en tournage. ', b('Facteur'), ' : relevé dans la ', b('feuille des facteurs de vitesse'), ', à l’opération de l’outil (1 si aucune réduction). ',
       b('Plafonnée à la vitesse maximale de la machine.'), ' ', indicative,
     ])
     : formulaRow('n', 'Vitesse de rotation', 'N (tr/min)', ['N = Vc × 4 / Ø', el('small', {}, 'exacte : N = Vc × 12 / (π × Ø)')], ['Ø en pouces : Ø de l’outil en fraisage et perçage, Ø usiné en tournage. ', b('Plafonnée à la vitesse maximale de la machine.'), ' Certains outils imposent une réduction (alésoir, lame à tronçonner). ', indicative]);
@@ -169,7 +169,7 @@ function formulasPage(factors = false) {
         el('p', {}, el('span', { class: 'mark-feed' }, 'fz = 0.006 × 0.25 = 0.0015 po/dent · f = 0.0015 × 2 = 0.0030 po/rév · Vf = 1600 × 0.0030 = 4.8 po/min')),
       ]),
       el('div', {}, [
-        el('p', {}, [b('Saisie'), ' — point décimal, pas de séparateur de milliers : 1600 · 0.0015.']),
+        el('p', {}, [b('Saisie'), ' : un nombre (1600 · 0.0015) ou un calcul ((3-1)*2), avec le point décimal.']),
         el('p', {}, 'La correction tolère l’arrondi d’affichage (N à l’entier, avances à 4 décimales).'),
       ]),
     ]),

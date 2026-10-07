@@ -166,36 +166,6 @@ body {
 /* Les avis (« L'exercice « … » n'existe pas », « Aucun exercice… ») : dans un panneau, pour rester lisibles sur le fond. */
 .home-notice { text-shadow: none; }
 
-/* Les trois étapes du parcours : un numéro encadré, puis le texte. */
-.home-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin: var(--space-1) 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--text-sm);
-}
-
-.home-steps li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.home-step-number {
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid var(--color-accent-light);
-  background: color-mix(in srgb, var(--color-bg) 80%, transparent);
-  color: var(--color-accent-light);
-  font-family: var(--font-number);
-  font-size: var(--text-xs);
-  font-weight: 500;
-}
-
 /* Les raccourcis vers chaque carte de cours, sur une colonne (téléphone) ; cachés à partir de 900 px, où toutes
    les cartes se voient d'un coup d'œil. Cible tactile de 44 px. */
 .course-jump {
@@ -396,16 +366,16 @@ body {
 .ex-main:focus-visible,
 .ex-demo:focus-visible { outline-offset: -3px; }
 
-/* La porte professeur : une ligne — « Enseignants », la note sur les démos, le bouton au contour. */
+/* La porte professeur : une ligne — « Enseignants » et le bouton au contour (D93 : plus de note). */
 .home-teacher {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2) var(--space-4);
 }
 
 .home-teacher .eyebrow { flex: none; }
-.home-teacher p { flex: 1 1 320px; }
 .home-teacher .button-outline { text-decoration: none; }
 
 /* Ordinateur : deux cartes de front, et les raccourcis ne servent plus. */

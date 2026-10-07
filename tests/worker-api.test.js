@@ -268,7 +268,7 @@ test('sans CLE_SECRETE : erreur 500 sans détail, et aucune séance créée', as
   try {
     const { status, corps } = await serveur.appel('POST', '/api/creation', { corps: CAMILLE });
     assert.equal(status, 500);
-    assert.equal(corps.erreur, 'Erreur du serveur de correction. Réessaie dans un instant.');
+    assert.equal(corps.erreur, 'Une erreur est survenue. Réessaie dans un instant.'); // D93 : jamais « serveur »
   } finally {
     console.error = error;
   }
@@ -397,7 +397,7 @@ test('jeton : absent, inconnu ou mal formé → 401 sur tous les appels protég�
     for (const [methode, chemin] of appels) {
       const { status, corps } = await serveur.appel(methode, chemin, { jeton, corps: methode === 'POST' ? { exercice: M10, saisies: {} } : undefined });
       assert.equal(status, 401, `${chemin} avec ${jeton}`);
-      assert.equal(corps.erreur, 'Ta séance a expiré : identifie-toi de nouveau.');
+      assert.equal(corps.erreur, 'Ta séance a expiré. Identifie-toi de nouveau.');
     }
   }
 });

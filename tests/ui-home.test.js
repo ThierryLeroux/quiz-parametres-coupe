@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { assembleExercise } from '../site/js/app.js';
 import { NO_COURSE_NAME, OTHERS_TITLE, courseAnchor, exerciseHref, exerciseLink, gradedFields, homeCards, homeGroups, materialGroups, questionLines, splitCourse, streakText, toolRows } from '../site/js/ui/home-data.js';
-import { DEMO_NOTE, HOME_STEPS, HOME_TITLE, NO_EXERCISE_NOTICE, TEACHER_LINK_LABEL, renderHomeList, unknownExerciseNotice } from '../site/js/ui/home-screen.js';
+import { HOME_TITLE, NO_EXERCISE_NOTICE, TEACHER_LINK_LABEL, renderHomeList, unknownExerciseNotice } from '../site/js/ui/home-screen.js';
 import { demoHref } from '../site/js/ui/demo-data.js';
 import { countText } from '../site/js/ui/text.js';
 import { installDom } from './aide-dom.js';
@@ -102,8 +102,8 @@ test('homeCards (D91, D92) : une carte par cours, dans l’ordre des rangs ; cha
   assert.deepEqual(row.fields.map((f) => f.symbol), ['Vc', 'N']);
   assert.equal(row.tools, '13 outils');
   assert.equal(row.name, 'Tournage — Exercice 2 — à trouver : vitesse de coupe, vitesse de rotation — 13 outils');
-  // Le bouton Démo (D92) : le mode démo de l'exercice, nommé et expliqué en toutes lettres.
-  assert.deepEqual(row.demo, { href: '?exercice=m10-tournage-vc-rpm-2&demo=1', name: 'Démo : Tournage — Exercice 2', hint: "Tournage — Exercice 2 — mode démo : des questions à volonté sur l'outil de ton choix, sans identification ; rien n'est gardé" });
+  // Le bouton Démo (D92) : le mode démo de l'exercice, nommé ; son indice est court (D93).
+  assert.deepEqual(row.demo, { href: '?exercice=m10-tournage-vc-rpm-2&demo=1', name: 'Démo : Tournage — Exercice 2', hint: 'Essayer sans identification' });
   assert.equal(row.demo.href, demoHref('m10-tournage-vc-rpm-2'));
   assert.ok(cards.every((c) => c.rows.every((r) => r.demo.href === `?exercice=${r.id}&demo=1`)));
   assert.equal(cards[4].rows[0].name, "F50 — Synthèse du fraisage et du tournage — à trouver : vitesse de coupe, avance par dent, vitesse de rotation, avance totale par révolution, vitesse d'avance — 35 outils");
@@ -115,7 +115,7 @@ test('homeCards (D91, D92) : une carte par cours, dans l’ordre des rangs ; cha
 test('homeCards (D91) : « Autres exercices » et le groupe sans titre font une carte sans sigle ; un serveur d’avant (sans nombre d’outils ni grandeurs) donne une rangée au titre seul', () => {
   const mixte = homeCards([{ id: 'a', titre: 'A', cours: 'M10' }, { id: 'b', titre: 'B', cours: null, nombre_outils: 4, champs_evalues: ['vc'] }]);
   assert.deepEqual(mixte.map((c) => [c.id, c.title, c.code, c.name, c.count]), [['cours-m10', 'M10', 'M10', null, '1 exercice'], ['cours-autres-exercices', 'Autres exercices', null, 'Autres exercices', '1 exercice']]);
-  assert.deepEqual(mixte[0].rows[0], { id: 'a', href: '?exercice=a', title: 'A', fields: [], tools: null, name: 'A', demo: { href: '?exercice=a&demo=1', name: 'Démo : A', hint: "A — mode démo : des questions à volonté sur l'outil de ton choix, sans identification ; rien n'est gardé" } });
+  assert.deepEqual(mixte[0].rows[0], { id: 'a', href: '?exercice=a', title: 'A', fields: [], tools: null, name: 'A', demo: { href: '?exercice=a&demo=1', name: 'Démo : A', hint: 'Essayer sans identification' } });
   assert.equal(mixte[1].rows[0].name, 'B — à trouver : vitesse de coupe — 4 outils');
   const sansCours = homeCards([{ id: 'a', titre: 'A', nombre_outils: 2, champs_evalues: ['fz'] }]);
   assert.deepEqual(sansCours.map((c) => [c.id, c.title, c.code, c.name, c.count]), [['cours-exercices', null, null, NO_COURSE_NAME, '1 exercice']]);
@@ -137,9 +137,8 @@ test('renderHomeList (D91) : l’en-tête sur le fond (sur-titre, h1 au focus, t
   assert.equal(hero.querySelector('.eyebrow').textContent, 'Exercices · paramètres de coupe');
   assert.equal(hero.querySelector('h1').textContent, HOME_TITLE);
   assert.equal(document.activeElement, hero.querySelector('h1'));
-  assert.deepEqual(HOME_STEPS, ['Ton cours', "L'exercice indiqué sur Léa", 'Ton matricule et ton NIP']);
-  assert.deepEqual(hero.querySelectorAll('.home-steps li').map((li) => li.textContent), ['1Ton cours', "2L'exercice indiqué sur Léa", '3Ton matricule et ton NIP']);
-  assert.ok(hero.querySelectorAll('.home-steps .home-step-number').every((n) => n.getAttribute('aria-hidden') === 'true')); // la liste est numérotée pour les lecteurs d'écran
+  assert.equal(hero.querySelector('.home-steps'), null); // D93 : plus de ligne des trois étapes
+  assert.doesNotMatch(hero.textContent, /Ton cours|matricule/);
   assert.equal(hero.querySelector('.home-notice'), null);
   // Les raccourcis : un lien par carte, vers son ancre, dans l'ordre.
   const jump = hero.querySelector('nav.course-jump');
@@ -152,12 +151,11 @@ test('renderHomeList (D91) : l’en-tête sur le fond (sur-titre, h1 au focus, t
   assert.deepEqual(cards.map((c) => [c.querySelector('h2 .course-code')?.textContent ?? null, c.querySelector('h2 .course-name')?.textContent ?? null, c.querySelector('.course-count').textContent]), [['M10', 'Tournage', '2 exercices'], ['M10', 'Fraisage', '2 exercices'], ['M30', null, '1 exercice'], ['M40', null, '1 exercice'], ['F50', null, '1 exercice']]);
   assert.ok(cards.every((c) => c.getAttribute('aria-labelledby') === c.querySelector('h2').id));
   assert.equal(main.querySelectorAll('h2').length, 5);
-  // La porte professeur : une seule, le bouton au contour vers /prof, la note sur les démos, plus de phrase sur les clés.
+  // La porte professeur : une seule — « Enseignants » et le bouton au contour vers /prof, rien d'autre (D93 : plus de note).
   const teacher = screen.querySelector('section.panel.home-teacher');
   assert.equal(teacher.querySelector('.eyebrow').textContent, 'Enseignants');
-  assert.equal(teacher.querySelector('p').textContent, DEMO_NOTE);
-  assert.equal(DEMO_NOTE, "« Démo » : l'exercice sans identification — des questions à volonté sur l'outil de ton choix et un exemple d'attestation ; rien n'est gardé.");
-  assert.doesNotMatch(DEMO_NOTE, /une seule question/); // D92 : plus une démo-exercice d'une question
+  assert.equal(teacher.querySelector('p'), null);
+  assert.deepEqual(teacher.children.map((c) => c.tagName), ['DIV', 'A']);
   const link = teacher.querySelector('a.button-outline[href="/prof"]');
   assert.equal(link.textContent, TEACHER_LINK_LABEL);
   assert.equal(TEACHER_LINK_LABEL, 'Espace professeur →');
@@ -188,7 +186,7 @@ test('renderHomeList (D91, D92) : une rangée par exercice — le lien couvre la
   const demo = first.querySelector('a.ex-demo');
   assert.equal(demo.getAttribute('href'), '?exercice=m10-tournage-vc-rpm-2&demo=1'); // le mode démo de l'exercice (D92)
   assert.equal(demo.getAttribute('aria-label'), 'Démo : Tournage — Exercice 2');
-  assert.equal(demo.getAttribute('title'), "Tournage — Exercice 2 — mode démo : des questions à volonté sur l'outil de ton choix, sans identification ; rien n'est gardé");
+  assert.equal(demo.getAttribute('title'), 'Essayer sans identification'); // D93
   assert.equal(demo.textContent, 'Démo'); // la majuscule vient de la feuille de style
   assert.deepEqual(rows.map((r) => r.querySelector('a.ex-demo').getAttribute('href')), LOT.map((e) => `?exercice=${e.id}&demo=1`));
   const svg = demo.querySelector('svg');
@@ -215,8 +213,8 @@ test('renderHomeList (D91) : les avis sous le h1, dans un panneau — l’exerci
   renderHomeList(main, LOT, 'm10-inconnu');
   const afterH1 = () => { const hero = main.querySelector('.home-hero'); const notice = hero.querySelector('section.panel.home-notice'); assert.ok(hero.children.indexOf(notice) > hero.children.indexOf(hero.querySelector('h1'))); return notice; };
   let notice = afterH1();
-  assert.deepEqual(notice.querySelectorAll('p').map((p) => p.textContent), ["L'exercice « m10-inconnu » n'existe pas — vérifie le lien sur Léa."]);
-  assert.equal(unknownExerciseNotice('x'), "L'exercice « x » n'existe pas — vérifie le lien sur Léa.");
+  assert.deepEqual(notice.querySelectorAll('p').map((p) => p.textContent), ["L'exercice « m10-inconnu » n'existe pas. Vérifie le lien sur Léa."]);
+  assert.equal(unknownExerciseNotice('x'), "L'exercice « x » n'existe pas. Vérifie le lien sur Léa."); // D93 : deux phrases
   assert.equal(main.querySelectorAll('.course-card').length, 5);
   renderHomeList(main, [], null);
   notice = afterH1();
@@ -226,7 +224,7 @@ test('renderHomeList (D91) : les avis sous le h1, dans un panneau — l’exerci
   assert.equal(main.querySelector('.course-jump'), null);
   assert.ok(main.querySelector('.home-teacher a[href="/prof"]')); // la porte professeur reste
   renderHomeList(main, [], 'x');
-  assert.deepEqual(texts('.home-notice p'), ["L'exercice « x » n'existe pas — vérifie le lien sur Léa.", NO_EXERCISE_NOTICE]);
+  assert.deepEqual(texts('.home-notice p'), ["L'exercice « x » n'existe pas. Vérifie le lien sur Léa.", NO_EXERCISE_NOTICE]);
   // Une seule carte : pas de raccourci (rien à sauter).
   renderHomeList(main, [LOT[0], LOT[1]], null);
   assert.equal(main.querySelector('.course-jump'), null);
@@ -267,18 +265,18 @@ test('app.css (D91) : l’accueil fait 1040 px, deux colonnes de cartes et les r
 
 // --- Page de description ---------------------------------------------------------------------------------------------
 
-test('questionLines (D71) : les grandeurs à trouver, fournies et non demandées, en toutes lettres avec leur symbole', () => {
+test('questionLines (D71, D93) : les grandeurs à trouver, données et non demandées, en toutes lettres avec leur symbole', () => {
   assert.deepEqual(questionLines(m10.exercise), [
     'À trouver : vitesse de coupe (Vc).',
-    "Fournies par l'exercice : avance par dent (fz), vitesse de rotation (N), avance totale par révolution (f) et vitesse d'avance (Vf).",
+    "Données : avance par dent (fz), vitesse de rotation (N), avance totale par révolution (f) et vitesse d'avance (Vf).",
   ]);
   assert.deepEqual(questionLines(vcRpm.exercise), [
     'À trouver : vitesse de coupe (Vc) et vitesse de rotation (N).',
-    "Fournies par l'exercice : avance par dent (fz), avance totale par révolution (f) et vitesse d'avance (Vf).",
+    "Données : avance par dent (fz), avance totale par révolution (f) et vitesse d'avance (Vf).",
   ]);
   assert.deepEqual(questionLines({ champs_evalues: ['fz', 'f'], champs_masques: ['vf'] }), [
     'À trouver : avance par dent (fz) et avance totale par révolution (f).',
-    "Fournies par l'exercice : vitesse de coupe (Vc) et vitesse de rotation (N).",
+    'Données : vitesse de coupe (Vc) et vitesse de rotation (N).',
     "Non demandée : vitesse d'avance (Vf).",
   ]);
   assert.deepEqual(questionLines({ champs_evalues: ['vc', 'fz', 'n', 'f', 'vf'] }), ["À trouver : vitesse de coupe (Vc), avance par dent (fz), vitesse de rotation (N), avance totale par révolution (f) et vitesse d'avance (Vf)."]);

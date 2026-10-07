@@ -65,7 +65,7 @@ class HttpError extends Error {
   }
 }
 
-const SESSION_EXPIRED = 'Ta séance a expiré : identifie-toi de nouveau.';
+const SESSION_EXPIRED = 'Ta séance a expiré. Identifie-toi de nouveau.';
 
 // Le corps JSON d'une requête. Les requêtes du quiz sont courtes ; celles de la Gestion du contenu portent des
 // exercices entiers (des dizaines de Ko), et un import, toute la sauvegarde.
@@ -1977,21 +1977,21 @@ export async function handle(request, env, tools = REAL_TOOLS()) {
       return await serveImage(request, env, decodeURIComponent(image[1]));
     } catch (error) {
       console.error(error);
-      return new Response('Erreur du serveur.', { status: 500, headers: { 'cache-control': 'no-store' } });
+      return new Response('Une erreur est survenue.', { status: 500, headers: { 'cache-control': 'no-store' } });
     }
   }
   if (pathname !== '/api' && !pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
 
   if (pathname === '/api/version' && request.method === 'GET') return json({ version: pkg.version });
   const route = ROUTES[`${request.method} ${pathname}`];
-  if (!route) return json({ erreur: "Cette adresse n'existe pas sur le serveur de correction." }, 404);
+  if (!route) return json({ erreur: "Cette adresse n'existe pas." }, 404);
 
   try {
     return await route(request, env, tools);
   } catch (error) {
     if (error instanceof HttpError) return json({ erreur: error.message, ...error.extra }, error.status);
     console.error(error); // visible dans « wrangler tail » et dans le tableau de bord ; jamais envoyé à l'étudiant
-    return json({ erreur: 'Erreur du serveur de correction. Réessaie dans un instant.' }, 500);
+    return json({ erreur: 'Une erreur est survenue. Réessaie dans un instant.' }, 500); // jamais le mot « serveur » (D93)
   }
 }
 

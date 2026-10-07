@@ -123,7 +123,7 @@ function showIdentity(jeton, seance) {
 function sessionExpired() {
   const matricule = loadSession()?.matricule ?? '';
   clearSession();
-  showMatricule('Ta séance a expiré : identifie-toi de nouveau.', matricule);
+  showMatricule('Ta séance a expiré. Identifie-toi de nouveau.', matricule);
   return null;
 }
 
