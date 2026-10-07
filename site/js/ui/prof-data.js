@@ -25,9 +25,20 @@ export const SESSION_COLUMNS = [
 // Le rôle consultation ne voit aucun bouton d'action ; le serveur refuse de toute façon (403).
 export const canAct = (role) => role === 'admin';
 
-// Ce que l'en-tête dit de la séance ouverte : « admin », ou « consultation (lecture seule) ».
+// L'étiquette de l'espace dans la barre du haut (D94) : « Administration » ou « Consultation ».
 export function roleLabel(role) {
-  return canAct(role) ? 'admin' : `${role} (lecture seule)`;
+  return canAct(role) ? 'Administration' : 'Consultation';
+}
+
+// Ce que le sur-titre ajoute pour la consultation : « · lecture seule » ; rien pour l'administration.
+export const roleNote = (role) => (canAct(role) ? '' : ' · lecture seule');
+
+// L'ambiance de couleur de la page (D94), d'après le rôle de la séance professeur : la valeur de data-espace sur <html>.
+// Sans séance (la connexion, la déconnexion), l'espace étudiant.
+export function spaceOf(role) {
+  if (role === 'admin') return 'admin';
+  if (role === 'consultation') return 'consultation';
+  return 'etudiant';
 }
 
 // Minuscules, sans accent : pour chercher « levesque » et trouver « Lévesque ».

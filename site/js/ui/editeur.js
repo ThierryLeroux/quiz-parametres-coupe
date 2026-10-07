@@ -103,8 +103,12 @@ function showLogin(notice = '') {
     // Les retours (D87) : l'espace professeur, l'accueil.
     el('div', { class: 'form-links' }, LOGIN_LINKS.map(({ label, href }) => el('a', { class: 'button-link', href }, label))),
   ]));
-  showScreen(main, screen, { title: TITLE, aside: 'TGM-TMI' }, '#cle');
+  showScreen(main, screen, { title: TITLE, aside: spaceBadge() }, '#cle');
 }
+
+// L'étiquette de l'espace dans la barre du haut (D94) : toute la Gestion du contenu est dans l'espace d'administration,
+// que la page porte en dur (data-espace="admin" sur <html>).
+const spaceBadge = () => el('span', { class: 'espace-etiquette' }, 'Administration');
 
 // Un appel à la Gestion du contenu : un 401 ramène à la connexion — avec « Ta séance a expiré » seulement si une séance
 // était ouverte (loginNotice) ; à l'ouverture de la page sans cookie, la connexion s'ouvre sans message (D87, point 4) —,
@@ -123,7 +127,7 @@ async function guarded(action) {
 
 function headerAside() {
   return [
-    el('span', {}, 'admin'),
+    spaceBadge(),
     el('a', { class: 'button-link', href: '/prof' }, 'Espace professeur'),
     el('button', { class: 'button-link', type: 'button', onclick: async () => { await teacherLogout().catch(() => {}); showLogin('Déconnecté.'); } }, 'Se déconnecter'),
   ];

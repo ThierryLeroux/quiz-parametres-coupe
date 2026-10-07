@@ -28,10 +28,10 @@
   --color-panel-row: #0f1b3d;     /* une rangée d'exercice à l'accueil : un ton plus clair que le panneau (D91) */
   --color-text: #dde6f5;
   --color-text-muted: #8aa0c6;    /* texte atténué : notes, pied de page */
-  --color-accent: #2e9bff;        /* contours, boutons */
+  --color-accent: #2e9bff;        /* contours, boutons — l'espace étudiant ; les deux autres espaces le redéfinissent plus bas (D94) */
   --color-accent-light: #4fc3f7;  /* titres, liens, focus */
   --color-link-hover: #8fd8ff;
-  --color-gold: #ffc000;          /* panneau ou bouton mis en avant (.panel--gold, .button--gold) */
+  --color-gold: #ffc000;          /* panneau ou bouton mis en avant (.panel--gold, .button--gold) : la même dans les trois espaces */
 
   /* Correction — toujours doublée d'un texte (« Juste » / « Faux »), UI §7 */
   --color-correct: #35d07f;
@@ -123,9 +123,35 @@
   --control-height: 48px; /* boutons et cases : cible tactile ≥ 44 px (UI §7) */
   --glow: 10px;           /* rayon du halo */
 
+  /* --- Ambiances par espace (D94 ; les règles sont dans app.css) ------------------------------------------
+     Chaque page porte data-espace sur <html> : « etudiant » (le bleu ci-dessus), « consultation » ou « admin ».
+     Trois variables seulement changent d'un espace à l'autre — l'accent (contours, ligne de la barre du haut, bouton
+     principal, cases), sa variante claire (titres, liens, anneau de focus) et le survol des liens. Les couleurs de
+     sens (juste, faux, doré, en direct, classes ISO, matières d'outil) ne changent dans aucun espace. */
+  --espace-consultation-accent: #f5a623;       /* ambre */
+  --espace-consultation-accent-light: #ffbd5c;
+  --espace-consultation-link-hover: #ffd38a;
+  --espace-admin-accent: #b07cff;              /* pourpre */
+  --espace-admin-accent-light: #c9a3ff;
+  --espace-admin-link-hover: #dcc2ff;
+
   /* --- Fond animé des pages des étudiants (D88 ; les règles sont dans fond.css) ------------------- */
   --fond-voile: 0.55;             /* opacité du voile sombre posé sur l'image : c'est lui qui garde le texte lisible */
   --fond-duree-avance: 60s;       /* l'avancée lente vers le point de fuite (un aller ; le retour dure autant) */
   --fond-duree-lueur: 9s;         /* la lueur au sol qui respire (un cycle complet) */
   --fond-duree-balayage: 16s;     /* la ligne de balayage, du haut de l'écran au bas, et l'attente avant la suivante */
+}
+
+/* L'espace de consultation (/prof ouvert avec la clé de consultation) : ambre. */
+:root[data-espace="consultation"] {
+  --color-accent: var(--espace-consultation-accent);
+  --color-accent-light: var(--espace-consultation-accent-light);
+  --color-link-hover: var(--espace-consultation-link-hover);
+}
+
+/* L'espace d'administration (/prof ouvert avec la clé d'administration, toute la Gestion du contenu) : pourpre. */
+:root[data-espace="admin"] {
+  --color-accent: var(--espace-admin-accent);
+  --color-accent-light: var(--espace-admin-accent-light);
+  --color-link-hover: var(--espace-admin-link-hover);
 }

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PURGE_WORD, SESSION_COLUMNS, canAct, csvCell, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, plain, purgeIntro,
-  purgeSummary, resetConfirmation, roleLabel, sessionCells, sessionState, sortSessions,
+  purgeSummary, resetConfirmation, roleLabel, roleNote, sessionCells, sessionState, sortSessions, spaceOf,
 } from '../site/js/ui/prof-data.js';
 import { PURGE_WORD as SERVER_PURGE_WORD } from '../worker/acces.js';
 import { claimsFromInput } from '../site/js/ui/attestation-data.js';
@@ -88,12 +88,15 @@ test('identityRows : lisible, avant → après, matricule actuel, séance, attes
   assert.equal(identityRows([{ ...base, ancien_code: 'ABCDEFGHJK', nouveau_code: 'ZZZZZYYYYY' }])[0].attestation, 'ABCDE-FGHJK → ZZZZZ-YYYYY');
 });
 
-test('canAct et roleLabel (D44) : seul admin agit ; la consultation est dite « lecture seule »', () => {
+test('canAct, roleLabel, roleNote et spaceOf (D44, D94) : seul admin agit ; l’étiquette dit l’espace, le sur-titre dit « lecture seule » ; l’espace de la page suit le rôle', () => {
   assert.equal(canAct('admin'), true);
   assert.equal(canAct('consultation'), false);
   assert.equal(canAct(null), false);
-  assert.equal(roleLabel('admin'), 'admin');
-  assert.equal(roleLabel('consultation'), 'consultation (lecture seule)');
+  assert.equal(roleLabel('admin'), 'Administration');
+  assert.equal(roleLabel('consultation'), 'Consultation');
+  assert.equal(roleNote('admin'), '');
+  assert.equal(roleNote('consultation'), ' · lecture seule');
+  assert.deepEqual([spaceOf('admin'), spaceOf('consultation'), spaceOf(null), spaceOf(undefined), spaceOf('autre')], ['admin', 'consultation', 'etudiant', 'etudiant', 'etudiant']);
 });
 
 test('resetConfirmation : nomme l’étudiant, l’exercice, et prévient de l’annulation s’il y a une attestation', () => {

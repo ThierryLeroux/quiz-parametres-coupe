@@ -61,6 +61,35 @@ body {
   font-size: var(--text-xs);
 }
 
+/* --- Les ambiances par espace (D94) : les couleurs viennent de tokens.css, posées par data-espace sur <html> ------- */
+
+/* L'étiquette de l'espace, à droite de la barre du haut : « Administration » ou « Consultation », au contour et au
+   texte de la couleur de l'espace. L'espace étudiant n'en a pas. */
+.espace-etiquette {
+  padding: 2px 10px;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-light);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* L'administration : une fine bande à chevrons pourpre et noire tout en haut de la page, avant la barre. body est une
+   colonne flex : ce bloc en est le premier élément. Rien à l'impression. */
+:root[data-espace="admin"] body::before {
+  content: '';
+  display: block;
+  flex: none;
+  height: 6px;
+  background: repeating-linear-gradient(135deg, var(--color-accent) 0 10px, var(--color-bg-header) 10px 20px);
+}
+
+@media print {
+  :root[data-espace="admin"] body::before { display: none; }
+}
+
 .app-main {
   flex-grow: 1;
   display: flex;

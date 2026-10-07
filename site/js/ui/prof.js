@@ -9,7 +9,7 @@ import { deleteSession, listIdentityCorrections, listSessions, purgeStudentData,
 import { el, showScreen } from './dom.js';
 import {
   LOGIN_LINKS, PURGE_WORD, SESSION_COLUMNS, canAct, csvFileName, csvOf, deleteConfirmation, filterSessions, identityRows, nipResetConfirmation, purgeIntro, purgeSummary,
-  resetConfirmation, roleLabel, sessionCells, sortSessions,
+  resetConfirmation, roleLabel, roleNote, sessionCells, sortSessions, spaceOf,
 } from './prof-data.js';
 import { serverErrorMessage } from './text.js';
 
@@ -27,9 +27,15 @@ const state = {
   sort: { key: 'derniere_activite', ascending: false },
 };
 
+// L'ambiance de couleur de la page (D94) : data-espace sur <html>, d'après le rôle — l'espace étudiant sur la connexion,
+// ambre en consultation, pourpre en administration. Les couleurs elles-mêmes sont dans tokens.css.
+const applySpace = () => { document.documentElement.dataset.espace = spaceOf(state.role); };
+
 // --- Connexion ---------------------------------------------------------------------------------------------------
 
 function showLogin(notice = '') {
+  state.role = null;
+  applySpace();
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   // Un champ texte masqué par CSS, jamais type="password" : rien à enregistrer sur un poste partagé (D21).
   const input = el('input', { id: 'cle', name: 'cle', type: 'text', class: 'input-secret', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': 'cle-note' });
@@ -162,7 +168,7 @@ function showDashboard() {
 
   const screen = el('div', { class: 'screen screen--wide prof' }, [
     el('section', { class: 'panel' }, [
-      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, `Espace professeur · ${roleLabel(state.role)}`), el('div', { class: 'prof-tabs', role: 'tablist' }, tabs)]),
+      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, `Espace professeur${roleNote(state.role)}`), el('div', { class: 'prof-tabs', role: 'tablist' }, tabs)]),
       el('h1', { tabindex: '-1' }, state.view === 'seances' ? 'Réussites par exercice' : "Journal des corrections d'identité"),
       state.view === 'seances' ? el('div', { class: 'prof-toolbar' }, [
         el('div', { class: 'field' }, [el('label', { for: 'exercice' }, 'Exercice'), exerciseSelect]),
@@ -182,9 +188,11 @@ function showDashboard() {
   showScreen(main, screen, { title: 'Espace professeur', aside: headerAside() }, state.view === 'seances' ? '#recherche' : 'h1');
 }
 
+// À droite de la barre du haut : l'étiquette de l'espace (D94), la Gestion du contenu pour l'administration, la déconnexion.
 function headerAside() {
+  applySpace();
   return [
-    el('span', {}, roleLabel(state.role)),
+    el('span', { class: 'espace-etiquette' }, roleLabel(state.role)),
     // La Gestion du contenu (jalon 7a, D47, D74) : rôle admin seulement — le serveur refuse de toute façon la clé de consultation.
     ...(canAct(state.role) ? [el('a', { class: 'button-link', href: '/prof/editeur' }, 'Gestion du contenu')] : []),
     el('button', { class: 'button-link', type: 'button', onclick: logout }, 'Se déconnecter'),
@@ -220,7 +228,7 @@ function showPurge(notice = '') {
   }
 
   const screen = el('div', { class: 'screen screen--narrow prof' }, el('section', { class: 'panel panel--wrong' }, [
-    el('div', { class: 'eyebrow' }, `Espace professeur · ${roleLabel(state.role)}`),
+    el('div', { class: 'eyebrow' }, `Espace professeur${roleNote(state.role)}`),
     el('h1', { tabindex: '-1' }, 'Effacer les données des étudiants'),
     el('p', { class: 'small' }, purgeIntro(state.seances.length)),
     el('ol', { class: 'purge-steps' }, [
