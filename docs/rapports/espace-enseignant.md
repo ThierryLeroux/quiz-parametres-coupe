@@ -79,8 +79,9 @@ Restent à 403 pour la consultation : toutes les écritures, et `tables/cascade`
   rétablir une présentation, importer. Les listes disent **Voir** à la place de Modifier.
 - **Exercices** : les exercices publiés, l'état « Publié » (ou « Archivé »), Voir et Copier le lien étudiant ; pas de
   création. **La page d'un exercice** : la dernière version publiée (« version n publiée le … » dans la ligne d'état),
-  le panneau « Présentation — effet immédiat » en lecture, les réglages et les outils (chaque outil se déplie, sans case
-  ni bouton), les versions avec **Aperçu** seul. **Banque d'outils** : Voir ; la fiche d'un outil avec son historique,
+  le panneau de la présentation en lecture — intitulé **« Présentation en vigueur »**, sans la pastille « En direct »
+  (retouche du point 7, §6) —, les réglages et les outils (chaque outil se déplie, sans case ni bouton), les versions
+  avec **Aperçu** seul. **Banque d'outils** : Voir ; la fiche d'un outil avec son historique,
   sans Enregistrer ni Rétablir. **Tables de référence** : la présentation en lecture, puis **les valeurs de la dernière
   version publiée** (« Valeurs — version A2026_r6 », « Version A2026_r6 · publiée le … »), sans colonne d'actions ; les
   versions publiées avec Feuilles imprimables. **Images** : la liste et ses filtres, sans Actions ni téléversement.
@@ -170,9 +171,9 @@ Restent à 403 pour la consultation : toutes les écritures, et `tables/cascade`
    lecture seule.
 6. **« Voir »** à la place de « Modifier » dans les listes de la consultation, comme demandé au point 4 ; D74 disait
    « Modifier » dans toutes les listes — D95 le précise. À confirmer que le mot convient.
-7. **Le panneau « Présentation — effet immédiat »** et sa pastille « En direct » restent sur la page de l'exercice et
+7. ~~**Le panneau « Présentation — effet immédiat »** et sa pastille « En direct » restent sur la page de l'exercice et
    dans l'onglet Tables en consultation (en lecture) ; « effet immédiat » peut surprendre quand rien ne se modifie.
-   Alternative : « Présentation en vigueur » pour ce rôle.
+   Alternative : « Présentation en vigueur » pour ce rôle.~~ **Tranché et fait** : voir §6.
 8. **Le fragment** (`#exercices`) plutôt qu'un paramètre (`?onglet=`) : un rechargement et un lien y reviennent, mais
    le bouton Précédent du navigateur ne revient pas à l'onglet d'avant (`replaceState`, pas d'entrée d'historique par
    clic). `pushState` ferait l'inverse : un onglet par entrée d'historique.
@@ -181,6 +182,16 @@ Restent à 403 pour la consultation : toutes les écritures, et `tables/cascade`
 10. **Le test de la Gestion du contenu dans `tests/ui-enseignant.test.js`** fait tourner le vrai Worker en mémoire et
     construit les grands écrans (la page d'un exercice, les tables) deux fois : il prend quelques secondes de plus que
     les autres tests d'écran. Acceptable, mais à savoir.
+
+## 6. Suites données
+
+- **Point 7, retouche demandée par Thierry (2026-10-06)** : en consultation seulement, le panneau de la présentation
+  s'intitule **« Présentation en vigueur »** et la pastille « En direct » disparaît — sur la page d'un exercice et dans
+  l'onglet Tables de référence ; le contour vert du panneau reste. L'administration ne change pas (« Présentation —
+  effet immédiat », la pastille). `tests/ui-enseignant.test.js` le vérifie pour les deux rôles (le titre du panneau,
+  la pastille absente, plus aucun « effet immédiat » dans la page en consultation ; le titre et la pastille présents en
+  administration). Une retouche de texte et d'un élément, couverte par le test sur le DOM ; le scénario Chrome n'a pas
+  été relancé pour elle.
 
 ## 5. Ce que Thierry vérifie après le déploiement
 

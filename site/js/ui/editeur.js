@@ -1058,7 +1058,8 @@ async function showExercise(id, notice = '') {
       plainTable(['Outil', 'Photo', "Note affichée sous l'outil"], rows, 'tables-edit--outils'),
     ];
     presentationSlot.replaceChildren(el('section', { class: 'panel panel--direct presentation', ...(ro ? {} : { oninput: onInput, onchange: onInput }) }, [
-      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Présentation — effet immédiat'), el('span', { class: 'badge-direct' }, 'En direct')]),
+      // En consultation (D95, retouche) : « Présentation en vigueur », sans la pastille — rien ne s'y applique.
+      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, ro ? 'Présentation en vigueur' : 'Présentation — effet immédiat'), ...(ro ? [] : [el('span', { class: 'badge-direct' }, 'En direct')])]),
       el('h2', {}, "Présentation de l'exercice"),
       ro ? el('p', { class: 'small' }, "Lecture seule : ce que tous les étudiants voient de cet exercice, quelle que soit leur version. Le titre, le cours, « À l'accueil », la photo et la note de chaque outil. Les valeurs, la correction et les attestations n'en dépendent pas.") : el('p', { class: 'small' }, [
         el('strong', {}, "« Appliquer… » change ce que tous les étudiants voient de cet exercice dès que leur page se recharge, séances en cours comprises, quelle que soit leur version."),
@@ -1686,7 +1687,8 @@ export async function showTables(notice = '') {
       plainTable(['Opération', 'Pictogramme'], opRows, 'tables-edit--operations'),
     ];
     presentationSlot.replaceChildren(el('section', { class: 'panel panel--direct presentation', ...(ro ? {} : { oninput: onInput, onchange: onInput }) }, [
-      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Présentation — effet immédiat'), el('span', { class: 'badge-direct' }, 'En direct')]),
+      // En consultation (D95, retouche) : « Présentation en vigueur », sans la pastille — rien ne s'y applique.
+      el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, ro ? 'Présentation en vigueur' : 'Présentation — effet immédiat'), ...(ro ? [] : [el('span', { class: 'badge-direct' }, 'En direct')])]),
       el('h2', {}, 'Présentation des tables'),
       ro ? el('p', { class: 'small' }, "Lecture seule : ce qui ne fait qu'afficher, en vigueur sur la page de tous les étudiants, quelle que soit leur version des tables. Noms et couleurs des classes ISO, images de chaleur, légendes, caractéristiques, couleurs des matières d'outil, pictogrammes.") : el('p', { class: 'small' }, [
         el('strong', {}, "« Appliquer… » change la page de tous les étudiants dès qu'elle se recharge, séances en cours comprises, quelle que soit leur version des tables."),

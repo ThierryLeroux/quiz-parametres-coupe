@@ -198,7 +198,10 @@ test('consultation — la page d’un exercice : sa dernière version publiée (
   const evaluees = main.querySelectorAll('input[type="radio"][value="evaluee"]').filter((input) => input.hasAttribute('checked')).map((input) => input.getAttribute('name'));
   assert.deepEqual(evaluees, m10.champs_evalues.map((key) => `etat-${key}`));
   assert.equal(main.querySelectorAll('fieldset.lecture-seule[disabled]').length >= 3, true); // présentation, réglages, outils
-  assert.ok(main.querySelector('.panel--direct .badge-direct'));
+  // Le panneau de la présentation en consultation (retouche de D95) : « Présentation en vigueur », sans la pastille « En direct ».
+  assert.equal(main.querySelector('.panel--direct .eyebrow').textContent, 'Présentation en vigueur');
+  assert.equal(main.querySelector('.panel--direct .badge-direct'), null);
+  assert.equal(main.textContent.includes('effet immédiat'), false);
   assert.equal(main.querySelectorAll('.outil-ligne').length, m10.outils.length);
   assert.equal(main.querySelectorAll('.outil-ligne input[type="checkbox"][aria-label]').length, 0); // pas de sélection
   assert.equal(main.querySelector('#ajout-banque'), null);
@@ -232,7 +235,9 @@ test('consultation — Banque d’outils et la fiche d’un outil : « Voir », 
 test('consultation — Tables de référence : la présentation en lecture, puis les valeurs de la dernière version publiée (pas le brouillon), sans Ajouter, Enregistrer, Publier ni Reprendre', async () => {
   await start('consultation', '#tables');
   assertReadOnlyScreen('Tables de référence');
-  assert.deepEqual(texts('.eyebrow').slice(1), ['Présentation — effet immédiat', 'Valeurs — version A2026_r0', 'Version A2026_r0 · Classes ISO', "Version A2026_r0 · Matières d'outil", 'Version A2026_r0 · Matériaux usinés', 'Version A2026_r0 · Opérations', 'Versions publiées']);
+  assert.deepEqual(texts('.eyebrow').slice(1), ['Présentation en vigueur', 'Valeurs — version A2026_r0', 'Version A2026_r0 · Classes ISO', "Version A2026_r0 · Matières d'outil", 'Version A2026_r0 · Matériaux usinés', 'Version A2026_r0 · Opérations', 'Versions publiées']);
+  assert.equal(main.querySelector('.panel--direct .badge-direct'), null); // ni pastille « En direct » ni « effet immédiat » en consultation
+  assert.equal(main.textContent.includes('effet immédiat'), false);
   assert.doesNotMatch(main.textContent, /Brouillon parti de la version/);
   assert.ok(main.querySelectorAll('fieldset.lecture-seule[disabled]').length >= 5);
   assert.ok(main.querySelector('.versions-liste a[href="/tables?version=A2026_r0"]'));
@@ -277,6 +282,9 @@ test('administration — les boutons d’action de chaque onglet sont construits
   assert.ok(buttonTexts().some((t) => /^Publier/.test(t)));
   assert.ok(buttonTexts().some((t) => /^Appliquer|^Aucun changement à appliquer/.test(t))); // le bouton de la présentation, dont le libellé suit les changements
   assert.match(main.textContent, /Brouillon parti de la version/);
+  // L'administration garde « Présentation — effet immédiat » et la pastille « En direct » (la retouche ne vaut qu'en consultation).
+  assert.equal(main.querySelector('.panel--direct .eyebrow').textContent, 'Présentation — effet immédiat');
+  assert.equal(main.querySelector('.panel--direct .badge-direct').textContent, 'En direct');
   assert.ok(main.querySelector('#televerser-fichier') === null); // l'onglet Tables n'a pas le téléversement de l'onglet Images
 });
 
@@ -297,4 +305,6 @@ test('administration — la page d’un exercice : le brouillon, Enregistrer, Pu
   assert.ok(main.querySelector('.token-buttons'));
   assert.ok(main.querySelectorAll('.outil-ligne input[type="checkbox"][aria-label]').length > 0);
   assert.equal(main.querySelectorAll('fieldset[disabled]').length, 0);
+  assert.equal(main.querySelector('.panel--direct .eyebrow').textContent, 'Présentation — effet immédiat');
+  assert.equal(main.querySelector('.panel--direct .badge-direct').textContent, 'En direct');
 });

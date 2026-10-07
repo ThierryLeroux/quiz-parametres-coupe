@@ -3953,4 +3953,8 @@ permet de tout changer.
   onglets de contenu et la lecture seule) ; SPEC §8 (le rôle, les routes ouvertes, la redirection) ; CLAUDE.md ;
   DEMARRAGE §7 ; PLAN ; rapport.
 
+**Retouche** (Thierry, 2026-10-06, point 7 du rapport) : en consultation seulement, le panneau de la présentation — sur la
+page d'un exercice et dans l'onglet Tables de référence — s'intitule **« Présentation en vigueur »** et perd la pastille
+« En direct » ; l'administration garde « Présentation — effet immédiat » et la pastille.
+
 Rapport : `docs/rapports/espace-enseignant.md`.
