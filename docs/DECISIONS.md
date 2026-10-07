@@ -3709,3 +3709,161 @@ démo-exercice de D84 (point 7) et le rattachement `attachDemos` de D91 (point 1
   démos) : à déployer hors des périodes de labo. Le geste de Thierry (point 2) suit le déploiement.
 
 Rapport : `docs/rapports/mode-demo.md`.
+
+## D93 — Les textes : des phrases courtes, aucun vocabulaire interne, tutoiement, un seul mot par chose (2026-10-06, décidée)
+
+**Contexte.** Les textes des écrans se sont écrits au fil de 92 décisions, souvent pour expliquer la mécanique du moment
+(« corrigées par un serveur », « l'enregistrement tel qu'il le détient », « recomposé par le serveur ») ou pour rassurer
+(« rien n'est gardé : ni séance, ni attestation »). Relus d'un bloc, ils sont longs, enchaînent « : », « ; » et « — »
+dans une même phrase, nomment la même chose de deux façons (« rapport de réussite » et « attestation ») et parlent
+d'un serveur que l'étudiant n'a pas à connaître. L'accueil répète ce que la page de l'exercice dit déjà (les trois
+étapes) et la porte professeur explique la démo à ceux qui ne s'en servent pas.
+
+**Décision** (Thierry, 2026-10-06). **Des règles d'écriture, pour toutes les pages, étudiants et professeurs** :
+
+1. **Phrases courtes, une idée par phrase.** Pas d'enchaînement de « : », « ; » et « — » dans une même phrase : un seul
+   de ces signes par phrase, ou deux phrases.
+2. **Aucun vocabulaire interne** : ni serveur, ni serveur de correction, ni enregistrement (au sens de « ce que le
+   serveur garde » — « Enregistrer le brouillon » reste un verbe), ni détenir, ni recomposer, ni jeton, ni numéro de
+   décision. Dans la Gestion du contenu, les « jetons » du gabarit de nomenclature deviennent des **crochets**
+   (« [IdDia] »).
+3. **Ne dire que ce qui aide à agir.** Pas d'explication de la mécanique, pas de rassurance technique.
+4. **Un seul mot par chose** : « attestation », jamais « rapport » ; « donné », jamais « fourni par l'exercice ».
+5. **Tutoiement partout.**
+6. **Les confirmations d'actions destructrices, côté professeur, gardent toute l'information utile** (ce qui
+   disparaît, ce qui reste), mais en phrases courtes.
+
+**L'accueil** (D91, D92) : la ligne des trois étapes (« Ton cours », « L'exercice indiqué sur Léa », « Ton matricule et
+ton NIP ») est retirée ; la porte professeur ne garde que « Enseignants » et le bouton « Espace professeur → » (plus de
+note sur la démo) ; l'indice du bouton Démo devient « Essayer sans identification ».
+
+**Les remplacements côté étudiant** (avant → après) :
+
+| Où | Avant | Après |
+|---|---|---|
+| Pied de page de l'accueil et du quiz | TGM-TMI · Tes réponses sont corrigées par un serveur ; tes données sont effacées à la fin de la session. | TGM-TMI · Tes données sont effacées à la fin de chaque session. |
+| Pied de page de `/verifier` et de `/tables` | TGM-TMI · Cette page ne montre rien de plus… / … telles que les étudiants les voient. | TGM-TMI |
+| Chargement de `index.html` | Chargement du quiz… Si ce message reste affiché, la page doit être ouverte par un serveur web… | Chargement… — l'explication pour le développeur va dans la console, par un petit script de la page, si le quiz n'a pas démarré après trois secondes |
+| Exercice fermé | Cet exercice n'est plus offert par ton enseignant : aucune nouvelle séance… | Cet exercice est fermé. Si tu l'avais commencé, tu peux encore le terminer. |
+| Règles de l'exercice | À la fin, tu enregistres ton rapport de réussite en PDF et tu le remets sur Léa. | À la fin, enregistre ton attestation en PDF et remets-la sur Léa. |
+| Nouveau matricule | Nouvelle séance pour le matricule X. Vérifie-le : il figurera sur ton rapport et te servira à reprendre l'exercice sur un autre appareil. | Nouveau matricule : X. Vérifie-le bien. Il sera inscrit sur ton attestation et te permettra de continuer sur un autre appareil. |
+| Écran du matricule | C'est lui qui retrouve ta séance, sur cet appareil comme sur un autre. | Il te permet de reprendre l'exercice sur n'importe quel appareil. |
+| Corriger mon identité | Ton prénom, ton nom et ton matricule figureront sur ton attestation. Ta progression ne change pas. Entre ton NIP pour confirmer. | Ces renseignements seront inscrits sur ton attestation. Ta progression ne change pas. Entre ton NIP pour confirmer. |
+| Corriger mon identité, après la réussite | Ton attestation sera réémise avec la nouvelle identité et un nouveau code ; ses résultats… | Une nouvelle attestation sera produite, avec un nouveau code. L'ancienne ne sera plus valide. Entre ton NIP pour confirmer. |
+| Sous les cases de réponse | Point décimal (une virgule devient un point), sans séparateur de milliers : 2496 · 0.005 · un calcul se tape tel quel : (3-1)*2 · Sur cet outil : … | Tape un nombre (0.005) ou un calcul ((3-1)*2). — le compteur de l'outil, déjà dans la progression, sort de cette ligne (`toolStreak` retirée) |
+| Questionnaire | clique une case pour voir l'aide · fourni par l'exercice | Clique sur une case pour voir l'aide. · donné |
+| Bandeau du mode test | Mode test — le serveur local a joint les réponses attendues. Modifie une case pour simuler une erreur. | Mode test : « Remplir » inscrit les bonnes réponses. Modifie une case pour simuler une erreur. |
+| Attestation, note sous le tableau | … Les paramètres ont été corrigés par le serveur de correction. | la phrase est retirée ; la note devient deux phrases : « Chaque outil devait être réussi le nombre de fois indiqué, de suite. Une mauvaise réponse remettait son compteur à zéro. » |
+| Attestation non chargée | Ta réussite est enregistrée sur le serveur de correction, mais ton attestation n'a pas pu être chargée. | Ta réussite est enregistrée, mais l'attestation n'a pas pu s'afficher. Recharge la page. |
+| `/verifier`, introduction | … Le serveur de correction dit si l'attestation est authentique, et montre ce qu'il en détient. | Scanne le code QR de l'attestation, ou entre le code inscrit dessous. |
+| `/verifier`, valide | Attestation valide — Le serveur de correction détient cette attestation… | **Attestation authentique** — Voici son contenu. |
+| `/verifier`, invalide | Signature invalide ou contenu modifié — Ce que l'adresse du QR prétend… | **Attestation modifiée ou fausse** — Son contenu ne correspond pas à l'attestation originale. |
+| `/verifier`, aucune | Aucune attestation ne porte ce code. Vérifie le code sur le document ; un O ou un I ne peuvent pas y figurer. | Aucune attestation ne porte ce code. Vérifie-le : il ne contient jamais de O ni de I. |
+| `/verifier`, annulée | Cette attestation a été annulée le <date> : <motif>. Voici l'enregistrement tel qu'il était. | Cette attestation a été annulée le <date> (<motif>). Son contenu est affiché à titre d'information. |
+| `/verifier`, spécimen | … Sa signature de spécimen est authentique ; voici ce qu'elle couvre, recomposé par le serveur. | **SPÉCIMEN — exemple sans valeur** — Exemple produit par le mode démo. Il n'atteste aucune réussite. |
+| `/verifier`, code d'un spécimen | Ce code est celui d'un spécimen d'attestation… Scanne son code QR pour en vérifier la signature. | Ce code est celui d'un exemple. Scanne son code QR pour le vérifier. |
+| `/verifier`, réponse inattendue | Réponse inattendue — Le serveur a répondu quelque chose d'inconnu. | **Vérification impossible** — Réponse inattendue. Réessaie plus tard. |
+| Démo, barre du haut | Démo · rien n'est gardé | retiré (le bandeau le dit déjà) |
+| Démo, bandeau | Démo — rien n'est gardé : ni séance, ni attestation. | Démo — rien n'est enregistré. |
+| Démo, choix de l'outil | Les questions se suivent à volonté, corrigées comme dans le vrai exercice. Tu peux changer d'outil entre deux questions. · parmi tous les outils de l'exercice, comme une vraie séance | Choisis un outil, ou laisse le hasard choisir. Tu pourras changer d'outil en tout temps. · Un outil différent à chaque question |
+| Démo réussie | Tous les outils ont leurs réussites de suite : dans le vrai exercice, l'attestation s'afficherait ici. Tu peux continuer. | Démo réussie. Dans le vrai exercice, ton attestation apparaîtrait ici. Tu peux continuer. |
+| Spécimen, consigne | Spécimen d'attestation — un exemple sans valeur, composé pour cette démo : la même page que l'étudiant remet sur Léa. | Exemple sans valeur. C'est ce document que tu remettras sur Léa à la fin du vrai exercice. |
+| Démo expirée | La démo a expiré : choisis un outil pour en commencer une autre. | La démo a expiré. Choisis un outil pour recommencer. |
+
+**Les autres textes vus par un étudiant qui enfreignaient les règles**, corrigés dans la foulée (règle 2.23 de la
+demande) : « Le serveur de correction ne répond pas. Vérifie ta connexion, puis réessaie. » → « Le site ne répond pas.
+Vérifie ta connexion, puis réessaie. » (et les messages d'`api.js` : « Erreur 502. », « Réponse illisible. ») ; les
+messages du serveur « Cette adresse n'existe pas sur le serveur de correction. » → « Cette adresse n'existe pas. »,
+« Erreur du serveur de correction. Réessaie dans un instant. » → « Une erreur est survenue. Réessaie dans un instant. »,
+« Ta séance a expiré : identifie-toi de nouveau. » → « Ta séance a expiré. Identifie-toi de nouveau. » ; « L'exercice
+« x » n'existe pas — vérifie le lien sur Léa. » → deux phrases ; la page de l'exercice : « Fournies par l'exercice : … »
+→ « Données : … » (règle 4) ; le panneau de l'outil : « Facteur propre à cet outil : × 1 — raison » → « … : × 1
+(raison) », « Ø usiné (alésé) : 1.500" — pour la vitesse de rotation » → « Pour la vitesse de rotation, Ø usiné
+(alésé) : 1.500" » (de même pour la barre) ; l'aide de fz en métrique : « Filetage : fz = pas, en pouces : mm / 25.4. »
+→ « … en pouces (mm / 25.4). » ; la mention de vérification de l'attestation : « Vérification : hôte/verifier — code X »
+→ « Vérification : hôte/verifier · code X » ; la feuille des formules : la note du facteur (« … ; 1 si aucune
+réduction. » → « (1 si aucune réduction). ») et la ligne « Saisie — point décimal… » → « Saisie : un nombre (1600 ·
+0.0015) ou un calcul ((3-1)*2), avec le point décimal. ».
+
+**Côté professeur** (espace professeur, Gestion du contenu, `/tables`), les mêmes règles : plus de « serveur » (la
+connexion : « Entre ta clé. La séance dure 12 h. »), plus d'« enregistrement » au sens de contenu (« une
+modification » dans l'historique), les « jetons » du gabarit deviennent des « crochets », les phrases qui enchaînaient
+« : », « ; » et « — » sont coupées en deux, et les confirmations destructrices (archiver, supprimer, retirer, effacer,
+remettre à zéro, réinitialiser le NIP) gardent tout en phrases courtes. L'étiquette de l'espace (D94) remplace « admin »
+et « consultation (lecture seule) » dans la barre du haut ; « lecture seule » reste dans le sur-titre du tableau.
+**Le tableau complet avant → après est dans le rapport**, pour relecture avant la fusion.
+
+**Un test garde la règle 2** (`tests/textes-visibles.test.js`) : aucun « serveur », « enregistrement », « détenir »,
+« recomposer », « jeton » ni vouvoiement dans une chaîne affichable du site ou des messages du serveur.
+
+**Conséquences.**
+
+- `site/js/ui/text.js`, `home-data.js`, `home-screen.js`, `demo-data.js`, `demo-screen.js`, `identification-screen.js`,
+  `question-screen.js`, `rules.js` (`toolStreak` retirée), `attestation-data.js`, `attestation-screen.js`, `verifier.js`,
+  `reference-screen.js`, `prof.js`, `prof-data.js`, `editeur.js`, `editeur-data.js`, `images-picker.js` ; `site/js/api.js`,
+  `exercice.js`, `data.js` ; `site/index.html`, `verifier.html`, `tables.html`, `prof/editeur.html` ; `site/css/app.css`
+  (les règles des trois étapes et de la note de la porte professeur retirées) ; `worker/index.js`, `worker/images.js`.
+- Tests : tous ceux qui vérifient un texte changé ; `textes-visibles.test.js` étendu.
+- Documents : UI §3.1 à §3.10 (les textes), CLAUDE.md, PLAN, rapport `docs/rapports/textes-et-ambiances.md`.
+- **Rien ne touche la correction des séances en cours** : aucune tolérance, aucune formule, aucun calcul. **La page de
+  l'attestation change pour tout le monde au déploiement** : la note sous le tableau par outil perd une phrase et tient
+  sur une ligne au lieu de deux ; la constante de pagination `note` (39 px, UI §3.6) reste telle quelle — elle surestime
+  de 13 px, ce qui ne fait jamais déborder une page, et se recalibrera à l'occasion (point douteux du rapport). La
+  mention de vérification change un tiret en point médian. L'enregistrement, le code, la signature et le QR ne changent
+  pas. À déployer hors des périodes de labo.
+
+Rapport : `docs/rapports/textes-et-ambiances.md`.
+
+## D94 — Les ambiances de couleur par espace : bleu pour l'étudiant, ambre pour la consultation, pourpre pour l'administration (2026-10-06, décidée)
+
+**Contexte.** Toutes les pages ont le même bleu : l'étudiant qui fait son exercice, le professeur qui consulte les
+réussites avec la clé de consultation et celui qui modifie le contenu avec la clé d'administration voient la même barre,
+les mêmes contours, le même bouton. Rien ne dit d'un coup d'œil dans quel espace on est, ni avec quelle clé on est
+entré — alors que, dans l'un, un clic publie ou efface pour tous les étudiants.
+
+**Décision** (Thierry, 2026-10-06).
+
+1. **Trois espaces, chacun avec sa couleur dominante** — l'accent (contours des panneaux, ligne et halo sous la barre du
+   haut, bouton principal, bordures des champs), sa variante claire (titres, liens, anneau de focus) et la couleur de
+   survol des liens :
+   - **Étudiant** — l'accueil, le quiz, la démo, `/verifier`, `/tables` et **la page de connexion de `/prof`** : le
+     bleu actuel, inchangé (`#2e9bff`, `#4fc3f7`, `#8fd8ff`).
+   - **Consultation** — `/prof` ouvert avec la clé de consultation : **ambre**, `#f5a623` (accent), `#ffbd5c` (clair),
+     `#ffd38a` (survol).
+   - **Administration** — `/prof` ouvert avec la clé d'administration, et **toute la Gestion du contenu**, sa connexion
+     comprise : **pourpre**, `#b07cff` (accent), `#c9a3ff` (clair), `#dcc2ff` (survol) ; **une fine bande à chevrons**
+     pourpre et noire (6 px, 135°) tout en haut de la page, au-dessus de la barre ; rien de tout cela à l'impression.
+2. **Une étiquette dans la barre du haut**, à droite : « Administration » ou « Consultation », au contour et au texte de
+   la couleur de l'espace (`.espace-etiquette`). Elle remplace « admin » et « consultation (lecture seule) » (D44) ;
+   « lecture seule » reste dans le sur-titre du tableau de la consultation. L'espace étudiant n'a pas d'étiquette.
+3. **Les couleurs qui portent un sens ne changent dans aucun espace** : vert pour juste et pour « en direct », rouge
+   pour faux, erreur et Supprimer, doré pour « mis en avant » (contour à 100 %, panneau de l'outil, publication,
+   spécimen, mode test), et les couleurs des tables (classes ISO, matières d'outil, D61).
+4. **Une seule source** : les variables `--color-accent`, `--color-accent-light` et `--color-link-hover` de
+   `tokens.css`, **redéfinies par espace sous `:root[data-espace="consultation"]` et `:root[data-espace="admin"]`**.
+   L'attribut `data-espace` est posé sur `<html>` : en dur, « etudiant » sur `index.html`, `verifier.html`, `tables.html`
+   et `prof.html`, « admin » sur `prof/editeur.html` ; sur `/prof`, le script le change selon le rôle de la séance
+   professeur (`spaceOf(role)`, `prof-data.js` : admin → « admin », consultation → « consultation », déconnecté →
+   « etudiant »). Aucune couleur d'espace ailleurs que dans `tokens.css` ; les écrans ne connaissent que les variables.
+5. **Contrastes AA** (texte sur fond nuit `#05091a` et sur panneau `#0b1430`, texte nuit sur bouton plein) : ambre 9,8
+   et 9,0 (clair 12), pourpre 6,8 et 6,2 (clair 9,6), bleu 6,8 — tous au-dessus de 4,5 ; les textes atténués et de sens
+   ne changent pas.
+6. **L'ambre et le doré.** Dans l'espace de consultation, **aucun élément doré n'est affiché** (`/prof` n'en a pas) :
+   pas de confusion sur un même écran. Les deux teintes sont voisines (ambre 37°, doré 45° ; l'ambre clair des titres,
+   `#ffbd5c`, est plus pâle que le doré `#ffc000`). Si, à l'usage, le passage de l'accueil à la consultation les
+   confond, l'ajustement proposé est un ambre plus orangé (`#f28c28`, clair `#ffab5e`) — point douteux du rapport.
+
+**Conséquences.**
+
+- `site/css/tokens.css` (les deux blocs par espace), `app.css` (la bande à chevrons, l'étiquette, le pied), les cinq
+  pages HTML (`data-espace`), `prof.js` (pose l'attribut à la connexion, à la déconnexion et au rechargement ;
+  l'étiquette dans la barre), `prof-data.js` (`spaceOf`, `roleLabel` → le texte de l'étiquette, `roleNote`),
+  `editeur.js` (l'étiquette dans la barre).
+- Test `tests/ui-ambiances.test.js` : l'attribut de chaque page, les deux blocs de variables et leurs valeurs, la bande
+  et l'étiquette dans `app.css`, aucune couleur d'espace en dur hors de `tokens.css`, `spaceOf`.
+- Documents : UI §1 (« Langage visuel » : les trois ambiances), §3.8, §3.9 ; CLAUDE.md ; PLAN ; rapport, avec les
+  captures des trois espaces à 1366 et 390 px.
+- **Rien ne touche la correction des séances en cours**, ni aucun fichier du serveur : de la présentation seulement,
+  qui change pour tout le monde au déploiement.
+
+Rapport : `docs/rapports/textes-et-ambiances.md`.
