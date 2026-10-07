@@ -7,7 +7,7 @@
 
 import { EXPRESSION_MAX_LENGTH } from '../expression.js';
 import { DEMO_DONE, demoTitle } from './demo-data.js';
-import { demoBanner } from './demo-screen.js';
+import { demoBanner, demoHomeNav } from './demo-screen.js';
 import { el, pointDecimalComma, showScreen } from './dom.js';
 import {
   CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, gapExplanation, helpLine, initialFocus, insertInCase,
@@ -451,11 +451,14 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
   }
 
   const total = seance.progression.total_reussies;
-  // Le mode démo (D92) : le bandeau discret mais constant au-dessus des panneaux, et « Démo réussie » tant que la démo est à 100 %.
+  // Le mode démo (D92) : le retour à l'accueil (la rangée de la page de l'exercice) au-dessus du bandeau discret mais
+  // constant, puis « Démo réussie » tant que la démo est à 100 %. Le vrai exercice n'a rien de tout cela.
+  const demoNav = demo ? demoHomeNav() : '';
   const demoNote = demo ? demoBanner(seance.exercice.id, actions) : '';
   const doneNote = demo && seance.reussie ? doneBanner() : '';
   const screen = el('div', { class: 'screen screen--wide question-layout' }, [
     el('div', { class: 'question-main' }, [
+      demoNav,
       demoNote,
       doneNote,
       el('div', { class: 'question-head' }, [title, el('div', { class: 'muted smaller' }, `${total} question${total > 1 ? 's' : ''} réussie${total > 1 ? 's' : ''}`)]),

@@ -17,6 +17,7 @@ import {
 import { demoBanner, renderDemoChooser, renderSpecimen } from '../site/js/ui/demo-screen.js';
 import { toolRows } from '../site/js/ui/home-data.js';
 import { renderQuestion } from '../site/js/ui/question-screen.js';
+import { HOME_LINK_LABEL } from '../site/js/ui/text.js';
 import { toolLabels } from '../site/js/ui/rules.js';
 
 const M10 = 'm10-tournage-vc';
@@ -94,7 +95,8 @@ test('renderDemoChooser : le bandeau, « Au hasard » puis les outils par opéra
   assert.equal(document.title, `Démo — ${m10.exercise.titre}`);
   const screen = main.querySelector('.screen.demo-chooser');
   const banner = screen.querySelector('.banner--demo');
-  assert.equal(screen.children[0], banner); // le bandeau d'abord
+  assert.ok(screen.children[0].classList.contains('description-nav')); // le retour à l'accueil d'abord (comme la page de l'exercice)
+  assert.equal(screen.children[1], banner); // puis le bandeau
   assert.equal(main.querySelector('h1').textContent, CHOOSER.title);
   assert.equal(document.activeElement, main.querySelector('h1'));
   assert.equal(main.querySelector('.eyebrow').textContent, 'Démo'); // le M10 semé n'a pas de cours
@@ -177,9 +179,10 @@ test('renderQuestion en mode démo : la barre (« Démo — <titre> », les tabl
   aside.querySelectorAll('button')[2].click();
   aside.querySelectorAll('button')[0].click();
   assert.deepEqual(calls, ['choose', 'quit', 'tables:vc']);
-  // Le bandeau, premier enfant de la colonne de la question ; pas de « Démo réussie » à 0 %.
+  // Le retour à l'accueil, puis le bandeau, en tête de la colonne de la question ; pas de « Démo réussie » à 0 %.
   const column = main.querySelector('.question-main');
-  assert.ok(column.children[0].classList.contains('banner--demo'));
+  assert.ok(column.children[0].classList.contains('description-nav'));
+  assert.ok(column.children[1].classList.contains('banner--demo'));
   assert.equal(main.querySelector('.banner--demo-done'), null);
   column.querySelector('.banner--demo button').click();
   assert.equal(calls.at(-1), 'specimen');
@@ -224,8 +227,9 @@ test('renderQuestion en mode démo : après « Vérifier », « Question suivant
   // La question suivante, à 100 % : le bandeau « Démo réussie » est là d'entrée, sous le bandeau de la démo.
   renderQuestion(main, { seance: nexts[0], data: essai.data, labels, demo: true }, { onQuit: () => {}, onTables: () => {}, onChooseTool: () => {}, onSpecimen: () => {}, onNext: () => {}, onCheck: async () => null });
   const column = main.querySelector('.question-main');
-  assert.ok(column.children[0].classList.contains('banner--demo'));
-  assert.ok(column.children[1].classList.contains('banner--demo-done'));
+  assert.ok(column.children[0].classList.contains('description-nav')); // le retour à l'accueil, puis le bandeau, puis « Démo réussie »
+  assert.ok(column.children[1].classList.contains('banner--demo'));
+  assert.ok(column.children[2].classList.contains('banner--demo-done'));
   assert.equal(main.querySelector('h1.question-title').textContent, 'Question');
 });
 
@@ -238,6 +242,57 @@ test('renderQuestion sans le mode démo : rien ne change — la barre avec l’�
   assert.deepEqual(document.querySelectorAll('#header-aside button').map((b) => b.textContent), ['Tables de référence', 'Corriger mon identité', 'Quitter']);
   assert.equal(main.querySelector('.banner--demo'), null);
   assert.equal(main.querySelector('.banner--demo-done'), null);
+  assert.equal(main.querySelector('.description-nav'), null); // ni le retour à l'accueil de la démo
+});
+
+// --- Le retour à l'accueil d'une démo : la rangée de la page de l'exercice ----------------------------------------------
+
+test('le choix de l’outil et la question en démo construisent « ← Tous les exercices » vers l’accueil, en tête, comme la page de l’exercice ; la question du vrai exercice n’en construit pas ; le spécimen garde « ← Retour à la démo »', async () => {
+  const labels = toolLabels(m10.exercise, m10.data);
+  const nav = () => {
+    const row = main.querySelector('.description-nav');
+    assert.ok(row, 'la rangée description-nav');
+    const links = row.querySelectorAll('a');
+    assert.equal(links.length, 1);
+    assert.equal(links[0].textContent, HOME_LINK_LABEL);
+    assert.equal(links[0].getAttribute('href'), location.pathname); // l'accueil : la page sans ?exercice=
+    assert.equal(links[0].getAttribute('class'), 'button-link');
+    assert.equal(row.querySelectorAll('button').length, 0); // pas de « Copier le lien » : c'est la page de l'exercice qui l'a
+    return row;
+  };
+  // Le choix de l'outil, à l'entrée et en cours de démo : la rangée d'abord, le bandeau ensuite.
+  const groups = demoToolGroups(toolRows(m10.exercise, m10.data));
+  renderDemoChooser(main, { exercise: m10.exercise, groups }, { onChoose: async () => null, onSpecimen: () => {} });
+  assert.equal(main.querySelector('.screen.demo-chooser').children[0], nav());
+  renderDemoChooser(main, { exercise: m10.exercise, groups, chosen: 'mclnr', inSession: true }, { onChoose: async () => null, onSpecimen: () => {}, onBack: () => {} });
+  assert.equal(main.querySelector('.screen.demo-chooser').children[0], nav());
+  // La question en démo, puis son corrigé : la rangée au-dessus du bandeau.
+  const { jeton, demo } = await commencerDemo(M10);
+  const actions = { onQuit: () => {}, onTables: () => {}, onChooseTool: () => {}, onSpecimen: () => {}, onNext: () => {}, onCheck: async () => null };
+  renderQuestion(main, { seance: demo, data: m10.data, labels, demo: true }, actions);
+  const column = main.querySelector('.question-main');
+  assert.equal(column.children[0], nav());
+  assert.ok(column.children[1].classList.contains('banner--demo'));
+  serveur.avancer(11 * SECONDE);
+  const corrected = (await serveur.appel('POST', '/api/demo/correction', { jeton, corps: { exercice: M10, saisies: { vc: '1' } } })).corps;
+  renderQuestion(main, { seance: demo, data: m10.data, labels, demo: true }, { ...actions, onCheck: async () => ({ correction: corrected.correction, seance: corrected.demo }) });
+  main.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await tick();
+  assert.equal(main.querySelector('h1.question-title').textContent, 'Question — corrigée');
+  assert.equal(main.querySelector('.question-main').children[0], nav());
+  // Le vrai exercice : aucune rangée.
+  const { corps } = await serveur.appel('POST', '/api/creation', { corps: { exercice: M10, prenom: 'Alex', nom: 'Roy', matricule: '2498765', nip: '4821' } });
+  const { corps: question } = await serveur.appel('POST', '/api/question', { jeton: corps.jeton, corps: { exercice: M10 } });
+  renderQuestion(main, { seance: question.seance, data: m10.data, labels }, { onQuit: () => {}, onTables: () => {}, onIdentity: () => {}, onNext: () => {}, onCheck: async () => null });
+  assert.equal(main.querySelector('.description-nav'), null);
+  assert.equal(main.textContent.includes(HOME_LINK_LABEL), false);
+  // Le spécimen : « ← Retour à la démo », pas la rangée.
+  const { corps: specimen } = await serveur.appel('GET', `/api/demo/specimen?exercice=${M10}`);
+  renderSpecimen(main, { exercise: m10.exercise, specimen }, { onBack: () => {} });
+  assert.equal(main.querySelector('.description-nav'), null);
+  assert.equal(main.querySelector('.attestation-bar .button-link').textContent, SPECIMEN.back);
+  assert.equal(SPECIMEN.back, '← Retour à la démo');
+  main.replaceChildren(); // le test suivant veut un écran vide (« pas encore à l'écran »)
 });
 
 // --- Le spécimen -------------------------------------------------------------------------------------------------------

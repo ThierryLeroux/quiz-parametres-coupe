@@ -7,12 +7,19 @@ import { attestationFileName } from './attestation-data.js';
 import { attestationPages } from './attestation-screen.js';
 import { CHOOSER, DEMO_BANNER, SPECIMEN, chosenToolLabel, demoTitle } from './demo-data.js';
 import { exerciseHref } from './home-data.js';
-import { DEPARTMENT_SHORT } from './text.js';
+import { DEPARTMENT_SHORT, HOME_LINK_LABEL } from './text.js';
 
 // Image décorative qui disparaît si elle manque (opération sans pictogramme).
 function optionalImage(src, className) {
   const image = el('img', { class: className, src, alt: '', onerror: () => image.remove() });
   return image;
+}
+
+// Le retour à l'accueil d'une démo : la même rangée que la page de description d'un exercice (home-screen.js, D71) —
+// « ← Tous les exercices », à gauche, au-dessus du bandeau du choix de l'outil, de la question et du corrigé. Une
+// simple navigation : quitter une démo ne fait rien perdre, rien à confirmer. Le spécimen garde « ← Retour à la démo ».
+export function demoHomeNav() {
+  return el('div', { class: 'description-nav' }, el('a', { class: 'button-link', href: location.pathname }, HOME_LINK_LABEL));
 }
 
 // Le bandeau de la démo (D92, point 8 ; D93) : « Démo — rien n'est enregistré. », le lien vers le vrai exercice et le
@@ -62,6 +69,7 @@ export function renderDemoChooser(main, { exercise, groups, chosen = null, notic
   buttons.push(random);
 
   const screen = el('div', { class: 'screen demo-chooser' }, [
+    demoHomeNav(),
     demoBanner(exercise.id, actions),
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, exercise.cours ? `${CHOOSER.eyebrow} · ${exercise.cours}` : CHOOSER.eyebrow),

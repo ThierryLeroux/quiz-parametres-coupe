@@ -456,3 +456,12 @@ Rapport de session : `docs/rapports/espace-enseignant.md`. Branche `espace-ensei
 - [x] Vérification dans Chrome (1366 et 390 px) : la connexion, les sept onglets en administration, les six en consultation (lecture seule lisible, aucun bouton d'action), la garde des modifications au changement d'onglet, `/prof/editeur` redirigé, les fragments, l'accueil ; 46 vérifications, aucune erreur console, aucune requête externe ; captures dans `captures/espace-enseignant/`
 - [x] Documents : UI §1, §2, §3.8, §3.9 ; SPEC §8 ; CLAUDE.md ; DEMARRAGE §7 ; rapport, avec la liste des routes ouvertes et les points douteux
 - [ ] **Thierry** : relire, trancher les points douteux du rapport, fusionner et déployer le soir, hors cours
+
+## Retouche « démo : le retour à l'accueil » — la rangée de la page de description sur les écrans de la démo
+Rapport de session : `docs/rapports/demo-retour-accueil.md`. Branche `demo-retour-accueil`. **Rien ne touche la correction des séances en cours** : aucun fichier du serveur, aucune migration ; de l'affichage seulement, sur les écrans du mode démo.
+
+- [x] `demoHomeNav()` (`demo-screen.js`) : la rangée `description-nav` avec « ← Tous les exercices » vers l'accueil, en tête du choix de l'outil et de la question et du corrigé en démo (`question-screen.js`), au-dessus du bandeau ; le vrai exercice et le spécimen inchangés
+- [x] Test (`tests/ui-demo.test.js`, DOM minuscule) : la rangée sur le choix de l'outil, la question et le corrigé en démo ; absente du vrai exercice et du spécimen
+- [x] Vérification dans Chrome (1366 et 390 px) : la rangée alignée comme sur la page de description (même lien, même place dans sa colonne, même écart de 12 px), 17 vérifications ; captures dans `captures/demo-retour-accueil/`
+- [x] Documents : UI §3.10 ; rapport
+- [ ] **Thierry** : relire, fusionner et déployer hors cours
