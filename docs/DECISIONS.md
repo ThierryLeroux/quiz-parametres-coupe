@@ -3958,3 +3958,136 @@ page d'un exercice et dans l'onglet Tables de référence — s'intitule **« Pr
 « En direct » ; l'administration garde « Présentation — effet immédiat » et la pastille.
 
 Rapport : `docs/rapports/espace-enseignant.md`.
+
+## D96 — Chaque opération porte son code G d'avance (G94/G95 en fraisage, G98/G99 en tournage) : la vitesse d'avance est « sans objet » en avance par tour, et l'interface montre le code G et le mot F (2026-10-08, décidée)
+
+**Contexte.** Au tour, conventionnel ou CN, l'avance se programme en po/tour. Une vitesse d'avance en po/min n'y a
+pas de sens, et la demander à l'étudiant pour une plaquette de chariotage lui fait calculer un nombre qu'il
+n'utilisera jamais. Les états par grandeur restent réglés par exercice (D52) et D69 tient toujours : il n'y a pas
+d'état par outil choisi par l'enseignant. C'est une **propriété du métier, portée par l'opération**, sur le modèle du
+facteur de vitesse (D83). Le code G sert aussi de lien pédagogique avec le cours de CN : le nombre qu'on programme
+après F est f en G95/G99, Vf en G94/G98.
+
+**Décision** (Thierry, 2026-10-08).
+
+1. **La propriété appartient à l'opération, dans les tables de référence, versionnée comme les avances.** Clé
+   `code_avance`, une valeur parmi `G94`, `G95`, `G98`, `G99`. **G95 et G99 = avance par tour. G94 et G98 = avance par
+   minute.** G98/G99 au tour, c'est le **système de codes G A de Fanuc** (en fraisage, G94/G95).
+2. **Aucune règle bloquante n'est déduite du nom de la machine** (texte libre). Un **avertissement doré, non
+   bloquant**, dans l'onglet Tables de référence, signale un G98/G99 sur une opération dont la machine n'est pas
+   « Tour », ou un G94/G95 sur une opération du tour.
+3. **Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils est invalide.** Concrètement :
+   `champs_evalues` = `["vf"]` seulement, avec un outil dont l'opération est en G95 ou G99. Le message nomme les
+   outils en cause. Même règle à la publication des tables, quand la cascade ferait passer un exercice à une version
+   qui le rendrait invalide : il est nommé et laissé tel quel, comme tout exercice en erreur (D77).
+4. **Au tour, f = fz avec une seule dent.** C'est acceptable, on n'y touche pas.
+5. **On ne traite que Vf.** Rien sur N en G96 pour l'instant.
+
+**Comportement attendu — correction.**
+
+1. Pour un outil dont l'opération est en G95 ou G99, **Vf n'est ni demandée ni corrigée.** Elle compte comme juste,
+   comme une grandeur fournie, et le contrôle de cohérence de Vf (D15) ne s'applique pas. **Aucune valeur de Vf ne
+   part au navigateur** pour ces outils.
+2. **Une version de tables publiée avant D96 n'a pas de `code_avance` et n'en reçoit pas à la lecture.** Ses
+   exercices se corrigent et s'affichent exactement comme avant : Vf demandée partout, aucun code G affiché nulle
+   part. **Seul le brouillon des tables se lit prérempli**, comme `prefillSpeedFactors` (D83) : **G99 pour les
+   opérations de machine « Tour », G94 pour toutes les autres.** Thierry révise ces valeurs dans la Gestion du
+   contenu avant de publier.
+3. **Les séances en cours sont épinglées à leur version : rien ne change pour elles au déploiement.** Le rapport le
+   dit en tête.
+
+**Comportement attendu — visuel** (seulement avec des tables qui portent `code_avance`).
+
+1. **Panneau de l'outil, page Question** : sous la ligne de l'opération, une **pastille au style d'un écran de
+   commande CN** — fond presque noir, liseré fin au bleu clair de l'accent, chasse fixe, texte clair ; le code en
+   tête, en bleu clair, puis le libellé : « G99 · avance par tour » ou « G94 · avance par minute ». **Toujours
+   affichée** : elle ne donne aucune réponse.
+2. **Questionnaire** : une petite étiquette **« mot F »** (chasse fixe, contour bleu clair) à droite de la case de
+   la grandeur qu'on programme après F — f en G95/G99, Vf en G94/G98. Elle est affichée **dès la question**, avant
+   « Vérifier » : c'est un **essai, à évaluer en classe** ; elle est isolée pour qu'on puisse la réserver au corrigé
+   en changeant une seule règle pure. Quand cette grandeur est masquée, pas d'étiquette.
+3. Pour un outil en G95/G99, **la case Vf est remplacée par « sans objet »** en italique atténué, distinct du « — »
+   d'une grandeur masquée, avec la note « En G99, F est l'avance par tour. » (ou G95). Après la correction, elle
+   reste telle quelle.
+4. **Corrigé seulement, jamais avant « Vérifier »** : un panneau **« Ligne de programme »** avec deux lignes
+   recomposées à partir des valeurs théoriques mises en forme (SPEC §5), en chasse fixe, sur le fond de la pastille.
+   Au tour : « G97 S1000 M03 » puis « G99 G01 Z… F0.0100 ». À la fraiseuse en G94 : « G97 S2400 M03 » puis
+   « G94 G01 X… Y… F28.800 ». La coordonnée s'écrit en gris atténué et se déduit de la direction d'avance de
+   l'opération : longitudinale → « Z… », transversale → « X… », axiale → « Z… », latérale → « X… Y… ». Direction
+   inconnue : pas de coordonnée (`// ❓` et un point au rapport). Le mot F ressort en doré (`--color-gold`). Dessous,
+   une note courte : « S = N. F = f, en po/tour. » ou « S = N. F = Vf, en po/min. ». Une grandeur masquée s'y écrit
+   « — », et sa valeur ne part pas au navigateur (D52).
+5. **Feuille des Avances** : une colonne avec la pastille du code G de chaque opération, entre le pictogramme et la
+   barre d'avance ; la grille recalibrée si la colonne la serre ; la feuille tient toujours sur une page lettre.
+6. **Feuille Formules, 2e partie** : une ligne « G94 / G98 : F = Vf (po/min) · G95 / G99 : F = f (po/tour) », avec une
+   note courte sur le système A de Fanuc au tour. La feuille des facteurs de vitesse ne change pas.
+7. **Attestation** : « s.o. » dans la colonne Vf pour les questions dont l'outil est en G95/G99. Les largeurs de D85
+   ne changent pas ; la coupe des pages est vérifiée en mode impression sur un exercice à cinq grandeurs mêlant tour
+   et fraisage. Pas de code G ni de ligne de programme sur l'attestation.
+8. **Onglet Tables de référence de la Gestion du contenu** : une liste déroulante « Code G d'avance » par opération.
+   Les différences d'une publication la comparent (« Opération « Dressage » — code G d'avance : — → G99 »).
+9. **L'aperçu d'un exercice, le mode démo et test-complet** suivent les mêmes règles.
+10. **Textes selon D93.** Couleurs : la pastille et la ligne de programme ne sont ni une couleur de sens ni une
+    couleur d'espace ; leurs couleurs vont dans `tokens.css` (variables `--code-g-*`), identiques dans les trois
+    espaces ; le test des ambiances le confirme. Contraste AA sur le fond de la pastille, y compris pour le gris de la
+    coordonnée.
+
+**Précisions de mise en œuvre** (proposées au rapport `docs/rapports/d96-code-g-avance.md` ; les points douteux y sont
+numérotés).
+
+- **Les clés.** `operations[].code_avance` dans les tables. **Des tables « portent les codes »** quand **chacune** de
+  leurs opérations a le sien, comme pour les facteurs de vitesse ; la validation refuse l'entre-deux (toutes, ou
+  aucune) et toute valeur hors des quatre. Aucune migration : une version d'avant se lit telle quelle, sans code.
+- **Le module pur** `site/js/code-avance.js`, partagé par le serveur, le quiz et la Gestion du contenu : l'avance par
+  tour ou par minute (`isPerRevolution`), ce que la vitesse d'avance devient pour un outil (`feedRateApplies`,
+  `inapplicableFields`), la grandeur du mot F (`fWordField`), le libellé de la pastille (`feedCodeLabel`), la ligne
+  de programme et sa coordonnée (`programLines`, `programCoordinate`), le préremplissage du brouillon
+  (`prefillFeedCodes`), l'avertissement machine (`feedCodeWarnings`), l'erreur d'un exercice sans grandeur applicable
+  (`inapplicableGradedError`), et la constante qui décide si « mot F » se montre dès la question
+  (`F_WORD_FROM_QUESTION`).
+- **Ce que la question porte** (`seance.question`, SPEC §7) : `outil.code_avance` (« G99 »), seulement pour une version
+  dont les tables portent les codes ; dans `champs`, la vitesse d'avance d'un outil en G95/G99 arrive
+  `{ champ: "feedRate", evalue: false, sans_objet: true, texte: "" }` — **quel que soit l'état que l'exercice lui
+  donne** (évaluée, donnée ou masquée) : c'est une propriété de l'opération, et sa valeur ne part jamais. Les
+  réponses du mode test ne la portent pas non plus.
+- **La correction** : la vitesse d'avance d'un outil en G95/G99 n'est pas corrigée (`gradeQuestion` la retire des
+  champs à corriger et marque son résultat `notApplicable`) ; `correction.champs` la rend
+  `{ evalue: false, sans_objet: true, ok: true, attendu: null, … }` ; `correction.programme` — les deux lignes en
+  morceaux `{ texte, role }` (`coordonnee`, `mot_f`) et la note — n'existe que pour une version qui porte les codes.
+- **L'attestation** : l'enregistrement figé porte `reponses.feedRate = "s.o."` pour une question dont l'outil est en
+  G95/G99 et dont l'exercice évalue Vf (`normalizedAnswers`, D43) ; la page montre l'enregistrement tel quel, « s.o. »
+  dans la colonne Vf. Une attestation émise sur une version d'avant ne change pas. **Un spécimen** (D92) d'une
+  version qui porte les codes en porte autant ; un spécimen déjà imprimé d'une version d'avant reste valide.
+- **Le brouillon des tables** se lit prérempli des codes comme des facteurs (`draftTablesOf`) ; « Reprendre cette
+  version » et « Annuler les modifications » donnent un brouillon prérempli de même, et « Annuler » est inactif
+  quand le brouillon ne diffère de la dernière version que par ce préremplissage (D83, même règle). Une opération
+  ajoutée dans l'onglet part en G99 si sa machine est « Tour », G94 sinon.
+- **L'impact d'un changement de tables** (`exerciseTablesImpact`, D62) dit le code de chaque opération de
+  l'exercice qui change, et les outils dont la vitesse d'avance devient sans objet.
+- **Les feuilles** : `feedSheet` porte le code de chaque rang seulement pour des tables qui les portent ; la feuille
+  des avances d'une version d'avant ne change pas d'un pixel, la feuille des formules non plus.
+- **Non-régression** : `tests/non-regression-d96.test.js` et son témoin `tests/instantanes/avant-d96.json`, produit
+  par le code d'avant le chantier sur des tables qui portent les facteurs de vitesse sans code G (les cinq grandeurs,
+  le tour et la fraiseuse, l'attestation, la démo et le spécimen) ; jamais régénéré pour faire passer son test.
+
+**Ce que D96 précise ou remplace.**
+
+- **D52** (trois états par grandeur, réglés par exercice) : un quatrième état, **sans objet**, n'est pas un réglage de
+  l'exercice — il vient de l'opération de l'outil, et l'emporte sur les trois autres pour la vitesse d'avance d'un
+  outil en avance par tour.
+- **D15** : le contrôle de cohérence de Vf ne s'applique pas à un outil en G95/G99 (Vf n'y est pas corrigée).
+- **D83** : le même modèle — une valeur de l'opération, versionnée, dont une version d'avant ne reçoit rien à la
+  lecture, et un brouillon prérempli.
+- **D85** : les largeurs de l'attestation ne changent pas ; « s.o. » prend la place d'une réponse dans la colonne Vf.
+- **D93** : les textes de la pastille, de l'étiquette, de « sans objet », de la ligne de programme et des feuilles
+  suivent les règles des textes.
+
+**Conséquences.** `site/js/code-avance.js` (nouveau) ; `data.js` (validation des tables, `hasFeedCodes`),
+`exercice.js` (la règle du point 3), `tables.js` (`tablesDiff`) ; `worker/seance.js` (`questionView`, `gradeQuestion`,
+`correctionView`), `worker/attestation.js` (`normalizedAnswers`), `worker/editeur.js` (`previewQuestions`),
+`worker/index.js` (`draftTablesOf`) ; `site/js/ui/question-screen.js`, `rules.js`, `text.js`, `sheets-data.js`,
+`reference-screen.js`, `editeur.js`, `editeur-data.js` ; `tokens.css`, `question.css`, `sheets.css`, `editeur.css` ;
+tests ; SPEC §3, §5, §6, §7, §8, §10 ; UI §3.3 à §3.6, §3.9 ; PLAN ; CLAUDE.md. **Rien ne touche la correction des
+séances en cours** : tant que Thierry n'a pas publié de tables qui portent les codes, tout se lit et se corrige comme
+avant ; ensuite, seules les nouvelles séances prennent les versions de la cascade. Rapport :
+`docs/rapports/d96-code-g-avance.md`.
