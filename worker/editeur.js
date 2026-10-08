@@ -4,6 +4,7 @@
 // partagée avec la Gestion du contenu dans le navigateur.
 
 import { computeParameters } from '../site/js/calcul.js';
+import { inapplicableFields } from '../site/js/code-avance.js';
 import { TOOL_KEYS } from '../site/js/data.js';
 import { adoptSpeedFactor, adoptSpeedFactors, forcedFactorLine } from '../site/js/facteur-vitesse.js';
 import { DRAFT_KEYS, draftErrors, fieldsToGrade, maskedFields } from '../site/js/exercice.js';
@@ -80,6 +81,10 @@ export function previewQuestions(exercise, data, random, count = 10) {
   return Array.from({ length: count }, () => {
     const question = generateQuestion(data, tools, random);
     const displayed = formatParameters(computeParameters(question, data));
+    // La vitesse d'avance d'un outil en avance par tour (D96) n'est ni une réponse ni une valeur fournie : `sans_objet`
+    // la nomme, seulement pour une version dont les tables portent les codes.
+    const inapplicable = inapplicableFields(data.operationByName.get(question.tool.operation));
+    const applies = (field) => !inapplicable.includes(field);
     return {
       identifiant: question.displayId,
       outil_id: question.tool.id,
@@ -90,8 +95,9 @@ export function previewQuestions(exercise, data, random, count = 10) {
       dents: question.teeth,
       materiau_outil: question.toolMaterial.label,
       materiau: { classe: question.material.iso, groupe: question.material.groupe, materiau: question.material.materiau, etat: question.material.etat },
-      reponses: Object.fromEntries(graded.map((field) => [field, displayed[field]])),
-      fournies: Object.fromEntries(provided.map((field) => [field, displayed[field]])), // les grandeurs fournies (D52) ; les masquées n'y sont pas
+      reponses: Object.fromEntries(graded.filter(applies).map((field) => [field, displayed[field]])),
+      fournies: Object.fromEntries(provided.filter(applies).map((field) => [field, displayed[field]])), // les grandeurs fournies (D52) ; les masquées n'y sont pas
+      ...(inapplicable.length === 0 ? {} : { sans_objet: inapplicable }),
     };
   });
 }

@@ -11,6 +11,7 @@ import { fausseD1 } from './aide-d1.js';
 import { aleaAGraine } from './aide.js';
 import { assembleData } from '../site/js/data.js';
 import { draftFromExercise, engineExercise } from '../site/js/exercice.js';
+import { adoptSpeedFactors } from '../site/js/facteur-vitesse.js';
 import { forgetAssembled } from '../worker/catalogue.js';
 
 // Fausse liaison ASSETS : sert les fichiers de site/. Depuis le jalon 7 (D47), les exercices et le
@@ -53,9 +54,12 @@ export function serveurDeTest({ graine = 2026, secret = 'secret-de-test', cleAdm
     // Publie un exercice au format des fichiers JSON (SPEC §10, outils du catalogue avec restrictions)
     // comme nouvelle version en base, avec des copies prises dans la banque : « l'enseignant publie ».
     // Crée l'exercice s'il n'existe pas. Retourne le numéro de la version.
-    publierExercice(exercice, { tablesId = 'A2026_r0', quand = this.maintenant.toISOString() } = {}) {
+    //   adopter : les copies font leur passage au facteur de vitesse des tables de la version (D83, adoptSpeedFactors),
+    //             comme la Gestion du contenu l'écrirait ; par défaut, les copies telles que la banque les donne
+    publierExercice(exercice, { tablesId = 'A2026_r0', quand = this.maintenant.toISOString(), adopter = false } = {}) {
       const banque = this.db.sqlite.prepare('SELECT outil FROM banque_outils ORDER BY rang').all().map((row) => JSON.parse(row.outil));
-      const brouillon = draftFromExercise(exercice, banque);
+      const tables = adopter ? this.db.sqlite.prepare('SELECT materiaux, operations FROM tables_reference WHERE id = ?').get(tablesId) : null;
+      const brouillon = adopter ? adoptSpeedFactors(draftFromExercise(exercice, banque), { operations: JSON.parse(tables.operations) }) : draftFromExercise(exercice, banque);
       const contenu = JSON.stringify(brouillon);
       const existe = this.db.sqlite.prepare('SELECT 1 FROM exercices WHERE id = ?').get(exercice.id);
       if (existe) this.db.sqlite.prepare('UPDATE exercices SET brouillon = ?, revision = revision + 1, brouillon_modifie_le = ?, publie_le = ? WHERE id = ?').run(contenu, quand, quand, exercice.id);
@@ -63,6 +67,12 @@ export function serveurDeTest({ graine = 2026, secret = 'secret-de-test', cleAdm
       const numero = (this.db.sqlite.prepare('SELECT MAX(numero) AS n FROM versions_exercice WHERE exercice_id = ?').get(exercice.id).n ?? 0) + 1;
       this.db.sqlite.prepare('INSERT INTO versions_exercice (exercice_id, numero, contenu, tables_id, publiee_le) VALUES (?, ?, ?, ?, ?)').run(exercice.id, numero, contenu, tablesId, quand);
       return numero;
+    },
+    // Publie une version des tables de référence TELLE QUELLE, sans passer par la Gestion du contenu (ni préremplissage,
+    // ni cascade) : « cette version existe », avec sa révision posée dans les deux tables.
+    publierTables(id, { materiaux, operations }, { quand = this.maintenant.toISOString() } = {}) {
+      this.db.sqlite.prepare('INSERT INTO tables_reference (id, materiaux, operations, creee_le) VALUES (?, ?, ?, ?)').run(id, JSON.stringify({ ...materiaux, revision: id }), JSON.stringify({ ...operations, revision: id }), quand);
+      forgetAssembled();
     },
     // Le catalogue d'une version publiée (la dernière par défaut), au format de loadData.
     catalogue(exerciceId, numero = null) {

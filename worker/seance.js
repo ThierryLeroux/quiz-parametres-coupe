@@ -7,6 +7,7 @@
 // il n'existe qu'en un exemplaire.
 
 import { computeParameters } from '../site/js/calcul.js';
+import { feedCodeOf, inapplicableFields, programLines } from '../site/js/code-avance.js';
 import { ANSWER_FIELDS, coherentFeedPerTooth, gradeAnswers, parseAnswer, toleranceLabel } from '../site/js/correction.js';
 import { pitchFormula } from '../site/js/data.js';
 import { fieldsToGrade, maskedFields } from '../site/js/exercice.js';
@@ -101,9 +102,16 @@ export function cleanAnswers(answers) {
 // Retourne { success, result, counters } :
 //   result   : pour le journal — la correction de gradeAnswers et les valeurs attendues, non arrondies
 //   counters : les nouveaux compteurs (réussites consécutives, D12)
+// La vitesse d'avance d'un outil dont l'opération est en avance par tour (D96 : G95, G99) n'est pas corrigée : elle
+// compte comme juste, comme une grandeur fournie, et le contrôle de cohérence de Vf (D15) ne s'applique pas. Quand
+// l'exercice l'évaluait, son résultat est marqué `notApplicable` — l'attestation y écrit « s.o. » (attestation.js).
 export function gradeQuestion(question, answers, counters, exercise, data) {
   const expected = computeParameters(question, data);
-  const correction = gradeAnswers(expected, answers, fieldsToGrade(exercise), maskedFields(exercise));
+  const tool = data.outils.find((entry) => entry.id === question.tool.id);
+  const inapplicable = inapplicableFields(data.operationByName.get(tool.operation));
+  const graded = fieldsToGrade(exercise);
+  const correction = gradeAnswers(expected, answers, graded.filter((field) => !inapplicable.includes(field)), maskedFields(exercise));
+  for (const field of inapplicable) if (graded.includes(field)) correction.fields[field] = { ...correction.fields[field], notApplicable: true };
   const progress = recordResult(progressOf(counters, exercise), question.tool.id, correction.success);
   return {
     success: correction.success,
@@ -152,10 +160,17 @@ export const NIP_CLEARED = { essais_nip: 0, essais_nip_debut: null, verrou_nip_j
 // Le facteur de vitesse (D83) : avec des tables d'avant D83, `outil.fact_vc`, comme avant. Avec des tables qui portent
 // les facteurs, `outil.facteur_vitesse` (questionFactor) — forcé, avec sa raison ; donné par l'exercice ; ou à trouver
 // dans la feuille des facteurs, et alors ni sa valeur ni son texte ne partent au navigateur.
+// Le code G d'avance (D96) : avec des tables qui le portent, `outil.code_avance` (« G99 »), toujours — il ne donne
+// aucune réponse — et, pour un outil en avance par tour, la vitesse d'avance arrive « sans objet » (`sans_objet: true`,
+// ni évaluée, ni donnée, ni masquée), quel que soit l'état que l'exercice lui donne : sa valeur ne part jamais, même en
+// mode test. Avec des tables d'avant D96, rien de tout cela : la question d'avant, clé pour clé.
 export function questionView(question, exercise, data, { testMode = false } = {}) {
   const tool = data.outils.find((entry) => entry.id === question.tool.id);
-  const factor = questionFactor(tool, data.operationByName.get(tool.operation), exercise);
-  const graded = fieldsToGrade(exercise);
+  const operation = data.operationByName.get(tool.operation);
+  const factor = questionFactor(tool, operation, exercise);
+  const code = feedCodeOf(operation);
+  const inapplicable = inapplicableFields(operation);
+  const graded = fieldsToGrade(exercise).filter((field) => !inapplicable.includes(field));
   const masked = maskedFields(exercise); // D52 : ni valeur, ni saisie — « — » à l'écran
   const displayed = formatParameters(computeParameters(question, data));
   const { vc_pi_min: _vc, ...material } = question.material;
@@ -166,6 +181,7 @@ export function questionView(question, exercise, data, { testMode = false } = {}
       nom: tool.nom,
       image: tool.image ?? tool.id, // la photo (site/img/outils/<image>.png) : une copie renommée dans l'exercice garde la sienne (D47)
       operation: tool.operation,
+      ...(code === null ? {} : { code_avance: code }),
       commentaire: tool.commentaire,
       dents: question.teeth,
       materiau: question.toolMaterial.label,
@@ -177,6 +193,7 @@ export function questionView(question, exercise, data, { testMode = false } = {}
     dimension: question.dimension.label,
     materiau: material,
     champs: ANSWER_FIELDS.map((field) => {
+      if (inapplicable.includes(field)) return { champ: field, evalue: false, sans_objet: true, texte: '' };
       if (graded.includes(field)) return { champ: field, evalue: true, texte: '' };
       if (masked.includes(field)) return { champ: field, evalue: false, masque: true, texte: '' };
       return { champ: field, evalue: false, texte: displayed[field] };
@@ -236,10 +253,16 @@ function expressionView(text, value) {
 // saisi et lu, ou fz affiché quand il est fourni (D69, D70) ; sinon la valeur théorique.
 //   before : compteur de l'outil avant cette correction (« le compteur retombe à zéro (2 → 0) »)
 //   masked : les champs masqués de l'exercice (D52, maskedFields) — sans valeur attendue, et « — » dans les calculs
+// Le code G d'avance (D96) : la vitesse d'avance d'un outil en avance par tour sort « sans objet » (`sans_objet: true`,
+// sans valeur), et, pour une version dont les tables portent les codes, `programme` est la ligne de programme —
+// « G97 S1000 M03 », puis « G99 G01 Z… F0.0100 » — recomposée des valeurs théoriques mises en forme, les grandeurs
+// masquées écrites « — ». Pour une version d'avant, la correction d'avant, clé pour clé.
 export function correctionView(question, answers, result, before, counters, data, masked = []) {
   const expected = result.attendu;
   const tool = data.outils.find((entry) => entry.id === question.tool.id);
   const operation = data.operationByName.get(tool.operation);
+  const code = feedCodeOf(operation);
+  const inapplicable = inapplicableFields(operation);
 
   // Comme gradeAnswers : seule la saisie d'un champ évalué compte ; un champ non saisi prend sa valeur théorique.
   const evaluated = (field) => result.fields[field].min !== null;
@@ -273,6 +296,7 @@ export function correctionView(question, answers, result, before, counters, data
     reussie: result.success,
     outil: { id: question.tool.id, nom: question.tool.name, avant: before, apres: counters.reussites[question.tool.id] ?? 0 },
     champs: ANSWER_FIELDS.map((field) => {
+      if (inapplicable.includes(field)) return { champ: field, evalue: false, sans_objet: true, ok: true, saisie: '', expression: null, attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null };
       if (masked.includes(field)) return { champ: field, evalue: false, masque: true, ok: true, saisie: '', expression: null, attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null };
       const graded = evaluated(field);
       const gap = graded && typed[field] !== null && reference[field] !== 0 ? (typed[field] - reference[field]) / reference[field] : null;
@@ -289,6 +313,7 @@ export function correctionView(question, answers, result, before, counters, data
         coherence: coherence[field] ?? null,
       };
     }),
+    ...(code === null ? {} : { programme: programLines(code, operation.direction_avance, formatParameters(expected), masked) }),
   };
 }
 

@@ -4,6 +4,7 @@
 //
 // Fonctions PURES : ni base, ni réseau, ni horloge cachée. La cryptographie est dans crypto.js.
 
+import { NOT_APPLICABLE_SHORT } from '../site/js/code-avance.js';
 import { ANSWER_FIELDS, parseAnswer } from '../site/js/correction.js';
 import { formatParameters } from '../site/js/format.js';
 import { sessionView } from './seance.js';
@@ -84,13 +85,16 @@ export function successfulQuestions(corrections, outils) {
 // les autres étaient fournis —, normalisées : le nombre lu (point ou virgule, espaces ignorés ; le
 // nombre d'une expression, D82), mis en forme comme le site l'affiche pour cette grandeur (format.js,
 // avec les 5 décimales du filetage). Une saisie illisible, impossible sur une question réussie,
-// resterait telle quelle.
+// resterait telle quelle. La vitesse d'avance qu'un exercice évaluait mais qui était sans objet pour cet
+// outil (D96 : une opération en avance par tour ; `notApplicable` dans le résultat) s'écrit « s.o. » :
+// l'attestation montre l'enregistrement tel quel, « s.o. » dans sa colonne Vf.
 export function normalizedAnswers(reponses, resultat) {
   const typed = Object.fromEntries(ANSWER_FIELDS.map((field) => [field, parseAnswer(reponses[field]) ?? 0]));
   const displayed = formatParameters({ ...typed, feedType: resultat.attendu?.feedType });
+  const notApplicable = (field) => resultat.fields[field]?.notApplicable === true;
   return Object.fromEntries(ANSWER_FIELDS
-    .filter((field) => resultat.fields[field]?.min !== null && resultat.fields[field]?.min !== undefined)
-    .map((field) => [field, parseAnswer(reponses[field]) === null ? reponses[field] : displayed[field]]));
+    .filter((field) => notApplicable(field) || (resultat.fields[field]?.min !== null && resultat.fields[field]?.min !== undefined))
+    .map((field) => [field, notApplicable(field) ? NOT_APPLICABLE_SHORT : (parseAnswer(reponses[field]) === null ? reponses[field] : displayed[field])]));
 }
 
 // --- L'enregistrement figé (D31) ------------------------------------------------------------------------

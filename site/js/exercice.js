@@ -3,6 +3,7 @@
 // évalués, leurs réussites requises, les champs évalués et d'éventuelles restrictions.
 // La même validation sert aux tests, au quiz et à la Gestion du contenu.
 
+import { inapplicableGradedError } from './code-avance.js';
 import { TOOL_KEYS, fetchJson, toolErrors, toolMaterialNames } from './data.js';
 
 // Champ évalué tel qu'écrit dans l'exercice → nom du champ dans le moteur
@@ -175,6 +176,10 @@ export function validateExercise(exercise, data) {
       errors.push(`${whereTool} : plus aucun groupe de matériaux permis — l'outil usine ${tool.groupes_materiaux_usinables.join(', ')} ; l'exercice permet ${exercise.groupes.join(', ')}`);
     }
   });
+  // Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils (D96) : Vf seule, avec un outil en avance par tour.
+  const tools = entries.filter(isObject).map((entry) => data.outils.find((o) => o.id === entry.id)).filter(Boolean);
+  const inapplicable = inapplicableGradedError(fields, tools, data.operationByName);
+  if (inapplicable !== null) errors.push(`${where} : ${inapplicable}`);
 
   return errors;
 }
@@ -302,6 +307,9 @@ export function draftErrors(draft, tables) {
       error(at('groupes_materiaux_usinables'), `plus aucun groupe de matériaux permis — l'outil usine ${tool.groupes_materiaux_usinables.join(', ')} ; l'exercice permet ${draft.groupes.join(', ')}`);
     }
   });
+  // Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils (D96) : Vf seule, avec un outil en avance par tour.
+  const inapplicable = inapplicableGradedError(fields, copies.filter(isObject), opsByName);
+  if (inapplicable !== null) error('champs_evalues', inapplicable);
   return errors;
 }
 

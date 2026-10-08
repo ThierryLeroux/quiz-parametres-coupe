@@ -5,6 +5,7 @@
 // editeur.js ne fait que les mettre à l'écran.
 
 import { TEMPLATE_TOKENS, TOOL_KEYS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
+import { NOT_APPLICABLE, feedRateApplies } from '../code-avance.js';
 import { carriesSpeedFactors, factorText, forcedFactorLine, ownFactorLabel, speedFactorState } from '../facteur-vitesse.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
 import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey, sameTitleExercises, titleKey } from '../exercice.js';
@@ -329,12 +330,28 @@ export function exerciseTablesImpact(draft, before, after, draftErrorsOf) {
     const old = opsA.get(name);
     const now = opsB.get(name);
     if (!old || !now) continue; // absente : c'est une erreur, déjà dite
-    for (const [field, label] of [['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø']]) {
+    for (const [field, label] of [['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø'], ['code_avance', "code G d'avance"]]) {
       if (JSON.stringify(old[field] ?? null) !== JSON.stringify(now[field] ?? null)) lignes.push(`Opération « ${name} » — ${label} : ${text(old[field])} → ${text(now[field])}`);
     }
   }
   lignes.push(...speedFactorImpact(draft, a.operations.operations, b.operations.operations));
+  lignes.push(...feedRateImpact(tools, opsA, opsB));
   return { erreurs, lignes };
+}
+
+// Ce qu'un changement de tables change à la vitesse d'avance des outils d'un exercice (D96) : les outils pour qui elle
+// devient sans objet (leur opération passe en avance par tour, G95 ou G99), et ceux pour qui elle est de nouveau
+// demandée. Rien quand aucune ne change ; une opération absente est une erreur, déjà dite.
+//   tools : les copies de l'exercice ; before, after : Map nom d'opération → opération, pour les deux versions
+export function feedRateImpact(tools, before, after) {
+  const named = (list) => list.map((tool) => `${tool.nom} (${tool.id})`).join(', ');
+  const known = tools.filter((tool) => before.has(tool.operation) && after.has(tool.operation));
+  const becomes = known.filter((tool) => feedRateApplies(before.get(tool.operation)) && !feedRateApplies(after.get(tool.operation)));
+  const returns = known.filter((tool) => !feedRateApplies(before.get(tool.operation)) && feedRateApplies(after.get(tool.operation)));
+  return [
+    ...(becomes.length === 0 ? [] : [`La vitesse d'avance devient sans objet pour ${named(becomes)} : avance par tour (G95 ou G99). Elle n'est ni demandée ni corrigée.`]),
+    ...(returns.length === 0 ? [] : [`La vitesse d'avance est de nouveau demandée pour ${named(returns)} : avance par minute (G94 ou G98).`]),
+  ];
 }
 
 // Ce qu'un changement de tables change au facteur de vitesse des outils d'un exercice (D83, points 5 et 6), en lignes :
@@ -811,7 +828,9 @@ export function previewColumns(champsEvalues, champsMasques = []) {
   return ['N°', 'Outil (nomenclature composée)', "Matière d'outil", 'Matériau usiné', ...FIELD_CHOICES.map(({ key, label }) => `${label} · ${FIELD_STATES.find((s) => s.key === states[key]).label}`)];
 }
 
-// Les lignes : la réponse attendue d'une grandeur évaluée, la valeur d'une grandeur fournie, « — » pour une masquée.
+// Les lignes : la réponse attendue d'une grandeur évaluée, la valeur d'une grandeur fournie, « — » pour une masquée,
+// « sans objet » pour la vitesse d'avance d'un outil en avance par tour (D96 : `sans_objet` de la question, quel que
+// soit l'état de la grandeur).
 export function previewRows(questions, champsEvalues, champsMasques = []) {
   const states = fieldStates({ champs_evalues: champsEvalues, champs_masques: champsMasques });
   return questions.map((q, i) => [
@@ -821,6 +840,7 @@ export function previewRows(questions, champsEvalues, champsMasques = []) {
     `${q.materiau.classe} ${q.materiau.groupe} — ${q.materiau.materiau}${q.materiau.etat ? `, ${q.materiau.etat}` : ''}`,
     ...FIELD_CHOICES.map(({ key }) => {
       const engineKey = GRADED_FIELD_KEYS[key];
+      if (Array.isArray(q.sans_objet) && q.sans_objet.includes(engineKey)) return NOT_APPLICABLE;
       if (states[key] === 'masquee') return '—';
       return (states[key] === 'evaluee' ? q.reponses[engineKey] : q.fournies?.[engineKey]) ?? '';
     }),
