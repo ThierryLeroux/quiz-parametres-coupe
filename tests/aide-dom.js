@@ -74,6 +74,8 @@ export class FakeElement {
     return node;
   }
 
+  scrollTo() {} // les feuilles de référence remettent leur cadre en haut (reference-screen.js)
+  scrollIntoView() {}
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
   hasAttribute(name) { return this.attributes.has(name); }

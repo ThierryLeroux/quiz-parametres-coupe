@@ -86,6 +86,23 @@ test('contrastes AA (≥ 4,5) dans les trois espaces : l’accent et sa variante
   assert.equal(contraste('#ffffff', '#ffffff'), 1);
 });
 
+// Le code G d'avance (D96, visuel, point 10) : la pastille et la ligne de programme ne sont ni une couleur de sens ni une
+// couleur d'espace — les variables --code-g-* de :root, que ni la consultation ni l'administration ne redéfinissent.
+test('les couleurs du code G d’avance (D96) sont les mêmes dans les trois espaces, et lisibles (AA) sur le fond de la pastille, le gris de la coordonnée et le doré du mot F compris', () => {
+  const css = sansCommentaires(lire('site/css/tokens.css'));
+  const racine = declarations(bloc(css, ':root {'));
+  const codeG = Object.fromEntries(['bg', 'border', 'code', 'text', 'muted'].map((name) => [name, racine[`--code-g-${name}`]]));
+  for (const [name, value] of Object.entries(codeG)) assert.match(value ?? '', /^#[0-9a-f]{6}$/, `--code-g-${name}`);
+  for (const espace of ['consultation', 'admin']) assert.doesNotMatch(bloc(css, `:root[data-espace="${espace}"]`), /--code-g-/, espace);
+  for (const name of ['code', 'text', 'muted']) assert.ok(contraste(codeG[name], codeG.bg) >= 4.5, `${name} ${codeG[name]} sur ${codeG.bg} = ${contraste(codeG[name], codeG.bg).toFixed(2)}`);
+  assert.ok(contraste(racine['--color-gold'], codeG.bg) >= 4.5, 'le doré du mot F sur la pastille');
+  // La pastille et la ligne de programme ne lisent que ces variables (et le doré) : jamais l'accent, qui change d'espace.
+  const question = sansCommentaires(lire('site/css/question.css'));
+  for (const selector of ['.code-g', '.code-g-code', '.mot-f', '.program-lines', '.program-coord', '.program-f']) {
+    assert.doesNotMatch(bloc(question, `${selector} {`), /--color-accent|--color-link/, selector);
+  }
+});
+
 test('app.css : l’étiquette de l’espace et la bande à chevrons de l’administration ne nomment que des variables ; la bande disparaît à l’impression', () => {
   const css = sansCommentaires(lire('site/css/app.css'));
   const etiquette = bloc(css, '.espace-etiquette {');

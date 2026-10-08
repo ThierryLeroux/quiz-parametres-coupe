@@ -481,3 +481,67 @@
    éclairci ICI seulement (UI §1) ; la couleur des feuilles ne change pas. */
 .material-card { --iso-k: var(--iso-k-night); }
 
+
+/* --- Le code G d'avance (D96) ------------------------------------------------------------------------------------------ */
+/* La pastille au style d'un écran de commande CN, sous l'opération du panneau de l'outil : fond presque noir, liseré fin
+   au bleu clair, chasse fixe, le code en tête en bleu clair puis le libellé. Ses couleurs sont celles de tokens.css
+   (--code-g-*), les mêmes dans les trois espaces : ni une couleur de sens, ni une couleur d'espace. Toujours affichée. */
+.tool-code-g { margin-top: var(--space-2); }
+
+.code-g {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--code-g-border);
+  background: var(--code-g-bg);
+  color: var(--code-g-text);
+  font-family: var(--font-number);
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.code-g-code { color: var(--code-g-code); font-weight: 500; }
+.code-g-sep { white-space: pre; }
+
+/* L'étiquette « mot F », à droite de la case de la grandeur qu'on programme après F (f en G95/G99, Vf en G94/G98) :
+   chasse fixe, contour bleu clair. Cachée tant que la règle (fWordShown, code-avance.js) ne la montre pas. */
+.field-case { display: flex; align-items: center; gap: var(--space-2); }
+.field-case input { flex: 1 1 auto; min-width: 0; }
+
+.mot-f {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--code-g-border);
+  color: var(--code-g-code);
+  font-family: var(--font-number);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.mot-f[hidden] { display: none; }
+
+/* La case Vf d'un outil en avance par tour : « sans objet », en italique atténué, à la place de la case — distinct du
+   « — » d'une grandeur masquée (le même cadre, la police du texte). Après la correction, telle quelle. */
+.field--sans-objet .field-sans-objet { font-family: var(--font-text); font-style: italic; font-size: var(--text-md); }
+
+/* Le panneau « Ligne de programme », au corrigé seulement : les deux lignes en chasse fixe sur le fond de la pastille, la
+   coordonnée en gris atténué, le mot F en doré ; la note dessous. Sur téléphone, une ligne trop longue défile dans son cadre. */
+.program-card { margin-top: var(--space-4); }
+
+.program-lines {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--code-g-border);
+  background: var(--code-g-bg);
+  color: var(--code-g-text);
+  font-family: var(--font-number);
+  font-size: var(--text-md);
+  line-height: 1.7;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.program-coord { color: var(--code-g-muted); }
+.program-f { color: var(--color-gold); font-weight: 500; }
+.program-note { margin-top: var(--space-2); }

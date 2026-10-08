@@ -251,6 +251,28 @@ body.sheets-open { overflow: hidden; }
 .feed-box .strong { font-weight: 700; }
 .feed-box .italic { font-style: italic; }
 
+/* La colonne du code G d'avance (D96), entre le pictogramme et la barre, pour des tables qui portent les codes : la
+   pastille sur deux lignes (le code, puis « par tour » ou « par minute »). La grille est recalibrée — l'opération perd
+   12 px, la note 12 px, la barre 48 px — pour que la feuille tienne sur sa page lettre comme avant ; une version d'avant
+   garde la grille d'avant. */
+.feed-grid--codes { grid-template-columns: 78px 36px 138px 62px 72px minmax(0, 1fr) 178px; }
+.feed-head--code { padding-left: 2px; }
+.feed-code { padding-left: 2px; }
+
+.code-g--sheet {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 2px 6px;
+  font-size: 9px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.code-g--sheet .code-g-sep { display: none; }
+
+/* La rangée du mot F de la feuille des formules (D96) : les deux cas, sur deux lignes. */
+.formula-code { display: block; font-size: 12.5px; line-height: 1.5; }
+
 /* --- Facteurs de vitesse (D83) : quatre colonnes sur toute la largeur de la page — machine, opération, facteur,
    pictogramme. Une ligne réduite ressort — la bande et le bleu de la vitesse de rotation, sur toute la ligne ; une
    ligne à 1 reste sobre. Les rangs se partagent la hauteur qui reste dans la page (--rows : le nombre d'opérations,

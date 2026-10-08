@@ -316,3 +316,9 @@
 @media (max-width: 600px) {
   .facteur-force { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* L'avertissement machine du code G d'avance (D96, point 2) : doré, non bloquant, une ligne par opération en cause. */
+.avis-code-g { display: block; list-style: none; padding-left: var(--space-3); }
+.avis-code-g li + li { margin-top: 2px; }
+.avis-code-g[hidden] { display: none; }
+.tables-edit select.input-court { min-width: 72px; width: 84px; }

@@ -5,10 +5,11 @@
 // Tout ce qui est affiché vient du serveur (SPEC §7) ; ce qu'on montre et quand est décidé par
 // rules.js et text.js (fonctions pures, testées) : ici, on ne fait que construire le DOM.
 
+import { F_WORD_LABEL, NOT_APPLICABLE, fWordField, fWordShown, notApplicableNote } from '../code-avance.js';
 import { EXPRESSION_MAX_LENGTH } from '../expression.js';
 import { DEMO_DONE, demoTitle } from './demo-data.js';
 import { demoBanner, demoHomeNav } from './demo-screen.js';
-import { el, pointDecimalComma, showScreen } from './dom.js';
+import { el, feedCodeBadge, pointDecimalComma, showScreen } from './dom.js';
 import {
   CALC_KEYS, answerOf, checkButtonLabel, computeCase, diameterLines, enterComputes, factorLines, feedFamily, gapExplanation, helpLine, initialFocus, insertInCase,
   materialCard, operationProgress, questionIsMetric, remainingWait, testAnswers, toolMaterialColor, unreadableCase,
@@ -148,6 +149,8 @@ function progressPanel(progression, labels, marks, data) {
 // Panneau de l'outil, à la couleur de son matériau (UI §1). Son titre est le gabarit de nom de
 // l'outil, résolu par le serveur avec les valeurs tirées (D24). Le pictogramme de l'opération est celui des tables
 // (D76, point 12 : il était pris d'après le nom de l'opération, l'image de la semence, sans lire les tables).
+// Sous l'opération, la pastille du code G d'avance (D96), toujours affichée quand la version porte les codes : elle ne
+// donne aucune réponse.
 function toolPanel(question, data) {
   const { outil } = question;
   return el('section', { class: 'panel tool-card', style: `--panel-color: var(${toolMaterialColor(outil.materiau, data)})` }, [
@@ -157,6 +160,7 @@ function toolPanel(question, data) {
       el('div', {}, [
         el('h2', { class: 'tool-title' }, question.identifiant),
         el('p', { class: 'tool-operation small' }, [optionalImage(operationPictoOf(data, outil.operation), 'operation-picto'), `Opération : ${outil.operation}`]),
+        outil.code_avance ? el('p', { class: 'tool-code-g' }, feedCodeBadge(outil.code_avance)) : '',
         ...diameterLines(question).map((line) => el('p', { class: 'small' }, el('strong', {}, line))),
         el('p', { class: 'small' }, `Nombre de dents : ${outil.dents}`),
         el('p', { class: 'small' }, ['Vitesse de rotation max de la machine : ', el('strong', { class: 'accent' }, `${outil.limite_rpm} tr/min`)]),
@@ -193,6 +197,19 @@ function materialPanel(question, data) {
       el('div', {}, [el('h2', {}, card.title), ...card.lines.map((line) => el('p', { class: 'small' }, line))]),
     ]),
     images.length === 0 && list === '' ? '' : el('div', { class: 'material-heat' }, [...images, list]),
+  ]);
+}
+
+// Le panneau « Ligne de programme » (D96, corrigé seulement) : les deux lignes que le serveur a recomposées des valeurs
+// théoriques — « G97 S1000 M03 », puis « G99 G01 Z… F0.0100 » —, en chasse fixe sur le fond de la pastille ; la coordonnée
+// en gris atténué, le mot F en doré ; dessous, la note (« S = N. F = f, en po/tour. »).
+//   programme : correction.programme — { code, lignes: [[{ texte, role }]], note }
+function programPanel(programme) {
+  const roles = { coordonnee: 'program-coord', mot_f: 'program-f' };
+  return el('section', { class: 'panel program-card' }, [
+    el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Ligne de programme'), el('div', { class: 'muted smaller' }, programme.code)]),
+    el('div', { class: 'program-lines' }, programme.lignes.map((ligne) => el('div', { class: 'program-line' }, ligne.map((part) => (part.role ? el('span', { class: roles[part.role] ?? null }, part.texte) : part.texte))))),
+    el('p', { class: 'muted smaller program-note' }, programme.note),
   ]);
 }
 
@@ -301,8 +318,24 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
     help.hidden = false;
   }
 
-  const fields = question.champs.map(({ champ, evalue, masque, texte }) => {
+  // Le mot F (D96) : la grandeur qu'on programme après F — f en G95/G99, Vf en G94/G98 —, étiquetée à droite de sa
+  // case ; dès la question si la règle le dit (fWordShown), sinon au corrigé. Rien pour une version d'avant D96.
+  const fWord = question.outil.code_avance ? fWordField(question.outil.code_avance) : null;
+  let fWordTag = null;
+  const fields = question.champs.map(({ champ, evalue, masque, sans_objet: inapplicable, texte }) => {
     const { name, symbol, unit, picto: pictoName } = FIELD_PARTS[champ];
+    const label = () => el('label', { for: champ, class: 'field-label' }, [picto(pictoName), el('span', {}, [el('span', { class: 'field-name' }, name), el('small', {}, `${symbol} · ${unit}`)])]);
+    // Grandeur sans objet (D96) : la vitesse d'avance d'un outil en avance par tour — « sans objet », distinct du « — »
+    // d'une grandeur masquée, avec la note « En G99, F est l'avance par tour. » ; après la correction, telle quelle.
+    if (inapplicable) {
+      notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, notApplicableNote(question.outil.code_avance));
+      boxes[champ] = el('div', { class: 'field field--number field--provided field--sans-objet' }, [
+        el('div', { class: 'field-label' }, [picto(pictoName), el('span', {}, [el('span', { class: 'field-name' }, name), el('small', {}, `${symbol} · ${unit}`)])]),
+        el('div', { class: 'field-dash field-sans-objet', 'aria-describedby': `${champ}-note` }, NOT_APPLICABLE),
+        notes[champ],
+      ]);
+      return boxes[champ];
+    }
     // Grandeur masquée (D52) : « — », sans valeur ni champ de saisie.
     if (masque) {
       notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, 'non demandée');
@@ -333,9 +366,11 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
       onfocusout: evalue ? () => { compute(champ); hideBar(); } : () => {},
     });
     notes[champ] = el('div', { class: 'field-note', id: `${champ}-note` }, evalue ? '' : 'donné');
+    // La case du mot F porte son étiquette, à sa droite ; cachée tant que la règle ne la montre pas.
+    if (champ === fWord) fWordTag = el('span', { class: 'mot-f', hidden: !fWordShown('question') }, F_WORD_LABEL);
     boxes[champ] = el('div', { class: evalue ? 'field field--number' : 'field field--number field--provided' }, [
-      el('label', { for: champ, class: 'field-label' }, [picto(pictoName), el('span', {}, [el('span', { class: 'field-name' }, name), el('small', {}, `${symbol} · ${unit}`)])]),
-      inputs[champ],
+      label(),
+      champ === fWord ? el('div', { class: 'field-case' }, [inputs[champ], fWordTag]) : inputs[champ],
       notes[champ],
     ]);
     return boxes[champ];
@@ -382,11 +417,13 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
   // Rappel et message du serveur à gauche, « Vérifier » à droite, sur la même ligne (maquette 03).
   const actionsRow = el('div', { class: 'form-actions' }, [el('div', { class: 'form-notes' }, [reminder, status]), checkButton]);
   const progressSlot = el('div', { class: 'question-side' }, progressPanel(seance.progression, labels, { currentId: question.outil.id }, data));
+  // La ligne de programme (D96) : au corrigé seulement, jamais avant « Vérifier » ; vide pour une version d'avant D96.
+  const programSlot = el('div', { class: 'program-slot' });
 
   function showCorrection({ correction, seance: next }) {
     const correctedAt = Date.now();
     for (const champ of correction.champs) {
-      if (!inputs[champ.champ]) continue; // grandeur masquée : rien à corriger ni à montrer
+      if (!inputs[champ.champ]) continue; // grandeur masquée ou sans objet : rien à corriger ni à montrer
       inputs[champ.champ].readOnly = true;
       inputs[champ.champ].removeAttribute('aria-invalid'); // « Juste » ou « Faux » remplace la note d'une expression illisible
       // Sous la case : juste ou faux ; la saisie avec son expression (D82) ; le calcul en une ligne d'un champ faux.
@@ -410,6 +447,9 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
     if (testBanner) testBanner.hidden = true;
     actionsRow.replaceChildren(nextButton);
     actionsRow.before(banner);
+    // Le mot F au corrigé, si la règle le réserve à cette étape ; la ligne de programme, toujours au corrigé seulement.
+    if (fWordTag && fWordShown('corrige')) fWordTag.hidden = false;
+    if (correction.programme) programSlot.replaceChildren(programPanel(correction.programme));
     // « Démo réussie » dès la question qui complète la démo, puis tant qu'elle reste à 100 % (doneNote, ci-dessous).
     if (demo && next.reussie && !doneNote) actionsRow.before(doneBanner());
     // La progression d'après la correction, comparée à celle d'avant « Vérifier » : ce que la question a gagné (vert)
@@ -468,6 +508,7 @@ export function renderQuestion(main, { seance, data, labels, demo = false }, act
         el('div', { class: 'panel-head' }, [el('div', { class: 'eyebrow' }, 'Questionnaire'), el('div', { class: 'muted smaller' }, "Clique sur une case pour voir l'aide.")]),
         el('form', { novalidate: true, onsubmit: check }, [el('div', { class: 'answer-grid' }, fields), help, reminder, actionsRow]),
       ]),
+      programSlot,
     ]),
     progressSlot,
   ]);

@@ -1,6 +1,7 @@
 // Petits outils pour construire le DOM sans framework (D3) et sans innerHTML : tout texte venant
 // des données ou de l'étudiant passe par des nœuds de texte, jamais par du HTML.
 
+import { feedCodeLabel } from '../code-avance.js';
 import { colorVariables } from '../tables.js';
 import { decimalPoint, decimalPointInValues } from './text.js';
 
@@ -18,6 +19,13 @@ export function el(tag, attrs = {}, children = []) {
   }
   node.append(...[children].flat());
   return node;
+}
+
+// La pastille du code G d'avance (D96) : « G99 · avance par tour », au style d'un écran de commande — le code en tête,
+// en bleu clair, puis le libellé (question.css, .code-g). Sur l'écran Question (panneau de l'outil) et sur la feuille des
+// avances (en petit, sur deux lignes, le libellé en court : .code-g--sheet). Elle ne donne aucune réponse : toujours affichée.
+export function feedCodeBadge(code, className = 'code-g', label = feedCodeLabel(code)) {
+  return el('span', { class: className }, [el('span', { class: 'code-g-code' }, code), el('span', { class: 'code-g-sep', 'aria-hidden': 'true' }, ' · '), el('span', { class: 'code-g-label' }, label)]);
 }
 
 // Pose sur la page les couleurs de sens de la version des tables en usage (D61 : classes ISO,

@@ -24,6 +24,7 @@ import {
 } from '../api.js';
 import { toolMaterialNames, validateTables } from '../data.js';
 import { copyOfTool, draftErrors, liveTitleRefusal, sameTitleExercises, sameTitleRefusal } from '../exercice.js';
+import { FEED_CODES, feedCodeWarnings, paperFeedCode, prefillFeedCodes } from '../code-avance.js';
 import { REASON_MAX, carriesSpeedFactors, factorText, parseFactor, prefillSpeedFactors, settleSpeedFactor, speedFactorState, tableFactorLine } from '../facteur-vitesse.js';
 import { applyPresentation, archivedWarnings, presentationDiff, presentationErrors, presentationKeys } from '../presentation.js';
 import { applyCopyPresentation, applyExercisePresentation, exerciseArchivedWarnings, exercisePresentationDiff, exercisePresentationErrors, knownCopies } from '../presentation-exercice.js';
@@ -1500,9 +1501,17 @@ export async function showTables(notice = '') {
   let pending = ro ? { lignes: [], contenu: null } : page.presentation_en_attente;
   // Le brouillon se lit prérempli des facteurs de vitesse (D83) : revenir à une version d'avant, c'est revenir à elle,
   // préremplie de même — « Annuler » n'a rien à annuler quand le brouillon n'en diffère que par là.
-  const cancelTarget = ro || latestTables === null ? null : prefillSpeedFactors(latestTables);
+  const cancelTarget = ro || latestTables === null ? null : prefillFeedCodes(prefillSpeedFactors(latestTables)); // le brouillon se lit prérempli (D83, D96)
   const status = el('div', { class: 'server-message', role: 'status' }, notice);
   const errorsList = el('ul', { class: 'editeur-erreurs' });
+  // L'avertissement machine (D96, point 2), doré et non bloquant : un code du tour hors du tour, un code de fraisage au tour.
+  const codeWarnings = el('ul', { class: 'avis-tables avis-code-g', hidden: true });
+  const refreshCodeWarnings = (operations) => {
+    const warnings = feedCodeWarnings(operations);
+    codeWarnings.replaceChildren(...warnings.map((message) => el('li', {}, `⚠ ${message}`)));
+    codeWarnings.hidden = warnings.length === 0;
+  };
+  if (ro) refreshCodeWarnings(draft.operations.operations);
   const dialogSlot = el('div');
   // Deux choses peuvent ne pas être enregistrées : le brouillon, et le panneau de la présentation (pas encore appliqué).
   let draftDirty = false;
@@ -1784,6 +1793,11 @@ export async function showTables(notice = '') {
     const avanceMax = textInput(`op-${i}-avance-max`, op.avance_max_po_rev, { inputmode: 'decimal', class: 'input-court mono' });
     // Le facteur de vitesse de l'opération (D83) : « 1/4 » comme « 0.25 » ; versionné, comme les avances.
     const facteur = factorInput(`op-${i}-facteur`, op.facteur_vitesse, { 'aria-label': `Facteur de vitesse de ${op.operation || 'cette opération'}` });
+    // Le code G d'avance (D96) : G94, G95, G98 ou G99 ; versionné aussi. Le brouillon arrive prérempli (G99 au tour, G94
+    // ailleurs) ; une version d'avant D96, lue par la consultation, n'en a pas : « — ».
+    const code = op.code_avance === undefined && ro
+      ? el('span', { class: 'muted small' }, '—')
+      : el('select', { id: `op-${i}-code`, class: 'input-court', 'aria-label': `Code G d'avance de ${op.operation || 'cette opération'}` }, FEED_CODES.map((c) => el('option', { value: c, selected: c === op.code_avance }, c)));
     // En filetage, l'avance est sans objet (D69) : la case est inactive et atténuée (la classe, pas :disabled, que la lecture
     // seule emploie aussi, D95).
     const refreshFeeds = () => {
@@ -1798,17 +1812,17 @@ export async function showTables(notice = '') {
     const live = known.operations.has(op.operation);
     const picker = live ? null : imagePicker({ usage: 'operation', images: state.images.operation, value: op.pictogramme ?? null, upload: (file) => uploadImage(file, 'operation'), onChange: () => { touch(); validate(); }, idPrefix: `op-${i}-picto`, compact: true, readOnly: ro });
     return {
-      tr: el('tr', { class: live ? null : 'ligne-nouvelle' }, [cell(nom), cell(machine), cell(direction), cell(famille), cell(avance, 'num'), cell(avanceMax, 'num'), cell(facteur, 'num'), cell(live ? el('span', { class: 'muted small' }, 'en direct, dans le panneau « Présentation »') : picker.element, 'picto-cell')]),
+      tr: el('tr', { class: live ? null : 'ligne-nouvelle' }, [cell(nom), cell(machine), cell(direction), cell(famille), cell(avance, 'num'), cell(avanceMax, 'num'), cell(facteur, 'num'), cell(code), cell(live ? el('span', { class: 'muted small' }, 'en direct, dans le panneau « Présentation »') : picker.element, 'picto-cell')]),
       read: () => {
         const flags = feedFamilyFlags(famille.value);
-        const out = { operation: nom.value.trim(), machine: machine.value.trim(), direction_avance: direction.value.trim(), avance_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avance), avance_max_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avanceMax), ...flags, facteur_vitesse: readFactor(facteur) };
+        const out = { operation: nom.value.trim(), machine: machine.value.trim(), direction_avance: direction.value.trim(), avance_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avance), avance_max_po_rev: flags.avance_egale_pas_filetage ? null : readNum(avanceMax), ...flags, facteur_vitesse: readFactor(facteur), ...(code.tagName === 'SELECT' ? { code_avance: code.value } : {}) };
         const picto = live ? op.pictogramme ?? null : picker.read();
         if (picto !== null) out.pictogramme = picto;
         for (const key of Object.keys(op)) if (!(key in out) && key !== 'pictogramme') out[key] = op[key];
         return out;
       },
     };
-  }, (previous) => ({ operation: '', machine: previous?.machine ?? 'Tour', direction_avance: previous?.direction_avance ?? 'Avance longitudinale', avance_po_rev: 0.005, avance_max_po_rev: 0.005, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false, facteur_vitesse: 1 }), () => { touch(); validate(); }, { readOnly: ro });
+  }, (previous) => ({ operation: '', machine: previous?.machine ?? 'Tour', direction_avance: previous?.direction_avance ?? 'Avance longitudinale', avance_po_rev: 0.005, avance_max_po_rev: 0.005, avance_egale_pas_filetage: false, avance_proportionnelle_diametre: false, facteur_vitesse: 1, code_avance: paperFeedCode(previous?.machine ?? 'Tour') }), () => { touch(); validate(); }, { readOnly: ro });
 
   // Le brouillon tel qu'à l'écran : les groupes ISO sont dérivés des lignes ; les commentaires « _… » et la révision sont gardés.
   function readTables() {
@@ -1832,6 +1846,7 @@ export async function showTables(notice = '') {
     // Une image de classe inconnue ou archivée est une erreur, sauf celle que la présentation en vigueur a déjà (D76, retouche).
     const errors = validateTables(publishedTables(), { images: state.images.classe, presentation: shown.presentation });
     errorsList.replaceChildren(...errors.map((message) => el('li', {}, message)));
+    refreshCodeWarnings(current.operations.operations);
     publishButton.disabled = errors.length > 0;
     publishButton.textContent = errors.length > 0 ? `Publier (${errors.length} erreur${errors.length > 1 ? 's' : ''} à corriger)` : 'Publier…';
     cancelButton.disabled = cancelTarget === null || tablesDiff(cancelTarget, current).length === 0;
@@ -2034,6 +2049,7 @@ export async function showTables(notice = '') {
       el('p', { class: 'muted small' }, "La dernière version publiée des tables, celle que prend un exercice créé aujourd'hui. Le brouillon n'est pas montré. Les versions plus anciennes se lisent par leurs feuilles imprimables, en bas de la page."),
       el('div', { class: 'editeur-bar' }, el('div', { class: 'muted small' }, `Version ${draft.id} · publiée le ${formatDateStamp(draft.creee_le)}`)),
       status,
+      codeWarnings,
     ] : [
       el('div', { class: 'eyebrow' }, 'Valeurs — brouillon à publier'),
       el('h2', {}, 'Brouillon des tables'),
@@ -2050,6 +2066,7 @@ export async function showTables(notice = '') {
       ]),
       status,
       errorsList,
+      codeWarnings,
       dialogSlot,
     ]),
     el('section', { class: 'panel' }, [
@@ -2078,9 +2095,9 @@ export async function showTables(notice = '') {
     el('section', { class: 'panel' }, [
       el('div', { class: 'eyebrow' }, `${part} · Opérations`),
       el('p', { class: 'muted small' }, ro
-        ? "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille, l'avance par révolution et son maximum (en pouces, sans objet en filetage), et le facteur de vitesse dont les outils héritent. Le pictogramme est dans le panneau « Présentation »."
-        : "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces, sans objet en filetage), et le facteur de vitesse. Le facteur (N = Vc × 4 / Ø × facteur) : « 1 » sans réduction, « 1/4 » ou « 0.25 », « 1/8 »… Les outils en héritent. Le pictogramme est en direct, dans le panneau « Présentation ». Une opération ajoutée ici reçoit le sien sur sa ligne."),
-      table(['Opération', 'Machine-outil', "Direction d'avance", 'Famille', 'Avance', 'Avance max', 'Facteur de vitesse', 'Pictogramme'], operations.body, 'tables-edit--operations'),
+        ? "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille, l'avance par révolution et son maximum (en pouces, sans objet en filetage), le facteur de vitesse dont les outils héritent, et le code G d'avance (G95 et G99 : avance par tour, la vitesse d'avance est sans objet). Le pictogramme est dans le panneau « Présentation »."
+        : "Une ligne par opération, dans l'ordre de la feuille des avances et de celle des facteurs de vitesse : la machine-outil, la direction d'avance, la famille (fixe, proportionnelle au Ø, filetage), l'avance par révolution et son maximum (en pouces, sans objet en filetage), le facteur de vitesse et le code G d'avance. Le facteur (N = Vc × 4 / Ø × facteur) : « 1 » sans réduction, « 1/4 » ou « 0.25 », « 1/8 »… Les outils en héritent. Le code G : G94 ou G95 en fraisage, G98 ou G99 au tour ; en G95 et G99 (avance par tour), la vitesse d'avance est sans objet, ni demandée ni corrigée. Le brouillon arrive prérempli (G99 au tour, G94 ailleurs) : vérifie chaque ligne. Le pictogramme est en direct, dans le panneau « Présentation ». Une opération ajoutée ici reçoit le sien sur sa ligne."),
+      table(['Opération', 'Machine-outil', "Direction d'avance", 'Famille', 'Avance', 'Avance max', 'Facteur de vitesse', "Code G d'avance", 'Pictogramme'], operations.body, 'tables-edit--operations'),
       ...(ro ? [] : [el('div', { class: 'form-actions' }, el('button', { class: 'button-outline', type: 'button', onclick: () => operations.add() }, 'Ajouter une opération'))]),
     ]),
     el('section', { class: 'panel' }, [

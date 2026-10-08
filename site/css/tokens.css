@@ -96,6 +96,15 @@
   --color-feed-bar: #ffc000;
   --color-factor: #0070a8;        /* feuille des facteurs de vitesse : le facteur d'une ligne réduite (bleu de la 1re partie, lisible sur blanc) */
 
+  /* --- Le code G d'avance (D96) : la pastille au style d'un écran de commande CN, et la ligne de programme du corrigé.
+     Ni une couleur de sens ni une couleur d'espace : les mêmes dans les trois espaces (le test des ambiances le vérifie),
+     et un contraste AA sur le fond de la pastille, le gris de la coordonnée compris. */
+  --code-g-bg: #060a14;           /* le fond presque noir de l'écran de commande */
+  --code-g-border: #4fc3f7;       /* le liseré fin, au bleu clair de l'espace étudiant, quel que soit l'espace */
+  --code-g-code: #4fc3f7;         /* le code, en tête (contraste 9,6 sur le fond) */
+  --code-g-text: #dde6f5;         /* le libellé et les lignes de programme (15,6) */
+  --code-g-muted: #8aa0c6;        /* la coordonnée, en gris atténué (7,5) ; le mot F est en doré, --color-gold (11,9) */
+
   /* --- Polices (fichiers dans site/fonts/, déclarés par les @font-face ci-dessus) ---------- */
   --font-text: 'IBM Plex Sans', system-ui, sans-serif;
   --font-number: 'IBM Plex Mono', ui-monospace, Consolas, monospace; /* nombres seulement */

@@ -3,7 +3,8 @@
 // Question, dans leur propre cadre qui défile : la saisie en cours n'est pas perdue, et la page en dessous ne bouge pas.
 // Le contenu vient du catalogue, composé par sheets-data.js (pur, testé) ; ici, la mise en page.
 
-import { el } from './dom.js';
+import { feedCodeShortLabel } from '../code-avance.js';
+import { el, feedCodeBadge } from './dom.js';
 import { FACTOR_FORMULA, feedSheet, sheetTabs, speedFactorSheet, vcSheet } from './sheets-data.js';
 import { DEPARTMENT_LINES, localDate, sheetSignature } from './text.js';
 
@@ -67,19 +68,23 @@ function vcPage(data) {
 
 // --- Avances : une grille, un rang par opération ; machines, directions et encadrés sur plusieurs rangs ----------
 // Au-delà de 20 opérations, les rangs se partagent la hauteur de la page (--rows, lu par sheets.css) : la feuille tient
-// toujours sur sa page lettre.
+// toujours sur sa page lettre. Pour des tables qui portent les codes G d'avance (D96), une colonne de plus, entre le
+// pictogramme et la barre : la pastille du code (feed-grid--codes, dont la grille est recalibrée dans sheets.css) ;
+// une version d'avant garde la feuille d'avant, colonne pour colonne.
 function feedPage(data) {
-  const { rows, machines, directions, boxes, revision } = feedSheet(data);
+  const { rows, machines, directions, boxes, revision, codes = false } = feedSheet(data);
   const at = (start, span) => `grid-row: ${start + 2} / span ${span}`; // le rang 1 est l'en-tête
   const lastOfMachine = new Set(machines.map((run) => run.start + run.span - 1));
+  const shift = codes ? 1 : 0; // la colonne du code G décale la barre et la note d'un cran
   return page([
-    el('div', { class: 'feed-grid', style: `--rows: ${rows.length}` }, [
+    el('div', { class: codes ? 'feed-grid feed-grid--codes' : 'feed-grid', style: `--rows: ${rows.length}` }, [
       el('div', { class: 'feed-head', style: 'grid-column: 1 / span 2' }, 'Machine-outil'),
       el('div', { class: 'feed-head', style: 'grid-column: 3 / span 2' }, 'Opération'),
-      el('div', { class: 'feed-head', style: 'grid-column: 5 / span 2' }, 'Avance par révolution'),
+      ...(codes ? [el('div', { class: 'feed-head feed-head--code', style: 'grid-column: 5' }, 'Code G')] : []),
+      el('div', { class: 'feed-head', style: `grid-column: ${5 + shift} / span 2` }, 'Avance par révolution'),
       // Avance proportionnelle au Ø : une bande grise de la colonne Opération à la note, comme dans le
       // classeur. Posée avant les cellules, elle passe dessous.
-      ...rows.flatMap((row, i) => (row.proportional ? [el('div', { class: 'feed-band', style: `grid-column: 3 / span 4; ${at(i, 1)}` })] : [])),
+      ...rows.flatMap((row, i) => (row.proportional ? [el('div', { class: 'feed-band', style: `grid-column: 3 / span ${4 + shift}; ${at(i, 1)}` })] : [])),
       ...machines.map((run) => el('div', { class: 'feed-machine', style: `grid-column: 1; ${at(run.start, run.span)}` }, run.key.split(' / ').flatMap((part, i) => (i === 0 ? [part] : [el('br'), part])))),
       ...directions.map((run) => el('div', { class: 'feed-direction', style: `grid-column: 2; ${at(run.start, run.span)}` }, el('span', {}, run.key))),
       ...rows.flatMap((row, i) => {
@@ -88,12 +93,13 @@ function feedPage(data) {
         return [
           el('div', { class: `feed-cell feed-operation${end}`, style: `grid-column: 3; ${at(i, 1)}` }, row.operation),
           el('div', { class: `feed-cell feed-picto${end}`, style: `grid-column: 4; ${at(i, 1)}` }, image),
-          el('div', { class: `feed-cell feed-value${end}`, style: `grid-column: 5; ${at(i, 1)}` }, row.bar === null
+          ...(codes ? [el('div', { class: `feed-cell feed-code${end}`, style: `grid-column: 5; ${at(i, 1)}` }, feedCodeBadge(row.code, 'code-g code-g--sheet', feedCodeShortLabel(row.code)))] : []),
+          el('div', { class: `feed-cell feed-value${end}`, style: `grid-column: ${5 + shift}; ${at(i, 1)}` }, row.bar === null
             ? el('strong', { class: 'feed-thread' }, row.label)
             : el('div', { class: 'feed-bar', style: `--bar: ${Math.round(row.bar * 100)}%` }, el('strong', {}, row.label))),
         ];
       }),
-      ...boxes.map((box) => el('div', { class: 'feed-box', style: `grid-column: 6; ${at(box.start, box.span)}` }, el('div', {}, box.lines.map((line) => el('p', { class: [line.strong ? 'strong' : '', line.italic ? 'italic' : ''].join(' ').trim() || null }, line.text))))),
+      ...boxes.map((box) => el('div', { class: 'feed-box', style: `grid-column: ${6 + shift}; ${at(box.start, box.span)}` }, el('div', {}, box.lines.map((line) => el('p', { class: [line.strong ? 'strong' : '', line.italic ? 'italic' : ''].join(' ').trim() || null }, line.text))))),
     ]),
   ], revision);
 }
@@ -143,7 +149,9 @@ const miniature = (name, alt, className = 'formula-miniature') => el('img', { cl
 
 //   factors : les tables portent les facteurs de vitesse (D83) — la rangée N nomme le facteur et renvoie à sa feuille,
 //             avec sa miniature ; pour une version d'avant, la feuille d'avant, mot pour mot
-function formulasPage(factors = false) {
+//   codes   : les tables portent les codes G d'avance (D96) — la 2e partie reçoit la rangée du mot F (« G94 / G98 :
+//             F = Vf (po/min) · G95 / G99 : F = f (po/tour) ») et la note de Vf nomme les deux cas ; sinon, rien ne change
+function formulasPage(factors = false, codes = false) {
   const b = (text) => el('strong', {}, text);
   const indicative = el('em', {}, 'La formule exacte est donnée à titre indicatif (12 / π = 3.82) : le cours et la correction utilisent N = Vc × 4 / Ø.');
   const rotation = factors
@@ -161,7 +169,9 @@ function formulasPage(factors = false) {
     formulaRow('fz', 'Avance par dent', 'fz (po/dent)', miniature('table-avances', 'Schéma de la table des avances : le rang de l’opération'), ['Relevée dans la ', b('table des avances'), ', à l’opération de l’outil. Fixe : la valeur de la table. ', b('Proportionnelle au Ø'), ' : fz = avance × Ø outil, sans dépasser l’avance maximale. ', b('Filetage'), ' : fz = pas.']),
     formulaRow('pas', 'Pas d’un filet', '(po)', ['pas = 1 / filets par pouce', 'pas = mm / 25.4'], [el('div', {}, '1/4-20 UNC : pas = 1 / 20 = 0.0500 po'), el('div', {}, 'M10 × 1.5 : pas = 1.5 / 25.4 = 0.0591 po'), el('div', {}, 'M10 : Ø = 10 / 25.4 = 0.3937 po')]),
     formulaRow('f', 'Avance totale par révolution', 'f (po/rév)', 'f = fz × nombre de dents', 'Distance parcourue pendant un tour complet. Un outil à une seule arête (tournage) : f = fz.'),
-    formulaRow('vf', 'Vitesse d’avance', 'Vf (po/min)', 'Vf = N × f', 'C’est la vitesse programmée à la commande (G94).'),
+    formulaRow('vf', 'Vitesse d’avance', 'Vf (po/min)', 'Vf = N × f', codes ? 'C’est la vitesse programmée à la commande en G94 / G98. En G95 / G99, c’est f qui se programme : Vf est sans objet.' : 'C’est la vitesse programmée à la commande (G94).'),
+    // Le mot F (D96) : la grandeur qu'on programme après F, selon le code G d'avance de l'opération.
+    ...(codes ? [formulaRow('f', 'Mot F', 'programme CN', [el('span', { class: 'formula-code' }, ['G94 / G98 : F = Vf (po/min)', el('br'), 'G95 / G99 : F = f (po/tour)'])], [b('Au tour'), ', G98 / G99 sont les codes du système A de Fanuc. ', b('En fraisage'), ', G94 / G95. Le code de chaque opération est sur la feuille des avances.'])] : []),
     el('div', { class: 'formula-boxes' }, [
       el('div', {}, [
         el('p', {}, [b('Exemple'), ' — foret Ø 1/4 po, acier rapide, 2 lèvres, acier 1020 (P-1, 125 HB)']),
@@ -181,7 +191,7 @@ function formulasPage(factors = false) {
 //                le titre nomme la révision des tables
 export function createReference(data, { standalone = false } = {}) {
   const TABS = sheetTabs(data); // la 4e feuille, seulement pour des tables qui portent les facteurs (D83)
-  const pages = { vc: () => vcPage(data), avances: () => feedPage(data), formules: () => formulasPage(data.hasSpeedFactors === true), facteurs: () => factorPage(data) };
+  const pages = { vc: () => vcPage(data), avances: () => feedPage(data), formules: () => formulasPage(data.hasSpeedFactors === true, data.hasFeedCodes === true), facteurs: () => factorPage(data) };
   const stage = el('div', { class: 'print-stage sheets-stage' });
   const title = el('div', { class: 'app-title' }, 'Tables de référence');
   const tabs = TABS.map(({ id, label }) => el('button', { class: 'tab', type: 'button', role: 'tab', 'data-tab': id, onclick: () => show(id) }, label));
