@@ -504,18 +504,23 @@
 .code-g-code { color: var(--code-g-code); font-weight: 500; }
 .code-g-sep { white-space: pre; }
 
-/* L'étiquette « mot F », à droite de la case de la grandeur qu'on programme après F (f en G95/G99, Vf en G94/G98) :
-   chasse fixe, contour bleu clair. Cachée tant que la règle (fWordShown, code-avance.js) ne la montre pas. */
-.field-case { display: flex; align-items: center; gap: var(--space-2); }
-.field-case input { flex: 1 1 auto; min-width: 0; }
+/* L'étiquette « mot F », sur la case de la grandeur qu'on programme après F (f en G95/G99, Vf en G94/G98) : chasse
+   fixe, contour bleu clair, posée au coin supérieur droit de la case, à cheval sur son bord — la case garde toute sa
+   largeur (à côté de la case, dans les cinq colonnes de l'ordinateur, la case perdait un chiffre). Cachée tant que la
+   règle (fWordShown, code-avance.js) ne la montre pas. */
+.field-case { position: relative; }
 
 .mot-f {
-  flex: none;
-  padding: 3px 8px;
+  position: absolute;
+  top: -9px;
+  right: 8px;
+  padding: 1px 6px;
   border: 1px solid var(--code-g-border);
+  background: var(--color-panel);
   color: var(--code-g-code);
   font-family: var(--font-number);
   font-size: var(--text-xs);
+  line-height: 14px;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }

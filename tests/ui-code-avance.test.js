@@ -197,7 +197,8 @@ test('tokens.css, question.css, sheets.css, editeur.css : la pastille, le mot F,
   assert.match(pastille, /background: var\(--code-g-bg\);/);
   assert.match(pastille, /font-family: var\(--font-number\);/);
   assert.match(bloc(question, '.code-g-code'), /color: var\(--code-g-code\);/);
-  assert.match(bloc(question, '.mot-f'), /border: 1px solid var\(--code-g-border\);[\s\S]*font-family: var\(--font-number\);/);
+  assert.match(bloc(question, '.mot-f'), /position: absolute;[\s\S]*border: 1px solid var\(--code-g-border\);[\s\S]*background: var\(--color-panel\);[\s\S]*font-family: var\(--font-number\);/);
+  assert.match(bloc(question, '.field-case'), /position: relative;/);
   assert.match(bloc(question, '.field--sans-objet .field-sans-objet'), /font-style: italic;/);
   assert.match(bloc(question, '.program-lines'), /background: var\(--code-g-bg\);[\s\S]*font-family: var\(--font-number\);/);
   assert.match(bloc(question, '.program-coord'), /color: var\(--code-g-muted\);/);
