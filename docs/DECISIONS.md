@@ -4091,3 +4091,104 @@ tests ; SPEC §3, §5, §6, §7, §8, §10 ; UI §3.3 à §3.6, §3.9 ; PLAN ; C
 séances en cours** : tant que Thierry n'a pas publié de tables qui portent les codes, tout se lit et se corrige comme
 avant ; ensuite, seules les nouvelles séances prennent les versions de la cascade. Rapport :
 `docs/rapports/d96-code-g-avance.md`.
+
+## D97 — Le code G d'avance se règle sur la copie d'outil, pas dans les tables de référence (2026-10-09, décidée ; remplace D96 sur ce point)
+
+**Contexte.** D96 a mis le code G (`code_avance`) sur l'opération, dans les tables de référence. Ce n'était pas
+l'intention. Ce que Thierry veut : contrôler, **outil par outil dans un exercice**, si la case de la vitesse d'avance
+est à remplir ou non. Le code G est un plus d'affichage sur le questionnaire, pas une donnée des tables. Le cas qui le
+montre : les forets du M10 « Tournage : Vc et RPM » ont l'opération « Perçage », rattachée à « Perceuse / Fraiseuse ».
+Avec D96, ils seraient en G94 dans un exercice de tour. Au M30, le même foret est bien à la perceuse. **C'est la copie
+dans l'exercice qui sait sur quelle machine l'outil travaille.** État de la production : D96 est fusionné et déployé ;
+aucune version des tables n'a été publiée depuis (aucune ne porte `code_avance`) ; le brouillon des tables était
+prérempli des codes à la lecture, et a pu être enregistré avec eux.
+
+**Décision** (Thierry, 2026-10-09).
+
+1. **`code_avance` devient une clé facultative de l'outil**, dans la banque et dans la copie d'un exercice, comme
+   `fact_vc`. Valeurs : `G94`, `G95`, `G98`, `G99`, ou absente (= aucun). G95 et G99 = avance par tour. G94 et G98 =
+   avance par minute.
+2. **La banque donne la valeur de départ.** Une copie ajoutée depuis la banque, ou depuis un autre exercice, prend la
+   valeur de sa source. Ensuite, **chaque copie se règle seule** : le même foret peut être en G99 au M10 et en G94 au M30.
+3. **« Aucun » reste un choix permis.** Un outil sans code se comporte exactement comme avant D96 : Vf selon l'état que
+   l'exercice lui donne, pas de pastille, pas de mot F, pas de ligne de programme.
+4. **Les tables de référence ne portent plus de code G, nulle part.** Aucune règle n'est déduite de la machine ni de
+   l'opération.
+5. **Pas de raison à saisir avec le code** (contrairement à `fact_vc_raison`). La pastille suffit.
+
+**Ce qu'on garde de D96**, la source du code étant désormais la copie :
+
+1. **G95 / G99 : Vf sans objet.** Ni demandée, ni corrigée, comptée juste, jamais envoyée au navigateur, quel que soit
+   l'état que l'exercice donne à Vf. « sans objet » à l'écran avec la note « En G99, F est l'avance par tour. » (ou
+   G95). « s.o. » sur l'attestation.
+2. **La pastille** sous l'opération, **l'étiquette « mot F »** (`F_WORD_FROM_QUESTION`), **le panneau « Ligne de
+   programme »** au corrigé. La coordonnée de la ligne reste déduite de la direction d'avance de l'opération : c'est
+   une lecture des tables, pas une donnée ajoutée.
+3. **La règle de validation** : un exercice dont la seule grandeur évaluée est Vf, avec une copie en G95 / G99, est
+   invalide. Le message nomme les outils.
+4. **Les variables `--code-g-*`** de `tokens.css`, les contrastes, le test des ambiances.
+
+**Ce qu'on retire de D96 :**
+
+1. **La clé `code_avance` des tables** : la validation des tables (dont la règle « toutes les opérations ou aucune »),
+   le préremplissage du brouillon, la colonne de l'onglet Tables de référence, l'avertissement machine, les lignes des
+   différences d'une publication et de l'impact d'une cascade.
+2. **Un `code_avance` trouvé dans le brouillon des tables enregistré est ignoré à la lecture et retiré au prochain
+   enregistrement, sans migration.** Après D97, le brouillon des tables se lit identique à A2026_r6 s'il n'a pas
+   d'autre modification : « Annuler les modifications » n'a rien à annuler (testé).
+3. **La colonne « Code G » de la feuille des Avances et la rangée « Mot F » de la feuille Formules**, avec la note de Vf
+   retouchée : retour mot pour mot aux feuilles d'avant D96, grille comprise.
+
+**Gestion du contenu, formulaire d'outil** (banque et copie d'exercice) :
+
+1. Une liste **« Avance programmée »** : « Aucune », « G94 · fraisage, par minute », « G95 · fraisage, par tour »,
+   « G98 · tour, par minute », « G99 · tour, par tour ».
+2. Sur la ligne repliée d'une copie, **une petite pastille grise avec le code** (« G99 »), rien quand c'est « Aucune ».
+   Pas de doré : ce n'est pas une alerte.
+3. Au-dessus des copies, à côté de « Tout cocher » et « Retirer la sélection » : **« Avance programmée de la
+   sélection… »**, qui règle le code de toutes les copies cochées en une fois (le M10 compte onze outils). Ça ne change
+   que le brouillon, comme le reste de la page.
+4. **Le code est versionné avec l'exercice** : il change la correction. Les différences d'une publication le disent
+   (« Foret fractionnaire (foret_fractionnaire) — avance programmée : « aucune » → « G99 » »). L'historique de la
+   banque (D79) le garde. L'export et l'import le portent. L'aperçu, le mode démo et test-complet suivent les mêmes
+   règles.
+5. **Le format fichier d'exercice** (SPEC §10) : `outils[].code_avance` y est **accepté, pour les tests** — le code de
+   la copie, à la place de celui de l'outil de la banque ; absent, la copie prend celui de la banque (`copyOfTool`).
+   `// ❓` dans `exercice.js`, point au rapport.
+
+**Non-régression.**
+
+1. Le témoin `avant-d96` reste vert : aucune copie ni aucun outil existant n'a de code, donc rien ne change.
+2. Un exercice publié dont les copies n'ont pas de code se corrige et s'affiche exactement comme avant D96, avec
+   n'importe quelle version de tables.
+3. Les tests de D96 attachés aux tables sont retirés ou réécrits pour la copie (le rapport dit lesquels, et pourquoi).
+
+**Précisions de mise en œuvre** (proposées au rapport `docs/rapports/d97-code-g-par-copie.md`).
+
+- `site/js/code-avance.js` lit le code de l'outil (`feedCodeOf(tool)`, `feedRateApplies`, `inapplicableFields`) ; la
+  validation d'un outil (`feedCodeErrors` : l'un des quatre, ou absent) est dans `toolErrors`, donc des deux côtés ;
+  `withFeedCode` pose ou retire la clé (rangée après `fact_av`, dans `TOOL_KEYS`) ; `stripFeedCodes` retire un code
+  resté sur une opération (`draftTablesOf` à la lecture, `cleanTables` à l'enregistrement) ; `FEED_CODE_CHOICES` et
+  `ownFeedCodeLabel` servent la Gestion du contenu et les différences.
+- **Ce que la question porte** ne change pas de forme (SPEC §7) : `outil.code_avance` quand la copie en a un ; Vf
+  `sans_objet` pour une copie en G95/G99 ; `correction.programme` pour une copie qui a un code, la coordonnée d'après
+  `direction_avance` de l'opération.
+- **La validation** : `inapplicableGradedError(graded, tools)` sur les copies (ou, au format fichier, sur les outils du
+  catalogue avec le code de leur entrée).
+- **Les différences** : `copyDiff` (publication) nomme « avance programmée », `bankToolDiff` (historique) « Avance
+  programmée », en clair : « aucune » ou le code.
+
+**Ce que D97 remplace dans D96.** Les points 1, 2 et 4 de la décision de D96 (la propriété de l'opération, les tables
+versionnées, l'avertissement machine, le préremplissage), les points 5, 6 et 8 du visuel (la colonne de la feuille des
+avances, la rangée des formules, la liste de l'onglet Tables), et, dans ses précisions, « des tables portent les
+codes », `prefillFeedCodes`, `feedCodeWarnings`, l'impact d'un changement de tables. Le reste de D96 tient, la copie
+à la place de l'opération.
+
+**Conséquences.** `site/js/code-avance.js` ; `data.js` (`TOOL_KEYS`, `toolErrors`, plus rien dans `validateTables`),
+`exercice.js` (`copyOfTool`, `TOOL_ENTRY_KEYS`, la règle), `tables.js` ; `worker/seance.js`, `worker/editeur.js`
+(`cleanTables`, `previewQuestions`), `worker/index.js` (`draftTablesOf`) ; `site/js/ui/editeur.js` (la liste, la
+pastille, la sélection ; plus rien dans l'onglet Tables), `editeur-data.js`, `sheets-data.js`, `reference-screen.js` et
+`sheets.css` (les feuilles d'avant D96, tels quels), `dom.js`, `editeur.css` ; tests ; SPEC §3, §5, §6, §7, §8, §10 ;
+UI §3.3 à §3.6, §3.9 ; CLAUDE.md ; PLAN. **Rien ne touche la correction des séances en cours** : aucun outil ni aucune
+copie n'a de code au déploiement, et une séance est épinglée à sa version ; seules les versions publiées ensuite avec
+des copies en G95/G99 changent Vf. Rapport : `docs/rapports/d97-code-g-par-copie.md`.
