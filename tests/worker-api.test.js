@@ -230,13 +230,11 @@ test('grandeurs masquées (D52) : « — » sans valeur dans la question, la cor
   assert.deepEqual(m10Seance.seance.question.champs.map((champ) => [champ.evalue, 'masque' in champ, champ.texte !== '']), [[true, false, false], [false, false, true], [false, false, true], [false, false, true], [false, false, true]]);
 });
 
-test('code G d’avance (D96) : avec des tables qui le portent, la question d’un outil du tour dit « G99 » et Vf « sans objet » ; Vf n’est ni demandée ni corrigée, et sa valeur ne part jamais, ligne de programme comprise ; une version d’avant ne change pas (tests/worker-code-avance.test.js pour le reste)', async () => {
-  const { prefillFeedCodes } = await import('../site/js/code-avance.js');
-  const { prefillSpeedFactors } = await import('../site/js/facteur-vitesse.js');
+test('code G d’avance (D96, D97) : pour une copie en G99, la question dit « G99 » et Vf « sans objet » ; Vf n’est ni demandée ni corrigée, et sa valeur ne part jamais, ligne de programme comprise ; une copie sans code ne change pas (tests/worker-code-avance.test.js pour le reste)', async () => {
   const serveur = serveurAvecEssai(LOCAL);
-  serveur.publierTables('A2026_r1', prefillFeedCodes(prefillSpeedFactors({ materiaux: await lireFichier('data/materiaux.json'), operations: await lireFichier('data/operations.json') })));
-  const TOUR = { id: 'essai-tour', titre: 'Essai — tour', version: 'r1', champs_evalues: ['vc', 'fz', 'n', 'f', 'vf'], outils: [{ id: 'mvlnr', reussites_requises: 2 }] };
-  serveur.publierExercice(TOUR, { tablesId: 'A2026_r1', adopter: true });
+  // Le code de la copie vient de l'entrée du format fichier (❓ D97, point 5) ; les tables (A2026_r0) n'y sont pour rien.
+  const TOUR = { id: 'essai-tour', titre: 'Essai — tour', version: 'r1', champs_evalues: ['vc', 'fz', 'n', 'f', 'vf'], outils: [{ id: 'mvlnr', reussites_requises: 2, code_avance: 'G99' }] };
+  serveur.publierExercice(TOUR);
   const { jeton, seance } = await commencer(serveur, { ...CAMILLE, exercice: 'essai-tour' });
   assert.equal(seance.question.outil.code_avance, 'G99');
   assert.deepEqual(seance.question.champs.at(-1), { champ: 'feedRate', evalue: false, sans_objet: true, texte: '' });
@@ -251,7 +249,7 @@ test('code G d’avance (D96) : avec des tables qui le portent, la question d’
   assert.deepEqual(juste.corps.correction.champs.at(-1), { champ: 'feedRate', evalue: false, sans_objet: true, ok: true, saisie: '', expression: null, attendu: null, tolerance: null, ecart_pct: null, calcul: null, coherence: null });
   assert.deepEqual(juste.corps.correction.programme.lignes.map((l) => l.map((p) => p.texte).join('')), [`G97 S${attendues.rpm} M03`, `G99 G01 Z… F${attendues.feedPerRev}`]);
   assert.equal(fuite(juste.corps), false);
-  // L'essai de perçage, sur A2026_r0 : la question d'avant — pas de code, Vf demandée, pas de ligne de programme.
+  // L'essai de perçage, sans code : la question d'avant — pas de code, Vf demandée, pas de ligne de programme.
   const percage = await commencer(serveur, { ...CAMILLE, exercice: ESSAI.id });
   assert.equal('code_avance' in percage.seance.question.outil, false);
   assert.deepEqual(percage.seance.question.champs.at(-1), { champ: 'feedRate', evalue: true, texte: '' });

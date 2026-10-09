@@ -16,7 +16,7 @@
 import pkg from '../package.json' with { type: 'json' };
 import { validateData, validateTables } from '../site/js/data.js';
 import { draftErrors, liveTitleRefusal, maskedFields, sameTitleExercises, sameTitleRefusal, titleKey } from '../site/js/exercice.js';
-import { prefillFeedCodes } from '../site/js/code-avance.js';
+import { stripFeedCodes } from '../site/js/code-avance.js';
 import { adoptSpeedFactor, adoptSpeedFactors, prefillSpeedFactors, settleSpeedFactors } from '../site/js/facteur-vitesse.js';
 import { cleanStudent, matriculeError, nipError, validateStudent } from '../site/js/identification.js';
 import {
@@ -1157,10 +1157,11 @@ async function editeurBanque(request, env, { now }) {
 
 // --- Les tables de référence versionnées (D61, D63) : un brouillon, des versions immuables -------------------------
 
-// Le brouillon des tables tel qu'on le lit (D83, point 2 ; D96) : complété, et prérempli — une opération sans facteur de
-// vitesse reçoit celui de la table papier, une opération sans code G d'avance reçoit G99 au tour, G94 ailleurs. Jamais
-// pour une version publiée : une version d'avant D83 reste sans facteurs, une version d'avant D96 sans codes.
-const draftTablesOf = (contenu) => prefillFeedCodes(prefillSpeedFactors(tablesOf(contenu)));
+// Le brouillon des tables tel qu'on le lit (D83, point 2) : complété, et prérempli — une opération sans facteur de vitesse
+// reçoit celui de la table papier. Jamais pour une version publiée : une version d'avant D83 reste sans facteurs. Un code G
+// d'avance resté sur une opération d'un brouillon enregistré sous D96 est ignoré (D97 : le code est celui de l'outil ; il
+// est retiré au prochain enregistrement, cleanTables).
+const draftTablesOf = (contenu) => stripFeedCodes(prefillSpeedFactors(tablesOf(contenu)));
 
 // Les erreurs d'un brouillon de tables : celles des deux tables (validateTables), sans outils ; avec les
 // fiches des images, une image de classe inconnue ou archivée est une erreur (D64) — sauf celle que la présentation en

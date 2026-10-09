@@ -1,15 +1,17 @@
-// Le code G d'avance de chaque opération (décision D96) : G94 et G95 en fraisage, G98 et G99 en tournage (le système
-// de codes G « A » de Fanuc, au tour). G95 et G99 sont l'avance PAR TOUR ; G94 et G98 l'avance PAR MINUTE. Il appartient
-// à l'OPÉRATION, dans les tables de référence (`code_avance`), versionné comme les avances, sur le modèle du facteur
-// de vitesse (D83). Pour un outil dont l'opération est en avance par tour, la vitesse d'avance Vf (po/min) est « sans
-// objet » : ni demandée, ni corrigée, et sa valeur ne part jamais au navigateur. Le code sert aussi de lien avec le
-// cours de CN : le nombre qu'on programme après F est f en G95/G99, Vf en G94/G98.
+// Le code G d'avance d'un outil (décisions D96, D97) : G94 et G95 en fraisage, G98 et G99 en tournage (le système de
+// codes G « A » de Fanuc, au tour). G95 et G99 sont l'avance PAR TOUR ; G94 et G98 l'avance PAR MINUTE. Depuis D97, il
+// se règle SUR L'OUTIL — dans la banque, qui donne la valeur de départ, et sur chaque copie d'un exercice, qui se règle
+// seule ensuite (`code_avance`, facultatif, comme `fact_vc`) : c'est la copie qui sait sur quelle machine l'outil
+// travaille (le même foret est au tour au M10, à la perceuse au M30). Les tables de référence n'en portent aucun, et
+// aucune règle n'est déduite de la machine ni de l'opération. Pour un outil en avance par tour, la vitesse d'avance Vf
+// (po/min) est « sans objet » : ni demandée, ni corrigée, et sa valeur ne part jamais au navigateur. Le code sert aussi
+// de lien avec le cours de CN : le nombre qu'on programme après F est f en G95/G99, Vf en G94/G98.
 //
 // Fonctions PURES, partagées par le serveur, le quiz et la Gestion du contenu : l'avance par tour ou par minute, ce
 // que la vitesse d'avance devient pour un outil, la grandeur du mot F, la pastille, la ligne de programme et sa
-// coordonnée, le préremplissage du brouillon des tables, l'avertissement machine, l'erreur d'un exercice dont aucune
-// grandeur évaluée ne s'applique à un outil. Une version de tables d'avant D96 n'a aucun code, et n'en reçoit pas à la
-// lecture : ses exercices se corrigent et s'affichent comme avant.
+// coordonnée, la validation du code d'un outil, l'erreur d'un exercice dont aucune grandeur évaluée ne s'applique à un
+// outil, les choix de la Gestion du contenu, et le retrait d'un code resté dans le brouillon des tables (D96). Un outil
+// sans code se comporte exactement comme avant D96.
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -17,41 +19,38 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 
 export const FEED_CODES = ['G94', 'G95', 'G98', 'G99'];
 const PER_REVOLUTION_CODES = ['G95', 'G99']; // avance par tour
-const LATHE_CODES = ['G98', 'G99']; // le système A de Fanuc, au tour
-export const LATHE_MACHINE = 'Tour'; // la machine-outil des opérations du tour, dans les tables (un texte libre)
 
 export const isFeedCode = (value) => typeof value === 'string' && FEED_CODES.includes(value);
 export const isPerRevolution = (code) => PER_REVOLUTION_CODES.includes(code);
-export const isLatheCode = (code) => LATHE_CODES.includes(code);
 
-// Une opération porte-t-elle son code ? Une version de tables d'avant D96 n'en a aucun, et n'en reçoit pas à la
-// lecture : on ne montre jamais un code — ni une case « sans objet » — qui contredirait la correction de sa version.
-export const hasFeedCode = (operation) => isObject(operation) && operation.code_avance !== undefined;
+// Un outil (de la banque, ou une copie) porte-t-il un code ? Absent : « aucune avance programmée », l'outil d'avant D96.
+export const hasFeedCode = (tool) => isObject(tool) && tool.code_avance !== undefined;
 
-// Des tables « portent les codes » quand CHACUNE de leurs opérations a le sien (la validation refuse l'entre-deux).
-export const carriesFeedCodes = (operations) => Array.isArray(operations) && operations.length > 0 && operations.every(hasFeedCode);
+// Le code d'un outil, ou null : aucun, ou une valeur illisible (la validation la dira ; en attendant, l'outil se lit
+// comme s'il n'en avait pas).
+export const feedCodeOf = (tool) => (hasFeedCode(tool) && isFeedCode(tool.code_avance) ? tool.code_avance : null);
 
-// Le code d'une opération, ou null : pas de code (une version d'avant), opération inconnue, ou valeur illisible (la
-// validation la dira ; en attendant, l'outil se lit comme avant).
-export const feedCodeOf = (operation) => (hasFeedCode(operation) && isFeedCode(operation.code_avance) ? operation.code_avance : null);
+// Les erreurs du code d'un outil : [{ champ, message }] (toolErrors, data.js). Absent : rien à dire.
+export function feedCodeErrors(tool) {
+  if (!hasFeedCode(tool) || isFeedCode(tool.code_avance)) return [];
+  return [{ champ: 'code_avance', message: `« code_avance » doit être ${FEED_CODES.join(', ')}, ou absent (aucune avance programmée)` }];
+}
 
 // --- La vitesse d'avance d'un outil -------------------------------------------------------------------------------------
 
-// La vitesse d'avance a-t-elle un sens pour l'opération ? Non en avance par tour (G95, G99) ; oui sinon, et toujours
-// pour une version d'avant D96.
-export const feedRateApplies = (operation) => !isPerRevolution(feedCodeOf(operation));
+// La vitesse d'avance a-t-elle un sens pour cet outil ? Non en avance par tour (G95, G99) ; oui sinon, et toujours
+// pour un outil sans code.
+export const feedRateApplies = (tool) => !isPerRevolution(feedCodeOf(tool));
 
-// Les grandeurs du moteur (correction.js) qui sont SANS OBJET pour un outil de cette opération : ['feedRate'], ou rien.
-// Un champ sans objet n'est ni demandé ni corrigé, quel que soit l'état que l'exercice lui donne (D52) : c'est une
-// propriété de l'opération, pas un réglage.
-export const inapplicableFields = (operation) => (feedRateApplies(operation) ? [] : ['feedRate']);
+// Les grandeurs du moteur (correction.js) qui sont SANS OBJET pour un outil : ['feedRate'], ou rien. Un champ sans objet
+// n'est ni demandé ni corrigé, quel que soit l'état que l'exercice lui donne (D52) : c'est une propriété de l'outil
+// dans cet exercice, pas un réglage de l'exercice.
+export const inapplicableFields = (tool) => (feedRateApplies(tool) ? [] : ['feedRate']);
 
 // --- Ce que l'écran en dit (D93 : des phrases courtes) -------------------------------------------------------------------
 
-// Le libellé de la pastille : « avance par tour » (G95, G99) ou « avance par minute » (G94, G98) ; en court, sur la
-// feuille des avances : « par tour », « par minute ».
+// Le libellé de la pastille : « avance par tour » (G95, G99) ou « avance par minute » (G94, G98).
 export const feedCodeLabel = (code) => (isPerRevolution(code) ? 'avance par tour' : 'avance par minute');
-export const feedCodeShortLabel = (code) => (isPerRevolution(code) ? 'par tour' : 'par minute');
 
 // La pastille en une ligne : « G99 · avance par tour ».
 export const feedCodeText = (code) => `${code} · ${feedCodeLabel(code)}`;
@@ -74,8 +73,9 @@ export const notApplicableNote = (code) => `En ${code}, F est l'avance par tour.
 
 // --- La ligne de programme (corrigé seulement) ---------------------------------------------------------------------------
 
-// La coordonnée de la ligne d'avance, d'après la direction d'avance de l'opération : longitudinale → « Z… »,
-// transversale → « X… », axiale → « Z… », latérale → « X… Y… ». null pour une direction inconnue : pas de coordonnée.
+// La coordonnée de la ligne d'avance, d'après la direction d'avance de l'OPÉRATION (une lecture des tables, D97) :
+// longitudinale → « Z… », transversale → « X… », axiale → « Z… », latérale → « X… Y… ». null pour une direction
+// inconnue : pas de coordonnée.
 // ❓ Direction inconnue (une opération ajoutée avec une direction libre) : aucune coordonnée, la ligne garde G01 et F.
 export function programCoordinate(direction) {
   const text = String(direction ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -89,7 +89,7 @@ export function programCoordinate(direction) {
 // « G99 G01 Z… F0.0100 » (au tour) ou « G94 G01 X… Y… F28.800 » (fraiseuse). Chaque ligne est une liste de morceaux
 // { texte, role } — role 'coordonnee' (en gris atténué) ou 'mot_f' (en doré) ; les autres sans rôle. Une grandeur masquée
 // (D52) s'écrit « — », et sa valeur ne part pas.
-//   code      : le code G d'avance de l'opération ; direction : sa direction d'avance
+//   code      : le code G d'avance de l'outil ; direction : la direction d'avance de son opération
 //   displayed : formatParameters des valeurs théoriques ({ rpm, feedPerRev, feedRate, … })
 //   masked    : les grandeurs masquées de l'exercice, sous les noms du moteur
 // Retourne { code, lignes: [[morceaux], [morceaux]], note }.
@@ -107,50 +107,60 @@ export function programLines(code, direction, displayed, masked = []) {
   };
 }
 
-// --- Le brouillon des tables ---------------------------------------------------------------------------------------------
-
-// Le code de départ d'une opération (D96, correction, point 2) : G99 pour une opération de machine « Tour », G94 pour
-// toutes les autres. Thierry révise dans la Gestion du contenu avant de publier.
-export const paperFeedCode = (machine) => (machine === LATHE_MACHINE ? 'G99' : 'G94');
-
-// Le brouillon des tables prérempli : une opération SANS la clé `code_avance` reçoit son code de départ ; une valeur
-// présente, même fausse, est gardée (la validation la dira). Sert à la lecture du brouillon, jamais à celle d'une
-// version publiée. Ne modifie pas l'objet reçu ; le rend tel quel s'il n'y a rien à préremplir.
-export function prefillFeedCodes(tables) {
-  const operations = tables?.operations?.operations;
-  if (!Array.isArray(operations) || operations.every((op) => !isObject(op) || hasFeedCode(op))) return tables;
-  return {
-    ...tables,
-    operations: { ...tables.operations, operations: operations.map((op) => (!isObject(op) || hasFeedCode(op) ? op : { ...op, code_avance: paperFeedCode(op.machine) })) },
-  };
-}
-
-// L'avertissement machine (D96, décision, point 2), non bloquant : un G98/G99 sur une opération dont la machine n'est
-// pas « Tour », un G94/G95 sur une opération du tour. Retourne une phrase par opération en cause, dans l'ordre des tables.
-export function feedCodeWarnings(operations) {
-  const warnings = [];
-  for (const op of Array.isArray(operations) ? operations : []) {
-    const code = feedCodeOf(op);
-    if (code === null) continue;
-    const lathe = op.machine === LATHE_MACHINE;
-    if (isLatheCode(code) && !lathe) warnings.push(`Opération « ${op.operation} » : ${code} est un code du tour, mais sa machine est « ${op.machine ?? '—'} ».`);
-    else if (!isLatheCode(code) && lathe) warnings.push(`Opération « ${op.operation} » : ${code} est un code de fraisage, mais sa machine est « ${op.machine} ».`);
-  }
-  return warnings;
-}
-
-// --- L'exercice (D96, décision, point 3) -----------------------------------------------------------------------------------
+// --- L'exercice (D96, décision, point 3 ; D97 : le code est celui de la copie) ---------------------------------------------
 
 // Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils est invalide : « champs_evalues » réduit à
-// « vf », avec un outil dont l'opération est en avance par tour. Retourne le message, qui nomme les outils en cause,
-// ou null.
-//   graded    : les champs évalués de l'exercice, tels qu'écrits (« vc », « fz », « n », « f », « vf »)
-//   tools     : les outils de l'exercice (les copies, ou les outils du catalogue), avec nom, id et operation
-//   opsByName : Map nom d'opération → opération des tables de l'exercice
-export function inapplicableGradedError(graded, tools, opsByName) {
+// « vf », avec une copie en avance par tour. Retourne le message, qui nomme les outils en cause, ou null.
+//   graded : les champs évalués de l'exercice, tels qu'écrits (« vc », « fz », « n », « f », « vf »)
+//   tools  : les outils de l'exercice (les copies, ou les outils du catalogue avec le code de leur entrée), avec nom et id
+export function inapplicableGradedError(graded, tools) {
   const fields = Array.isArray(graded) ? graded.filter((field) => ['vc', 'fz', 'n', 'f', 'vf'].includes(field)) : [];
   if (fields.length === 0 || fields.some((field) => field !== 'vf')) return null;
-  const named = (Array.isArray(tools) ? tools : []).filter((tool) => isObject(tool) && !feedRateApplies(opsByName.get(tool.operation))).map((tool) => `${tool.nom} (${tool.id})`);
+  const named = (Array.isArray(tools) ? tools : []).filter((tool) => isObject(tool) && !feedRateApplies(tool)).map((tool) => `${tool.nom} (${tool.id})`);
   if (named.length === 0) return null;
-  return `La seule grandeur évaluée, la vitesse d'avance, est sans objet pour ${named.join(', ')} : leur opération est en avance par tour (G95 ou G99). Évalue une autre grandeur, ou retire ces outils.`;
+  return `La seule grandeur évaluée, la vitesse d'avance, est sans objet pour ${named.join(', ')} : leur avance programmée est par tour (G95 ou G99). Évalue une autre grandeur, ou retire ces outils.`;
+}
+
+// --- La Gestion du contenu -------------------------------------------------------------------------------------------------
+
+// Les choix de la liste « Avance programmée » du formulaire d'outil (banque et copie) : « Aucune », puis les quatre codes.
+export const FEED_CODE_CHOICES = [
+  { value: '', label: 'Aucune' },
+  { value: 'G94', label: 'G94 · fraisage, par minute' },
+  { value: 'G95', label: 'G95 · fraisage, par tour' },
+  { value: 'G98', label: 'G98 · tour, par minute' },
+  { value: 'G99', label: 'G99 · tour, par tour' },
+];
+
+// L'avance programmée d'un outil, en clair, pour les différences (publication, historique de la banque) : « aucune »,
+// ou le code (« G99 »).
+export const ownFeedCodeLabel = (tool) => feedCodeOf(tool) ?? 'aucune';
+
+// L'outil (ou la copie) avec ce code — '' ou null : aucun, la clé disparaît. Ne modifie pas l'objet reçu ; la clé est rangée
+// après `fact_av`, comme dans TOOL_KEYS.
+export function withFeedCode(tool, code) {
+  const { code_avance: _code, ...rest } = tool;
+  if (!isFeedCode(code)) return rest;
+  const out = {};
+  let placed = false;
+  for (const [key, value] of Object.entries(rest)) {
+    out[key] = value;
+    if (key === 'fact_av') { out.code_avance = code; placed = true; }
+  }
+  if (!placed) out.code_avance = code;
+  return out;
+}
+
+// --- Le brouillon des tables (D97 : les tables ne portent plus de code) ----------------------------------------------------
+
+// Un code resté dans le brouillon des tables enregistré sous D96 est ignoré à la lecture et retiré au prochain
+// enregistrement, sans migration : le brouillon se lit identique à sa version de départ s'il n'a pas d'autre
+// modification. Ne modifie pas l'objet reçu ; le rend tel quel s'il n'y a rien à retirer.
+export function stripFeedCodes(tables) {
+  const operations = tables?.operations?.operations;
+  if (!Array.isArray(operations) || operations.every((op) => !isObject(op) || op.code_avance === undefined)) return tables;
+  return {
+    ...tables,
+    operations: { ...tables.operations, operations: operations.map((op) => { if (!isObject(op) || op.code_avance === undefined) return op; const { code_avance: _code, ...rest } = op; return rest; }) },
+  };
 }

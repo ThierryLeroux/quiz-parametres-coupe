@@ -232,11 +232,8 @@ test('une séance en cours garde ses tables après la publication d’une nouvel
   assert.ok(a.some((q) => q.materiau_outil === CARBURE) && a.some((q) => q.materiau_outil !== CARBURE), 'les deux cas sont tirés');
   for (const [i, q] of a.entries()) {
     assert.deepEqual([b[i].identifiant, b[i].materiau_outil, b[i].materiau], [q.identifiant, q.materiau_outil, q.materiau], `question ${i + 1}`);
-    // Depuis D96, les tables publiées par l'API portent les codes G d'avance : au tour, la Vf est sans objet et quitte les réponses.
-    const { feedRate: _vf, ...sansVf } = q.reponses;
-    const attendues = Array.isArray(b[i].sans_objet) && b[i].sans_objet.includes('feedRate') ? sansVf : q.reponses;
     if (q.materiau_outil === CARBURE) assert.equal(Number(b[i].reponses.vc), Number(q.reponses.vc) * 2, `question ${i + 1} : Vc doublée`);
-    else assert.deepEqual(b[i].reponses, attendues, `question ${i + 1} : inchangée`);
+    else assert.deepEqual(b[i].reponses, q.reponses, `question ${i + 1} : inchangée`);
   }
 });
 

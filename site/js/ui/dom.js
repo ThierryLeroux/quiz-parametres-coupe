@@ -21,11 +21,11 @@ export function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-// La pastille du code G d'avance (D96) : « G99 · avance par tour », au style d'un écran de commande — le code en tête,
-// en bleu clair, puis le libellé (question.css, .code-g). Sur l'écran Question (panneau de l'outil) et sur la feuille des
-// avances (en petit, sur deux lignes, le libellé en court : .code-g--sheet). Elle ne donne aucune réponse : toujours affichée.
-export function feedCodeBadge(code, className = 'code-g', label = feedCodeLabel(code)) {
-  return el('span', { class: className }, [el('span', { class: 'code-g-code' }, code), el('span', { class: 'code-g-sep', 'aria-hidden': 'true' }, ' · '), el('span', { class: 'code-g-label' }, label)]);
+// La pastille du code G d'avance (D96, D97) : « G99 · avance par tour », au style d'un écran de commande — le code en
+// tête, en bleu clair, puis le libellé (question.css, .code-g). Sur l'écran Question, dans le panneau de l'outil. Elle ne
+// donne aucune réponse : toujours affichée quand la copie a un code.
+export function feedCodeBadge(code) {
+  return el('span', { class: 'code-g' }, [el('span', { class: 'code-g-code' }, code), el('span', { class: 'code-g-sep', 'aria-hidden': 'true' }, ' · '), el('span', { class: 'code-g-label' }, feedCodeLabel(code))]);
 }
 
 // Pose sur la page les couleurs de sens de la version des tables en usage (D61 : classes ISO,

@@ -317,8 +317,11 @@
   .facteur-force { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* L'avertissement machine du code G d'avance (D96, point 2) : doré, non bloquant, une ligne par opération en cause. */
-.avis-code-g { display: block; list-style: none; padding-left: var(--space-3); }
-.avis-code-g li + li { margin-top: 2px; }
-.avis-code-g[hidden] { display: none; }
-.tables-edit select.input-court { min-width: 72px; width: 84px; }
+
+/* La pastille grise du code G d'avance d'une copie, sur sa ligne repliée (D97) : « G99 » ; pas de doré, ce n'est pas une alerte.
+   Et la rangée « Avance programmée de la sélection » : la liste des choix, Appliquer, Annuler. */
+.badge-code-g { padding: 1px 8px; border: 1px solid var(--color-text-muted); color: var(--color-text-muted); font-family: var(--font-number); font-size: var(--text-xs); white-space: nowrap; }
+.badge-code-g[hidden] { display: none; }
+.selection-code-g { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: var(--space-2) 0 var(--space-3); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-accent); }
+.selection-code-g[hidden] { display: none; }
+.selection-code-g select { min-height: 36px; padding: 0 var(--space-2); border: 1px solid var(--color-accent); border-radius: 0; background: var(--color-input-bg); color: var(--color-text); font: inherit; font-size: var(--text-sm); }

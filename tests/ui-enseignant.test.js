@@ -198,6 +198,8 @@ test('consultation — la page d’un exercice : sa dernière version publiée (
   const evaluees = main.querySelectorAll('input[type="radio"][value="evaluee"]').filter((input) => input.hasAttribute('checked')).map((input) => input.getAttribute('name'));
   assert.deepEqual(evaluees, m10.champs_evalues.map((key) => `etat-${key}`));
   assert.equal(main.querySelectorAll('fieldset.lecture-seule[disabled]').length >= 3, true); // présentation, réglages, outils
+  assert.ok(main.querySelector('select#o0-code-avance').closest('fieldset[disabled]'), "l'avance programmée (D97) se lit dans le fieldset inactif");
+  assert.equal(main.querySelector('.selection-code-g'), null);
   // Le panneau de la présentation en consultation (retouche de D95) : « Présentation en vigueur », sans la pastille « En direct ».
   assert.equal(main.querySelector('.panel--direct .eyebrow').textContent, 'Présentation en vigueur');
   assert.equal(main.querySelector('.panel--direct .badge-direct'), null);
@@ -243,12 +245,6 @@ test('consultation — Tables de référence : la présentation en lecture, puis
   assert.ok(main.querySelector('.versions-liste a[href="/tables?version=A2026_r0"]'));
   assert.equal(texts('thead th').includes('Actions'), false);
   assert.equal(main.querySelector('.caracteristiques button'), null);
-  // Le code G d'avance (D96) : A2026_r0 n'en porte aucun — « — » dans la colonne, pas de liste, pas d'avertissement.
-  assert.ok(texts('.tables-edit--operations thead th').includes("Code G d'avance"));
-  assert.equal(main.querySelectorAll('.tables-edit--operations select.input-court').length, 0); // la liste du code G porte la classe ; celle de la famille, non (aide-dom ne lit pas « $= »)
-  const valeurs = main.querySelectorAll('.tables-edit--operations').find((table) => texts('thead th', table).includes("Code G d'avance")); // l'autre tableau d'opérations est celui de la présentation
-  assert.deepEqual([...new Set(valeurs.querySelectorAll('tbody tr').map((tr) => tr.children[7].textContent))], ['—']);
-  assert.equal(main.querySelector('.avis-code-g').hidden, true);
 });
 
 test('consultation — Images : la liste et ses filtres, sans Actions ni téléversement', async () => {
@@ -292,13 +288,6 @@ test('administration — les boutons d’action de chaque onglet sont construits
   assert.equal(main.querySelector('.panel--direct .eyebrow').textContent, 'Présentation — effet immédiat');
   assert.equal(main.querySelector('.panel--direct .badge-direct').textContent, 'En direct');
   assert.ok(main.querySelector('#televerser-fichier') === null); // l'onglet Tables n'a pas le téléversement de l'onglet Images
-  // Le code G d'avance (D96) : une liste par opération, préremplie (G99 au tour, G94 ailleurs), les quatre codes ; aucun avertissement.
-  const codes = main.querySelectorAll('.tables-edit--operations select.input-court');
-  assert.equal(codes.length, 19);
-  assert.equal(codes[0].id, 'op-0-code');
-  assert.deepEqual(codes[0].querySelectorAll('option').map((o) => o.getAttribute('value')), ['G94', 'G95', 'G98', 'G99']);
-  assert.deepEqual([codes[0].value, codes[18].value], ['G94', 'G99']);
-  assert.equal(main.querySelector('.avis-code-g').hidden, true);
 });
 
 test('administration — la page d’un exercice : le brouillon, Enregistrer, Publier, Aperçu du brouillon, Reprendre, Appliquer…, les crochets et la sélection des outils', async () => {
@@ -317,6 +306,14 @@ test('administration — la page d’un exercice : le brouillon, Enregistrer, Pu
   assert.deepEqual(evaluees, ['etat-vc', 'etat-n']); // le brouillon modifié, pas la version publiée
   assert.ok(main.querySelector('.token-buttons'));
   assert.ok(main.querySelectorAll('.outil-ligne input[type="checkbox"][aria-label]').length > 0);
+  // L'avance programmée (D97) : la liste de chaque copie (« Aucune » et les quatre codes), la pastille grise cachée pour
+  // « Aucune », et « Avance programmée de la sélection… » à côté de « Retirer la sélection ».
+  const codeSelect = main.querySelector('select#o0-code-avance');
+  assert.deepEqual(codeSelect.querySelectorAll('option').map((o) => [o.getAttribute('value'), o.textContent]), [['', 'Aucune'], ['G94', 'G94 · fraisage, par minute'], ['G95', 'G95 · fraisage, par tour'], ['G98', 'G98 · tour, par minute'], ['G99', 'G99 · tour, par tour']]);
+  assert.equal(codeSelect.value, '');
+  assert.equal(main.querySelector('.outil-ligne .badge-code-g').hidden, true);
+  assert.ok(present.includes('Avance programmée de la sélection…'));
+  assert.equal(main.querySelector('.selection-code-g').hidden, true);
   assert.equal(main.querySelectorAll('fieldset[disabled]').length, 0);
   assert.equal(main.querySelector('.panel--direct .eyebrow').textContent, 'Présentation — effet immédiat');
   assert.equal(main.querySelector('.panel--direct .badge-direct').textContent, 'En direct');

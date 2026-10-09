@@ -4,7 +4,7 @@
 // partagée avec la Gestion du contenu dans le navigateur.
 
 import { computeParameters } from '../site/js/calcul.js';
-import { inapplicableFields } from '../site/js/code-avance.js';
+import { inapplicableFields, stripFeedCodes } from '../site/js/code-avance.js';
 import { TOOL_KEYS } from '../site/js/data.js';
 import { adoptSpeedFactor, adoptSpeedFactors, forcedFactorLine } from '../site/js/facteur-vitesse.js';
 import { DRAFT_KEYS, draftErrors, fieldsToGrade, maskedFields } from '../site/js/exercice.js';
@@ -42,10 +42,11 @@ export function cleanDraft(received) {
   return Object.fromEntries(Object.entries(received).filter(([key]) => DRAFT_KEYS.includes(key) || key.startsWith('_')));
 }
 
-// Un brouillon de tables reçu : ses deux tables, sans rien d'autre ; null s'il est mal formé.
+// Un brouillon de tables reçu : ses deux tables, sans rien d'autre ; null s'il est mal formé. Un code G d'avance resté
+// sur une opération (D96, retiré par D97 : le code est celui de l'outil) est retiré à l'enregistrement, sans migration.
 export function cleanTables(received) {
   if (!isObject(received) || !isObject(received.materiaux) || !isObject(received.operations)) return null;
-  return { materiaux: received.materiaux, operations: received.operations };
+  return stripFeedCodes({ materiaux: received.materiaux, operations: received.operations });
 }
 
 export function cleanTool(received) {
@@ -81,9 +82,9 @@ export function previewQuestions(exercise, data, random, count = 10) {
   return Array.from({ length: count }, () => {
     const question = generateQuestion(data, tools, random);
     const displayed = formatParameters(computeParameters(question, data));
-    // La vitesse d'avance d'un outil en avance par tour (D96) n'est ni une réponse ni une valeur fournie : `sans_objet`
-    // la nomme, seulement pour une version dont les tables portent les codes.
-    const inapplicable = inapplicableFields(data.operationByName.get(question.tool.operation));
+    // La vitesse d'avance d'une copie en avance par tour (D96, D97) n'est ni une réponse ni une valeur fournie : `sans_objet`
+    // la nomme, pour cette copie seulement.
+    const inapplicable = inapplicableFields(data.outils.find((tool) => tool.id === question.tool.id));
     const applies = (field) => !inapplicable.includes(field);
     return {
       identifiant: question.displayId,

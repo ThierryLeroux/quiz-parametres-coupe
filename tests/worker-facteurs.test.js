@@ -74,8 +74,7 @@ async function commencer(serveur, id, matricule = '2412345') {
 test('le brouillon des tables se lit prérempli d’après la table papier ; rien n’est écrit tant qu’on n’enregistre pas ; « Annuler » n’a rien à annuler ; une valeur illisible est une erreur, et ne se publie pas', async () => {
   const serveur = await editeurDeTest();
   const page = await brouillonTables(serveur);
-  // Depuis D96, le brouillon se lit aussi prérempli des codes G d'avance (prefillFeedCodes) : ils sont retirés ici.
-  assert.deepEqual(page.brouillon.contenu.operations.operations.map(({ code_avance: _code, ...op }) => op), AVEC.operations.operations);
+  assert.deepEqual(page.brouillon.contenu.operations.operations, AVEC.operations.operations);
   assert.deepEqual([page.modifie, page.erreurs, page.brouillon.revision], [true, [], 1]);
   // En base, le brouillon semé n'a pas changé : le préremplissage se fait à la lecture.
   assert.equal(JSON.parse(serveur.db.sqlite.prepare('SELECT contenu FROM brouillon_tables').get().contenu).operations.operations.some((op) => 'facteur_vitesse' in op), false);
@@ -109,11 +108,7 @@ test('publier des tables qui portent les facteurs : la confirmation annonce le p
   assert.deepEqual([propose.banque.herites.length, propose.banque.forces.map((t) => t.id)], [27, FORCES]);
   assert.equal(propose.banque.forces[0].ligne, `Nine9 90 degrés (nine9_90_degres) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « ${PASSAGE_REASON} »`);
   const complet = propose.candidats.find((c) => c.id === 'test-complet');
-  // Depuis D96, le brouillon des tables porte aussi les codes G d'avance : l'impact les dit (« — → G99 »), puis la vitesse
-  // d'avance sans objet ; ces lignes sont regardées dans tests/worker-code-avance.test.js — ici, celles des facteurs.
-  const codeG = (line) => line.includes("code G d'avance") || line.startsWith("La vitesse d'avance");
-  assert.ok(complet.lignes.some(codeG));
-  assert.deepEqual(complet.lignes.filter((line) => !codeG(line)), [
+  assert.deepEqual(complet.lignes, [
     'Facteur de vitesse : ces tables le portent. 27 outils héritent de celui de leur opération, sans changement de valeur. 2 sont forcés, à vérifier.',
     `Nine9 90 degrés (nine9_90_degres) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « ${PASSAGE_REASON} »`,
     `Outil à chambrer (outil_a_chambrer) — facteur de vitesse forcé : × 1 au lieu de × 1/4 (Chanfreinage) — « ${PASSAGE_REASON} »`,
@@ -121,7 +116,7 @@ test('publier des tables qui portent les facteurs : la confirmation annonce le p
   ]);
   assert.deepEqual([complet.en_erreur, complet.erreurs, complet.brouillon.erreurs], [false, [], []]);
   const m10 = propose.candidats.find((c) => c.id === M10);
-  assert.equal(m10.lignes.find((line) => !codeG(line)), 'Facteur de vitesse : ces tables le portent. 9 outils héritent de celui de leur opération, sans changement de valeur.');
+  assert.equal(m10.lignes[0], 'Facteur de vitesse : ces tables le portent. 9 outils héritent de celui de leur opération, sans changement de valeur.');
   // Rien n'est encore écrit.
   assert.ok(banque(serveur).every((row) => row.outil.fact_vc !== undefined && row.revision === 1));
 

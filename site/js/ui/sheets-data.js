@@ -2,7 +2,6 @@
 // DOM, testées sous Node ; reference-screen.js ne fait que les mettre en page. Tout vient des
 // données : ajouter une opération à operations.json l'ajoute à la feuille des avances.
 
-import { carriesFeedCodes } from '../code-avance.js';
 import { TOOL_MATERIAL_KEYS } from '../data.js';
 import { factorText } from '../facteur-vitesse.js';
 import { CLASS_IMAGE_KEYS, isoClassOf } from '../tables.js';
@@ -125,18 +124,15 @@ function proportionalBox(operations) {
 // Retourne { rows, machines, directions, boxes, revision } :
 //   rows       : une opération par rang — { operation, picto, label, bar, proportional } ; bar = longueur
 //                de la barre, de 0 à 1, proportionnelle à l'avance (null pour un filetage : pas de barre) ;
-//                proportional = avance proportionnelle au Ø : le rang porte la bande grise du classeur ;
-//                code (D96) : le code G d'avance de l'opération — seulement pour des tables qui portent les codes,
-//                et alors la feuille a aussi `codes: true` (la colonne de la pastille) ; une version d'avant D96 donne
-//                exactement la feuille d'avant, clé pour clé
+//                proportional = avance proportionnelle au Ø : le rang porte la bande grise du classeur
 //   machines   : [{ key, start, span }] — la machine-outil, sur la hauteur de ses opérations
 //   directions : idem pour la direction d'avance (à l'intérieur d'une machine)
 //   boxes      : [{ start, span, lines }] — notes des suites d'opérations proportionnelles au Ø
 //   revision   : celle de la table des avances, pour le pied de la feuille (D28)
+// Le code G d'avance n'y est pas (D97) : il appartient à l'outil, pas aux tables.
 export function feedSheet(data) {
   const { operations } = data;
   const longest = Math.max(...operations.filter((operation) => !operation.avance_egale_pas_filetage).map((operation) => operation.avance_po_rev));
-  const codes = carriesFeedCodes(operations);
   return {
     rows: operations.map((operation) => ({
       operation: operation.operation,
@@ -144,9 +140,7 @@ export function feedSheet(data) {
       label: feedLabel(operation),
       bar: operation.avance_egale_pas_filetage ? null : operation.avance_po_rev / longest,
       proportional: operation.avance_proportionnelle_diametre,
-      ...(codes ? { code: operation.code_avance } : {}),
     })),
-    ...(codes ? { codes: true } : {}),
     machines: runs(operations, (operation) => operation.machine),
     directions: runs(operations, (operation) => `${operation.machine}|${operation.direction_avance}`).map((run) => ({ ...run, key: run.key.split('|')[1] })),
     boxes: runs(operations, (operation) => (operation.avance_proportionnelle_diametre ? 'proportionnelle' : `fixe-${operation.operation}`))

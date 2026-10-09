@@ -191,8 +191,7 @@ const text = (v) => (v === undefined || v === null || v === '' ? '—' : String(
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 const MATERIAL_FIELDS = [['iso', 'classe'], ['materiau', 'matériau'], ['composition', 'composition'], ['etat', 'état'], ['durete', 'dureté'], ['exemple', 'exemple'], ['debut_famille', 'début de famille']];
-// Le code G d'avance (D96) : « — → G99 » à la première publication qui le porte, « G99 → G98 » ensuite.
-const OPERATION_FIELDS = [['machine', 'machine-outil'], ['direction_avance', 'direction d\'avance'], ['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø'], ['facteur_vitesse', 'facteur de vitesse'], ['code_avance', "code G d'avance"]];
+const OPERATION_FIELDS = [['machine', 'machine-outil'], ['direction_avance', 'direction d\'avance'], ['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø'], ['facteur_vitesse', 'facteur de vitesse']];
 // Le facteur de vitesse s'écrit en fraction, comme sur la feuille (D83) : « — → 1/4 », « 1/4 → 1/8 ».
 const operationValue = (key, value, bool) => (key === 'facteur_vitesse' && Number.isFinite(value) ? factorText(value) : bool(value));
 

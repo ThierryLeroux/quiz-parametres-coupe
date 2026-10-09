@@ -2,7 +2,7 @@
 // Tout ce qui interprète le contenu brut des JSON (libellés, filetages,
 // conversions mm → po) vit ici ; le reste du moteur ne voit que des pouces.
 
-import { FEED_CODES, carriesFeedCodes, hasFeedCode, isFeedCode } from './code-avance.js';
+import { feedCodeErrors } from './code-avance.js';
 import { carriesSpeedFactors, hasSpeedFactor, speedFactorErrors } from './facteur-vitesse.js';
 import { CLASS_IMAGE_KEYS, LEGENDE_IMAGE_MAX, TOOL_MATERIAL_CLES, characteristicsErrors, completeTables, isColor, isoClassesOf, toolMaterialKeyMap, toolMaterialsOf } from './tables.js';
 
@@ -233,8 +233,6 @@ function validateOperations(ops, errors) {
     }
     // Le facteur de vitesse (D83) : N = Vc × 4 / Ø × facteur. Facultatif — une version d'avant D83 n'en a aucun.
     if (hasSpeedFactor(op) && !isPositive(op.facteur_vitesse)) errors.push(`${where} : « facteur_vitesse » doit être un nombre > 0 (1 : aucune réduction ; « 1/4 » s'écrit 0.25)`);
-    // Le code G d'avance (D96) : G94 ou G95 en fraisage, G98 ou G99 au tour. Facultatif — une version d'avant D96 n'en a aucun.
-    if (hasFeedCode(op) && !isFeedCode(op.code_avance)) errors.push(`${where} : « code_avance » doit être ${FEED_CODES.join(', ')} (G95 et G99 : avance par tour)`);
 
     if (op.avance_egale_pas_filetage === true) {
       // Filetage : l'avance est le pas, tiré de la dimension de l'outil.
@@ -253,12 +251,6 @@ function validateOperations(ops, errors) {
   if (without.length > 0 && without.length < ops.filter(isObject).length) {
     errors.push(`operations.json : « facteur_vitesse » manque pour ${without.map((op) => `« ${op.operation} »`).join(', ')} — il se donne pour toutes les opérations, ou pour aucune`);
   }
-  // De même pour le code G d'avance (D96) : la pastille, « sans objet » et la ligne de programme n'existent que pour des
-  // tables qui le portent pour toutes leurs opérations.
-  const withoutCode = ops.filter((op) => isObject(op) && !hasFeedCode(op));
-  if (withoutCode.length > 0 && withoutCode.length < ops.filter(isObject).length) {
-    errors.push(`operations.json : « code_avance » manque pour ${withoutCode.map((op) => `« ${op.operation} »`).join(', ')} — il se donne pour toutes les opérations, ou pour aucune`);
-  }
 }
 
 function validateTools(tools, ops, groups, toolMaterials, errors) {
@@ -276,9 +268,10 @@ function validateTools(tools, ops, groups, toolMaterials, errors) {
 // « colonne_excel » est la provenance (classeur) ; « limite_avance » est obsolète (D69, SPEC §3) : gardée dans
 // les données, ni lue par le moteur ni montrée par la Gestion du contenu. « fact_vc » est le facteur de vitesse PROPRE à
 // l'outil, et « fact_vc_raison » la raison de le forcer (D83) : avec des tables qui portent les facteurs, un outil
-// sans « fact_vc » hérite de celui de son opération (facteur-vitesse.js).
+// sans « fact_vc » hérite de celui de son opération (facteur-vitesse.js). « code_avance » est le code G d'avance de
+// l'outil (D97 : G94, G95, G98, G99, ou absent — aucune avance programmée, l'outil d'avant D96 ; code-avance.js).
 export const TOOL_KEYS = [
-  'id', 'colonne_excel', 'nom', 'format_identifiant', 'commentaire', 'operation', 'fact_vc', 'fact_vc_raison', 'fact_av', 'limite_rpm', 'limite_avance',
+  'id', 'colonne_excel', 'nom', 'format_identifiant', 'commentaire', 'operation', 'fact_vc', 'fact_vc_raison', 'fact_av', 'code_avance', 'limite_rpm', 'limite_avance',
   'nb_dents_min', 'nb_dents_max', 'materiaux_outil', 'groupes_materiaux_usinables', 'image', 'dimensions', 'dimensions_barre', 'rapport_barre_max',
 ];
 
@@ -302,6 +295,8 @@ export function toolErrors(tool, opsByName, groups, toolMaterialsOfTables = Obje
   // (absent : l'outil hérite de son opération), et forcé avec sa raison.
   const op = opsByName.get(tool.operation);
   for (const { champ, message } of speedFactorErrors(tool, op)) error(champ, message);
+  // Le code G d'avance de l'outil (D97) : l'un des quatre, ou absent.
+  for (const { champ, message } of feedCodeErrors(tool)) error(champ, message);
   for (const key of ['fact_av', 'limite_rpm']) {
     if (!isPositive(tool[key])) error(key, `« ${key} » doit être un nombre > 0`);
   }
@@ -453,8 +448,7 @@ export function assembleTables(tables) {
 
 // Les index communs : opérations par nom, matériaux par groupe, révisions, et (D61) les classes ISO
 // avec leurs couleurs, les matières d'outil avec les leurs, et le passage du nom d'une matière à sa clé ;
-// hasSpeedFactors (D83) : ces tables portent les facteurs de vitesse — la feuille des facteurs existe ;
-// hasFeedCodes (D96) : ces tables portent les codes G d'avance — la pastille, la colonne de la feuille des avances.
+// hasSpeedFactors (D83) : ces tables portent les facteurs de vitesse — la feuille des facteurs existe.
 function indexTables(tables) {
   const { materiaux, operations } = completeTables(tables);
   const operationByName = new Map(operations.operations.map((op) => [op.operation, op]));
@@ -470,6 +464,5 @@ function indexTables(tables) {
     toolMaterials: materiaux.materiaux_outil,
     toolMaterialKeys: toolMaterialKeyMap(materiaux),
     hasSpeedFactors: carriesSpeedFactors(operations.operations),
-    hasFeedCodes: carriesFeedCodes(operations.operations),
   };
 }

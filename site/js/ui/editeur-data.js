@@ -5,7 +5,7 @@
 // editeur.js ne fait que les mettre à l'écran.
 
 import { TEMPLATE_TOKENS, TOOL_KEYS, TOOL_MATERIAL_KEYS, fittingBars, parseThread, templateTokens } from '../data.js';
-import { NOT_APPLICABLE, feedRateApplies } from '../code-avance.js';
+import { NOT_APPLICABLE, ownFeedCodeLabel } from '../code-avance.js';
 import { carriesSpeedFactors, factorText, forcedFactorLine, ownFactorLabel, speedFactorState } from '../facteur-vitesse.js';
 import { DEFAULT_ISO_CLASSES, DEFAULT_TOOL_MATERIALS, isoClassesOf, toolMaterialsOf } from '../tables.js';
 import { COPY_KEYS, GRADED_FIELD_KEYS, courseKey, sameTitleExercises, titleKey } from '../exercice.js';
@@ -206,11 +206,17 @@ function settingsDiff(before, after) {
 // Les champs d'une copie comparés (sans « origine », ni la photo et la note, de la présentation en direct : D78) :
 // dimensions et listes en texte. Le facteur de vitesse et sa raison (D83) se disent ensemble, en clair : « × 1/4 »,
 // « hérité de l'opération », « forcé × 1 (raison) ».
+// L'avance programmée (D97) se dit en clair aussi : « Foret fractionnaire (foret_fractionnaire) — avance programmée :
+// « aucune » → « G99 » ».
 const NOT_COMPARED = ['origine', 'fact_vc_raison', ...COPY_PRESENTATION_FIELDS];
 const sameFactor = (before, after) => same(before?.fact_vc, after?.fact_vc) && same(before?.fact_vc_raison, after?.fact_vc_raison);
 function copyDiff(before, after) {
   return COPY_KEYS.filter((key) => !NOT_COMPARED.includes(key) && (key === 'fact_vc' ? !sameFactor(before, after) : !same(before[key], after[key])))
-    .map((champ) => (champ === 'fact_vc' ? { champ, avant: ownFactorLabel(before), apres: ownFactorLabel(after) } : { champ, avant: text(before[champ]), apres: text(after[champ]) }));
+    .map((champ) => {
+      if (champ === 'fact_vc') return { champ, avant: ownFactorLabel(before), apres: ownFactorLabel(after) };
+      if (champ === 'code_avance') return { champ: 'avance programmée', avant: ownFeedCodeLabel(before), apres: ownFeedCodeLabel(after) };
+      return { champ, avant: text(before[champ]), apres: text(after[champ]) };
+    });
 }
 
 // Les différences entre la dernière version publiée et le brouillon : ce que la confirmation résume. Sans les champs de
@@ -330,28 +336,12 @@ export function exerciseTablesImpact(draft, before, after, draftErrorsOf) {
     const old = opsA.get(name);
     const now = opsB.get(name);
     if (!old || !now) continue; // absente : c'est une erreur, déjà dite
-    for (const [field, label] of [['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø'], ['code_avance', "code G d'avance"]]) {
+    for (const [field, label] of [['avance_po_rev', 'avance (po/rév)'], ['avance_max_po_rev', 'avance max (po/rév)'], ['avance_egale_pas_filetage', 'filetage'], ['avance_proportionnelle_diametre', 'proportionnelle au Ø']]) {
       if (JSON.stringify(old[field] ?? null) !== JSON.stringify(now[field] ?? null)) lignes.push(`Opération « ${name} » — ${label} : ${text(old[field])} → ${text(now[field])}`);
     }
   }
   lignes.push(...speedFactorImpact(draft, a.operations.operations, b.operations.operations));
-  lignes.push(...feedRateImpact(tools, opsA, opsB));
   return { erreurs, lignes };
-}
-
-// Ce qu'un changement de tables change à la vitesse d'avance des outils d'un exercice (D96) : les outils pour qui elle
-// devient sans objet (leur opération passe en avance par tour, G95 ou G99), et ceux pour qui elle est de nouveau
-// demandée. Rien quand aucune ne change ; une opération absente est une erreur, déjà dite.
-//   tools : les copies de l'exercice ; before, after : Map nom d'opération → opération, pour les deux versions
-export function feedRateImpact(tools, before, after) {
-  const named = (list) => list.map((tool) => `${tool.nom} (${tool.id})`).join(', ');
-  const known = tools.filter((tool) => before.has(tool.operation) && after.has(tool.operation));
-  const becomes = known.filter((tool) => feedRateApplies(before.get(tool.operation)) && !feedRateApplies(after.get(tool.operation)));
-  const returns = known.filter((tool) => !feedRateApplies(before.get(tool.operation)) && feedRateApplies(after.get(tool.operation)));
-  return [
-    ...(becomes.length === 0 ? [] : [`La vitesse d'avance devient sans objet pour ${named(becomes)} : avance par tour (G95 ou G99). Elle n'est ni demandée ni corrigée.`]),
-    ...(returns.length === 0 ? [] : [`La vitesse d'avance est de nouveau demandée pour ${named(returns)} : avance par minute (G94 ou G98).`]),
-  ];
 }
 
 // Ce qu'un changement de tables change au facteur de vitesse des outils d'un exercice (D83, points 5 et 6), en lignes :
@@ -470,7 +460,7 @@ export const twinTitlesWarning = (twins) => (twins.length === 0 ? null
 // Les champs d'un outil, en clair.
 const TOOL_FIELD_LABELS = {
   colonne_excel: 'Colonne du classeur', nom: 'Nom', format_identifiant: 'Gabarit de nomenclature', commentaire: 'Note', operation: 'Opération',
-  fact_vc: 'Facteur de vitesse', fact_av: "Facteur d'avance", limite_rpm: 'Vitesse de rotation max', limite_avance: "Limite d'avance (obsolète)",
+  fact_vc: 'Facteur de vitesse', fact_av: "Facteur d'avance", code_avance: 'Avance programmée', limite_rpm: 'Vitesse de rotation max', limite_avance: "Limite d'avance (obsolète)",
   nb_dents_min: 'Dents, minimum', nb_dents_max: 'Dents, maximum', materiaux_outil: "Matières d'outil", groupes_materiaux_usinables: 'Groupes usinables',
   image: 'Photo', dimensions: 'Dimensions', dimensions_barre: 'Barres', rapport_barre_max: 'Rapport Ø barre / Ø usiné max',
 };
@@ -517,7 +507,8 @@ export function bankToolDiff(before, after) {
     }
     if (key === 'id' || same(before?.[key], after?.[key])) continue;
     const label = TOOL_FIELD_LABELS[key] ?? key;
-    if (key === 'dimensions' || key === 'dimensions_barre') lines.push(...dimensionsDiff(label, before?.[key], after?.[key]));
+    if (key === 'code_avance') lines.push(`${label} : « ${ownFeedCodeLabel(before)} » → « ${ownFeedCodeLabel(after)} »`); // D97 : « aucune », ou le code
+    else if (key === 'dimensions' || key === 'dimensions_barre') lines.push(...dimensionsDiff(label, before?.[key], after?.[key]));
     else if (Array.isArray(before?.[key]) || Array.isArray(after?.[key])) lines.push(...namesDiff(label, before?.[key], after?.[key]));
     else lines.push(`${label} : ${quoted(before?.[key])} → ${quoted(after?.[key])}`);
   }

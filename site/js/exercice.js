@@ -3,7 +3,7 @@
 // évalués, leurs réussites requises, les champs évalués et d'éventuelles restrictions.
 // La même validation sert aux tests, au quiz et à la Gestion du contenu.
 
-import { inapplicableGradedError } from './code-avance.js';
+import { feedCodeErrors, inapplicableGradedError } from './code-avance.js';
 import { TOOL_KEYS, fetchJson, toolErrors, toolMaterialNames } from './data.js';
 
 // Champ évalué tel qu'écrit dans l'exercice → nom du champ dans le moteur
@@ -18,7 +18,9 @@ export const GRADED_FIELD_KEYS = {
 
 const EXERCISE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/; // minuscules, chiffres et tirets : c'est aussi le nom du fichier
 const EXERCISE_KEYS = ['id', 'titre', 'cours', 'version', 'champs_evalues', 'champs_masques', 'facteur_vitesse_donne', 'outils', 'liste', 'materiaux_outil', 'groupes'];
-const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes'];
+// ❓ D97, point 5 (proposé) : « code_avance » est accepté sur une entrée du format fichier — le code G d'avance de la copie,
+// à la place de celui de l'outil de la banque —, pour les tests ; absent, la copie prend celui de la banque.
+const TOOL_ENTRY_KEYS = ['id', 'reussites_requises', 'dimensions', 'materiaux_outil', 'groupes', 'code_avance'];
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
@@ -165,6 +167,7 @@ export function validateExercise(exercise, data) {
 
     const tool = data.outils.find((o) => o.id === entry.id);
     if (!tool) return errors.push(`${whereTool} : cet outil n'existe pas dans le catalogue (outils.json)`);
+    for (const { message } of feedCodeErrors(entry)) errors.push(`${whereTool} : ${message}`);
     checkRestriction(entry.dimensions, 'dimensions', tool.dimensions.map((d) => d.libelle), whereTool, errors);
     checkRestriction(entry.materiaux_outil, 'materiaux_outil', tool.materiaux_outil, whereTool, errors);
     checkRestriction(entry.groupes, 'groupes', tool.groupes_materiaux_usinables, whereTool, errors);
@@ -176,9 +179,13 @@ export function validateExercise(exercise, data) {
       errors.push(`${whereTool} : plus aucun groupe de matériaux permis — l'outil usine ${tool.groupes_materiaux_usinables.join(', ')} ; l'exercice permet ${exercise.groupes.join(', ')}`);
     }
   });
-  // Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils (D96) : Vf seule, avec un outil en avance par tour.
-  const tools = entries.filter(isObject).map((entry) => data.outils.find((o) => o.id === entry.id)).filter(Boolean);
-  const inapplicable = inapplicableGradedError(fields, tools, data.operationByName);
+  // Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils (D96, D97) : Vf seule, avec un outil en avance
+  // par tour — le code de l'entrée, sinon celui de l'outil du catalogue (copyOfTool fait de même).
+  const tools = entries.filter(isObject).map((entry) => {
+    const tool = data.outils.find((o) => o.id === entry.id);
+    return tool && (entry.code_avance !== undefined ? { ...tool, code_avance: entry.code_avance } : tool);
+  }).filter(Boolean);
+  const inapplicable = inapplicableGradedError(fields, tools);
   if (inapplicable !== null) errors.push(`${where} : ${inapplicable}`);
 
   return errors;
@@ -212,6 +219,7 @@ export function copyOfTool(tool, entry = {}) {
   copy.dimensions = keep(copy.dimensions, entry.dimensions, (d) => d.libelle);
   copy.materiaux_outil = keep(copy.materiaux_outil, entry.materiaux_outil);
   copy.groupes_materiaux_usinables = keep(copy.groupes_materiaux_usinables, entry.groupes);
+  if (entry.code_avance !== undefined) copy.code_avance = entry.code_avance; // le code G d'avance de la copie (D97), sinon celui de la source
   copy.reussites_requises = entry.reussites_requises ?? 1;
   copy.origine = tool.origine ?? tool.id;
   return copy;
@@ -307,8 +315,8 @@ export function draftErrors(draft, tables) {
       error(at('groupes_materiaux_usinables'), `plus aucun groupe de matériaux permis — l'outil usine ${tool.groupes_materiaux_usinables.join(', ')} ; l'exercice permet ${draft.groupes.join(', ')}`);
     }
   });
-  // Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils (D96) : Vf seule, avec un outil en avance par tour.
-  const inapplicable = inapplicableGradedError(fields, copies.filter(isObject), opsByName);
+  // Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils (D96, D97) : Vf seule, avec une copie en avance par tour.
+  const inapplicable = inapplicableGradedError(fields, copies.filter(isObject));
   if (inapplicable !== null) error('champs_evalues', inapplicable);
   return errors;
 }
