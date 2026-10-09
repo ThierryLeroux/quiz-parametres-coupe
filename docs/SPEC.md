@@ -220,34 +220,35 @@ Vc vient de la table des vitesses.
 - **En fraction** (`factorText`) : « 1 », « 1/4 », « 1/8 » ; en décimal seulement hors de la forme 1/n (« 0.75 »). Une
   case de facteur de la Gestion du contenu lit « 1/4 » comme « 0.25 » (`parseFactor`, par l'évaluateur de D82).
 
-**Code G d'avance (décision D96).** Au tour, l'avance se programme en po/tour ; une vitesse d'avance en po/min n'y a
-pas de sens. **Le code G d'avance appartient à l'opération**, sur le modèle du facteur de vitesse, et dit si l'avance
-est par tour ou par minute.
+**Code G d'avance (décisions D96, D97).** Au tour, l'avance se programme en po/tour ; une vitesse d'avance en po/min
+n'y a pas de sens. **Le code G d'avance appartient à l'outil** — à l'outil de la banque, qui donne la valeur de départ,
+puis à chaque copie d'un exercice, qui se règle seule (D97) : c'est la copie qui sait sur quelle machine l'outil
+travaille (le même foret est au tour au M10, à la perceuse au M30). **Les tables de référence n'en portent aucun**, et
+aucune règle n'est déduite de la machine ni de l'opération.
 
 | Clé | Où | Contenu |
 |---|---|---|
-| `code_avance` | chaque opération des tables | `G94`, `G95`, `G98` ou `G99` — **G95 et G99 : avance par tour ; G94 et G98 : avance par minute** ; G98/G99 au tour, c'est le système de codes G « A » de Fanuc, G94/G95 en fraisage. **Versionné**, comme les avances : il touche la correction. Donné pour **toutes** les opérations d'une version, ou pour **aucune** (la validation refuse l'entre-deux, et toute autre valeur) |
+| `code_avance` | un outil (banque, copie), comme `fact_vc` | **facultatif** : `G94`, `G95`, `G98` ou `G99`, ou absent (= aucune avance programmée, l'outil d'avant D96) — **G95 et G99 : avance par tour ; G94 et G98 : avance par minute** ; G98/G99 au tour, c'est le système de codes G « A » de Fanuc, G94/G95 en fraisage. Toute autre valeur est une erreur nommée (`feedCodeErrors`, dans `toolErrors`). **Versionné** avec l'exercice : il touche la correction. Pas de raison à saisir (contrairement à `fact_vc_raison`) |
 
-- **Des tables « portent les codes »** quand chacune de leurs opérations a `code_avance`. Une version d'avant D96
-  **n'en reçoit pas à la lecture** : ses exercices se corrigent et s'affichent exactement comme avant — Vf demandée
-  partout, aucun code G affiché nulle part.
-- **La vitesse d'avance d'un outil dont l'opération est en G95 ou G99 est « sans objet »** (`feedRateApplies`,
-  `inapplicableFields`, `site/js/code-avance.js`) : ni demandée, ni corrigée (§6), jamais envoyée (§7), « s.o. » sur
-  l'attestation (§8) — **quel que soit l'état que l'exercice lui donne** (évaluée, fournie, masquée : D52) : c'est une
-  propriété de l'opération, pas un réglage.
+- **Une copie ajoutée à un exercice** (depuis la banque, depuis un autre exercice, dupliquée) **prend le code de sa
+  source** (`copyOfTool`) ; ensuite elle se règle seule. Un outil ou une copie **sans code se comporte exactement comme
+  avant D96** : Vf selon l'état que l'exercice lui donne, pas de pastille, pas de mot F, pas de ligne de programme —
+  quelle que soit la version des tables.
+- **La vitesse d'avance d'un outil en G95 ou G99 est « sans objet »** (`feedRateApplies`, `inapplicableFields`,
+  `site/js/code-avance.js`) : ni demandée, ni corrigée (§6), jamais envoyée (§7), « s.o. » sur l'attestation (§8) —
+  **quel que soit l'état que l'exercice lui donne** (évaluée, fournie, masquée : D52) : c'est une propriété de l'outil
+  dans cet exercice, pas un réglage de l'exercice.
 - **Le mot F** (`fWordField`) : la grandeur qu'on programme après F est **f en G95/G99, Vf en G94/G98**.
-- **Le brouillon des tables se lit prérempli** (`prefillFeedCodes`) : une opération **sans** la clé y reçoit **G99 si sa
-  machine est « Tour », G94 sinon**. Jamais une version publiée. Thierry révise dans la Gestion du contenu avant de
-  publier.
-- **Aucune règle bloquante n'est déduite du nom de la machine** (un texte libre). Un **avertissement**, non bloquant
-  (`feedCodeWarnings`), signale un G98/G99 sur une opération dont la machine n'est pas « Tour », ou un G94/G95 sur une
-  opération du tour.
 - **Un exercice dont aucune grandeur évaluée ne s'applique à un de ses outils est invalide** (§10,
-  `inapplicableGradedError`) : `champs_evalues` réduit à `vf`, avec un outil en G95/G99 ; le message nomme les outils.
+  `inapplicableGradedError`) : `champs_evalues` réduit à `vf`, avec une copie en G95/G99 ; le message nomme les outils.
 - **La ligne de programme** (`programLines`, §7) recompose, au corrigé seulement, « G97 S<N> M03 » puis
-  « <code> G01 <coordonnée> F<f ou Vf> » à partir des valeurs théoriques mises en forme (§5) ; la coordonnée vient de
-  la direction d'avance de l'opération (`programCoordinate` : longitudinale et axiale « Z… », transversale « X… »,
-  latérale « X… Y… » ; inconnue : aucune) ; une grandeur masquée s'y écrit « — ».
+  « <code> G01 <coordonnée> F<f ou Vf> » à partir des valeurs théoriques mises en forme (§5) ; la coordonnée reste
+  déduite de la **direction d'avance de l'opération** (`programCoordinate` : longitudinale et axiale « Z… »,
+  transversale « X… », latérale « X… Y… » ; inconnue : aucune) — une lecture des tables, pas une donnée ajoutée ; une
+  grandeur masquée s'y écrit « — ».
+- **Un code resté dans le brouillon des tables** (enregistré sous D96, qui préremplissait les opérations) est **ignoré
+  à la lecture et retiré au prochain enregistrement** (`stripFeedCodes`), sans migration : le brouillon se lit identique
+  à sa version de départ s'il n'a pas d'autre modification. Aucune version publiée n'en porte.
 
 ## 4. Génération d'une question
 
@@ -299,10 +300,10 @@ deux diamètres (décision D25) : pour la barre à aléser, **N se calcule avec 
 usiné et l'avance avec le Ø de la barre** (alésage : 0,006 × Ø barre, plafonnée
 à 0,006 po/tour ; rainurage interne : 0,003 × Ø barre, plafonnée à 0,003).
 
-**Vf se calcule toujours** (N × f), mais pour un outil dont l'opération est en avance par tour (`code_avance` G95 ou
-G99, décision D96, §3) elle est **sans objet** : ni demandée, ni corrigée, jamais envoyée au navigateur. Au tour, une
-plaquette n'a qu'une arête : f = fz à une dent (D96, point 4 : acceptable, on n'y touche pas). Le nombre qu'on
-programme après le mot F est f en G95/G99, Vf en G94/G98.
+**Vf se calcule toujours** (N × f), mais pour une copie dont l'avance programmée est par tour (`code_avance` G95 ou
+G99 sur la copie, décisions D96 et D97, §3) elle est **sans objet** : ni demandée, ni corrigée, jamais envoyée au
+navigateur. Au tour, une plaquette n'a qu'une arête : f = fz à une dent (D96, point 4 : acceptable, on n'y touche
+pas). Le nombre qu'on programme après le mot F est f en G95/G99, Vf en G94/G98.
 
 **Même chaîne pour toutes les opérations (décision D69)** : tournage, perçage
 (au tour comme à la perceuse) et fraisage. Le pas d'un filet métrique est
@@ -423,11 +424,11 @@ Précisions :
     taraud M10 x 1.50 (N = 1000, f = 0,05906 affiché) : Vf calculée avec le pas
     exact (59,055) ou avec le pas arrondi (59,06) est acceptée ; décalée de 0,1 %
     (59,119), refusée.
-- **Vitesse d'avance sans objet (décision D96)** : pour un outil dont l'opération est en avance par tour (G95, G99,
-  §3), **Vf n'est pas corrigée** — elle compte comme juste, comme une grandeur fournie, quoi que le navigateur envoie,
-  et le contrôle de cohérence ci-dessus ne s'applique pas (`gradeQuestion` la retire des champs à corriger et marque son
-  résultat `notApplicable` quand l'exercice l'évaluait). Les quatre autres grandeurs se corrigent comme avant. Une
-  version de tables d'avant D96 corrige Vf partout, comme avant.
+- **Vitesse d'avance sans objet (décisions D96, D97)** : pour une copie dont l'avance programmée est par tour (G95,
+  G99, §3), **Vf n'est pas corrigée** — elle compte comme juste, comme une grandeur fournie, quoi que le navigateur
+  envoie, et le contrôle de cohérence ci-dessus ne s'applique pas (`gradeQuestion` la retire des champs à corriger et
+  marque son résultat `notApplicable` quand l'exercice l'évaluait). Les quatre autres grandeurs se corrigent comme
+  avant. Une copie sans code corrige Vf comme avant, quelle que soit la version des tables.
 - Saisie : le point et la virgule sont acceptés comme séparateur décimal
   (D10 ; le navigateur remplace la virgule par un point à la sortie du champ, D71,
   mais le serveur lit les deux) ; un champ vide ou illisible est une mauvaise réponse.
@@ -768,11 +769,11 @@ mauvaise réponse.
 Un champ non évalué arrive avec sa valeur théorique mise en forme (§5, §10) —
 sauf un champ **masqué** (D52, `masque: true`) : `texte` vide, et sa valeur ne
 figure nulle part, ni dans la question, ni dans la correction (`attendu` nul,
-« — » dans les calculs) — et sauf la vitesse d'avance d'un outil dont l'opération est en avance par tour (D96,
+« — » dans les calculs) — et sauf la vitesse d'avance d'une copie dont l'avance programmée est par tour (D96, D97,
 `sans_objet: true`, ni évaluée, ni fournie, ni masquée : « sans objet » à l'écran), dont la valeur ne part jamais, même
-en mode test (`reponses_test` ne la porte pas). `outil.code_avance` (« G99 ») n'existe que pour une version dont les
-tables portent les codes G d'avance (§3) ; il est toujours envoyé : il ne donne aucune réponse. Une version d'avant
-D96 rend la question d'avant, clé pour clé.
+en mode test (`reponses_test` ne la porte pas). `outil.code_avance` (« G99 ») n'existe que pour une copie qui a un
+code (§3) ; il est alors toujours envoyé : il ne donne aucune réponse. Une copie sans code rend la question d'avant,
+clé pour clé.
 `attendre_s` : secondes avant que la prochaine correction soit acceptée
 (cadence ; 0 en mode test) — le navigateur en fait un **compte à rebours** sur le
 bouton Vérifier (« Vérifier dans 7 s »), à la place d'un message ; un refus 429
@@ -800,12 +801,13 @@ qu'avec la correction, une fois la réponse donnée. Toute nouvelle donnée ajou
 
 `correction` : `{ reussie, outil: { id, nom, avant, apres }, champs: [ { champ,
 evalue, ok, saisie, expression, attendu, tolerance, ecart_pct, calcul, coherence } ], programme }`, montrée après
-la correction (`UI.md` §3.4) ; `avant` et `apres` sont le compteur de l'outil. La vitesse d'avance d'un outil en
-avance par tour (D96) sort `{ evalue: false, sans_objet: true, ok: true, attendu: null, … }` ; `programme` n'existe que
-pour une version dont les tables portent les codes G d'avance : la **ligne de programme** (§3, `programLines`) —
+la correction (`UI.md` §3.4) ; `avant` et `apres` sont le compteur de l'outil. La vitesse d'avance d'une copie en
+avance par tour (D96, D97) sort `{ evalue: false, sans_objet: true, ok: true, attendu: null, … }` ; `programme` n'existe
+que pour une copie qui a un code : la **ligne de programme** (§3, `programLines`) —
 `{ code, lignes: [[{ texte, role }], [{ texte, role }]], note }`, deux lignes en morceaux (`role` : `coordonnee`, en
-gris atténué ; `mot_f`, en doré ; sans rôle sinon) recomposées des valeurs théoriques mises en forme, les grandeurs
-masquées écrites « — », et la note (« S = N. F = f, en po/tour. » ou « S = N. F = Vf, en po/min. »).
+gris atténué ; `mot_f`, en doré ; sans rôle sinon) recomposées des valeurs théoriques mises en forme, la coordonnée
+d'après la direction d'avance de l'opération, les grandeurs masquées écrites « — », et la note (« S = N. F = f, en
+po/tour. » ou « S = N. F = Vf, en po/min. »).
 Pour chaque champ :
 
 - `saisie` : le texte reçu, tel quel (un nombre ou une expression) ;
@@ -1011,9 +1013,9 @@ par une correction, ou constatée à la demande de question quand l'exercice a
   **normalisées** : le nombre lu, écrit au format d'affichage de la grandeur, §5 — « 400,0 » →
   « 400 », « 1 600 » → « 1600 » ; d'une expression, son nombre seul, jamais son texte (D82) :
   « 400*4/0.75 » → « 2133 » ; et, depuis D96, **« s.o. »** pour la vitesse d'avance qu'un exercice évaluait mais qui
-  était sans objet pour cet outil — une opération en avance par tour, §3 —, si bien que la page montre « s.o. » dans
-  la colonne Vf sans rien relire), `horodatage`. Une attestation figée avant cette liste n'en a
-  pas, et reste valide telle quelle ; une attestation émise sur une version d'avant D96 ne change pas ;
+  était sans objet pour cette copie — son avance programmée par tour, §3, D97 —, si bien que la page montre « s.o. »
+  dans la colonne Vf sans rien relire), `horodatage`. Une attestation figée avant cette liste n'en a
+  pas, et reste valide telle quelle ; une attestation émise pour des copies sans code ne change pas ;
 - une correction d'identité postérieure **annule et réémet** l'attestation
   (D37, ci-dessous) : les résultats, les dates et la liste sont repris tels quels.
 
@@ -1282,7 +1284,7 @@ second ; `engineExercise` rend le second au moteur.
 | `titre` | oui | texte affiché à l'étudiant et au rapport ; il identifie l'exercice pour les étudiants : deux exercices publiés et non archivés ne portent pas le même titre (D74 : la publication est refusée ; le brouillon reste libre) |
 | `cours` | non | le cours (« M10 ») : texte de 1 à 30 caractères, avec au moins une lettre ou un chiffre (D71). L'accueil regroupe les exercices par cours, par la clé `courseKey` (sans casse, accents, espaces ni ponctuation : « m10 » et « M-10 » sont « M10 ») ; absent = « Autres exercices » |
 | `version` | oui | texte (ex. « r0 ») ; inscrit au rapport (§8) |
-| `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon ; **`vf` seule est refusée si un outil de l'exercice est en avance par tour** (D96, §3 : son opération en G95 ou G99 avec des tables qui portent les codes) — le message nomme les outils en cause |
+| `champs_evalues` | oui | au moins un parmi `vc`, `fz`, `n`, `f`, `vf`, sans doublon ; **`vf` seule est refusée si un outil de l'exercice est en avance par tour** (D96, D97, §3 : son `code_avance` G95 ou G99 — celui de l'entrée, sinon celui de l'outil du catalogue) — le message nomme les outils en cause |
 | `champs_masques` | non | grandeurs **masquées** (D52) : « — » à l'écran, sans valeur, jamais envoyée au navigateur ; liste non vide, sans doublon, disjointe de `champs_evalues`. Absente = aucune |
 | `facteur_vitesse_donne` | non | `true` : la question **donne le facteur de vitesse** à l'étudiant (« Vitesse réduite × 1/4 », exercices pour débutants) ; absent ou `false` : il le trouve dans la feuille des facteurs, comme la Vc (D83). Versionné avec l'exercice. **Sans effet** avec des tables qui ne portent pas les facteurs : le facteur de l'outil s'affiche alors comme avant. Un facteur **forcé** est toujours affiché, avec sa raison |
 | `outils` | oui | au moins un ; chaque `id` une seule fois |
@@ -1293,6 +1295,7 @@ second ; `engineExercise` rend le second au moteur.
 | `outils[].dimensions` | non | restreint le tirage à ces **libellés** de dimension ; chacun doit exister sur l'outil |
 | `outils[].materiaux_outil` | non | restreint le tirage du matériau d'outil (ex. « Acier rapide » seulement) ; chacun doit figurer dans les `materiaux_outil` de l'outil |
 | `outils[].groupes` | non | restreint le tirage du matériau brut à ces groupes ; chacun doit être usinable par l'outil |
+| `outils[].code_avance` | non | le code G d'avance de la copie (D97, §3 : `G94`, `G95`, `G98` ou `G99`), à la place de celui de l'outil du catalogue ; absent, la copie prend celui de l'outil. **Accepté pour les tests** (❓ D97, point 5 : proposé) |
 
 Précisions :
 
@@ -1305,12 +1308,12 @@ Précisions :
   de cohérence de Vf (§6). Correspondance avec le moteur :
   `vc` → `vc`, `fz` → `feedPerTooth`, `n` → `rpm`, `f` → `feedPerRev`,
   `vf` → `feedRate`.
-- **Vitesse d'avance sans objet (D96).** Pour un outil dont l'opération est en avance par tour (G95, G99 ; §3), Vf
-  n'a aucun des trois états : elle est **sans objet**, quel que soit le réglage de l'exercice — « sans objet » à
-  l'écran, ni demandée, ni corrigée, jamais envoyée, « s.o. » sur l'attestation quand l'exercice l'évalue. Ce n'est
-  pas un réglage : c'est une propriété de l'opération dans les tables de la version. Un exercice dont la seule
-  grandeur évaluée est `vf` et qui a un tel outil est **invalide** (`draftErrors`, `validateExercise`), et la cascade
-  d'une publication des tables le nomme et le laisse tel quel (D77).
+- **Vitesse d'avance sans objet (D96, D97).** Pour une copie dont l'avance programmée est par tour (`code_avance`
+  G95 ou G99 ; §3), Vf n'a aucun des trois états : elle est **sans objet**, quel que soit le réglage de l'exercice —
+  « sans objet » à l'écran, ni demandée, ni corrigée, jamais envoyée, « s.o. » sur l'attestation quand l'exercice
+  l'évalue. Ce n'est pas un réglage de l'exercice : c'est une propriété de la copie, que l'enseignant règle outil par
+  outil. Un exercice dont la seule grandeur évaluée est `vf` et qui a une telle copie est **invalide**
+  (`draftErrors`, `validateExercise`).
 - **Restrictions absentes = aucune restriction** : toutes les dimensions, tous
   les matériaux d'outil, tous les groupes usinables de l'outil. Une liste de
   restriction vide, ou avec un doublon, est une erreur. C'est par `dimensions`
@@ -1382,7 +1385,12 @@ immuables. Brouillon et version ont la même forme :
   d'`outils.json`, `TOOL_KEYS`), plus `reussites_requises` (entier ≥ 1) et
   `origine` (l'id de l'outil de la banque dont elle vient, à titre d'information).
   Avec des tables qui portent les facteurs de vitesse (D83, §3), la copie n'a pas de `fact_vc` — elle hérite de son
-  opération —, ou le porte avec `fact_vc_raison` : elle est forcée.
+  opération —, ou le porte avec `fact_vc_raison` : elle est forcée. Depuis D97, elle porte, facultatif, son
+  `code_avance` (§3) : **l'avance programmée** de cet outil dans cet exercice — la valeur de départ vient de l'outil de
+  la banque (ou de la copie d'où elle est prise), puis la copie se règle seule, dans son formulaire ou par « Avance
+  programmée de la sélection… » ; « Aucune » retire la clé. Il est **versionné** avec l'exercice, dit dans les
+  différences d'une publication (« Foret fractionnaire (foret_fractionnaire) — avance programmée : « aucune » →
+  « G99 » »), gardé par l'historique de la banque (D79), porté par l'export et l'import.
   Son `id` est unique dans l'exercice (« mvlnr », puis « mvlnr_2 » pour une
   copie dupliquée) ; `image` nomme sa photo — l'identifiant d'une image de la base,
   servie par `/images/<image>` (D56).
